@@ -25,3 +25,36 @@ workflows:
           ./gradlew assembleDebug --no-daemon
     artifacts:
       - android/app/build/outputs/**/*.apk   # -> app-debug.apk
+
+  ios-debug:
+    name: Realmate iOS Debug (unsigned simulator, free-tier)
+    instance_type: mac_mini_m2      # only instance with free minutes; has Xcode + CocoaPods
+    max_build_duration: 45          # iOS cold build (pod install + xcodebuild) is slower
+    environment:
+      node: 20
+      xcode: latest                 # unsigned simulator build; no signing, no Apple account
+    # No 'triggering:' block => manual start only (no minutes until you click build).
+    scripts:
+      - name: Install JS dependencies (reproducible)
+        script: npm ci
+      - name: Generate iOS project in the cloud (Capacitor uses CI's CocoaPods)
+        # ios/ is NOT committed; it is generated here where CocoaPods + Xcode exist.
+        script: |
+          if [ ! -d ios ]; then npx cap add ios; fi
+          npx cap sync ios
+      - name: Build UNSIGNED iOS simulator app (no code signing, no Apple account)
+        script: |
+          xcodebuild \
+            -workspace ios/App/App.xcworkspace \
+            -scheme App \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath ios/build \
+            CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
+      - name: Zip the .app bundle for artifact download
+        script: |
+          cd ios/build/Build/Products/Debug-iphonesimulator
+          zip -r -y Realmate-simulator-app.zip App.app
+    artifacts:
+      - ios/build/Build/Products/Debug-iphonesimulator/*.zip
