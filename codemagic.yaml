@@ -1,0 +1,27 @@
+# Codemagic CI config — Realmate Mobile
+# Purpose: produce a DEBUG Android APK entirely in the cloud (free tier).
+# Free tier = 500 build minutes/month on macOS M2 ONLY (Linux/Windows are NOT
+# free), so this workflow pins instance_type: mac_mini_m2 to stay at $0.
+# No signing credentials, no Google Play, no production build.
+workflows:
+  android-debug:
+    name: Realmate Android Debug (free-tier)
+    instance_type: mac_mini_m2      # only instance with free minutes
+    max_build_duration: 30          # safety cap; a debug build takes ~5-10 min
+    environment:
+      node: 20                      # Capacitor 7 needs Node 20+
+    # No 'triggering:' block => builds start MANUALLY from the dashboard,
+    # so no minutes are consumed until you click "Start new build".
+    scripts:
+      - name: Install JS dependencies (reproducible)
+        script: npm ci
+      - name: Capacitor sync — regenerate android web assets FROM www/
+        # This repopulates android/app/src/main/assets/public from www/.
+        # We never hand-maintain those generated files (they are gitignored).
+        script: npx cap sync android
+      - name: Build DEBUG APK (auto-signed with Android debug keystore)
+        script: |
+          cd android
+          ./gradlew assembleDebug --no-daemon
+    artifacts:
+      - android/app/build/outputs/**/*.apk   # -> app-debug.apk
