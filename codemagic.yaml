@@ -32,7 +32,7 @@ workflows:
     max_build_duration: 45          # iOS cold build (pod install + xcodebuild) is slower
     environment:
       node: 20
-      xcode: latest                 # unsigned simulator build; no signing, no Apple account
+      xcode: 26.4                 # unsigned simulator build; no signing, no Apple account
     # No 'triggering:' block => manual start only (no minutes until you click build).
     scripts:
       - name: Install JS dependencies (reproducible)
