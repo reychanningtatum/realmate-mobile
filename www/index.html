@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Realmate</title>
   <script>
     // ── First-launch onboarding gate ──────────────────────────────────
@@ -23,13 +23,21 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css?v=20260813l">
+  <style>
+  /* iOS safe-area for notched iPhones (Capacitor); inert on desktop where insets=0.
+     Pads inner content, NOT the full-bleed .right-panel background. */
+  @media (max-width:600px){
+    .right-panel::before{ padding-top: calc(28px + env(safe-area-inset-top)); }
+    .purpose-footer{ padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
+  }
+  </style>
 </head>
 <body>
 
 <style>
   /* Back-to-marketing button — dark glass pill so it stays legible over both
      the dark left panel (desktop) and the light login card (mobile). */
-  .rm-back-home{position:fixed;top:16px;left:16px;z-index:1000;display:inline-flex;
+  .rm-back-home{position:fixed;top:calc(16px + env(safe-area-inset-top));left:16px;z-index:1000;display:inline-flex;
     align-items:center;gap:8px;padding:9px 15px;border-radius:999px;font-family:'Inter',sans-serif;
     font-size:13px;font-weight:700;color:#fff;background:rgba(15,23,42,0.62);
     border:1px solid rgba(255,255,255,0.18);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
@@ -158,6 +166,10 @@
   <div class="modal-content">
     <span class="close-btn" onclick="closeRegister()">&times;</span>
     <h3>Create Account</h3>
+      <div style="display:flex;align-items:center;gap:10px;background:#f0fdf4;border:1px solid #bbf7d0;border-left:4px solid #22c55e;border-radius:12px;padding:12px 14px;font-size:13px;font-weight:600;color:#166534;margin-bottom:16px;line-height:1.4;text-align:left;">
+        <i class="fas fa-circle-info" style="color:#16a34a;font-size:15px;"></i>
+        <span>Realmate is currently exclusively available to the Alveo Sales Team.</span>
+      </div>
     <div class="input-group"><label class="label">Username</label><input id="regUsername" placeholder="Username" oninput="onUsernameInput()" onblur="checkUsernameAvailability()"><div class="error-text">Required</div><div id="usernameStatus" style="font-size:12px;font-weight:600;margin-top:4px;"></div></div>
     <div class="input-group"><label class="label">First Name</label><input id="firstName" onblur="validateName(this)" placeholder="First Name"><div class="error-text">Invalid name</div></div>
     <div class="input-group"><label class="label">Last Name</label><input id="lastName" onblur="validateName(this)" placeholder="Last Name"><div class="error-text">Invalid name</div></div>
