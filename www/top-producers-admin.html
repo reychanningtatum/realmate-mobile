@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Realmate | Top Producers Admin</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Inter', sans-serif; background: #f4f7fa; color: #0f172a; min-height: 100vh; padding: 40px 24px; }
+    .page-title { font-size: 24px; font-weight: 800; margin-bottom: 6px; }
+    .page-title span { color: #32cd32; }
+    .page-sub { font-size: 13px; color: #64748b; margin-bottom: 32px; }
+    .producers-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; max-width: 1100px; }
+    .producer-card {
+      background: white; border-radius: 16px; padding: 24px;
+      border: 1px solid #e2e8f0; box-shadow: 0 2px 12px rgba(0,0,0,0.05);
+    }
+    .card-top { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }
+    .photo-circle {
+      width: 64px; height: 64px; border-radius: 50%; overflow: hidden;
+      background: linear-gradient(135deg, #32cd32, #10b981);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 24px; font-weight: 800; color: white; flex-shrink: 0;
+      cursor: pointer; position: relative; border: 2px solid #e2e8f0;
+    }
+    .photo-circle img { width: 100%; height: 100%; object-fit: cover; }
+    .photo-circle .photo-overlay {
+      position: absolute; inset: 0; background: rgba(0,0,0,0.45);
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; transition: opacity 0.15s; border-radius: 50%;
+      font-size: 18px; color: white;
+    }
+    .photo-circle:hover .photo-overlay { opacity: 1; }
+    .card-name { font-size: 15px; font-weight: 800; }
+    .card-team { font-size: 12px; color: #64748b; }
+    .card-value { font-size: 18px; font-weight: 800; color: #32cd32; margin-bottom: 4px; }
+    .card-meta { font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; }
+    .upload-input { display: none; }
+    .upload-btn {
+      margin-top: 14px; width: 100%; padding: 9px;
+      border: 1.5px dashed #cbd5e1; border-radius: 10px;
+      background: #f8fafc; color: #64748b; font-size: 12px; font-weight: 600;
+      cursor: pointer; text-align: center; transition: all 0.15s;
+    }
+    .upload-btn:hover { border-color: #32cd32; color: #32cd32; background: rgba(50,205,50,0.05); }
+    .upload-status { font-size: 11px; color: #10b981; margin-top: 6px; text-align: center; min-height: 16px; }
+    .loading { text-align: center; padding: 60px; color: #64748b; font-size: 14px; }
+    .rank-badge { font-size: 18px; line-height: 1; }
+  </style>
+</head>
+<body>
+
+<div class="page-title">Top Producers <span>Admin</span></div>
+<p class="page-sub">Click on a producer's photo circle or the upload button to update their photo.</p>
+
+<div id="producersGrid" class="producers-grid">
+  <div class="loading"><i class="fas fa-spinner fa-spin"></i> Loading producers…</div>
+</div>
+
+<script>
+const _sb = supabase.createClient(
+  'https://wmegpgrfrtprhuzmgjma.supabase.co',
+  'sb_publishable_Rm_fIBDUfu3DEyLj0_bWZw_qEqo8cd4'
+);
+
+const rankEmojis = ['🥇','🥈','🥉'];
+
+async function loadProducers() {
+  const { data, error } = await _sb.from('top_producers').select('*').order('rank', { ascending: true });
+  const grid = document.getElementById('producersGrid');
+  if (error || !data?.length) {
+    grid.innerHTML = '<div class="loading">No producers found. Add data to the top_producers table first.</div>';
+    return;
+  }
+  grid.innerHTML = '';
+  data.forEach(p => grid.appendChild(buildCard(p)));
+}
+
+function buildCard(p) {
+  const card = document.createElement('div');
+  card.className = 'producer-card';
+  card.id = `card-${p.id}`;
+
+  const rank = rankEmojis[p.rank - 1] || `#${p.rank}`;
+  const initials = (p.name || '?').charAt(0).toUpperCase();
+  const photoHtml = p.photo_url
+    ? `<img src="${p.photo_url}" onerror="this.style.display='none'">`
+    : initials;
+
+  card.innerHTML = `
+    <div class="card-top">
+      <div class="photo-circle" onclick="document.getElementById('file-${p.id}').click()">
+        ${photoHtml}
+        <div class="photo-overlay"><i class="fas fa-camera"></i></div>
+      </div>
+      <div>
+        <div class="card-name">${p.name}</div>
+        <div class="card-team">${p.team || ''}</div>
+      </div>
+    </div>
+    <div class="card-value">₱${Number(p.value).toLocaleString('en-PH', { minimumFractionDigits: 2 })}</div>
+    <div class="card-meta">${p.month || ''}</div>
+    <input type="file" accept="image/*" class="upload-input" id="file-${p.id}" onchange="uploadPhoto(this, '${p.id}', '${p.name}')">
+    <div class="upload-btn" onclick="document.getElementById('file-${p.id}').click()">
+      <i class="fas fa-cloud-upload-alt"></i> ${p.photo_url ? 'Change Photo' : 'Upload Photo'}
+    </div>
+    <div class="upload-status" id="status-${p.id}"></div>
+  `;
+  return card;
+}
+
+async function uploadPhoto(input, producerId) {
+  const file = input.files[0];
+  if (!file) return;
+  const status = document.getElementById(`status-${producerId}`);
+  status.textContent = 'Processing…';
+
+  // Convert to base64 — no storage bucket needed
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    const base64 = e.target.result;
+
+    const { error } = await _sb.from('top_producers').update({ photo_url: base64 }).eq('id', producerId);
+    if (error) { status.textContent = '❌ Save failed: ' + error.message; return; }
+
+    status.textContent = '✅ Photo saved!';
+    const circle = document.querySelector(`#card-${producerId} .photo-circle`);
+    circle.innerHTML = `<img src="${base64}"><div class="photo-overlay"><i class="fas fa-camera"></i></div>`;
+    setTimeout(() => { status.textContent = ''; }, 3000);
+  };
+  reader.readAsDataURL(file);
+}
+
+loadProducers();
+</script>
+</body>
+</html>

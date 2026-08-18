@@ -1,0 +1,21 @@
+# Dependencies (Capacitor / npm) — declared in package.json, installed later
+node_modules/
+
+# OS / editor cruft
+.DS_Store
+
+# Environment / secrets (never commit)
+.env
+.env.local
+**/.env
+
+# Build outputs
+dist/
+build/
+
+# Native platforms are generated in cloud CI (not committed at this stage)
+# ios/
+# android/
+
+# Internal temp
+.snapinfo.tmp

@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Realmate | Search</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="forum.css?v=20260716a">
+  <link rel="stylesheet" href="search.css">
+  <script src="featureFlags.js?v=20260717a"></script>
+</head>
+<body>
+
+<div class="sidebar">
+  <div class="brand"><img src="images/realmate2.png" onclick="location.href='home.html'"></div>
+  <div class="nav-item" onclick="location.href='home.html'"><i class="fas fa-border-all"></i><span>Feed</span></div>
+  <div class="nav-item" onclick="location.href='dashboard.html'"><i class="fas fa-user-tie"></i><span>Profile</span></div>
+  <div class="nav-item" onclick="location.href='livemarket.html'"><i class="fas fa-globe"></i><span>Portal</span></div>
+  <div class="nav-item" onclick="location.href='forum.html'" style="display:none"><i class="fas fa-bullhorn"></i><span>Forum</span></div>
+  <div class="nav-item" onclick="location.href='chat.html'"><i class="fas fa-comment-dots"></i> <span>Chat</span></div>
+  <div class="nav-item" onclick="location.href='notifications.html'"><i class="fas fa-bell"></i><span>Notifications</span></div>
+  <div class="nav-item active" onclick="location.href='search.html'"><i class="fas fa-search"></i><span>Search</span></div>
+  <div class="nav-item" onclick="location.href='settings.html'"><i class="fas fa-cog"></i><span>Settings</span></div>
+  <div style="margin-top:auto">
+    <div class="nav-item" onclick="logout()"><i class="fas fa-sign-out-alt"></i><span>Sign Out</span></div>
+  </div>
+</div>
+
+<div class="main-content">
+
+  <div class="search-page-header">
+    <h2 class="search-page-title">Search <span class="accent">Realmate</span></h2>
+    <p class="search-page-sub">Find professionals, listings, and market intelligence across the network.</p>
+  </div>
+
+  <div class="search-bar-wrap">
+    <i class="fas fa-search search-bar-icon"></i>
+    <input
+      type="text"
+      id="globalSearchInput"
+      class="search-bar-input"
+      placeholder="Search by name, location, unit type, project…"
+      autocomplete="off"
+      oninput="onSearchInput()"
+    >
+    <span id="searchClearBtn" class="search-clear-btn" onclick="clearSearch()" style="display:none;">
+      <i class="fas fa-times"></i>
+    </span>
+  </div>
+
+  <div class="search-tabs" id="searchTabs" style="display:none;">
+    <button class="s-tab active" data-tab="all"     onclick="switchTab(this)">All</button>
+    <button class="s-tab"        data-tab="people"  onclick="switchTab(this)"><i class="fas fa-user"></i> People</button>
+    <button class="s-tab"        data-tab="listings" onclick="switchTab(this)"><i class="fas fa-tag"></i> Listings</button>
+  </div>
+
+  <div id="searchResults" class="search-results">
+    <div class="search-empty-state">
+      <i class="fas fa-magnifying-glass"></i>
+      <p>Start typing to search across the entire Realmate network.</p>
+    </div>
+  </div>
+
+</div>
+
+<nav class="mobile-bottom-nav">
+  <a class="mob-nav-item" href="home.html"><i class="fas fa-border-all"></i><span>Feed</span></a>
+  <a class="mob-nav-item" href="forum.html" style="display:none"><i class="fas fa-bullhorn"></i><span>Forum</span></a>
+  <a class="mob-nav-item" href="realmates.html" style="display:none"><i class="fas fa-user-group"></i><span>Realmates</span></a>
+  <a class="mob-nav-item" href="chat.html"><i class="fas fa-comment-dots"></i><span>Chat</span></a>
+  <a class="mob-nav-item mob-nav-center" href="livemarket.html"><i class="fas fa-globe"></i><span>Portal</span></a>
+  <a class="mob-nav-item" href="notifications.html"><i class="fas fa-bell"></i><span>Notifications</span></a>
+  <div class="mob-nav-item mob-nav-avatar-wrap" onclick="toggleNavMenu(event)">
+    <div class="mob-nav-avatar" id="navAvatar"><i class="fas fa-user-tie" style="font-size:13px;"></i></div>
+    <span>Me</span>
+    <div class="mob-nav-menu" id="navMenu">
+      <a href="dashboard.html"><i class="fas fa-user-tie"></i> Profile</a>
+      <a href="realmates.html"><i class="fas fa-user-group"></i> Realmates</a>
+      <a href="analytics.html" style="display:none"><i class="fas fa-chart-area"></i> Analytics</a>
+      <a href="settings.html"><i class="fas fa-cog"></i> Settings</a>
+      <a href="#" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</a>
+    </div>
+  </div>
+</nav>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="search-overlay.js?v=20260812k"></script>
+<script src="auth-guard.js?v=20260815a"></script>
+<script src="search.js?v=20260812l"></script>
+<script src="location-engine.js?v=20260809b"></script>
+<script src="match-engine.js?v=12"></script>
+<script src="match-alert.js?v=9"></script>
+<script src="notif-badge.js?v=12"></script>
+</body>
+</html>

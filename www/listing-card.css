@@ -1,0 +1,773 @@
+/* AUTO-GENERATED from livemarket.css — card styles only, scoped for dashboard.
+   Conflicting classes are scoped under .lm-post-embed so nothing leaks to the
+   rest of the dashboard. Unique lc- and card classes are left unscoped. */
+
+/* Container that holds the reused Live Market posts on the profile.
+   No panel/background of its own — the cards sit directly on the page
+   background (like the Portal), separated only by the gap. The section's
+   "Listings" header already labels the area. */
+.lm-post-embed {
+  display: flex; flex-direction: column; gap: 16px;
+}
+.lm-post-embed .listing-card { cursor: default; }
+/* Float each listing like the Posts-tab cards: drop the 1px outline and rely
+   on the soft --card-shadow + rounded corners alone (--card-shadow is defined
+   in dashboard-style.css, light + dark). */
+.lm-post-embed .listing-card { box-shadow: var(--card-shadow); border: none; }
+
+.match-banner {display: flex; align-items: center; gap: 6px;
+  background: linear-gradient(180deg, #1e293b, #172033);
+  color: #60a5fa;
+  font-size: 11px; font-weight: 700;
+  padding: 8px 12px;
+  position: relative;
+  overflow: hidden;}
+.match-banner::before {content: ''; position: absolute; top: 0; left: -100%; width: 60%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(96,165,250,0.08), transparent);
+  animation: aiShimmer 3s ease-in-out infinite;}
+.match-banner i {font-size: 10px; flex-shrink: 0;}
+.match-banner-arrow {font-size: 9px; opacity: 0.7; flex-shrink: 0;}
+.match-banner .match-pct-badge {font-size: 10px; font-weight: 800; padding: 2px 8px;
+  border-radius: 20px; white-space: nowrap; flex-shrink: 0;
+  background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.15);}
+.listing-card.is-match {border: 1px solid rgba(96,165,250,0.3);
+  box-shadow: 0 0 0 1px rgba(96,165,250,0.1), 0 4px 20px rgba(15,23,42,0.08);
+  position: relative;}
+.listing-card.is-match::after {content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, #3b82f6, #32cd32, #3b82f6);
+  background-size: 200% 100%;
+  animation: aiGradientBar 4s linear infinite;
+  z-index: 2; pointer-events: none;}
+.listing-card.is-match:hover {box-shadow: 0 0 0 1px rgba(96,165,250,0.2), 0 12px 36px rgba(15,23,42,0.12);}
+.lc-swipe-actions {position: absolute; top: 0; right: 0; bottom: 0;
+    display: flex; z-index: 0;}
+.lc-swipe-btn {width: 64px; height: 100%; border: none; cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 4px; font-size: 11px; font-weight: 600; color: #fff;
+    font-family: inherit; transition: filter 0.15s ease;}
+.lc-swipe-btn i {font-size: 16px;}
+.lc-swipe-pin {background: #f59e0b;}
+.lc-swipe-dismiss {background: #64748b;}
+.lc-swipe-delete {background: #ef4444;}
+.lc-swipe-btn:hover {filter: brightness(0.92);}
+.lc-swipe-btn:active {filter: brightness(0.84);}
+.lc-swipe-content {position: relative; z-index: 1; background: #fff;
+    display: flex; flex-direction: column;
+    touch-action: pan-y; will-change: transform;}
+html[data-theme="dark"] .lc-swipe-content {background: #1e293b;}
+.listing-status-badge {display: inline-flex; align-items: center; gap: 5px;
+  font-size: 10px; font-weight: 800; padding: 4px 10px;
+  border-radius: 50px; margin-bottom: 6px; text-transform: uppercase;
+  letter-spacing: 0.5px;}
+.listing-status-badge.negotiation {background: linear-gradient(135deg, #92400e, #f59e0b);
+  color: #fff; border: none;
+  box-shadow: 0 2px 8px rgba(245,158,11,0.35);
+  padding: 5px 12px; font-size: 11px; letter-spacing: 0.08em;
+  position: relative; overflow: hidden;}
+.listing-status-badge.negotiation::before {content: ''; position: absolute; top: 0; left: -60%; width: 40%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+  animation: soldShimmer 2.5s ease-in-out infinite;}
+/* Completed-status sash (SOLD / BOUGHT / RENTED / LEASED) — full diagonal band
+   across the WHOLE card, bottom-left → top-right. Its exact length + rotation are
+   set per-card by fitCompletionSashes() (livemarket.js) from the card's real
+   diagonal, so it hits the true corners at any card height. The values here are
+   just a default before that JS runs. */
+.sold-ribbon {position: absolute; top: 50%; left: 50%;
+  width: 141%; z-index: 10;
+  background: linear-gradient(135deg, #991b1b, #ef4444);
+  box-shadow: 0 8px 20px rgba(239,68,68,0.5);
+  transform: translate(-50%, -50%) rotate(-45deg);
+  transform-origin: center;
+  overflow: hidden; pointer-events: none;}
+.sold-ribbon span {display: block; text-align: center; white-space: nowrap;
+  padding: 11px 0; font-size: clamp(13px, 4vw, 16px); font-weight: 900;
+  color: #fff; letter-spacing: 0.3em; text-indent: 0.3em;
+  position: relative;}
+.sold-ribbon span::before {content: ''; position: absolute; top: 0; left: -60%; width: 40%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.25), transparent);
+  animation: soldShimmer 2.5s ease-in-out infinite;}
+/* Willing (demand-side) completions — Bought / Rented / Leased — get a GREEN
+   ribbon; supply-side For Sale / Rent / Lease keep the red ribbon above. */
+.sold-ribbon.sold-ribbon-willing {background: linear-gradient(135deg, #15803d, #22c55e);
+  box-shadow: 0 6px 16px rgba(22,163,74,0.45);}
+.listing-status-btns {display: flex; gap: 8px;}
+.status-btn {display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 11px 10px; border-radius: 13px; font-size: 10.5px;
+  font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em;
+  cursor: pointer; white-space: nowrap; font-family: inherit; flex: 1;
+  border: 1.5px solid #e5eaf0; background: linear-gradient(180deg,#ffffff,#f7f9fc); color: #64748b;
+  box-shadow: 0 1px 2px rgba(15,23,42,0.05), 0 10px 22px -16px rgba(15,23,42,0.3);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s, border-color 0.15s, color 0.15s;}
+.status-btn:hover {border-color: #cbd5e1; color: #334155; background: linear-gradient(180deg,#ffffff,#f2f6fb); transform: translateY(-1px); box-shadow: 0 1px 2px rgba(15,23,42,0.06), 0 15px 26px -14px rgba(15,23,42,0.4);}
+.status-btn.active {background: linear-gradient(135deg,#fbbf24,#f59e0b); color: #fff; border-color: transparent; box-shadow: 0 4px 12px -4px rgba(245,158,11,0.5);}
+.status-btn.sold-btn:hover {border-color: #fca5a5; color: #ef4444; background: #fef2f2;}
+.status-btn.sold-btn.active {background: linear-gradient(135deg,#f87171,#ef4444); color: #fff; border-color: transparent; box-shadow: 0 4px 12px -4px rgba(239,68,68,0.5);}
+/* Read-only Sold state (permanent) with the live 24h auto-delete countdown. */
+.sold-indicator {display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 11px 10px; border-radius: 13px; font-size: 10.5px; font-weight: 800;
+  text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; flex: 2;
+  border: 1.5px solid transparent; color: #fff;
+  background: linear-gradient(135deg,#f87171,#ef4444);
+  box-shadow: 0 4px 12px -4px rgba(239,68,68,0.5);}
+.sold-indicator .sold-countdown {font-variant-numeric: tabular-nums;}
+html[data-theme="dark"] .sold-indicator {box-shadow: 0 4px 14px -4px rgba(239,68,68,0.6);}
+.listing-card {background: white;
+  border-radius: 16px;
+  border: 1px solid #c8d3de;
+  overflow: hidden; position: relative;
+  display: flex; flex-direction: column;
+  transition: transform 0.2s, box-shadow 0.2s;
+  cursor: default;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.02);}
+.listing-card:hover {transform: translateY(-3px); box-shadow: 0 8px 30px rgba(0,0,0,0.08);}
+.listing-card.is-match {border-color: #1e3a5f;}
+.listing-card-images {position: relative;}
+.listing-card-images img.single-img {width: 100%; height: 200px; object-fit: cover; display: block;}
+.listing-img-grid {display: grid; height: 200px;}
+.listing-img-grid.cols-2 {grid-template-columns: 1fr 1fr;}
+.listing-img-grid.cols-3 {grid-template-columns: 2fr 1fr; grid-template-rows: 1fr 1fr;}
+.listing-img-grid img {width: 100%; height: 100%; object-fit: cover; display: block;}
+.listing-img-grid .img-wrap {position: relative; overflow: hidden;}
+.listing-img-grid .cols-3-main {grid-row: 1 / span 2;}
+.listing-card-body {padding: 20px 18px 20px; display: flex; flex-direction: column; gap: 15px; position: relative;}
+.lc-body-date {position: absolute; top: 16px; right: 18px; font-size: 11px; color: #94a3b8; font-weight: 500; white-space: nowrap; z-index: 1;}
+.lc-menu-wrap {margin-left: auto; position: relative; flex-shrink: 0;}
+.lc-menu-btn {border: none; background: none; cursor: pointer; color: #94a3b8; width: 30px; height: 30px; border-radius: 8px; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: background 0.15s, color 0.15s;}
+.lc-menu-btn:hover {background: #eef2f7; color: #475569;}
+.lc-menu {display: none; position: absolute; top: calc(100% + 4px); right: 0; background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.14); min-width: 150px; overflow: hidden; z-index: 40;}
+.lc-menu.open {display: block;}
+.lc-menu-item {display: flex; align-items: center; gap: 10px; padding: 11px 14px; font-size: 13px; font-weight: 600; color: #0f172a; cursor: pointer; white-space: nowrap;}
+.lc-menu-item:hover {background: #f6f8fa;}
+.lc-menu-item i {width: 16px; text-align: center; color: #64748b; font-size: 13px;}
+.lc-menu-danger, .lc-menu-danger i {color: #ef4444;}
+html[data-theme="dark"] .lc-menu-btn:hover {background: #243044; color: #cbd5e1;}
+html[data-theme="dark"] .lc-menu {background: #1e293b; border-color: #334155;}
+html[data-theme="dark"] .lc-menu-item {color: #e2e8f0;}
+html[data-theme="dark"] .lc-menu-item:hover {background: #0f172a;}
+html[data-theme="dark"] .lc-menu-item i {color: #94a3b8;}
+.lc-card-header {background: #f6f8fa; border-bottom: 1px solid #e5eaf0; padding: 12px 18px 10px; display: flex; flex-direction: column; gap: 6px;}
+.lc-row1 {display: flex; align-items: center; gap: 6px;}
+.lc-row1 .listing-card-date {margin-left: auto;}
+.lc-row2 {display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; padding: 12px 18px 12px; border-bottom: 1px solid #e5eaf0;}
+.lm-post-embed .cat-tag {display: inline-flex; align-items: center; gap: 6px;
+  font-size: 13px; font-weight: 700; letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0;
+  border: none; border-radius: 0; background: transparent;
+  color: #374151;
+  font-family: 'Inter', sans-serif;}
+.lm-post-embed .cat-dot {width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+  background: #94a3b8;}
+.lm-post-embed .cat-sale .cat-dot {background: #16a34a;}
+.lm-post-embed .cat-rent .cat-dot {background: #2563eb;}
+.lm-post-embed .cat-lease .cat-dot {background: #7c3aed;}
+.lm-post-embed .cat-wbuy .cat-dot {background: #d97706;}
+.lm-post-embed .cat-wrent .cat-dot {background: #0891b2;}
+.lm-post-embed .cat-wlease .cat-dot {background: #db2777;}
+.lm-post-embed .cat-sale, .lm-post-embed .cat-rent, .lm-post-embed .cat-lease, .lm-post-embed .cat-wbuy, .lm-post-embed .cat-wrent, .lm-post-embed .cat-wlease {color: #374151;}
+.lc-hl-location, .lc-hl-developer, .lc-hl-project, .lc-hl-unit, .lc-hl-price {display: block; line-height: 1.25; margin: 0; padding: 0;}
+.lc-hl-location {color: var(--text-main); font-weight: 800; font-size: 18px;}
+.lc-hl-developer {font-weight: 700; color: var(--text-sub); font-size: 14px;}
+.lc-hl-project {font-weight: 800; color: var(--text-main); font-size: 15px;}
+.lc-hl-unit {font-weight: 600; color: var(--text-main); font-size: 13.5px; line-height: 1.35;}
+.lc-hl-price {color: #16a34a; font-weight: 800; font-size: 14px;}
+.lc-hl-extras {display: block; font-size: 13.5px; font-weight: 600; color: var(--text-main); line-height: 1.35;}
+html[data-theme="dark"] .lc-hl-unit {color: #f1f5f9;}
+html[data-theme="dark"] .lc-hl-project {color: #f1f5f9;}
+html[data-theme="dark"] .lc-hl-extras {color: #f1f5f9;}
+.listing-card-user {display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; margin-top: 12px;
+  background: #f6f8fa; border-radius: 10px;}
+.listing-card-user img {width: 36px; height: 36px; border-radius: 50%; object-fit: cover;
+  flex-shrink: 0; border: 1.5px solid #e2e8f0;}
+.listing-card-user-info {min-width: 0; flex: 1;}
+.listing-card-user-name {font-size: 13px; font-weight: 700; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
+.listing-card-user-job {font-size: 10px; color: var(--text-sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
+.listing-card-date {font-size: 10px; color: #94a3b8; white-space: nowrap; flex-shrink: 0;}
+.lc-two-col {display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: start;}
+.lc-two-col.lc-no-photos {grid-template-columns: 1fr;}
+.lc-two-col.lc-no-photos .lc-col-info {padding: 18px 20px 12px; gap: 12px;}
+.lc-cat-pill.lc-cat-pill-inline {position: static; top: auto; left: auto;
+  align-self: flex-start; margin: 0;
+  box-shadow: 0 2px 8px rgba(15,23,42,0.14);}
+.lc-plain-text {margin: 0; display: flex; flex-direction: column; gap: 6px;
+  font-size: 13.5px; line-height: 1.5; color: var(--text-main);
+  word-break: break-word;}
+.lc-hl-body {display: block;}
+html[data-theme="dark"] .lc-plain-text {color: #e2e8f0;}
+.lc-col-photos {padding: 14px; min-width: 0;}
+.lc-featured-stack {display: flex; flex-direction: column; gap: 10px;}
+.lc-featured {position: relative; border-radius: 14px; overflow: hidden;
+  background: #eef2f7; aspect-ratio: 4 / 3; cursor: pointer;}
+.lc-featured-img {width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.3s ease;}
+.lc-featured:hover .lc-featured-img {transform: scale(1.03);}
+.lc-featured-empty {display: flex; align-items: center; justify-content: center; cursor: default;}
+.lc-featured-ph {color: #cbd5e1; font-size: 42px;}
+.lc-cat-pill {position: absolute; top: 12px; left: 12px; z-index: 3;
+  display: inline-flex; align-items: center;
+  padding: 7px 14px; border-radius: 999px;
+  background: rgba(15, 23, 42, 0.55);
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.28), 0 1px 2px rgba(0,0,0,0.22);
+  border: 1px solid rgba(255,255,255,0.18);}
+.lm-post-embed .lc-cat-pill .cat-tag {color: #fff; font-size: 11.5px; font-weight: 800; letter-spacing: 0.07em; text-shadow: 0 1px 2px rgba(0,0,0,0.28);}
+.lm-post-embed .lc-cat-pill .cat-dot {box-shadow: 0 0 0 2px rgba(255,255,255,0.25);}
+.lc-photos {position: relative;}
+.lc-thumbs {display: flex; gap: 8px; margin: 10px 0 0; padding-bottom: 3px;
+  flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden;
+  -webkit-overflow-scrolling: touch; scroll-behavior: smooth;
+  scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent;}
+.lc-thumbs::-webkit-scrollbar {height: 5px;}
+.lc-thumbs::-webkit-scrollbar-track {background: transparent;}
+.lc-thumbs::-webkit-scrollbar-thumb {background: #cbd5e1; border-radius: 3px;}
+.lc-thumbs::-webkit-scrollbar-thumb:hover {background: #94a3b8;}
+.lc-thumb {width: 60px; height: 60px; border-radius: 10px; overflow: hidden;
+  border: 2px solid var(--border); padding: 0; cursor: pointer; background: none;
+  flex: 0 0 auto; transition: border-color 0.15s, box-shadow 0.15s;}
+.lc-thumb:hover {border-color: #94a3b8;}
+.lc-thumb.active {border-color: #16a34a; box-shadow: 0 0 0 1px #16a34a;}
+.lc-thumb img {width: 100%; height: 100%; object-fit: cover; display: block;}
+html[data-theme="dark"] .lc-thumb {border-color: #334155;}
+html[data-theme="dark"] .lc-thumbs {scrollbar-color: #475569 transparent;}
+html[data-theme="dark"] .lc-thumbs::-webkit-scrollbar-thumb {background: #475569;}
+.lc-col-info {padding: 16px 18px 10px; display: flex; flex-direction: column; gap: 6px; min-width: 0;}
+/* Category pill: 10px breathing room above, 30px below. */
+.lc-top {padding: 10px 16px 30px; display: flex; flex-direction: column; gap: 10px;}
+/* Header row: category pill (left) + status badge (right), sharing one line. */
+.lc-top-head {display: flex; align-items: center; justify-content: space-between; gap: 10px;}
+.lc-top-head .listing-status-badge {margin-bottom: 0; flex: none;}
+.lc-top-head .lc-cat-pill.lc-cat-pill-top {align-self: center;}
+.lc-cat-pill.lc-cat-pill-top {position: static; top: auto; left: auto;
+  align-self: flex-start; margin: 0;
+  background: rgba(15, 23, 42, 0.48);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
+  backdrop-filter: blur(12px) saturate(150%);
+  border: 1px solid rgba(255,255,255,0.24);
+  box-shadow: 0 4px 14px rgba(15,23,42,0.14), inset 0 1px 0 rgba(255,255,255,0.20);}
+html[data-theme="dark"] .lc-cat-pill.lc-cat-pill-top {background: rgba(255,255,255,0.10); border-color: rgba(255,255,255,0.16);}
+.lc-hl-wrap {padding: 0;}
+.lc-hl-bar {display: flex; flex-direction: column; gap: 9px;
+  padding: 11px 4px 12px; border-radius: 14px;
+  background: #f8fafc;
+  border: 1px solid #eef2f7;}
+.lc-hl-head {padding: 0 13px; font-size: 10.5px; font-weight: 800;
+  text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-sub);}
+.lc-hl-cells {display: flex; align-items: stretch;}
+.lc-hl-cell {flex: 1 1 0; min-width: 0; padding: 1px 13px;
+  display: flex; flex-direction: column; gap: 4px;}
+.lc-hl-cell + .lc-hl-cell {border-left: 1px solid #eef2f7;}
+.lc-hl-label {display: flex; align-items: center; gap: 6px;
+  font-size: 10.5px; font-weight: 700; color: #475569;
+  text-transform: uppercase; letter-spacing: 0.04em;}
+.lc-hl-label i {font-size: 12px; color: #94a3b8;}
+.lc-hl-cell-price .lc-hl-label i {color: #16a34a;}
+.lc-hl-loc {font-size: 15.5px; font-weight: 800; color: var(--text-main); line-height: 1.25; overflow-wrap: break-word;}
+.lc-hl-type {font-size: 14px; font-weight: 700; color: var(--text-main); line-height: 1.3; overflow-wrap: break-word;}
+.lc-hl-amt {font-size: 14.5px; font-weight: 800; color: #16a34a; line-height: 1.3;}
+.lc-hl-empty {font-size: 15px; font-weight: 700; color: #94a3b8; line-height: 1.3;}
+html[data-theme="dark"] .lc-hl-bar {background: #111c2e; border-color: #243044;}
+html[data-theme="dark"] .lc-hl-empty {color: #64748b;}
+html[data-theme="dark"] .lc-hl-cell + .lc-hl-cell {border-left-color: #243044;}
+html[data-theme="dark"] .lc-hl-label {color: #94a3b8;}
+html[data-theme="dark"] .lc-hl-cell-price .lc-hl-label i {color: #34d17f;}
+html[data-theme="dark"] .lc-hl-amt {color: #34d17f;}
+
+/* ══ Portal post — profile header (Feed-style) ══ */
+.lc-profile {display: flex; align-items: center; gap: 11px; padding: 14px 16px 4px;}
+.lc-profile-av {position: relative; flex-shrink: 0;}
+.lc-profile-av-click {cursor: pointer;}
+.lc-profile-avatar {display: block; width: 46px; height: 46px; border-radius: 50%; object-fit: cover;
+  border: 2px solid #fff; box-shadow: 0 2px 8px rgba(15,23,42,0.18);}
+.lc-profile-verified {position: absolute; right: -2px; bottom: -2px; line-height: 0;}
+.lc-profile-verified i {color: #2563eb; font-size: 16px; background: #fff; border-radius: 50%; box-shadow: 0 1px 3px rgba(15,23,42,0.3);}
+.lc-profile-meta {display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1;}
+.lc-profile-meta[onclick] {cursor: pointer;}
+.lc-profile-name {display: flex; align-items: center; gap: 6px;
+  font-size: 15px; font-weight: 800; letter-spacing: -0.01em; line-height: 1.15;
+  color: var(--text-main); min-width: 0;}
+.lc-profile-name .lc-profile-verified {position: static; right: auto; bottom: auto; flex-shrink: 0;}
+.lc-profile-name .lc-profile-verified i {font-size: 13px; background: none; box-shadow: none;}
+.lc-profile-time {font-size: 11.5px; font-weight: 500; color: var(--text-sub); letter-spacing: 0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
+.lc-profile-actions {display: flex; align-items: center; gap: 6px; flex-shrink: 0; margin-left: auto;}
+
+/* ── Owner "AI Matches Found" header button (sits immediately LEFT of the ⋮) ──
+   Two independent behaviours at once: the BUTTON beats like a heartbeat, and the
+   rotating orbital "physics" widget inside it spins on its own. Smooth and
+   sophisticated — never a hard flash / error-style blink.
+   Mirrors livemarket.css so the Portal post component renders identically here. */
+.lc-aim-btn {
+  display: inline-flex; align-items: center; gap: 7px; flex-shrink: 0;
+  border: 1px solid rgba(50,205,50,0.45);
+  background: linear-gradient(135deg, #0f172a, #1e3a5f);
+  color: #fff; font-family: inherit; font-size: 11px; line-height: 1;
+  padding: 5px 11px 5px 8px; border-radius: 999px; cursor: pointer;
+  white-space: nowrap;
+  box-shadow: 0 0 0 0 rgba(50,205,50,0.35);
+  animation: aimBeat 1.8s ease-in-out infinite;
+  transition: filter 0.15s;
+}
+.lc-aim-btn:hover { filter: brightness(1.14); }
+.lc-aim-btn:active { transform: scale(0.97); }
+.lc-aim-count { color: #32cd32; font-weight: 800; }
+.lc-aim-text  { color: #e2e8f0; font-weight: 700; letter-spacing: 0.2px; }
+
+.lc-profile .lc-mate-btn {width: auto; margin: 0; flex-shrink: 0;
+  padding: 8px 15px; font-size: 10.5px; font-weight: 800;
+  text-transform: uppercase; letter-spacing: 0.05em; border-radius: 999px;
+  box-shadow: 0 3px 10px -3px rgba(50,205,50,0.35);}
+.lc-profile .lc-menu-wrap {margin-left: 0;}
+html[data-theme="dark"] .lc-profile-avatar {border-color: #1e293b;}
+html[data-theme="dark"] .lc-profile-verified i {background: #1e293b;}
+html[data-theme="dark"] .lc-profile-name .lc-profile-verified i {background: none;}
+
+/* ══ Portal post — action bar (offers label + View) ══ */
+/* margin-top separates the content above from the buttons' divider line. */
+.lc-actionbar {display: flex; align-items: center; gap: 12px; margin-top: 14px; padding: 14px 16px 18px; border-top: 1px solid #e5eaf0;}
+html[data-theme="dark"] .lc-actionbar {border-top-color: #334155;}
+.lc-actionbar-info {flex: 1; min-width: 0; display: flex; align-items: center;}
+.lc-offers-fire {display: inline-flex; align-items: center; gap: 6px;
+  font-size: 13px; font-weight: 800; color: #ef4444;
+  letter-spacing: 0.01em; white-space: nowrap; cursor: default;}
+.lc-offers-fire i {font-size: 13px; color: #f97316;}
+.lc-offers-sold, .lc-offers-sold i {color: #ef4444;}
+/* View Listing wears the dark-navy style in every theme, across the whole Portal
+   (owner posts, other users' posts, sold posts) — pairs with the green status
+   button and reads as a consistent primary action everywhere. */
+.lc-view-btn {display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  padding: 11px 26px; border-radius: 12px; flex-shrink: 0;
+  background: linear-gradient(180deg,#ffffff,#f7f9fc); color: #334155;
+  border: 1.5px solid #e5eaf0; font-size: 12px; font-weight: 800;
+  text-transform: uppercase; letter-spacing: 0.05em;
+  cursor: pointer; font-family: inherit; white-space: nowrap;
+  box-shadow: 0 2px 5px rgba(15,23,42,0.08), 0 8px 18px -8px rgba(15,23,42,0.28);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s, border-color 0.15s;}
+.lc-view-btn i {font-size: 12px; color: #64748b;}
+.lc-view-btn:hover {background: linear-gradient(180deg,#ffffff,#f2f6fb); border-color: #cbd5e1; transform: translateY(-1px); box-shadow: 0 3px 8px rgba(15,23,42,0.10), 0 14px 24px -10px rgba(15,23,42,0.35);}
+.lc-view-btn:active {transform: scale(0.98);}
+/* The AI Match Engine button keeps the dark-navy look in every theme (only the
+   plain View Listing button is white). Shares .lc-view-btn for sizing/layout. */
+.lc-match-btn {background: linear-gradient(180deg,#1e293b,#172033); color: #e2e8f0; border-color: #334155;
+  box-shadow: 0 2px 5px rgba(15,23,42,0.28), 0 8px 18px -8px rgba(15,23,42,0.5);
+  position: relative; overflow: hidden;}
+.lc-match-btn i {color: #ffffff;}
+.lc-match-btn:hover {background: linear-gradient(180deg,#243044,#1a2437); border-color: #3a495e; box-shadow: 0 3px 8px rgba(15,23,42,0.34), 0 14px 24px -10px rgba(15,23,42,0.6);}
+/* Animated gradient sweep — same aiShimmer used by the AI-match banner. The
+   white sweep is invisible over the white label but glides across the navy fill. */
+.lc-match-btn::before {content: ''; position: absolute; top: 0; left: -100%; width: 60%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.14), transparent);
+  animation: aiShimmer 3s ease-in-out infinite; pointer-events: none;}
+/* Footer row: the left slot and View Listing each take an equal half, so View
+   Listing is the SAME width on every post — owner's (status button on the left)
+   or another user's (offers label, or an empty slot when there are no offers) —
+   at every screen size. The equal, NON-zero flex-basis is what keeps the split
+   even when the row is tight; with flex-basis:0 each item would instead fall back
+   to its own content width and the two halves would diverge. */
+.lc-actionbar {gap: 10px;}
+.lc-actionbar > * {flex: 1 1 50%; min-width: 0;}
+/* Re-assert the equal flex on the buttons at higher specificity — their base
+   rules set flex-shrink:0, which would otherwise let one half refuse to shrink
+   and throw the 50/50 off. */
+.lc-actionbar .lc-status-btn,
+.lc-actionbar .lc-offer-btn,
+.lc-actionbar .lc-view-btn {flex: 1 1 50%; min-width: 0; padding-left: 14px; padding-right: 14px;}
+/* Owner's own post: two balanced primary buttons on one row — dynamic status
+   (left) + View Listing (right); View stays on the right. */
+.lc-actionbar-owner {gap: 10px;}
+.lc-status-btn {display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  padding: 11px 20px; border-radius: 12px; flex-shrink: 0;
+  background: linear-gradient(180deg,#18a94f,#12873c); color: #fff;
+  border: 1.5px solid #12873c; font-size: 12px; font-weight: 800;
+  text-transform: uppercase; letter-spacing: 0.05em;
+  cursor: pointer; font-family: inherit; white-space: nowrap;
+  box-shadow: 0 2px 5px rgba(15,23,42,0.28), 0 8px 18px -8px rgba(15,23,42,0.5);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s, border-color 0.15s;}
+.lc-status-btn i {font-size: 12px; color: #dcfce7;}
+.lc-status-btn:hover {background: linear-gradient(180deg,#15983f,#0f7a36); border-color: #0f7a36; transform: translateY(-1px); box-shadow: 0 3px 8px rgba(15,23,42,0.34), 0 14px 24px -10px rgba(15,23,42,0.6);}
+.lc-status-btn:active {transform: scale(0.98);}
+html[data-theme="dark"] .lc-status-btn {background: linear-gradient(180deg,#16a44a,#0f7a36); border-color: #0d6e30; box-shadow: 0 2px 5px rgba(0,0,0,0.35), 0 8px 18px -8px rgba(0,0,0,0.6);}
+/* Send Offer button in the AI Match Engine's action row — the same balanced
+   green primary as the status button, but it opens the offer flow (handshake). */
+.lc-offer-btn {display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  padding: 11px 20px; border-radius: 12px; flex-shrink: 0;
+  background: linear-gradient(180deg,#18a94f,#12873c); color: #fff;
+  border: 1.5px solid #12873c; font-size: 12px; font-weight: 800;
+  text-transform: uppercase; letter-spacing: 0.05em;
+  cursor: pointer; font-family: inherit; white-space: nowrap;
+  box-shadow: 0 2px 5px rgba(15,23,42,0.28), 0 8px 18px -8px rgba(15,23,42,0.5);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s, border-color 0.15s;}
+.lc-offer-btn i {font-size: 12px; color: #dcfce7;}
+.lc-offer-btn:hover {background: linear-gradient(180deg,#15983f,#0f7a36); border-color: #0f7a36; transform: translateY(-1px); box-shadow: 0 3px 8px rgba(15,23,42,0.34), 0 14px 24px -10px rgba(15,23,42,0.6);}
+.lc-offer-btn:active {transform: scale(0.98);}
+html[data-theme="dark"] .lc-offer-btn {background: linear-gradient(180deg,#16a44a,#0f7a36); border-color: #0d6e30; box-shadow: 0 2px 5px rgba(0,0,0,0.35), 0 8px 18px -8px rgba(0,0,0,0.6);}
+html[data-theme="dark"] .lc-view-btn {background: linear-gradient(180deg,#1e293b,#172033); color: #e2e8f0; border-color: #334155; box-shadow: 0 2px 5px rgba(0,0,0,0.35), 0 8px 18px -8px rgba(0,0,0,0.6);}
+html[data-theme="dark"] .lc-view-btn i {color: #94a3b8;}
+html[data-theme="dark"] .lc-view-btn:hover {background: linear-gradient(180deg,#243044,#1a2437); border-color: #3a495e; box-shadow: 0 3px 8px rgba(0,0,0,0.4), 0 14px 24px -10px rgba(0,0,0,0.7);}
+html[data-theme="dark"] .lc-offers-fire {color: #f87171;}
+html[data-theme="dark"] .lc-offers-fire i {color: #fb923c;}
+html[data-theme="dark"] .lc-offers-sold, html[data-theme="dark"] .lc-offers-sold i {color: #f87171;}
+
+.lc-info-label {font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--text-sub); margin-bottom: 2px;}
+.lc-raw-post {white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere;
+  font-size: 13.5px; line-height: 1.5; color: var(--text-main);}
+html[data-theme="dark"] .lc-raw-post {color: #e2e8f0;}
+
+/* ── Portal post: caption + ONE cover photo (new single-photo layout) ── */
+/* Caption (the seller's own words) sits above the cover photo. No separate
+   "Property Information" box — the property info is part of the caption text. */
+.lc-caption {padding: 4px 16px 12px;}
+.lc-caption .lc-raw-post {font-size: 14px; line-height: 1.5;}
+/* A single, prominent cover photo below the caption — no grid, no carousel. */
+.lc-cover {padding: 0 16px 14px;}
+.lc-cover-img {display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover;
+  border-radius: 14px; background: #eef2f7; border: 1px solid #e5eaf0;}
+html[data-theme="dark"] .lc-cover-img {background: #0f172a; border-color: #1e293b;}
+.lc-info-date {align-self: flex-end;
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 10.5px; font-weight: 600; color: #94a3b8; white-space: nowrap;}
+.lc-bottom {border-top: 1px solid #e5eaf0; padding: 14px 16px 20px; display: flex; flex-direction: column; gap: 12px;}
+.lc-bottom-head {display: flex; align-items: center; gap: 10px;}
+.lc-bottom-avatar {width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 1.5px solid #e2e8f0; flex-shrink: 0;}
+.lc-bottom-date {font-size: 11px; color: #94a3b8; white-space: nowrap; margin-left: auto;}
+.lc-bottom-head .lc-menu-wrap {margin-left: 8px;}
+.lc-bottom-badges {display: flex; align-items: center; gap: 8px; flex-wrap: wrap;}
+html[data-theme="dark"] .lc-featured {background: #0f172a;}
+html[data-theme="dark"] .lc-bottom {border-top-color: #243044;}
+.lc-seller {display: flex; align-items: center; gap: 11px;
+  padding: 11px 12px; border-radius: 14px;
+  background: linear-gradient(180deg, #ffffff, #f7f9fc);
+  border: 1px solid #eef2f7;
+  box-shadow: 0 1px 2px rgba(15,23,42,0.05), 0 10px 22px -16px rgba(15,23,42,0.28);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;}
+.lc-seller-clickable:hover {transform: translateY(-2px); border-color: #cbd5e1; box-shadow: 0 1px 2px rgba(15,23,42,0.06), 0 15px 26px -14px rgba(15,23,42,0.4);}
+html[data-theme="dark"] .lc-seller-clickable:hover {border-color: #334155; box-shadow: 0 1px 2px rgba(0,0,0,0.35), 0 15px 26px -14px rgba(0,0,0,0.7);}
+.lc-seller-av {position: relative; flex-shrink: 0; cursor: pointer;}
+.lc-seller-avatar {display: block;
+  width: 44px; height: 44px; border-radius: 50%; object-fit: cover;
+  border: 2px solid #fff; box-shadow: 0 2px 8px rgba(15,23,42,0.2);}
+.lc-seller-badge {position: absolute; right: -3px; bottom: -3px; line-height: 0; filter: drop-shadow(0 1px 2px rgba(15,23,42,0.4));}
+.lc-seller-meta {display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1;}
+.lc-seller-name {display: flex; align-items: center; gap: 5px;
+  font-size: 15px; font-weight: 800; letter-spacing: -0.01em; line-height: 1.15;
+  color: var(--text-main);
+  min-width: 0;}
+.lc-seller-name-text {white-space: normal; overflow-wrap: anywhere; min-width: 0;}
+.lc-verified {color: #2563eb; font-size: 13px; flex-shrink: 0;}
+.lc-seller-sub {font-size: 11px; font-weight: 500; color: var(--text-sub); letter-spacing: 0.01em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
+.lm-post-embed .lc-seller .lc-mate-btn {width: auto; margin: 0; flex-shrink: 0;
+  padding: 8px 15px; font-size: 10.5px; font-weight: 800;
+  text-transform: uppercase; letter-spacing: 0.05em; border-radius: 999px;
+  box-shadow: 0 3px 10px -3px rgba(50,205,50,0.35);}
+.lc-seller .lc-menu-wrap {margin-left: 0;}
+.lc-market-intel {display: flex; gap: 10px;}
+.lc-stat {flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+  padding: 10px 14px; border-radius: 13px; text-align: left; font-family: inherit;
+  background: linear-gradient(180deg, #ffffff, #f6faf7);
+  border: 1px solid #eef2f7;
+  box-shadow: 0 1px 2px rgba(15,23,42,0.05), 0 10px 22px -16px rgba(15,23,42,0.3);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+  animation: lcStatIn 0.42s cubic-bezier(0.16,1,0.3,1) both;}
+.lc-stat-num {font-size: 22px; font-weight: 800; line-height: 1; letter-spacing: -0.02em;
+  color: var(--text-main); font-variant-numeric: tabular-nums;}
+.lc-stat-label {display: flex; align-items: center; gap: 5px;
+  font-size: 9.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--text-sub);}
+.lc-stat-label i {font-size: 11px; color: #94a3b8;}
+.lc-stat-interactive {cursor: pointer;}
+.lc-stat-interactive:hover {transform: translateY(-2px); border-color: #cbd5e1; box-shadow: 0 1px 2px rgba(15,23,42,0.06), 0 15px 26px -14px rgba(15,23,42,0.4);}
+html[data-theme="dark"] .lc-stat-interactive:hover {border-color: #334155; box-shadow: 0 1px 2px rgba(0,0,0,0.35), 0 15px 26px -14px rgba(0,0,0,0.7);}
+.lc-stat-match {cursor: pointer;}
+.lc-stat-match .lc-stat-num, .lc-stat-match-static .lc-stat-num {color: #16a34a;}
+.lc-stat-match .lc-stat-label i, .lc-stat-match-static .lc-stat-label i {color: #16a34a;}
+.lc-stat-match:hover {transform: translateY(-2px); border-color: #bbf7d0; box-shadow: 0 12px 24px -12px rgba(22,163,74,0.45);}
+/* AI Match node icon — animate it like the Portal's AI Match Engine badge. The
+   keyframes live here (not only in livemarket.css) so the Dashboard, which loads
+   listing-card.css but not livemarket.css, animates it too. Scoped to embedded
+   posts so it never touches unrelated icons elsewhere on the page. */
+@keyframes aiOrbit {
+  0% { transform: rotate(0deg) scale(1); }
+  50% { transform: rotate(180deg) scale(1.1); }
+  100% { transform: rotate(360deg) scale(1); }
+}
+@keyframes aiGlow {
+  0%,100% { text-shadow: 0 0 4px rgba(50,205,50,0.3); }
+  50% { text-shadow: 0 0 14px rgba(50,205,50,0.8), 0 0 28px rgba(50,205,50,0.3); }
+}
+.lm-post-embed .fa-circle-nodes {
+  display: inline-block;
+  animation: aiOrbit 5s linear infinite, aiGlow 2s ease-in-out infinite;
+}
+.lc-status-line {display: flex;}
+.lc-status-line .listing-status-badge {margin-bottom: 0;}
+html[data-theme="dark"] .lc-seller {background: linear-gradient(180deg,#111c2e,#0f172a); border-color: #243044; box-shadow: 0 1px 2px rgba(0,0,0,0.3), 0 10px 22px -16px rgba(0,0,0,0.6);}
+html[data-theme="dark"] .lc-seller-avatar {border-color: #1e293b;}
+html[data-theme="dark"] .lc-stat {background: linear-gradient(180deg,#111c2e,#0f172a); border-color: #243044; box-shadow: 0 1px 2px rgba(0,0,0,0.3), 0 10px 22px -16px rgba(0,0,0,0.6);}
+html[data-theme="dark"] .lc-stat-match:hover {border-color: #166534;}
+@media (max-width: 860px) {
+  .lc-caption {padding: 2px 12px 10px;}
+  .lc-caption .lc-raw-post {font-size: 13px; line-height: 1.45;}
+  .lc-cover {padding: 0 12px 12px;}
+  .lc-col-photos {padding: 12px 8px 12px 12px;}
+  .lc-col-info {padding: 14px 12px 8px 8px; gap: 6px;}
+  .lc-hl-bar {padding: 10px 2px; border-radius: 12px;}
+  .lc-hl-cell {padding: 1px 9px; gap: 3px;}
+  .lc-hl-label {font-size: 9.5px; letter-spacing: 0.02em;}
+  .lc-hl-label i {font-size: 11px;}
+  .lc-hl-loc {font-size: 13.5px;}
+  .lc-hl-type {font-size: 12.5px;}
+  .lc-hl-amt {font-size: 13px;}
+  .lc-raw-post {font-size: 12.5px; line-height: 1.45;}
+  .lc-thumbs {gap: 6px;}
+  .lc-thumb {width: 46px; height: 46px;}
+  .lc-cat-pill {top: 8px; left: 8px; padding: 5px 10px;}
+  .lm-post-embed .lc-cat-pill .cat-tag {font-size: 10px;}
+  .lc-seller {padding: 9px 10px; gap: 9px; border-radius: 12px;}
+  .lc-seller-avatar {width: 40px; height: 40px;}
+  .lc-seller-name {font-size: 13.5px;}
+  .lc-seller-sub {font-size: 10px;}
+  .lc-seller .lc-mate-btn {padding: 7px 11px; font-size: 9.5px;}
+  .lc-market-intel {gap: 8px;}
+  .lc-stat {padding: 8px 11px; border-radius: 11px;}
+  .lc-stat-num {font-size: 19px;}
+  .lc-stat-label {font-size: 9px;}
+  .status-btn, .listing-view-btn, .listing-offer-btn {font-size: 9.5px; padding: 9px 6px; letter-spacing: 0.02em; gap: 4px;}
+  .status-btn i, .listing-view-btn i, .listing-offer-btn i {display: none;}
+  .lc-profile {padding: 12px 12px 4px; gap: 9px;}
+  .lc-profile-avatar {width: 42px; height: 42px;}
+  .lc-profile-name {font-size: 14px;}
+  .lc-profile .lc-mate-btn {padding: 7px 12px; font-size: 9.5px;}
+  .lc-actionbar {padding: 12px 12px 16px; gap: 10px;}
+  .lc-offers-fire {font-size: 12px;}
+  /* Shrink both footer buttons together on mobile so they stay uniform. */
+  .lc-view-btn, .lc-status-btn, .lc-offer-btn {padding: 10px 22px; font-size: 11px;}
+}
+@media (max-width: 420px) {
+  .lc-thumb {width: 42px; height: 42px;}
+  .lc-hl-cell {padding: 1px 7px;}
+  .lc-hl-label {font-size: 9px;}
+  .lc-hl-loc {font-size: 13px;}
+  .lc-hl-type {font-size: 12px;}
+  .lc-hl-amt {font-size: 12.5px;}
+  .lc-stat-num {font-size: 18px;}
+  .status-btn, .listing-view-btn, .listing-offer-btn {font-size: 9px; padding: 9px 4px;}
+}
+.fmv-badge {display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  padding: 7px 12px; border-radius: 10px;
+  font-size: 11px; font-weight: 700;
+  border: 1px solid transparent;}
+.fmv-badge i {font-size: 10px;}
+.fmv-diff {font-size: 11px; font-weight: 800;}
+.fmv-verdict {margin-left: auto; font-size: 9px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.8;}
+.fmv-below .fmv-diff {color: #10b981;}
+.fmv-fair .fmv-diff {color: #1877f2;}
+.fmv-above .fmv-diff {color: #d97706;}
+.lm-post-embed .btn-mate {display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 14px; border-radius: 50px;
+  border: 1.5px solid var(--primary); background: white; color: var(--primary);
+  font-size: 9px; font-weight: 700; cursor: pointer;
+  transition: all 0.15s; font-family: inherit; white-space: nowrap;
+  width: 100%; justify-content: center; margin-top: 10px;}
+.lm-post-embed .btn-mate:hover:not(:disabled) {background: var(--primary); color: white; box-shadow: 0 2px 10px rgba(50,205,50,0.25);}
+.lm-post-embed .btn-mate-sm {width: auto; margin-top: 0; margin-left: auto; padding: 5px 11px; font-size: 11px;}
+.lm-post-embed .match-card .btn-mate {width: auto; margin-top: 0; height: 36px; font-size: 12px; border-radius: 10px; padding: 0 16px;}
+.lm-post-embed .mate-status-pending {border-color: #94a3b8; color: #94a3b8; cursor: default; opacity: 0.8;}
+.lm-post-embed .mate-status-received {border-color: #3b82f6; color: #3b82f6;}
+.lm-post-embed .mate-status-received:hover:not(:disabled) {background: #3b82f6; color: white;}
+.lm-post-embed .mate-status-mates {border-color: var(--primary); background: var(--primary-soft); color: #16a34a; cursor: pointer;}
+.lm-post-embed .mate-status-mates:hover {background: #fee2e2; border-color: #ef4444; color: #ef4444;}
+html[data-theme="dark"] .lm-post-embed .btn-mate {background: #1e293b; border-color: var(--primary); color: #86efac;}
+html[data-theme="dark"] .lm-post-embed .btn-mate:hover:not(:disabled) {background: var(--primary); color: #fff;}
+html[data-theme="dark"] .lm-post-embed .mate-status-mates {background: rgba(50,205,50,0.12); color: #86efac;}
+html[data-theme="dark"] .lm-post-embed .mate-status-pending {border-color: #475569; color: #475569;}
+html[data-theme="dark"] .lm-post-embed .mate-status-received {border-color: #60a5fa; color: #60a5fa;}
+.no-matches {background: white; border-radius: var(--card-curve);
+  border: 2px dashed var(--border);
+  padding: 60px 30px; text-align: center; color: var(--text-sub);}
+.no-matches i {font-size: 36px; opacity: 0.25; margin-bottom: 16px; display: block;}
+.no-matches h3 {font-family: 'Inter'; font-size: 17px; color: var(--text-main); margin-bottom: 8px;}
+.no-matches p {font-size: 13px; line-height: 1.6;}
+@media (max-width: 768px) {
+  .listing-card-images img.single-img {height: 180px;}
+  .listing-img-grid {height: 180px;}
+}
+.lm-post-embed .lm-cat-btn.cat-sale.selected, .lm-post-embed .lm-cat-btn.cat-rent.selected, .lm-post-embed .lm-cat-btn.cat-lease.selected, .lm-post-embed .lm-cat-btn.cat-wbuy.selected, .lm-post-embed .lm-cat-btn.cat-wrent.selected, .lm-post-embed .lm-cat-btn.cat-wlease.selected {background: #111827; color: #fff; border-color: #111827;}
+html[data-theme="dark"] .listing-card {background: #1e293b; border-color: #334155;}
+html[data-theme="dark"] .listing-card:hover {background: #243044;}
+html[data-theme="dark"] .listing-card .listing-price {color: #f1f5f9;}
+html[data-theme="dark"] .listing-card .listing-desc {color: #94a3b8;}
+html[data-theme="dark"] .listing-card .listing-meta {color: #64748b;}
+html[data-theme="dark"] .listing-card .listing-poster {color: #94a3b8;}
+html[data-theme="dark"] .no-matches {background: #1e293b; border-color: #334155;}
+html[data-theme="dark"] .no-matches h3 {color: #e2e8f0;}
+html[data-theme="dark"] .no-matches p {color: #64748b;}
+html[data-theme="dark"] .listing-card {background: #1e293b; border-color: #334155; box-shadow: 0 2px 8px rgba(0,0,0,0.2);}
+html[data-theme="dark"] .listing-card-user {background: #0f172a;}
+html[data-theme="dark"] .listing-card-user img {border-color: #334155;}
+html[data-theme="dark"] .listing-card-user .user-name {color: #e2e8f0;}
+html[data-theme="dark"] .listing-card-user .user-job {color: #64748b;}
+html[data-theme="dark"] .listing-card-user .post-time {color: #475569;}
+html[data-theme="dark"] .listing-status-btns {border-color: #334155;}
+html[data-theme="dark"] .status-btn {background: linear-gradient(180deg,#172033,#0f172a); border-color: #334155; color: #94a3b8; box-shadow: 0 1px 2px rgba(0,0,0,0.3), 0 10px 22px -16px rgba(0,0,0,0.6);}
+html[data-theme="dark"] .lm-post-embed .cat-tag {color: #94a3b8;}
+html[data-theme="dark"] .lm-post-embed .cat-sale {color: #34d399;}
+html[data-theme="dark"] .lm-post-embed .cat-rent {color: #60a5fa;}
+html[data-theme="dark"] .lm-post-embed .cat-lease {color: #a78bfa;}
+html[data-theme="dark"] .lm-post-embed .cat-wbuy {color: #fb923c;}
+html[data-theme="dark"] .lm-post-embed .cat-wrent {color: #22d3ee;}
+html[data-theme="dark"] .lm-post-embed .cat-wlease {color: #f472b6;}
+html[data-theme="dark"] .match-banner {background: linear-gradient(180deg, #1e293b, #172033);}
+.lm-post-embed .ai-match-badge {display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  font-family: 'Inter', sans-serif;
+  border: 1px solid #e2e8f0;
+  background: #f1f5f9;
+  color: #94a3b8;
+  cursor: default;
+  transition: none;}
+.lm-post-embed .ai-match-badge.has-matches {background: linear-gradient(135deg, #0f172a, #1e3a5f);
+  color: #32cd32;
+  border-color: rgba(50,205,50,0.3);
+  cursor: pointer;
+  animation: lmMatchHeartbeat 1.5s ease-in-out infinite;
+  box-shadow: 0 0 0 0 rgba(50,205,50,0.3);
+  position: relative;
+  overflow: hidden;}
+.lm-post-embed .ai-match-badge.has-matches::before {content: ''; position: absolute; top: 0; left: -100%; width: 60%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(50,205,50,0.15), transparent);
+  animation: aiShimmer 2.5s ease-in-out infinite;}
+.lm-post-embed .ai-match-badge.has-matches:hover {background: linear-gradient(135deg, #0f172a, #16a34a);
+  color: #fff;
+  border-color: #32cd32;
+  animation: none;
+  box-shadow: 0 4px 14px rgba(50,205,50,0.3);
+  transform: translateY(-1px);
+  transition: background 0.15s, color 0.15s, box-shadow 0.15s, transform 0.15s;}
+.sp-opt-icon {width: 42px; height: 42px; border-radius: 12px;
+    background: linear-gradient(135deg, #0f172a 0%, #1a2744 100%);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;}
+.sp-opt-icon i {color: #32cd32; font-size: 17px;}
+.sp-opt-icon-profile {background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%);}
+.sp-opt-icon-profile i {color: #60a5fa;}
+.sp-opt-text {display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0;}
+.sp-opt-title {font-size: 14px; font-weight: 700; color: #0f172a;}
+.sp-opt-sub {font-size: 11px; color: #94a3b8; font-weight: 500;}
+.sp-opt-arrow {color: #cbd5e1; font-size: 12px; flex-shrink: 0;}
+html[data-theme="dark"] .sp-opt-title {color: #f1f5f9;}
+.listing-offer-row {display: flex; align-items: center; gap: 8px;}
+.listing-view-btn {display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 11px 10px; border-radius: 13px; flex: 1;
+    background: linear-gradient(180deg,#ffffff,#f7f9fc); color: #334155;
+    border: 1.5px solid #e5eaf0; font-size: 10.5px; font-weight: 800;
+    text-transform: uppercase; letter-spacing: 0.04em;
+    cursor: pointer; font-family: inherit; white-space: nowrap;
+    box-shadow: 0 1px 2px rgba(15,23,42,0.05), 0 10px 22px -16px rgba(15,23,42,0.3);
+    transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s, border-color 0.15s;}
+.listing-view-btn i {font-size: 11px; color: #64748b;}
+.listing-view-btn:hover {background: linear-gradient(180deg,#ffffff,#f2f6fb); border-color: #cbd5e1; transform: translateY(-1px); box-shadow: 0 1px 2px rgba(15,23,42,0.06), 0 15px 26px -14px rgba(15,23,42,0.4);}
+html[data-theme="dark"] .listing-view-btn {background: linear-gradient(180deg,#1e293b,#172033); color: #e2e8f0; border-color: #334155; box-shadow: 0 1px 2px rgba(0,0,0,0.3), 0 10px 22px -16px rgba(0,0,0,0.6);}
+html[data-theme="dark"] .listing-view-btn:hover {background: linear-gradient(180deg,#243044,#1a2437); box-shadow: 0 1px 2px rgba(0,0,0,0.35), 0 15px 26px -14px rgba(0,0,0,0.7);}
+.listing-offer-btn {display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 11px 10px; border-radius: 13px; flex: 1;
+    background: linear-gradient(135deg, #22c55e, #16a34a); color: #fff;
+    border: 1.5px solid transparent; font-size: 10.5px; font-weight: 800;
+    text-transform: uppercase; letter-spacing: 0.04em;
+    cursor: pointer; font-family: inherit; white-space: nowrap;
+    box-shadow: 0 4px 14px -4px rgba(22,163,74,0.5);
+    transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s;}
+.listing-offer-btn i {color: #eafff0; font-size: 12px;}
+.listing-offer-btn:hover {filter: brightness(1.04); transform: translateY(-1px); box-shadow: 0 8px 20px -6px rgba(22,163,74,0.6);}
+.listing-offer-btn:active {transform: scale(0.97);}
+.listing-offer-badge {display: inline-flex; align-items: center; gap: 4px;
+    padding: 6px 14px; border-radius: 999px;
+    background: linear-gradient(135deg, #14532d, #15803d);
+    border: 1px solid #166534;
+    color: #dcfce7; font-size: 12px; font-weight: 600;
+    white-space: nowrap; cursor: default; letter-spacing: 0.02em;
+    font-family: 'Inter', sans-serif;}
+.listing-offer-badge i {font-size: 12px; color: #86efac;}
+.listing-offer-badge.offer-count-bump {animation: offerCountBump 0.35s ease;}
+html[data-theme="dark"] .listing-offer-row {border-top-color: #334155;}
+html[data-theme="dark"] .listing-offer-btn i {color: #eafff0;}
+html[data-theme="dark"] .listing-offer-badge {background: linear-gradient(135deg, #052e16, #14532d); border-color: #166534;}
+.offers-rx-msg {text-align: center; color: #64748b; padding: 44px 20px; font-size: 14px;}
+.offers-rx-msg i {font-size: 34px; color: #cbd5e1; display: block; margin-bottom: 12px;}
+.offers-rx-msg p {margin: 0; line-height: 1.55;}
+.offers-rx-card {display: flex; gap: 12px; padding: 12px; border: 1px solid #eef2f7; border-radius: 14px; background: linear-gradient(180deg, #ffffff, #f9fbfd);}
+.offers-rx-avatar {width: 48px; height: 48px; border-radius: 50%; object-fit: cover; flex-shrink: 0; border: 2px solid #fff; box-shadow: 0 2px 8px rgba(15,23,42,0.15);}
+.offers-rx-info {flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;}
+.offers-rx-name {font-size: 15px; font-weight: 800; color: #0f172a; line-height: 1.2; word-break: break-word;}
+.offers-rx-pos {font-size: 12.5px; font-weight: 600; color: #475569;}
+.offers-rx-meta {font-size: 11.5px; color: #94a3b8; display: flex; align-items: center; gap: 6px;}
+.offers-rx-meta i {font-size: 11px; width: 12px; text-align: center;}
+.offers-rx-actions {display: flex; gap: 8px; margin-top: 9px;}
+.offers-rx-btn {flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 9px 10px; border-radius: 10px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit; border: 1px solid #e2e8f0; transition: transform 0.12s, box-shadow 0.15s, background 0.15s, border-color 0.15s;}
+.offers-rx-btn:active {transform: scale(0.97);}
+.offers-rx-profile {background: #fff; color: #334155;}
+.offers-rx-profile:hover {background: #f8fafc; border-color: #cbd5e1;}
+.offers-rx-chat {background: #16a34a; color: #fff; border-color: transparent;}
+.offers-rx-chat:hover {background: #15903f;}
+html[data-theme="dark"] .offers-rx-card {background: linear-gradient(180deg,#111c2e,#0f172a); border-color: #243044;}
+html[data-theme="dark"] .offers-rx-name {color: #f1f5f9;}
+html[data-theme="dark"] .offers-rx-pos {color: #cbd5e1;}
+html[data-theme="dark"] .offers-rx-btn {border-color: #334155;}
+html[data-theme="dark"] .offers-rx-profile {background: #0f172a; color: #e2e8f0;}
+html[data-theme="dark"] .offers-rx-profile:hover {background: #162032;}
+.sp-opt-icon-msg {background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%);}
+.sp-opt-icon-msg i {color: #60a5fa;}
+
+@keyframes aiShimmer {
+  0% { left: -60%; }
+  100% { left: 160%; }
+}
+@keyframes aiGradientBar {
+  0% { background-position: 0% 0; }
+  100% { background-position: 200% 0; }
+}
+@keyframes soldShimmer {
+  0%   { left: -60%; }
+  100% { left: 160%; }
+}
+@keyframes lcStatIn { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes lmMatchHeartbeat {
+  0%   { box-shadow: 0 0 0 0 rgba(24, 119, 242, 0.5); transform: scale(1); }
+  14%  { box-shadow: 0 0 0 6px rgba(24, 119, 242, 0.0); transform: scale(1.05); }
+  28%  { box-shadow: 0 0 0 0 rgba(24, 119, 242, 0.0); transform: scale(1); }
+  42%  { box-shadow: 0 0 0 5px rgba(24, 119, 242, 0.15); transform: scale(1.03); }
+  70%  { box-shadow: 0 0 0 0 rgba(24, 119, 242, 0.0); transform: scale(1); }
+  100% { box-shadow: 0 0 0 0 rgba(24, 119, 242, 0.0); transform: scale(1); }
+}
+@keyframes offerCountBump {
+    0%   { transform: scale(1); }
+    40%  { transform: scale(1.18); }
+    100% { transform: scale(1); }
+}
+@keyframes aimBeat {
+  0%   { transform: scale(1);     box-shadow: 0 0 0 0 rgba(50,205,50,0.35); }
+  14%  { transform: scale(1.05);  box-shadow: 0 0 11px 2px rgba(50,205,50,0.28); }
+  28%  { transform: scale(1);     box-shadow: 0 0 0 0 rgba(50,205,50,0.18); }
+  42%  { transform: scale(1.03);  box-shadow: 0 0 7px 1px rgba(50,205,50,0.20); }
+  56%  { transform: scale(1);     box-shadow: 0 0 0 0 rgba(50,205,50,0); }
+  100% { transform: scale(1);     box-shadow: 0 0 0 0 rgba(50,205,50,0); }
+}
+
+/* Accessibility: reduced motion → a calm, static AI-match button (matches Portal). */
+@media (prefers-reduced-motion: reduce) {
+  .lc-aim-btn { animation: none !important; }
+}
+/* Very small screens: shorten the label to "N AI Matches" (drop just "Found"),
+   keeping the wordmark rather than hiding it entirely (matches Portal). */
+@media (max-width: 560px) {
+  .lc-aim-found { display: none; }
+  .lc-aim-btn { padding: 5px 10px 5px 7px; }
+}

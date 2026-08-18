@@ -1,0 +1,26 @@
+/* Universal mobile back button.
+   One shared definition so every page's back button looks and behaves the
+   same way: a plain left-pointing arrow in Realmate green, no circular/pill
+   background, ~22px, vertically centered in the header.
+
+   Every rule here lives inside the mobile breakpoint, so linking this file
+   never affects desktop layouts — pages that already have their own
+   desktop-only back button styling (pill/chip headers, etc.) keep that
+   appearance above 768px and only pick up this look on mobile. !important
+   is used deliberately: this is a small, single-purpose override utility
+   meant to strip page-specific desktop styling (background, border,
+   padding) at the mobile breakpoint. */
+@media (max-width: 768px) {
+    .rm-mobile-back {
+        display: inline-flex !important; align-items: center !important; justify-content: center !important;
+        background: none !important; background-color: transparent !important;
+        border: none !important; box-shadow: none !important;
+        padding: 0 !important; margin: 0 !important; border-radius: 0 !important;
+        width: 24px; height: 24px;
+        color: var(--primary, #32cd32) !important;
+        font-size: 22px !important; line-height: 1;
+        cursor: pointer; flex-shrink: 0; text-decoration: none !important;
+    }
+    .rm-mobile-back:hover { background: none !important; color: var(--primary, #32cd32) !important; opacity: 0.7; }
+    .rm-mobile-back .rm-back-label { display: none !important; }
+}

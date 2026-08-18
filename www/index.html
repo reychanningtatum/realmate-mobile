@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Realmate</title>
+  <script>
+    // ── First-launch onboarding gate ──────────────────────────────────
+    // The very first time this device opens the app, show the marketing
+    // page before the login screen; afterwards go straight to normal entry.
+    // Runs before anything renders to avoid a flash of the login form.
+    // Skips deep links that carry a token (password reset / email confirm
+    // arrive with a ?query or #hash) and existing members (stored session).
+    (function(){
+      try {
+        if (window.location.search || window.location.hash) return;
+        if (localStorage.getItem('rm_seen_marketing')) return;
+        if (localStorage.getItem('user')) { localStorage.setItem('rm_seen_marketing','1'); return; }
+        window.location.replace('marketing.html');
+      } catch (e) {}
+    })();
+  </script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css?v=20260813l">
+</head>
+<body>
+
+<style>
+  /* Back-to-marketing button — dark glass pill so it stays legible over both
+     the dark left panel (desktop) and the light login card (mobile). */
+  .rm-back-home{position:fixed;top:16px;left:16px;z-index:1000;display:inline-flex;
+    align-items:center;gap:8px;padding:9px 15px;border-radius:999px;font-family:'Inter',sans-serif;
+    font-size:13px;font-weight:700;color:#fff;background:rgba(15,23,42,0.62);
+    border:1px solid rgba(255,255,255,0.18);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+    text-decoration:none;cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,0.28);
+    transition:background .2s,transform .15s;}
+  .rm-back-home:hover{background:rgba(15,23,42,0.85);transform:translateY(-1px);}
+  .rm-back-home:active{transform:translateY(0);}
+  .rm-back-home i{font-size:12px;color:#32cd32;}
+  @media(max-width:600px){ .rm-back-home span{display:none;} .rm-back-home{padding:10px 12px;} }
+</style>
+<a href="marketing.html" class="rm-back-home" aria-label="Back to overview"><i class="fas fa-arrow-left"></i><span>Back</span></a>
+
+<div class="app-main">
+    <div class="left-panel">
+      <div class="lp-glow-bottom"></div>
+
+      <div class="lp-content">
+      <div class="lp-headline">
+        <h1>AI matches.<br><span>Real opportunities.</span></h1>
+        <p>Buy, sell, rent, or lease with an intelligent engine that connects the right people in real time — so you spend less time searching and more time closing.</p>
+      </div>
+
+      <div class="lp-stats">
+        <div class="lp-stat"><b>99%</b><span>Match accuracy</span></div>
+        <div class="lp-stat"><b>2 sec</b><span>Avg. match time</span></div>
+        <div class="lp-stat"><b>1000s</b><span>Connections / day</span></div>
+      </div>
+
+      <div class="lp-features">
+        <div class="lp-card">
+          <div class="lp-card-icon"><i class="fas fa-robot"></i></div>
+          <h4>AI Match Engine</h4>
+          <p>Percentage-scored buyer–seller matches.</p>
+        </div>
+        <div class="lp-card">
+          <div class="lp-card-icon"><i class="fas fa-comments"></i></div>
+          <h4>Real-time Chat</h4>
+          <p>Close deals instantly with real people.</p>
+        </div>
+        <div class="lp-card">
+          <div class="lp-card-icon"><i class="fas fa-users"></i></div>
+          <h4>Realmates Network</h4>
+          <p>Grow your trusted professional circle.</p>
+        </div>
+        <div class="lp-card">
+          <div class="lp-card-icon"><i class="fas fa-table-columns"></i></div>
+          <h4>Listings Portal</h4>
+          <p>Live Market, My Listings &amp; AI Matches.</p>
+        </div>
+      </div>
+
+      <div class="lp-ticker-strip">
+        <i class="fas fa-lock lp-lock"></i>
+        <span style="color:#cbd5e1;font-weight:600;">Currently exclusive to the Alveo Sales Team</span>
+      </div>
+      </div><!-- /.lp-content -->
+
+      <div class="lp-logo-stage">
+        <img src="images/main-logo.png?v=2" class="lp-3d" alt="Realmate">
+      </div>
+    </div>
+    <div class="right-panel">
+      <div class="container">
+        <img src="images/realmate2.png" class="logo" alt="Realmate">
+        <div class="subtitle">Connect. Match. Close Deals.</div>
+        <div class="input-group">
+          <label class="label">Email or Username</label>
+          <i class="fas fa-user left"></i>
+          <input type="text" id="loginIdentifier" placeholder="Email or Username" onkeydown="if(event.key==='Enter') handleLoginEnterKey()">
+        </div>
+        <div class="input-group">
+          <label class="label">Password</label>
+          <i class="fas fa-lock left"></i>
+          <input type="password" id="password" placeholder="Enter password" onkeydown="if(event.key==='Enter') handleLoginEnterKey()">
+          <i class="fas fa-eye right" onclick="togglePassword('password', this)"></i>
+        </div>
+        <div id="loginError" style="display:none; align-items:center; gap:10px; background:#fef2f2; border:1px solid #fecaca; border-left:4px solid #ef4444; border-radius:12px; padding:12px 16px; font-size:13px; font-weight:600; color:#dc2626; margin-bottom:4px; text-align:left;">
+          <i class="fas fa-circle-exclamation"></i>
+          <span></span>
+        </div>
+        <div id="loginSuccess" style="display:none; align-items:center; gap:10px; background:#f0fdf4; border:1px solid #bbf7d0; border-left:4px solid #22c55e; border-radius:12px; padding:12px 16px; font-size:13px; font-weight:600; color:#16a34a; margin-bottom:4px; text-align:left;">
+          <i class="fas fa-circle-check"></i>
+          <span>Login successful. Redirecting you now…</span>
+        </div>
+        <button class="btn" id="loginBtn" onclick="login()"><span id="loginBtnText">Sign In</span></button>
+        <div style="margin-top: 12px;"><span class="link" id="forgotLink" onclick="forgotPassword()">Forgot password?</span></div>
+        <div style="margin-top: 12px;">
+            <span style="font-size: 13px; color: #64748b; font-weight: 500;">Don't have an account?</span>
+            <span class="link" style="margin-top: 0; margin-left: 3px;" onclick="openRegister()">Create one</span>
+        </div>
+      </div>
+    </div>
+</div>
+
+<div class="purpose-footer">
+    <span class="purpose-link" onclick="openPurpose()">Mission & Vision</span>
+</div>
+
+<div class="modal" id="purposeModal">
+    <div class="modal-content" style="max-width: 550px;">
+      <span class="close-btn" onclick="closePurpose()">&times;</span>
+      <h3 style="font-family: 'Playfair Display'; color: var(--primary);">Mission & Engineering Vision</h3>
+      <div class="purpose-body-text">
+          <p><strong>Realmate</strong> was pioneered by <strong>Reychan Bernaldez</strong> (Product &amp; Growth) alongside an elite multi-disciplinary founding team: <strong>Eris Dungug</strong> (Sales &amp; Technology), <strong>Danniel Libor</strong> (Software Engineer), <strong>Jaztin Pumaren</strong> (QA &amp; Testing), and <strong>Mark Hequibal</strong> (Marketing).</p>
+          <p>By integrating <strong>Advanced Artificial Intelligence</strong>, we have engineered a solution built for <strong>real estate professionals</strong> — currently exclusive to the <strong>Alveo Sales Team</strong>. We recognize that the modern real estate landscape demands more than manual effort; it requires algorithmic precision to handle complex reselling and portfolio management.</p>
+          <p>Our platform utilizes AI to analyze market data in real-time, helping professionals find the <strong>absolute closest match</strong> for their clients' property resale needs. We bridge the gap between financial strategy, technical engineering, and marketing expertise to ensure every transaction is optimized for success.</p>
+          <p style="text-align: center; font-style: italic; margin-top: 20px;">"Powered by AI. Built by Engineers. Trusted by Professionals."</p>
+      </div>
+    </div>
+</div>
+
+<div class="modal" id="termsModal">
+    <div class="modal-content" style="max-width: 800px; padding: 0; overflow: hidden;">
+        <div style="padding: 20px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; background: #fff;">
+            <h3 style="margin: 0; font-family: 'Playfair Display'; color: var(--primary);">Full Legal Agreement</h3>
+            <span class="close-btn" onclick="closeTerms()" style="position: static;">&times;</span>
+        </div>
+        <iframe src="terms.html" style="width: 100%; height: 60vh; border: none;" id="termsFrame"></iframe>
+        <div style="padding: 20px; background: #f8fafc; border-top: 1px solid #eee; text-align: center;">
+            <button class="btn" style="width: auto; padding: 10px 30px;" onclick="closeTerms()">I Acknowledge and Accept All Sections</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal" id="registerModal">
+  <div class="modal-content">
+    <span class="close-btn" onclick="closeRegister()">&times;</span>
+    <h3>Create Account</h3>
+    <div class="input-group"><label class="label">Username</label><input id="regUsername" placeholder="Username" oninput="onUsernameInput()" onblur="checkUsernameAvailability()"><div class="error-text">Required</div><div id="usernameStatus" style="font-size:12px;font-weight:600;margin-top:4px;"></div></div>
+    <div class="input-group"><label class="label">First Name</label><input id="firstName" onblur="validateName(this)" placeholder="First Name"><div class="error-text">Invalid name</div></div>
+    <div class="input-group"><label class="label">Last Name</label><input id="lastName" onblur="validateName(this)" placeholder="Last Name"><div class="error-text">Invalid name</div></div>
+    <div class="input-group"><label class="label">Phone Number</label><input id="phone" onblur="validatePhone(this)" placeholder="Phone Number"><div class="error-text">Invalid phone</div></div>
+    <div class="input-group"><label class="label">Alveo Business Email Required</label><input id="regEmail" onblur="validateEmail(this)" placeholder="yourname@alveoland.com"><div class="error-text">Use your @alveoland.com business email</div><div class="alveo-upload-helper">Only <b>@alveoland.com</b> business emails can register. Personal emails (Gmail, Yahoo, etc.) are not accepted.</div></div>
+    <div class="input-group">
+      <label class="label">Birthday</label>
+      <input type="hidden" id="birthday">
+      <div class="rm-datepicker" id="birthdayPicker">
+        <button type="button" class="rm-date-trigger" id="birthdayTrigger" aria-haspopup="dialog" aria-expanded="false" aria-label="Birthday">
+          <span id="birthdayDisplayText" class="rm-date-placeholder">mm/dd/yyyy</span>
+          <i class="fas fa-calendar-days"></i>
+        </button>
+        <div class="rm-date-popup" id="birthdayPopup" role="dialog" aria-modal="true" aria-label="Choose your birthday">
+          <div class="rm-date-popup-header">
+            <button type="button" class="rm-date-nav-btn" id="birthdayPrevMonth" aria-label="Previous month"><i class="fas fa-chevron-left"></i></button>
+            <div class="rm-date-select-wrap rm-date-select-wrap-month">
+              <select class="rm-date-select" id="birthdayMonthSelect" aria-label="Month"></select>
+              <i class="fas fa-chevron-down rm-date-select-arrow"></i>
+            </div>
+            <div class="rm-date-select-wrap rm-date-select-wrap-year">
+              <select class="rm-date-select" id="birthdayYearSelect" aria-label="Year"></select>
+              <i class="fas fa-chevron-down rm-date-select-arrow"></i>
+            </div>
+            <button type="button" class="rm-date-nav-btn" id="birthdayNextMonth" aria-label="Next month"><i class="fas fa-chevron-right"></i></button>
+          </div>
+          <div class="rm-date-weekdays"><span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span></div>
+          <div class="rm-date-grid" id="birthdayGrid"></div>
+        </div>
+      </div>
+      <div class="error-text">Invalid birthday</div>
+    </div>
+    <div class="input-group"><label class="label">Gender</label><select id="gender" required><option value="" disabled selected>Select Gender</option><option>Male</option><option>Female</option><option>Other</option></select></div>
+    <div class="input-group">
+      <label class="label">Upload Alveo ID</label>
+      <div class="alveo-upload-box" id="alveoUploadWrap" onclick="document.getElementById('alveoFile').click()">
+        <i class="fas fa-upload"></i>
+        <span id="alveoFileName" class="alveo-upload-text">Upload Alveo ID</span>
+        <input type="file" id="alveoFile" accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf" onchange="handleAlveoFileSelect(this)" hidden>
+      </div>
+      <div class="alveo-upload-helper">Upload a clear photo or PDF of your Alveo ID.</div>
+      <div class="error-text" id="alveoFileError" style="display:none;"></div>
+    </div>
+    <div class="input-group">
+      <label class="label">Password</label>
+      <div style="position:relative;"><input type="password" id="regPassword" oninput="checkPassword()" onblur="validatePassword(this)" placeholder="Password"><i class="fas fa-eye right" style="top: 13px;" onclick="togglePassword('regPassword', this)"></i></div>
+      <div class="password-strength"><div class="password-bar" id="passwordBar"></div></div>
+      <div class="password-rules"><span id="rule1">8+ characters</span><span id="rule2">1 uppercase letter</span><span id="rule3">1 number</span></div>
+      <div class="error-text">Weak password</div>
+    </div>
+    <div class="checkbox-group locked" id="checkboxArea">
+        <input type="checkbox" id="termsCheckbox" onchange="toggleRegButton()" disabled>
+        <label id="checkboxLabel">You must <b onclick="openTerms()" style="color: var(--primary); text-decoration: underline; cursor: pointer;">Review the Legal Terms</b> first.</label>
+    </div>
+    <button class="btn" id="regBtn" onclick="registerUser()" disabled><span id="btnText">Create Account</span></button>
+  </div>
+</div>
+
+<div class="modal" id="registrationPendingModal">
+  <div class="modal-content" style="text-align:center;">
+    <div style="width:64px;height:64px;border-radius:50%;background:#f0fdf4;color:#16a34a;display:flex;align-items:center;justify-content:center;font-size:30px;margin:0 auto 18px;">
+      <i class="fas fa-circle-check"></i>
+    </div>
+    <h3 style="text-align:center;">Registration Submitted</h3>
+    <p style="font-size:13px;color:#64748b;line-height:1.6;font-weight:500;margin-bottom:25px;">
+      Your account has been submitted successfully and is currently under review. Your uploaded Alveo ID will be verified by our administrator. You will receive an email once your account has been approved. Until then, you will not be able to access the platform.
+    </p>
+    <button class="btn" onclick="closeRegistrationPending()">Back to Login</button>
+  </div>
+</div>
+
+<div class="modal" id="updatePasswordModal">
+  <div class="modal-content">
+    <h3>Reset Your Password</h3>
+    <p style="font-size: 13px; color: #64748b; margin-bottom: 25px; line-height: 1.4; font-weight: 500;">Enter and confirm a new password for your account.</p>
+    <div class="input-group"><label class="label">New Password</label><div style="position:relative;"><input type="password" id="newPassword" placeholder="••••••••"><i class="fas fa-eye right" style="top: 13px;" onclick="togglePassword('newPassword', this)"></i></div></div>
+    <div class="input-group"><label class="label">Confirm New Password</label><div style="position:relative;"><input type="password" id="confirmNewPassword" placeholder="••••••••" onkeydown="if(event.key==='Enter') handleUpdatePassword()"><i class="fas fa-eye right" style="top: 13px;" onclick="togglePassword('confirmNewPassword', this)"></i></div></div>
+    <div class="password-rules"><span>At least 8 characters, 1 uppercase letter, 1 number</span></div>
+    <button class="btn" id="updateBtn" onclick="handleUpdatePassword()"><span id="updateBtnText">Save New Password</span></button>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="script.js?v=20260813a"></script>
+</body>
+</html>

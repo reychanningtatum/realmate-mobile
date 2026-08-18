@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Realmate | Market Overview</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="forum.css?v=20260716a">
+  <link rel="stylesheet" href="mobile-back.css">
+  <script src="theme.js?v=20260812a"></script>
+  <style>
+    * { box-sizing: border-box; }
+    .mo-header { position: fixed; top: 0; left: 0; right: 0; z-index: 200; background: linear-gradient(135deg, #0f172a 0%, #1a1a2e 50%, #0f172a 100%); display: flex; align-items: center; justify-content: space-between; padding: 10px 48px; border-bottom: 2px solid #32cd32; overflow: hidden; }
+    .mo-header::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, transparent, #32cd32, #3b82f6, #32cd32, transparent); background-size: 200% 100%; animation: moBar 4s linear infinite; }
+    @keyframes moBar { 0% { background-position: 0% 0; } 100% { background-position: 200% 0; } }
+    .mo-back { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; color: #94a3b8; cursor: pointer; padding: 6px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.06); transition: all 0.15s; position: relative; z-index: 1; }
+    .mo-back:hover { background: rgba(255,255,255,0.12); color: #fff; }
+    .mo-title { font-size: 16px; font-weight: 800; color: #fff; position: relative; z-index: 1; }
+    .mo-page { max-width: 860px; margin: 0 auto; padding: 28px 16px 80px; font-family: 'Inter', sans-serif; }
+
+    /* Breadth */
+    .mo-breadth { display: flex; gap: 8px; margin-bottom: 16px; }
+    .mo-breadth-item { flex: 1; background: #0f172a; border-radius: 10px; padding: 12px; text-align: center; }
+    .mo-breadth-num { font-size: 20px; font-weight: 800; }
+    .mo-breadth-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #64748b; margin-top: 2px; }
+    .mo-breadth-up .mo-breadth-num { color: #32cd32; }
+    .mo-breadth-down .mo-breadth-num { color: #ef4444; }
+    .mo-breadth-flat .mo-breadth-num { color: #94a3b8; }
+
+    /* Leaders */
+    .mo-leaders { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 16px; }
+    .mo-leader-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 12px 14px; }
+    .mo-leader-title { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: #9ca3af; margin-bottom: 8px; display: flex; align-items: center; gap: 5px; }
+    .mo-leader-item { display: flex; justify-content: space-between; align-items: center; font-size: 12px; padding: 3px 0; }
+    .mo-leader-name { font-weight: 700; color: #111827; }
+    .mo-leader-val { font-weight: 800; }
+
+    /* Heatmap */
+    .mo-section-title { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: #9ca3af; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+    .mo-heatmap { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+    .mo-heat-cell { padding: 10px 14px; border-radius: 8px; font-size: 11px; font-weight: 700; color: #fff; cursor: pointer; transition: transform 0.1s; min-width: 80px; text-align: center; }
+    .mo-heat-cell:hover { transform: scale(1.04); }
+    .mo-heat-cell .hc-name { font-size: 10px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .mo-heat-cell .hc-score { font-size: 16px; font-weight: 800; margin-top: 2px; }
+
+    /* AI Panel */
+    @keyframes moOrbit { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    @keyframes moGlow { 0%,100% { text-shadow: 0 0 4px rgba(50,205,50,0.3); } 50% { text-shadow: 0 0 14px rgba(50,205,50,0.8); } }
+    .mo-ai-icon { color: #32cd32; display: inline-block; animation: moOrbit 5s linear infinite, moGlow 2s ease-in-out infinite; }
+    .mo-ai-card { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+    .mo-ai-insight { font-size: 13px; line-height: 1.6; color: #374151; padding: 4px 0; display: flex; align-items: flex-start; gap: 8px; }
+    .mo-ai-insight i { color: #32cd32; margin-top: 3px; flex-shrink: 0; font-size: 10px; }
+
+    /* Watchlist */
+    .mo-card-list { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; }
+    .mo-card-item { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-bottom: 1px solid #f3f4f6; cursor: pointer; transition: background 0.1s; }
+    .mo-card-item:hover { background: #f9fafb; }
+    .mo-card-item:last-child { border: none; }
+    .mo-card-left { flex: 1; min-width: 0; }
+    .mo-card-right { text-align: right; flex-shrink: 0; }
+    .mo-proj-name { font-weight: 700; color: #111827; font-size: 13px; }
+    .mo-proj-sub { font-size: 10px; color: #9ca3af; margin-top: 1px; }
+    .mo-price { font-weight: 800; color: #111827; font-size: 15px; }
+    .mo-scores { display: flex; gap: 4px; margin-top: 4px; }
+    .mo-score-pill { font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 4px; }
+    .mo-sent { font-size: 9px; font-weight: 700; padding: 3px 7px; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .mo-sent-buy { background: rgba(50,205,50,0.12); color: #16a34a; }
+    .mo-sent-sell { background: rgba(239,68,68,0.12); color: #dc2626; }
+    .mo-sent-neutral { background: #f3f4f6; color: #6b7280; }
+
+    .mo-legend-body { max-height: 500px; overflow: hidden; transition: max-height 0.3s ease, opacity 0.3s ease; opacity: 1; }
+    .mo-legend-body.mo-collapsed { max-height: 0; opacity: 0; }
+    .mo-legend-arrow { transition: transform 0.3s; }
+    .mo-legend-arrow.mo-collapsed { transform: rotate(180deg); }
+    .mo-loading { text-align: center; padding: 80px 20px; color: #9ca3af; }
+
+    @media (max-width: 768px) {
+      .mo-header { padding: 8px 14px; }
+      .mo-page { padding-top: 6px; }
+      .mo-breadth { gap: 6px; }
+      .mo-breadth-item { padding: 10px 6px; }
+      .mo-breadth-num { font-size: 16px; }
+      .mo-leaders { grid-template-columns: 1fr 1fr; gap: 6px; }
+      .mo-leader-card { padding: 10px 12px; }
+      .mo-heatmap { gap: 4px; }
+      .mo-heat-cell { padding: 8px 10px; min-width: 70px; }
+    }
+    @media (min-width: 769px) { .mo-header { left: 240px; } }
+
+    html[data-theme="dark"] .mo-leader-card { background: #1e293b; border-color: #334155; }
+    html[data-theme="dark"] .mo-leader-name { color: #f1f5f9; }
+    html[data-theme="dark"] .mo-card-list { background: #1e293b; border-color: #334155; }
+    html[data-theme="dark"] .mo-card-item { border-color: #334155; }
+    html[data-theme="dark"] .mo-card-item:hover { background: #0f172a; }
+    html[data-theme="dark"] .mo-proj-name, html[data-theme="dark"] .mo-price { color: #f1f5f9; }
+    html[data-theme="dark"] .mo-ai-card { background: #1e293b; border-color: #334155; }
+    html[data-theme="dark"] .mo-ai-insight { color: #94a3b8; }
+  </style>
+  <script src="featureFlags.js?v=20260717a"></script>
+</head>
+<body>
+
+<div class="sidebar">
+  <div class="brand"><img src="images/realmate2.png" onclick="location.href='home.html'"></div>
+  <div class="nav-item" onclick="location.href='home.html'"><i class="fas fa-border-all"></i><span>Feed</span></div>
+  <div class="nav-item" onclick="location.href='dashboard.html'"><i class="fas fa-user-tie"></i><span>Profile</span></div>
+  <div class="nav-item" onclick="location.href='livemarket.html'"><i class="fas fa-globe"></i><span>Portal</span></div>
+  <div class="nav-item" onclick="location.href='analytics.html'" style="display:none"><i class="fas fa-chart-area"></i><span>Analytics</span></div>
+  <div class="nav-item" onclick="location.href='forum.html'" style="display:none"><i class="fas fa-bullhorn"></i><span>Forum</span></div>
+  <div class="nav-item" onclick="location.href='chat.html'"><i class="fas fa-comment-dots"></i> <span>Chat</span></div>
+  <div class="nav-item" onclick="location.href='notifications.html'"><i class="fas fa-bell"></i><span>Notifications</span></div>
+  <div class="nav-item" onclick="location.href='settings.html'"><i class="fas fa-cog"></i><span>Settings</span></div>
+  <div style="margin-top:auto"><div class="nav-item" onclick="logout()"><i class="fas fa-sign-out-alt"></i><span>Sign Out</span></div></div>
+</div>
+
+<div class="mo-header">
+  <button class="mo-back rm-mobile-back" onclick="goBack()"><i class="fas fa-arrow-left"></i><span class="rm-back-label"> Back</span></button>
+  <span class="mo-title"><i class="fas fa-chart-line" style="margin-right:5px;color:#32cd32;"></i>Market Overview</span>
+</div>
+
+<div class="main-content">
+  <div class="mo-page">
+    <div id="moContent" class="mo-loading"><i class="fas fa-spinner fa-spin" style="font-size:24px;"></i></div>
+  </div>
+</div>
+
+<nav class="mobile-bottom-nav">
+  <a class="mob-nav-item" href="home.html"><i class="fas fa-border-all"></i><span>Feed</span></a>
+  <a class="mob-nav-item" href="forum.html" style="display:none"><i class="fas fa-bullhorn"></i><span>Forum</span></a>
+  <a class="mob-nav-item" href="realmates.html" style="display:none"><i class="fas fa-user-group"></i><span>Realmates</span></a>
+  <a class="mob-nav-item" href="chat.html"><i class="fas fa-comment-dots"></i><span>Chat</span></a>
+  <a class="mob-nav-item mob-nav-center" href="livemarket.html"><i class="fas fa-globe"></i><span>Portal</span></a>
+  <a class="mob-nav-item" href="notifications.html"><i class="fas fa-bell"></i><span>Notifications</span></a>
+  <div class="mob-nav-item mob-nav-avatar-wrap" onclick="toggleNavMenu(event)">
+    <div class="mob-nav-avatar" id="navAvatar"><i class="fas fa-user-tie" style="font-size:13px;"></i></div>
+    <span>Me</span>
+    <div class="mob-nav-menu" id="navMenu">
+      <a href="dashboard.html"><i class="fas fa-user-tie"></i> Profile</a>
+      <a href="realmates.html"><i class="fas fa-user-group"></i> Realmates</a>
+      <a href="analytics.html" style="display:none"><i class="fas fa-chart-area"></i> Analytics</a>
+      <a href="settings.html"><i class="fas fa-cog"></i> Settings</a>
+      <a href="#" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</a>
+    </div>
+  </div>
+</nav>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="search-overlay.js?v=20260812k"></script>
+<script src="auth-guard.js?v=20260815a"></script>
+<script src="nav-menu.js?v=20260809a"></script>
+<script src="location-engine.js?v=20260809b"></script>
+<script src="match-engine.js?v=12"></script>
+<script src="developers.js?v=36"></script>
+<script src="match-alert.js?v=9"></script>
+<script src="notif-badge.js?v=12"></script>
+<script>
+const _sb = supabase.createClient('https://wmegpgrfrtprhuzmgjma.supabase.co', 'sb_publishable_Rm_fIBDUfu3DEyLj0_bWZw_qEqo8cd4');
+const KNOWN_PROJECTS = ['One Maridien','Two Maridien','Verve One','Verve Two','Park Triangle Residences','Gentry Residences','Park East Place','Two Serendra','Kroma','Lerato','The Columns Ayala Avenue','The Columns Legazpi Village','Senta','Mondia','Treveia','Venare','Lumira','Mirala','Venido','Aveia','TREC','The Residences At Greenbelt'];
+const COMPANY_NAMES = ['alveo land corp','alveo land','alveo','smdc','dmci','ayala','megaworld','filinvest','rockwell','camella','avida','amaia','federal'];
+
+function fmtP(n) { if(n>=1e6) return '₱'+(n/1e6).toFixed(1).replace(/\.0$/,'')+'M'; if(n>=1e3) return '₱'+(n/1e3).toFixed(0)+'K'; return '₱'+n.toFixed(0); }
+function extractSqm(t) { const m = t.match(/(\d+)\s*(?:sqm|sq\.?\s*m)/i); return m ? parseInt(m[1]) : null; }
+function extractPrice(t) { let m=t.toLowerCase().match(/(\d+\.?\d*)\s*m(?:illion)?/); if(m) return parseFloat(m[1])*1e6; m=t.replace(/,/g,'').match(/\b(\d{7,9})\b/); return m?parseFloat(m[1]):null; }
+function extractUnit(t) { const l=t.toLowerCase(); if(/\bstudio\b/.test(l)) return 'Studio'; if(/\b1\s*br\b|1\s*bed/i.test(t)) return '1BR'; if(/\b2\s*br\b|2\s*bed/i.test(t)) return '2BR'; if(/\b3\s*br\b|3\s*bed/i.test(t)) return '3BR'; if(/\b4\s*br\b|4\s*bed/i.test(t)) return '4BR'; return null; }
+function extractProject(t) { const u=t.toUpperCase(); let e=Infinity,f=null; for(const p of KNOWN_PROJECTS){const i=u.indexOf(p.toUpperCase()); if(i!==-1&&i<e){e=i;f=p;}} return f; }
+function clamp(v,lo,hi){return Math.max(lo,Math.min(hi,v));}
+
+// Build scored market items from listings, bucketed by the supplied key function.
+// keyFn(proj, unit) returns the bucket key (or null to skip). Bucket by project
+// for the summary sections, or by project+unit for the per-unit FMV watchlist.
+function computeItems(listings, keyFn) {
+  const now = Date.now();
+  const DAY = 86400000;
+  const buckets = {};
+
+  listings.forEach(l => {
+    const text = l.content || '';
+    const price = extractPrice(text);
+    const unit = extractUnit(text);
+    const proj = extractProject(text);
+    if (!proj) return;
+    const cat = l.category || '';
+    const isSupply = cat.startsWith('FOR');
+    const isDemand = cat.startsWith('WILLING');
+    if (!isSupply && !isDemand) return;
+
+    const pk = keyFn(proj, unit);
+    if (pk == null) return;
+    if (!buckets[pk]) buckets[pk] = { proj, prices: [], sqms: [], supply: 0, demand: 0, sold: 0, negotiation: 0, recent7d: 0, recent30d: 0, units: new Set() };
+    if (price) buckets[pk].prices.push(price);
+    const sqm = extractSqm(text);
+    if (price && sqm) buckets[pk].sqms.push({ price, sqm });
+    if (isSupply) buckets[pk].supply++;
+    if (isDemand) buckets[pk].demand++;
+    if (l.status === 'sold') buckets[pk].sold++;
+    if (l.status === 'negotiation') buckets[pk].negotiation++;
+    if (unit) buckets[pk].units.add(unit);
+    const age = now - new Date(l.created_at).getTime();
+    if (age < 7 * DAY) buckets[pk].recent7d++;
+    if (age < 30 * DAY) buckets[pk].recent30d++;
+  });
+
+  return Object.values(buckets).map(b => {
+    const total = b.supply + b.demand;
+    const avg = b.prices.length ? b.prices.reduce((s,p)=>s+p,0)/b.prices.length : 0;
+    const min = b.prices.length ? Math.min(...b.prices) : 0;
+    const max = b.prices.length ? Math.max(...b.prices) : 0;
+    const spread = avg > 0 ? ((max - min) / avg) * 100 : 0;
+
+    const demandScore = clamp(Math.round((b.demand / Math.max(total, 1)) * 100 + b.recent7d * 5), 0, 99);
+    const supplyScore = clamp(Math.round((b.supply / Math.max(total, 1)) * 100 + b.recent7d * 3), 0, 99);
+    const liquidityScore = clamp(Math.round(((b.sold + b.negotiation) / Math.max(total, 1)) * 100 + b.sold * 15 + b.negotiation * 8), 0, 99);
+    const momentumScore = clamp(Math.round(b.recent7d * 12 + b.recent30d * 3 + (b.demand > b.supply ? 15 : 0)), 0, 99);
+    const volatilityScore = clamp(Math.round(spread * 2), 0, 99);
+    const compositeScore = Math.round(demandScore * 0.3 + momentumScore * 0.25 + liquidityScore * 0.25 + (100 - volatilityScore) * 0.2);
+
+    let sentiment = 'Neutral', sentClass = 'neutral';
+    if (compositeScore >= 70) { sentiment = 'Strong Buy'; sentClass = 'buy'; }
+    else if (compositeScore >= 55) { sentiment = 'Buy'; sentClass = 'buy'; }
+    else if (compositeScore <= 30) { sentiment = 'Strong Sell'; sentClass = 'sell'; }
+    else if (compositeScore <= 45) { sentiment = 'Sell'; sentClass = 'sell'; }
+
+    let confidence = 'Low';
+    if (total >= 8) confidence = 'Very High';
+    else if (total >= 5) confidence = 'High';
+    else if (total >= 3) confidence = 'Moderate';
+
+    const fmvUnit = avg;
+    const fmvSqm = b.sqms.length ? b.sqms.reduce((s,d) => s + d.price / d.sqm, 0) / b.sqms.length : null;
+
+    return { ...b, avg, min, max, total, fmvUnit, fmvSqm, demandScore, supplyScore, liquidityScore, momentumScore, volatilityScore, compositeScore, sentiment, sentClass, confidence, unitCount: b.units.size };
+  }).sort((a,b) => b.compositeScore - a.compositeScore);
+}
+
+async function loadOverview() {
+  const { data: listings } = await _sb.from('listings').select('*').eq('archived', false);
+  if (!listings) { document.getElementById('moContent').innerHTML = '<p>Failed to load.</p>'; return; }
+
+  // Project-level items power the summary sections (insights, gainers, top FMV).
+  const items = computeItems(listings, proj => proj.toLowerCase());
+  // Project + unit items give the watchlist a distinct FMV row per unit type.
+  const watchItems = computeItems(listings, (proj, unit) =>
+    proj.toLowerCase() + '||' + (unit ? unit.toLowerCase() : '_various'));
+
+  const up = items.filter(i => i.sentClass === 'buy').length;
+  const down = items.filter(i => i.sentClass === 'sell').length;
+  const flat = items.filter(i => i.sentClass === 'neutral').length;
+
+  const topGainers = [...items].sort((a,b) => b.momentumScore - a.momentumScore).slice(0,3);
+  const highDemand = [...items].sort((a,b) => b.demandScore - a.demandScore).slice(0,3);
+  const mostLiquid = [...items].sort((a,b) => b.liquidityScore - a.liquidityScore).slice(0,3);
+  const fastGrow = [...items].sort((a,b) => b.momentumScore - a.momentumScore).slice(0,3);
+
+  // AI Insights
+  const insights = [];
+  if (up > down) insights.push(`${up} of ${items.length} tracked projects show bullish sentiment — market leans toward growth.`);
+  else if (down > up) insights.push(`${down} of ${items.length} tracked projects show bearish sentiment — caution advised.`);
+  else insights.push('Market sentiment is balanced across tracked projects.');
+  if (highDemand[0]) insights.push(`${highDemand[0].proj} leads demand with a score of ${highDemand[0].demandScore}/100.`);
+  if (mostLiquid[0] && mostLiquid[0].liquidityScore > 30) insights.push(`${mostLiquid[0].proj} shows strongest liquidity — active negotiation and transaction activity.`);
+  if (items.some(i => i.volatilityScore > 60)) insights.push('Some projects exhibit elevated volatility — pricing may fluctuate significantly.');
+  const topFmv = [...items].filter(i => i.fmvUnit > 0).sort((a,b) => b.fmvUnit - a.fmvUnit);
+  if (topFmv[0]) insights.push(`${topFmv[0].proj} commands the highest FMV at ${fmtP(topFmv[0].fmvUnit)} per unit.`);
+  if (topFmv[0] && topFmv[0].demandScore > 60) insights.push(`Demand growth is supporting upward FMV pressure on ${topFmv[0].proj}.`);
+
+  // Rank highest FMV per project + unit so each unit type ranks on its own.
+  const fmvRanked = [...watchItems].filter(i => i.fmvUnit > 0).sort((a,b) => b.fmvUnit - a.fmvUnit).slice(0, 5);
+
+  function heatColor(score) {
+    if (score >= 70) return '#15803d';
+    if (score >= 55) return '#22c55e';
+    if (score >= 45) return '#6b7280';
+    if (score >= 30) return '#f87171';
+    return '#dc2626';
+  }
+
+  function leaderHtml(arr, valFn) {
+    return arr.map(i => `<div class="mo-leader-item"><span class="mo-leader-name">${i.proj}</span><span class="mo-leader-val" style="color:${heatColor(valFn(i))}">${valFn(i)}</span></div>`).join('');
+  }
+
+  const container = document.getElementById('moContent');
+  container.innerHTML = `
+    <div class="mo-breadth">
+      <div class="mo-breadth-item mo-breadth-up"><div class="mo-breadth-num">${up}</div><div class="mo-breadth-label">Bullish</div></div>
+      <div class="mo-breadth-item mo-breadth-flat"><div class="mo-breadth-num">${flat}</div><div class="mo-breadth-label">Neutral</div></div>
+      <div class="mo-breadth-item mo-breadth-down"><div class="mo-breadth-num">${down}</div><div class="mo-breadth-label">Bearish</div></div>
+    </div>
+
+    <div class="mo-leaders">
+      <div class="mo-leader-card"><div class="mo-leader-title"><i class="fas fa-fire" style="color:#f59e0b;"></i> Highest Demand</div>${leaderHtml(highDemand, i=>i.demandScore)}</div>
+      <div class="mo-leader-card"><div class="mo-leader-title"><i class="fas fa-rocket" style="color:#32cd32;"></i> Fastest Growing</div>${leaderHtml(fastGrow, i=>i.momentumScore)}</div>
+      <div class="mo-leader-card"><div class="mo-leader-title"><i class="fas fa-droplet" style="color:#3b82f6;"></i> Most Liquid</div>${leaderHtml(mostLiquid, i=>i.liquidityScore)}</div>
+      <div class="mo-leader-card"><div class="mo-leader-title"><i class="fas fa-arrow-trend-up" style="color:#22c55e;"></i> Top Composite</div>${leaderHtml(items.slice(0,3), i=>i.compositeScore)}</div>
+    </div>
+
+    ${fmvRanked.length ? `
+    <div class="mo-section-title"><i class="fas fa-trophy" style="color:#f59e0b;"></i> Highest FMV Projects</div>
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;margin-bottom:16px;">
+      ${fmvRanked.map((i, idx) => `
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid #f3f4f6;cursor:pointer;" onclick="location.href='market-summary.html?key=${encodeURIComponent(i.proj+'||'+(Array.from(i.units)[0]||'')+'||ownership')}'">
+          <span style="width:22px;height:22px;border-radius:50%;background:#0f172a;color:#fff;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${idx+1}</span>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:13px;font-weight:700;color:#111827;">${i.proj}</div>
+            <div style="font-size:10px;color:#9ca3af;">${Array.from(i.units).join(', ') || 'Various'}</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:15px;font-weight:800;color:#111827;">${fmtP(i.fmvUnit)}</div>
+            ${i.fmvSqm ? `<div style="font-size:10px;color:#9ca3af;">${fmtP(i.fmvSqm)}/sqm</div>` : ''}
+          </div>
+        </div>
+      `).join('')}
+    </div>` : ''}
+
+    <div class="mo-section-title"><i class="fas fa-th" style="color:#32cd32;"></i> Market Heatmap</div>
+    <div class="mo-heatmap">
+      ${items.map(i => {
+        const key = encodeURIComponent(`${i.proj}||${Array.from(i.units)[0]||''}||ownership`);
+        return `<div class="mo-heat-cell" style="background:${heatColor(i.compositeScore)};" onclick="location.href='market-summary.html?key=${key}'"><div class="hc-name">${i.proj}</div><div class="hc-score">${i.compositeScore}</div></div>`;
+      }).join('')}
+    </div>
+
+    <div class="mo-section-title"><i class="fas fa-circle-nodes mo-ai-icon"></i> AI Market Intelligence</div>
+    <div class="mo-ai-card">
+      ${insights.map(i => `<div class="mo-ai-insight"><i class="fas fa-circle-check"></i><span>${i}</span></div>`).join('')}
+    </div>
+
+    <div class="mo-section-title"><i class="fas fa-list" style="color:#32cd32;"></i> Watchlist</div>
+    <div class="mo-card-list">
+      ${watchItems.map(i => {
+        const key = encodeURIComponent(`${i.proj}||${Array.from(i.units)[0]||''}||ownership`);
+        return `<div class="mo-card-item" onclick="location.href='market-summary.html?key=${key}'">
+          <div class="mo-card-left">
+            <div class="mo-proj-name">${i.proj}</div>
+            <div class="mo-proj-sub">${Array.from(i.units).join(', ') || 'Various'} · ${i.confidence} confidence</div>
+            <div class="mo-scores">
+              <span class="mo-score-pill" style="background:rgba(50,205,50,0.1);color:#16a34a;">D ${i.demandScore}</span>
+              <span class="mo-score-pill" style="background:rgba(59,130,246,0.1);color:#2563eb;">S ${i.supplyScore}</span>
+              <span class="mo-score-pill" style="background:rgba(139,92,246,0.1);color:#7c3aed;">L ${i.liquidityScore}</span>
+              <span class="mo-score-pill" style="background:rgba(249,115,22,0.1);color:#ea580c;">M ${i.momentumScore}</span>
+              <span class="mo-score-pill" style="background:rgba(107,114,128,0.1);color:#6b7280;">V ${i.volatilityScore}</span>
+            </div>
+          </div>
+          <div class="mo-card-right">
+            <div class="mo-price">${i.fmvUnit ? fmtP(i.fmvUnit) : '—'}</div>
+            ${i.fmvSqm ? `<div style="font-size:10px;color:#9ca3af;margin-top:1px;">${fmtP(i.fmvSqm)}/sqm</div>` : ''}
+            <span class="mo-sent mo-sent-${i.sentClass}" style="margin-top:4px;">${i.sentiment}</span>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+
+    <div style="margin-top:20px;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;background:#fff;">
+      <div onclick="this.parentElement.querySelector('.mo-legend-body').classList.toggle('mo-collapsed');this.querySelector('.mo-legend-arrow').classList.toggle('mo-collapsed');" style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;cursor:pointer;">
+        <span style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.08em;color:#9ca3af;display:flex;align-items:center;gap:6px;"><i class="fas fa-info-circle" style="color:#32cd32;"></i> Score System Guide</span>
+        <i class="fas fa-chevron-up mo-legend-arrow mo-collapsed" style="font-size:11px;color:#9ca3af;transition:transform 0.3s;"></i>
+      </div>
+      <div class="mo-legend-body mo-collapsed" style="border-top:1px solid #f3f4f6;">
+        <div style="padding:14px 16px;display:flex;flex-direction:column;gap:12px;font-size:12px;color:#374151;line-height:1.5;">
+          <div><span style="display:inline-block;padding:2px 6px;border-radius:4px;background:rgba(50,205,50,0.1);color:#16a34a;font-weight:700;font-size:10px;margin-right:6px;">D</span><strong>Demand Score (0–99)</strong><br><span style="color:#6b7280;">Measures buyer/renter interest — derived from Willing to Buy, Rent, Lease activity and recent engagement.</span></div>
+          <div><span style="display:inline-block;padding:2px 6px;border-radius:4px;background:rgba(59,130,246,0.1);color:#2563eb;font-weight:700;font-size:10px;margin-right:6px;">S</span><strong>Supply Score (0–99)</strong><br><span style="color:#6b7280;">Measures available inventory pressure — derived from For Sale, Rent, Lease listings entering the market.</span></div>
+          <div><span style="display:inline-block;padding:2px 6px;border-radius:4px;background:rgba(139,92,246,0.1);color:#7c3aed;font-weight:700;font-size:10px;margin-right:6px;">L</span><strong>Liquidity Score (0–99)</strong><br><span style="color:#6b7280;">Indicates transaction activity — derived from sold units, active negotiations, and listing turnover.</span></div>
+          <div><span style="display:inline-block;padding:2px 6px;border-radius:4px;background:rgba(249,115,22,0.1);color:#ea580c;font-weight:700;font-size:10px;margin-right:6px;">M</span><strong>Momentum Score (0–99)</strong><br><span style="color:#6b7280;">Identifies market acceleration — derived from recent listing velocity, demand growth, and negotiation activity.</span></div>
+          <div><span style="display:inline-block;padding:2px 6px;border-radius:4px;background:rgba(107,114,128,0.1);color:#6b7280;font-weight:700;font-size:10px;margin-right:6px;">V</span><strong>Volatility Score (0–99)</strong><br><span style="color:#6b7280;">Indicates pricing stability — low = stable market, high = rapid pricing movement and higher risk.</span></div>
+          <div style="border-top:1px solid #f3f4f6;padding-top:10px;margin-top:4px;">
+            <strong>Sentiment</strong><br><span style="color:#6b7280;">Composite of all scores. Strong Buy (70+), Buy (55+), Neutral (46–54), Sell (≤45), Strong Sell (≤30).</span>
+          </div>
+          <div><strong>AI Confidence</strong><br><span style="color:#6b7280;">Based on data volume. Very High (8+), High (5+), Moderate (3+), Low (<3 data points).</span></div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+document.addEventListener('DOMContentLoaded', loadOverview);
+</script>
+</body>
+</html>

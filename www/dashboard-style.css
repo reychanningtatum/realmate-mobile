@@ -1,0 +1,1802 @@
+/* =========================================
+   🏗️ CORE STRUCTURE & VARIABLES
+   ========================================= */
+   :root {
+    --primary: #32cd32;
+    --primary-soft: rgba(50, 205, 50, 0.1);
+    --bg: #f8fafc;
+    --sidebar-bg: #ffffff;
+    --text-main: #0f172a;
+    --text-sub: #64748b;
+    --white: #ffffff;
+    --border: #e2e8f0;
+    --card-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.04), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
+    --error: #ef4444;
+    --ai-blue: #1877f2;
+
+    /* 🚀 NEW NEON ACCENTS */
+    --neon-gradient: linear-gradient(135deg, #32cd32 0%, #10b981 100%);
+
+    /* Profile metadata icon accents (Location / Years / Languages) — subtle,
+       muted tones for visual scanning, not the text itself. Shared tokens
+       so Desktop and Mobile (and any future reuse of the profile header)
+       stay in sync from one definition; dark-mode variants are redefined
+       alongside the rest of the theme's colors below. */
+    --icon-location: #0891b2;   /* soft teal/blue — places */
+    --icon-years: #16a34a;      /* Realmate-green accent, slightly deepened for the briefcase */
+    --icon-languages: #7c3aed;  /* muted indigo/violet — communication */
+
+    --card-curve: 24px;
+}
+
+* { box-sizing: border-box; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); }
+
+body {
+    margin: 0;
+    font-family: 'Inter', sans-serif;
+    background: var(--bg);
+    color: var(--text-main);
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+}
+
+h1, h2, h3 { font-family: 'Playfair Display', serif; margin: 0; }
+
+/* 🟢 MODERNIZED SIDEBAR (Matching Forum) */
+.sidebar {
+    width: 240px !important;
+    min-width: 240px !important;
+    background: #0f172a;
+    border-right: none;
+    display: flex;
+    flex-direction: column;
+    padding: 32px 14px 28px;
+    z-index: 100;
+}
+
+.brand {
+    margin-bottom: 36px;
+    padding-left: 10px;
+    height: 32px;
+    overflow: hidden;
+}
+
+.brand img {
+    height: 32px !important;
+    width: auto !important;
+    cursor: pointer;
+}
+
+.nav-item {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 10px 12px;
+    color: #64748b;
+    text-decoration: none;
+    font-size: 13.5px;
+    font-weight: 500;
+    border-radius: 10px;
+    margin-bottom: 2px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    border-left: 2px solid transparent;
+}
+
+.nav-item i { font-size: 15px; width: 18px; text-align: center; flex-shrink: 0; }
+
+.nav-item:hover {
+    background: rgba(255,255,255,0.06);
+    color: #cbd5e1;
+}
+
+.nav-item.active {
+    background: rgba(50,205,50,0.10);
+    color: #32cd32;
+    border-left: 2px solid #32cd32;
+    font-weight: 600;
+}
+
+.main-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 32px 40px;
+}
+
+.mobile-profile-topbar { display: none; }
+
+/* =========================================
+   🔥 DASHBOARD CORE COMPONENTS
+   ========================================= */
+.profile-layout {
+    display: grid;
+    grid-template-columns: 240px minmax(0, 1fr) 280px;
+    gap: 24px;
+    max-width: 1160px;
+    margin: 0 auto;
+    align-items: start;
+}
+
+.bento-card {
+    background: var(--white);
+    border-radius: var(--card-curve);
+    padding: 22px 24px;
+    border: 1px solid rgba(255,255,255,0.7);
+    box-shadow: var(--card-shadow);
+    position: relative;
+    margin-bottom: 14px;
+}
+
+/* ── Profile Card ── */
+.profile-card {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    margin-bottom: 4px;
+    padding: 0;
+    border: none !important;
+    position: relative;
+    overflow: visible;
+    border-radius: 20px;
+    background: var(--white);
+    box-shadow: var(--card-shadow);
+}
+.profile-cover {
+    width: 100%;
+    height: 200px;
+    position: relative;
+    background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #32cd32 100%);
+    overflow: hidden;
+    border-radius: 20px 20px 0 0;
+}
+.profile-cover img {
+    width: 100%; height: 100%; object-fit: cover; object-position: center;
+}
+.profile-cover-placeholder {
+    width: 100%; height: 100%;
+    display: flex; align-items: center; justify-content: center;
+    color: rgba(255,255,255,0.08); font-size: 56px;
+}
+/* Compact circular camera icon (Facebook/LinkedIn-style) replacing the old
+   pill-shaped "Edit Cover" button — same action (openCoverActionSheet()),
+   just a smaller, less cluttered entry point. This base rule is the
+   desktop appearance (44px, dark icon); a mobile-only override further
+   down (inside the @media max-width:768px block) shrinks it and switches
+   the icon to Realmate green, per explicit request that this refinement
+   apply to mobile only. It's already anchored bottom-right via position:
+   absolute, so it repositions naturally with the cover photo at any
+   screen size without needing further responsive tweaks. */
+.profile-cover-edit {
+    position: absolute; bottom: 12px; right: 12px;
+    display: flex; align-items: center; justify-content: center;
+    width: 44px; height: 44px; border-radius: 50%;
+    background: #fff; color: var(--text-main, #0f172a);
+    font-size: 16px; cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s; border: none; font-family: inherit;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.25), 0 0 0 1px rgba(0,0,0,0.04);
+}
+.profile-cover-edit:hover { transform: scale(1.06); box-shadow: 0 4px 12px rgba(0,0,0,0.3), 0 0 0 1px rgba(0,0,0,0.04); }
+.profile-cover-edit:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.profile-avatar-wrap {
+    margin-top: -52px;
+    margin-left: 24px;
+    align-self: flex-start;
+    z-index: 5;
+    position: relative;
+}
+.profile-online-dot {
+    position: absolute; bottom: 6px; right: 6px; z-index: 6;
+    width: 16px; height: 16px; border-radius: 50%;
+    background: #22c55e; border: 3px solid var(--white);
+}
+
+/* Wraps jobDisplay + identity-line so mobile can lay them out as one row
+   ("Job Title | Division • Group") without affecting desktop — on desktop
+   this wrapper is display:contents (a no-op: its children behave exactly as
+   direct .profile-info-col children, unchanged from before this wrapper
+   existed). Only the mobile media query gives it real layout behavior. */
+.profile-title-line { display: contents; }
+
+/* ── Division / Group identity line — green pill badges ── */
+.profile-identity-line {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+    margin-top: 8px;
+}
+.profile-identity-dot { display: none; }
+.profile-pill {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 7px 13px; border-radius: 999px;
+    background: #166534; color: #fff;
+    font-size: 13px; font-weight: 700; line-height: 1;
+    white-space: nowrap;
+}
+.profile-pill i { font-size: 11px; opacity: 0.9; }
+
+/* ── @handle line (below the name) ── */
+.profile-handle-line { margin-top: 1px; }
+#handleDisplay { font-size: 15px; font-weight: 500; color: var(--text-sub); line-height: 1.3; }
+
+.mates-view-all {
+    font-size: 12px; font-weight: 700; color: var(--primary); text-decoration: none;
+}
+.mates-view-all:hover { text-decoration: underline; }
+.profile-card-body {
+    display: flex; flex-direction: column; align-items: center;
+    text-align: center;
+    padding: 10px 24px 24px;
+    width: 100%;
+}
+.profile-card-body h2 { margin-top: 2px; }
+.profile-stats-row {
+    display: flex; gap: 0; margin-top: 12px; width: 100%;
+    background: var(--white); border-radius: var(--card-curve); overflow: hidden;
+    box-shadow: var(--card-shadow);
+    padding: 18px 8px;
+}
+.profile-stat {
+    flex: 1; text-align: center; padding: 0 12px; position: relative; cursor: pointer;
+}
+.profile-stat + .profile-stat::before {
+    content: ''; position: absolute; left: 0; top: 50%; transform: translateY(-50%);
+    width: 1px; height: 28px; background: var(--border);
+}
+.profile-stat-num { font-size: 16px; font-weight: 600; color: var(--text-main); line-height: 1.15; }
+.profile-stat-accent { color: var(--primary); }
+.profile-stat-label { margin-top: 3px; font-size: 11px; font-weight: 500; color: var(--text-sub); }
+
+/* Edit button — top-right corner of the card */
+.profile-edit-btn {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-main);
+    cursor: pointer;
+    transition: background 0.15s, box-shadow 0.15s;
+    font-family: inherit;
+    letter-spacing: 0.2px;
+}
+.profile-edit-btn:hover {
+    background: #e2e8f0;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+.profile-edit-btn i {
+    font-size: 11px;
+    color: var(--primary);
+}
+
+/* Info block next to photo */
+.profile-info-block {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.profile-info-block h2 {
+    font-size: 22px;
+    font-weight: 700;
+    margin: 0 0 2px;
+    line-height: 1.2;
+}
+
+
+.profile-img-container {
+    position: relative;
+    width: 110px;
+    height: 110px;
+    border-radius: 50%;
+    overflow: hidden;
+    flex-shrink: 0;
+    z-index: 2;
+    border: none;
+    box-shadow: none;
+    background: none;
+    padding: 0;
+    margin: 0;
+}
+
+/* Camera overlay — visible on hover */
+.profile-camera-overlay {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(2px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    z-index: 3;
+}
+
+.profile-img-container:hover .profile-camera-overlay {
+    opacity: 1;
+}
+
+.profile-card img {
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+
+.profile-img-container:hover .profile-card img,
+.profile-img-container:hover #profileImage {
+    transform: scale(1.03);
+}
+
+
+.profile-img-container img {
+    display: block;
+    width: 110px;
+    height: 110px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid #ffffff !important;
+    padding: 0;
+    margin: 0;
+    cursor: pointer;
+    position: relative;
+    display: block;
+}
+
+#jobDisplay { position: relative; z-index: 2; color: var(--text-sub); font-weight: 600; }
+
+/* CORE STRUCTURAL RULES */
+.profile-left-col, .profile-main-col, .profile-side-col {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    min-width: 0;
+}
+
+/* ── Shared section-card heading pattern (About / Listings / Realmates) ── */
+.section-card-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 16px;
+}
+.section-card-title {
+    font-family: 'Inter'; font-size: 15px; font-weight: 700;
+    color: var(--text-main); display: flex; align-items: center; gap: 8px;
+    letter-spacing: -0.2px; margin: 0;
+}
+.section-card-title i { color: var(--primary); font-size: 14px; }
+
+/* ── About card ── */
+@keyframes aboutFadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.about-card {
+    padding: 26px 28px;
+    animation: aboutFadeUp 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Profile tabs. On mobile/tablet (max-width:900px) these switch Posts /
+   Listings / About in the single collapsed column (styled in that query).
+   On desktop they switch just Posts / Listings inside the main column — About
+   keeps its permanent card in the left column and Realmates its side column,
+   so the About tab is hidden here and the show/hide is scoped to .profile-main-col. */
+.profile-tabs { display: none; }
+@media (min-width: 901px) {
+    .profile-tabs {
+        display: flex; background: var(--white); border-radius: 14px;
+        box-shadow: var(--card-shadow); overflow: hidden; margin: 0 0 20px;
+    }
+    .profile-tabs .profile-tab {
+        flex: 1; border: none; background: transparent; cursor: pointer;
+        font-family: inherit; font-size: 13.5px; font-weight: 700; color: var(--text-sub);
+        padding: 14px 6px; white-space: nowrap; line-height: 1;
+        border-bottom: 2.5px solid transparent;
+        transition: color 0.15s, border-color 0.15s;
+    }
+    .profile-tabs .profile-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+    .profile-tabs .profile-tab:not(.active):hover { color: var(--text-main); }
+    /* About has its own permanent card in the left column — no tab for it here. */
+    .profile-tabs .profile-tab[data-tab="about"] { display: none; }
+    /* Only the active panel shows, scoped to the main column so the left-column
+       About card and side-column Realmates stay visible alongside it. */
+    .profile-main-col .profile-tab-panel { display: none; }
+    .profile-main-col .profile-tab-panel.tab-active { display: block; }
+}
+html[data-theme="dark"] .profile-tabs { background: #1e293b; }
+.about-card .section-card-title {
+    font-size: 13px; letter-spacing: 0.6px;
+    color: var(--text-main); font-weight: 700;
+}
+@media (max-width: 768px) {
+    .about-card { padding: 20px 18px; }
+}
+.about-bio-text {
+    font-size: 14.5px; color: var(--text-main); line-height: 1.75; margin: 4px 0 0;
+    padding-left: 16px; border-left: 3px solid var(--primary);
+    display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+.about-bio-text.expanded {
+    display: block; -webkit-line-clamp: unset; overflow: visible;
+}
+.about-readmore-btn {
+    margin-top: 10px; background: none; border: none; padding: 0;
+    color: var(--primary); font-size: 13px; font-weight: 700; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 5px; font-family: inherit;
+}
+.about-readmore-btn i { font-size: 10px; transition: transform 0.2s; }
+.about-readmore-btn.is-open i { transform: rotate(180deg); }
+.about-empty-state { font-size: 14px; color: var(--text-sub); font-style: italic; margin: 4px 0 0; }
+
+/* ── Recent Listings card ── */
+/* The Listings tab carries no panel of its own: the reused Portal cards sit
+   directly on the page background (like the Portal), separated by gaps. The
+   "Listings" header already labels the section, so a wrapping card/border/
+   shadow would just be a redundant box around them. Overrides the shared
+   .bento-card chrome in both themes (specificity > .bento-card rules). */
+.profile-layout .listings-card {
+    padding: 0;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+}
+html[data-theme="dark"] .profile-layout .listings-card {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+}
+.profile-listings-body { display: flex; flex-direction: column; gap: 12px; }
+.profile-listing-card {
+    display: flex; gap: 14px; padding: 14px; border-radius: 16px;
+    border: 1px solid var(--border); cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+.profile-listing-card:hover { transform: translateY(-3px); box-shadow: var(--card-shadow); }
+.profile-listing-card:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.profile-listing-thumb {
+    width: 64px; height: 64px; border-radius: 12px; object-fit: cover; flex-shrink: 0;
+    background: #f6f8fa;
+}
+.profile-listing-thumb-empty {
+    display: flex; align-items: center; justify-content: center;
+    color: #cbd5e1; font-size: 20px;
+}
+.profile-listing-body { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+/* 2-line preview via line-clamp + a matching 39px max-height. On hover/focus
+   the max-height rule below switches the box to plain block flow (dropping
+   the line-clamp) with no fixed ceiling of its own — dashboard-script.js's
+   _initListingHoverExpand() then sets an exact inline max-height (measured
+   via scrollHeight) so the card grows to fit the full text precisely, with
+   no internal scrollbar and no overshoot past the real content height. */
+.profile-listing-text {
+    font-size: 13px; color: var(--text-sub); margin: 0; line-height: 1.5;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    max-height: 39px;
+    transition: max-height 0.25s ease-out;
+}
+.profile-listing-card:focus-visible .profile-listing-text { display: block; white-space: pre-line; }
+@media (hover: hover) and (pointer: fine) {
+    .profile-listing-card:hover .profile-listing-text { display: block; white-space: pre-line; }
+}
+.profile-listing-date { font-size: 11px; color: #94a3b8; font-weight: 600; }
+.listings-see-all {
+    display: block; text-align: center; margin-top: 2px; padding: 12px;
+    border-radius: 14px; background: var(--primary-soft);
+    font-size: 13px; font-weight: 700; color: var(--primary); text-decoration: none;
+    transition: background 0.15s;
+}
+.listings-see-all:hover { background: rgba(50,205,50,0.18); }
+html[data-theme="dark"] .listings-see-all { background: rgba(50,205,50,0.12); }
+.listings-loading, .profile-empty-state {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 10px; padding: 32px 0; color: var(--text-sub); font-size: 13px; text-align: center;
+}
+.profile-empty-state i, .listings-loading i { font-size: 26px; color: #cbd5e1; }
+
+/* Category tag colors (small local copy of the livemarket.css convention — not shared, this page doesn't load that stylesheet) */
+.cat-tag {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px;
+    padding: 3px 9px; border-radius: 20px; width: fit-content; white-space: nowrap;
+    background: #f1f5f9; color: #64748b;
+}
+.cat-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.cat-sale, .cat-lease { background: #dcfce7; color: #15803d; }
+.cat-rent { background: #dbeafe; color: #1d4ed8; }
+.cat-wbuy, .cat-wrent, .cat-wlease { background: #fef9c3; color: #92400e; }
+
+/* Recent Listings cards sit in the fixed 240px .profile-left-col on desktop
+   (.profile-layout: 240px minmax(0,1fr) 280px). In the shared row layout
+   above (thumb | badge+title+date), that only leaves ~80px for the body
+   column next to the 64px thumbnail — nowhere near enough for a nowrap
+   category badge like "WILLING TO LEASE", which overflowed past the card's
+   edge and overlapped whatever sat beside it. Root cause is the column being
+   too narrow for a horizontal thumb+body split at all, not a spacing/z-index
+   issue, so the fix restructures to a small grid: the badge gets its own
+   full-width row (the card's entire ~156px inner width) above a second row
+   where the thumbnail sits beside the title/date. Mobile is untouched — it
+   collapses to a single full-width column below 901px and never hits this,
+   so this block is scoped to desktop only. .profile-listing-body is set to
+   `display: contents` purely so its children (already unchanged in the DOM)
+   become direct grid items here — no HTML/JS changes needed to place them. */
+@media (min-width: 901px) {
+    .profile-listing-card {
+        display: grid;
+        grid-template-columns: 64px 1fr;
+        grid-template-rows: auto auto auto;
+        grid-template-areas: "badge badge" "thumb text" "thumb date";
+        gap: 8px 14px;
+    }
+    .profile-listing-body { display: contents; }
+    .cat-tag { grid-area: badge; }
+    .profile-listing-thumb, .profile-listing-thumb-empty { grid-area: thumb; align-self: start; }
+    .profile-listing-text { grid-area: text; }
+    .profile-listing-date { grid-area: date; align-self: start; }
+}
+
+/* ── Realmates sidebar widget ── */
+.mates-widget { padding: 24px 24px 22px; }
+.mates-subsection { margin-bottom: 16px; }
+.mates-subsection-label {
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+    margin-bottom: 8px; display: flex; align-items: center; gap: 6px;
+}
+.mates-label-pending { color: #f59e0b; }
+.mates-label-sent { color: #94a3b8; }
+.mates-avatar-grid { display: flex; flex-wrap: wrap; gap: 14px; }
+.mate-avatar-item {
+    cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 6px;
+    width: 56px;
+}
+.mate-avatar-img {
+    width: 48px; height: 48px; border-radius: 50%; object-fit: cover;
+    border: 2px solid var(--border); transition: transform 0.15s;
+}
+.mate-avatar-item:hover .mate-avatar-img { transform: scale(1.1); }
+.mate-avatar-name {
+    font-size: 10.5px; color: var(--text-sub); font-weight: 600; text-align: center;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%;
+}
+
+/* ── Edit Profile action button (self-view only) ── */
+.btn-edit-profile {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 10px 20px; border-radius: 50px;
+    border: none; background: var(--primary); color: #fff;
+    font-size: 12.5px; font-weight: 700; cursor: pointer;
+    transition: all 0.15s; font-family: inherit;
+}
+.btn-edit-profile:hover { background: #28b828; box-shadow: 0 4px 14px rgba(50,205,50,0.3); transform: translateY(-1px); }
+.btn-edit-profile:active { background: #1f9720; transform: translateY(0); box-shadow: none; }
+.btn-edit-profile:focus-visible { outline: 2px solid #1f9720; outline-offset: 2px; }
+
+/* ── Message button (viewing another user) ── */
+.btn-message {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 10px 20px; border-radius: 50px;
+    border: none; background: var(--primary); color: #fff;
+    font-size: 12.5px; font-weight: 700; cursor: pointer;
+    transition: all 0.15s; font-family: inherit;
+}
+.btn-message:hover { background: #28b828; box-shadow: 0 4px 14px rgba(50,205,50,0.25); transform: translateY(-1px); }
+
+/* ── More-options ("···") button + dropdown ── */
+.profile-more-menu-wrap { position: relative; }
+.btn-more-options {
+    width: 38px; height: 38px; border-radius: 50%;
+    border: 1.5px solid var(--border); background: var(--white); color: var(--text-sub);
+    display: inline-flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 15px; transition: all 0.15s; padding: 0;
+}
+.btn-more-options:hover { background: #f1f5f9; color: var(--text-main); }
+.profile-more-menu {
+    display: none; position: absolute; top: calc(100% + 8px); right: 0;
+    background: var(--white); border-radius: 14px; box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    border: 1px solid var(--border); min-width: 180px; overflow: hidden; z-index: 50;
+}
+.profile-more-menu.open { display: block; }
+.profile-more-menu a {
+    display: flex; align-items: center; gap: 10px; padding: 12px 16px;
+    font-size: 13px; font-weight: 600; color: var(--text-main); text-decoration: none;
+}
+.profile-more-menu a:hover { background: #f8fafc; }
+.profile-more-menu a i { width: 16px; text-align: center; color: var(--text-sub); }
+/* Edit Profile menu entry — mobile only (desktop keeps the standalone pencil button) */
+.profile-more-menu .mobile-only-menu-item { display: none; }
+
+html[data-theme="dark"] .btn-message:hover { background: #28b828; }
+html[data-theme="dark"] .btn-more-options { background: #1e293b; border-color: #334155; color: #94a3b8; }
+html[data-theme="dark"] .btn-more-options:hover { background: #334155; color: #f1f5f9; }
+html[data-theme="dark"] .profile-more-menu { background: #1e293b; border-color: #334155; }
+html[data-theme="dark"] .profile-more-menu a { color: #f1f5f9; }
+html[data-theme="dark"] .profile-more-menu a:hover { background: #334155; }
+
+.stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 9px 0;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: 13px;
+}
+
+.creator-box textarea {
+    width: 100%;
+    min-height: 150px;
+    border: none;
+    resize: none;
+    font-size: 16px;
+    font-family: inherit;
+    margin-top: 15px;
+    background: transparent;
+    color: var(--text-main);
+}
+
+.creator-box textarea:focus { outline: none; }
+
+.creator-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+}
+
+.badge {
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--primary);
+    background: var(--primary-soft);
+    padding: 4px 10px;
+    border-radius: 6px;
+    display: inline-block;
+    margin-bottom: 12px;
+}
+
+/* ── Profile header: two-zone row (info left, actions right) ── */
+.profile-header-row {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 20px;
+    width: 100%;
+    text-align: left;
+}
+.profile-info-col {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    min-width: 0;
+}
+.profile-name-line {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.profile-verified-badge {
+    font-size: 17px;
+    color: var(--primary);
+    line-height: 1;
+}
+.profile-nickname {
+    font-size: 19px;
+    font-weight: 400;
+    color: var(--text-sub);
+    margin-left: 6px;
+}
+.profile-action-col {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+    padding-top: 4px;
+}
+.profile-subline-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-top: 10px;
+    flex-wrap: wrap;
+}
+.profile-subline-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--text-sub);
+}
+.profile-subline-item i { font-size: 12px; color: var(--text-sub); }
+/* Icon-only accent colors — the text (#locationDisplay etc.) stays
+   var(--text-sub) as set on .profile-subline-item above; only the icon
+   glyph picks up a distinct color, using the shared tokens defined in
+   :root so Desktop, Mobile, and any future profile-header reuse all draw
+   from the same values. #id selectors are used (rather than a class) so
+   this reliably wins over the dark-mode ".profile-subline-item i { color:
+   #94a3b8 }" rule below without needing !important. */
+#locationLine i  { color: var(--icon-location); }
+#yearsLine i     { color: var(--icon-years); }
+#languagesLine i { color: var(--icon-languages); }
+#relationshipLine i { color: #f43f5e; }
+.profile-bio-preview {
+    margin: 10px 0 0;
+    font-size: 13.5px;
+    line-height: 1.6;
+    color: var(--text-sub);
+    max-width: 520px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+html[data-theme="dark"] .profile-subline-item,
+html[data-theme="dark"] .profile-subline-item i,
+html[data-theme="dark"] .profile-bio-preview { color: #94a3b8; }
+
+/* Desktop: the dedicated About card below already shows the full bio, so this
+   header teaser is a duplicate here too (mobile already hides it above, see
+   the max-width:768px block). !important beats the inline display set by
+   updateUI() in dashboard-script.js. */
+@media (min-width: 901px) {
+    .profile-bio-preview { display: none !important; }
+}
+
+/* ── AI Match Badge ── */
+.ai-match-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 13px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+    margin-bottom: 12px;
+    cursor: default;
+    background: #f1f5f9;
+    color: #94a3b8;
+    border: 1.5px solid #e2e8f0;
+    transition: none;
+}
+
+/* When there are matches — blue + heartbeat */
+.ai-match-badge.has-matches {
+    background: #eff6ff;
+    color: #1877f2;
+    border-color: #93c5fd;
+    cursor: pointer;
+    animation: matchHeartbeat 1.2s ease-in-out infinite;
+    box-shadow: 0 0 0 0 rgba(24, 119, 242, 0.4);
+}
+
+.ai-match-badge.has-matches:hover {
+    background: #1877f2;
+    color: #ffffff;
+    border-color: #1877f2;
+    animation: none;
+    box-shadow: 0 4px 14px rgba(24, 119, 242, 0.4);
+    transform: translateY(-1px);
+    transition: background 0.15s, color 0.15s, box-shadow 0.15s, transform 0.15s;
+}
+
+@keyframes matchHeartbeat {
+    0%   { box-shadow: 0 0 0 0 rgba(24, 119, 242, 0.5); transform: scale(1); }
+    14%  { box-shadow: 0 0 0 6px rgba(24, 119, 242, 0.0); transform: scale(1.05); }
+    28%  { box-shadow: 0 0 0 0 rgba(24, 119, 242, 0.0); transform: scale(1); }
+    42%  { box-shadow: 0 0 0 5px rgba(24, 119, 242, 0.15); transform: scale(1.03); }
+    70%  { box-shadow: 0 0 0 0 rgba(24, 119, 242, 0.0); transform: scale(1); }
+    100% { box-shadow: 0 0 0 0 rgba(24, 119, 242, 0.0); transform: scale(1); }
+}
+
+.pin-badge {
+    color: var(--text-sub);
+    font-size: 11px;
+    font-weight: 600;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center; gap: 5px;
+}
+
+.btn {
+    padding: 12px 24px;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 14px;
+    border: none;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.btn-dark { background: var(--text-main); color: white; }
+.btn-dark:hover { opacity: 0.9; transform: translateY(-2px); box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
+.btn-danger { background: var(--error); color: white; }
+
+.btn-mate-profile {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 10px 18px; border-radius: 50px;
+    border: 1.5px solid #22c55e; background: white; color: #15803d;
+    font-size: 12px; font-weight: 700; cursor: pointer;
+    transition: all 0.15s; font-family: inherit;
+}
+.btn-mate-profile:hover:not(:disabled) { background: #22c55e; color: white; box-shadow: 0 4px 14px rgba(34,197,94,0.25); }
+.btn-mate-profile.mate-status-mates { background: #f0fdf4; border-color: #22c55e; color: #15803d; cursor: pointer; }
+.btn-mate-profile.mate-status-mates:hover { background: #fee2e2; border-color: #ef4444; color: #ef4444; }
+.btn-mate-profile.mate-status-pending { border-color: #94a3b8; color: #94a3b8; cursor: default; background: #f8fafc; }
+.btn-mate-profile.mate-status-received { background: #eff6ff; border-color: #3b82f6; color: #3b82f6; }
+.btn-mate-profile.mate-status-received:hover:not(:disabled) { background: #3b82f6; color: white; }
+html[data-theme="dark"] .btn-mate-profile { background: #1e293b; border-color: #22c55e; color: #86efac; }
+html[data-theme="dark"] .btn-mate-profile:hover:not(:disabled) { background: #22c55e; color: #fff; }
+html[data-theme="dark"] .btn-mate-profile.mate-status-mates { background: rgba(34,197,94,0.1); }
+html[data-theme="dark"] .btn-mate-profile.mate-status-pending { background: #0f172a; border-color: #334155; color: #475569; }
+
+.btn-follow {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 10px 18px; border-radius: 50px;
+    border: 1.5px solid #3b82f6; background: white; color: #2563eb;
+    font-size: 12px; font-weight: 700; cursor: pointer;
+    transition: all 0.15s; font-family: inherit;
+}
+.btn-follow:hover:not(:disabled) { background: #3b82f6; color: white; box-shadow: 0 4px 14px rgba(59,130,246,0.25); }
+.btn-follow-ing { background: #eff6ff; border-color: #3b82f6; color: #2563eb; }
+.btn-follow-ing:hover:not(:disabled) { background: #fee2e2; border-color: #ef4444; color: #ef4444; }
+html[data-theme="dark"] .btn-follow { background: #1e293b; border-color: #3b82f6; color: #93c5fd; }
+html[data-theme="dark"] .btn-follow:hover:not(:disabled) { background: #3b82f6; color: #fff; }
+html[data-theme="dark"] .btn-follow-ing { background: rgba(59,130,246,0.1); }
+
+.menu-dots {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    color: var(--text-sub);
+    cursor: pointer;
+    padding: 5px;
+}
+
+.dropdown {
+    display: none;
+    position: absolute;
+    right: 20px;
+    top: 45px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    z-index: 10;
+    min-width: 140px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+}
+
+.dropdown div { padding: 12px 15px; font-size: 13px; cursor: pointer; font-weight: 500; }
+.dropdown div:hover { background: #f8fafc; }
+
+.post-text {
+    font-size: 15px;
+    margin: 15px 0;
+    line-height: 1.6;
+    color: var(--text-main);
+    word-break: break-word;
+}
+
+#previewImg {
+    width: 100%;
+    max-height: 300px;
+    object-fit: cover;
+    border-radius: 15px;
+    margin: 15px 0;
+    display: none;
+}
+
+.modal {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(15, 23, 42, 0.4);
+    backdrop-filter: blur(12px);
+    z-index: 9999;
+    justify-content: center;
+    align-items: center;
+}
+
+/* .modal-content is a flex column with exactly two children: the fixed
+   header (flex-shrink:0, never scrolls) and .modal-scroll-body (flex:1,
+   overflow-y:auto — the only part that scrolls). This was previously done
+   with position:sticky on the header inside a scrolling .modal-content, but
+   that didn't reliably stay pinned in practice, so it's replaced with this
+   more robust split-container pattern instead. Width/max-width/border-radius
+   are unchanged from before. */
+.modal-content {
+    background: white;
+    border-radius: 32px;
+    width: 90%;
+    max-width: 500px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.modal-header-fixed {
+    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    background: var(--white);
+    padding: 40px 40px 16px;
+    border-bottom: 1px solid var(--border);
+}
+/* Scoped override — the global h1,h2,h3{font-family:'Playfair Display'} rule
+   is intentional elsewhere (e.g. the profile name), so this only targets the
+   modal title rather than changing that rule everywhere. */
+.modal-header-fixed h2 {
+    font-family: 'Inter', sans-serif;
+    font-size: 24px; font-weight: 700; letter-spacing: -0.3px;
+    color: var(--text-main);
+}
+.modal-close-btn {
+    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    width: 34px; height: 34px; border-radius: 50%;
+    background: #f1f5f9; color: var(--text-sub);
+    font-size: 15px; border: none; cursor: pointer; font-family: inherit;
+    transition: background 0.15s, color 0.15s, transform 0.15s;
+}
+.modal-close-btn:hover { background: #e2e8f0; color: var(--text-main); }
+.modal-close-btn:active { transform: scale(0.92); }
+.modal-close-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+/* Only this inner wrapper scrolls — the header above it never moves. */
+.modal-scroll-body {
+    flex: 1;
+    min-height: 0; /* required for a flex child to actually be allowed to scroll instead of overflowing its parent */
+    overflow-y: auto;
+    padding: 24px 40px 40px;
+}
+html[data-theme="dark"] .modal-header-fixed { background: #1e293b; border-bottom-color: #334155; }
+html[data-theme="dark"] .modal-close-btn { background: #334155; color: #cbd5e1; }
+html[data-theme="dark"] .modal-close-btn:hover { background: #475569; color: #f1f5f9; }
+
+.input-field { margin-bottom: 22px; }
+.input-field label { display: block; font-size: 11px; font-weight: 700; color: var(--text-sub); margin-bottom: 9px; text-transform: uppercase; letter-spacing: 0.4px; font-family: 'Inter', sans-serif; }
+/* Marks a field label as optional — smaller, lighter-weight, and normal-case
+   so it reads as a quiet annotation next to the (already uppercase/bold)
+   label text rather than competing with it. */
+.input-field-optional { font-size: 9px; font-weight: 400; text-transform: none; opacity: 0.75; }
+.input-field input, .input-field textarea, .input-field select {
+    width: 100%;
+    padding: 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    font-family: 'Inter', sans-serif;
+    font-size: 14px; line-height: 1.5; color: var(--text-main);
+    background-color: #fff;
+}
+/* Lighter than the label (var(--text-sub)) so entered text is always the
+   clearest thing in a field, per the Realmate form hierarchy: input text >
+   label > placeholder. */
+.input-field input::placeholder, .input-field textarea::placeholder { font-family: 'Inter', sans-serif; color: #94a3b8; }
+
+/* Sub-section divider inside Edit Profile (e.g. "Division Settings") — mirrors
+   the ABOUT card's title treatment (uppercase, primary-colored) so it reads as
+   part of the same design system, with a top border to separate it from the
+   fields above. */
+.edit-section-title {
+    font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px;
+    color: var(--primary); margin: 28px 0 16px; padding-top: 20px;
+    border-top: 1px solid var(--border);
+}
+
+/* ── Searchable dropdown (Address) + multi-select tag input (Languages) ── */
+.searchable-select, .tag-select { position: relative; }
+.searchable-select input, .tag-select input {
+    width: 100%; padding: 12px; border-radius: 10px;
+    border: 1px solid var(--border); font-family: inherit; background: #fff;
+    font-size: 14px; line-height: 1.5; color: var(--text-main);
+}
+.searchable-select input::placeholder, .tag-select input::placeholder { color: #94a3b8; font-family: inherit; }
+.searchable-dropdown {
+    display: none; position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+    max-height: 220px; overflow-y: auto; background: #fff;
+    border: 1px solid var(--border); border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12); z-index: 20;
+}
+.searchable-dropdown.open { display: block; }
+.searchable-dropdown-item { padding: 10px 14px; font-size: 13px; cursor: pointer; color: var(--text-main); }
+.searchable-dropdown-item:hover, .searchable-dropdown-item.highlighted { background: #f1f5f9; }
+.searchable-dropdown-empty { padding: 10px 14px; font-size: 13px; color: var(--text-sub); }
+
+/* Division / Group (Division Settings) — styled to read as a native select:
+   right-aligned chevron, generous padding, and the same rounded/focus-ring
+   treatment already used for the Portal search input (.search-wrap in
+   livemarket.css). Scoped to this modifier so Address/Languages are untouched. */
+.searchable-select-chevron input {
+    padding: 11px 40px 11px 16px;
+    border-radius: 12px;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+.searchable-select-chevron input:hover { border-color: #cbd5e1; }
+.searchable-select-chevron input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-soft); }
+.searchable-select-arrow {
+    position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+    color: var(--text-sub); font-size: 13px; pointer-events: none;
+}
+
+/* Shown only when a profile's saved city predates the current verified
+   list (or was otherwise never on it) — nudges the user to reselect
+   without silently discarding what they had saved. */
+.input-field-legacy-hint {
+    display: flex; align-items: center; gap: 6px;
+    margin-top: 8px; font-size: 11px; font-weight: 600;
+    color: #b45309;
+}
+.input-field-legacy-hint i { color: #d97706; }
+html[data-theme="dark"] .input-field-legacy-hint { color: #fbbf24; }
+html[data-theme="dark"] .input-field-legacy-hint i { color: #f59e0b; }
+
+.tag-select-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.tag-select-chips:empty { margin-bottom: 0; }
+.lang-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--primary-soft); color: var(--primary);
+    font-size: 12px; font-weight: 700;
+    padding: 5px 8px 5px 12px; border-radius: 50px;
+}
+.lang-chip button {
+    background: none; border: none; color: var(--primary); cursor: pointer;
+    font-size: 14px; line-height: 1; padding: 2px;
+    display: flex; align-items: center; justify-content: center;
+}
+.lang-chip button:hover { color: var(--error); }
+
+.spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-radius: 50%;
+    border-top-color: #fff;
+    animation: spin 0.8s linear infinite;
+    display: inline-block;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* MEDIA QUERIES */
+@media (max-width: 900px) {
+    .sidebar { display: none; }
+    .profile-layout { grid-template-columns: 1fr; }
+    /* Collapse the 3 columns into one properly-ordered stream */
+    .profile-left-col, .profile-main-col, .profile-side-col { display: contents; }
+    .profile-card              { order: 0; }
+    .create-post-card          { order: 1; }
+    .profile-tabs              { order: 2; }
+    .profile-wall-section      { order: 3; }
+    .mates-widget              { order: 3; }
+    .listings-card             { order: 3; }
+    .about-card                { order: 3; }
+    .about-card .section-card-title { text-transform: uppercase; }
+    .create-post-card, .profile-wall-section { margin: 0 0 14px; }
+    .profile-card { grid-column: span 1; flex-direction: column; text-align: center; }
+    .profile-card img { margin-bottom: 15px; }
+
+    /* ── Profile tabs: Posts / Recent Listings / Realmates ── */
+    .profile-tabs {
+        display: flex; background: #fff; border-radius: 14px;
+        box-shadow: var(--card-shadow); overflow: hidden; margin: 0 0 14px;
+    }
+    .profile-tab {
+        flex: 1; border: none; background: transparent; cursor: pointer;
+        font-family: inherit; font-size: 13px; font-weight: 700; color: var(--text-sub);
+        padding: 14px 6px; white-space: nowrap; line-height: 1;
+        border-bottom: 2.5px solid transparent;
+        transition: color 0.15s, border-color 0.15s;
+    }
+    .profile-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+    .profile-tab:not(.active):hover { color: var(--text-main); }
+    /* Only the active section's panel is shown; the others collapse out. */
+    .profile-tab-panel { display: none; }
+    .profile-tab-panel.tab-active { display: block; }
+}
+
+@media (max-width: 600px) {
+    .main-content { padding: 20px; }
+}
+/* ==========================================================================
+   📱 MOBILE RESPONSIVE — DASHBOARD (APP-LIKE)
+   ========================================================================== */
+
+.mobile-bottom-nav {
+    display: none;
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    height: 64px;
+    background: #ffffff;
+    border-top: 1px solid #e2e8f0;
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.06);
+    z-index: 1000;
+    justify-content: space-evenly;
+    align-items: center;
+    padding: 0;
+}
+
+/* Cover action sheet — desktop: centered modal, mobile: bottom sheet */
+.cover-action-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+    z-index: 99997; display: flex; justify-content: center; align-items: center;
+}
+.cover-action-sheet {
+    background: #fff; border-radius: 20px; width: 100%; max-width: 420px;
+    padding: 12px 0 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+}
+.cover-action-handle {
+    width: 40px; height: 4px; background: #e2e8f0; border-radius: 4px;
+    margin: 0 auto 20px; display: none;
+}
+
+@media (max-width: 768px) {
+    .cover-action-overlay { justify-content: center; align-items: flex-end; }
+    .cover-action-sheet { border-radius: 24px 24px 0 0; max-width: 100%; padding-bottom: 32px; }
+    .cover-action-handle { display: block; }
+}
+
+/* ── Stats List Modal (Followers / Following / Realmates) ── */
+.stats-list-sheet { max-width: 460px; max-height: 78vh; display: flex; flex-direction: column; padding: 16px 0 12px; }
+.stats-list-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 20px 12px; border-bottom: 1px solid var(--border);
+}
+.stats-list-title { font-size: 16px; font-weight: 700; color: var(--text-main); margin: 0; }
+.stats-list-close { color: var(--text-sub); cursor: pointer; font-size: 16px; padding: 4px; }
+.stats-list-search {
+    display: flex; align-items: center; gap: 8px;
+    margin: 12px 20px; padding: 10px 14px;
+    background: #f8fafc; border-radius: 10px; border: 1px solid var(--border);
+}
+.stats-list-search i { color: var(--text-sub); font-size: 13px; }
+.stats-list-search input {
+    border: none; background: transparent; outline: none; flex: 1;
+    font-size: 13px; font-family: inherit; color: var(--text-main);
+}
+.stats-list-body { overflow-y: auto; padding: 4px 8px; }
+.stats-list-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 12px; border-radius: 12px; cursor: pointer;
+    transition: background 0.15s;
+}
+.stats-list-row:hover { background: var(--primary-soft); }
+.stats-list-avatar { width: 46px; height: 46px; border-radius: 50%; object-fit: cover; border: 2px solid var(--border); flex-shrink: 0; }
+.stats-list-info { flex: 1; min-width: 0; }
+.stats-list-name { font-size: 14px; font-weight: 700; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stats-list-job { font-size: 12px; color: var(--text-sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stats-list-divgroup { font-size: 11px; color: var(--text-sub); opacity: 0.8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stats-list-follow-wrap { flex-shrink: 0; }
+
+@media (max-width: 768px) {
+    .stats-list-sheet { max-height: 80vh; }
+}
+
+html[data-theme="dark"] .stats-list-header { border-color: #334155; }
+html[data-theme="dark"] .stats-list-search { background: #0f172a; border-color: #334155; }
+html[data-theme="dark"] .stats-list-row:hover { background: rgba(50,205,50,0.1); }
+html[data-theme="dark"] .stats-list-avatar { border-color: #334155; }
+
+.mob-nav-item {
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+  gap: 2px; color: #94a3b8; text-decoration: none; font-size: 9px; font-weight: 600;
+  flex: 1; padding: 8px 1px 6px; border-radius: 10px; min-width: 0;
+  cursor: pointer; transition: color 0.15s, transform 0.15s;
+  height: 46px;
+}
+.mob-nav-item:active { transform: scale(0.92); }
+.mob-nav-item i { font-size: 24px; }.mob-nav-item span { display: block; font-size: 11px; white-space: nowrap; line-height: 1; }
+.mob-nav-item.active { color: #32cd32; }
+.mob-nav-item:hover { color: #32cd32; }
+
+@media (max-width: 768px) {
+    /* ── Core layout ── */
+    .mobile-bottom-nav { display: flex; }
+    .sidebar { display: none !important; }
+    body { height: auto; overflow-y: auto; }
+
+    .main-content {
+        padding: 0 0 80px 0;
+        position: relative;
+    }
+
+    /* ── Mobile top bar — transparent overlay on the full-bleed cover ──
+       No "Profile" title and no white header: just floating circular
+       back / more buttons sitting on top of the immersive cover photo,
+       matching the app mockup. The bar itself is click-through
+       (pointer-events:none) so taps in the empty middle still reach the
+       cover; only the two buttons capture clicks. */
+    .mobile-profile-topbar {
+        display: flex; align-items: center; justify-content: space-between;
+        position: absolute; top: 0; left: 0; right: 0; height: auto;
+        padding: 14px 16px; background: transparent;
+        border-bottom: none; z-index: 200; pointer-events: none;
+    }
+    .mobile-profile-topbar > * { pointer-events: auto; }
+    .mobile-topbar-title { display: none; }
+    .mobile-topbar-more,
+    .mobile-profile-topbar .rm-mobile-back {
+        width: 38px !important; height: 38px !important; border-radius: 50% !important;
+        border: none !important; box-shadow: 0 2px 8px rgba(0,0,0,0.18) !important;
+        background: rgba(15,23,42,0.42) !important; color: #fff !important;
+        display: flex !important; align-items: center; justify-content: center;
+        font-size: 16px !important; line-height: 1; cursor: pointer;
+        -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+    }
+    .mobile-topbar-more:hover,
+    .mobile-profile-topbar .rm-mobile-back:hover {
+        background: rgba(15,23,42,0.6) !important; opacity: 1 !important;
+    }
+
+    /* When viewing another member's profile, the floating circular back button
+       in the top bar is the single back affordance on mobile. The green
+       "You are viewing another member's profile" banner carries its own
+       "Go Back" button (a redundant 2nd back control) and, as the first flow
+       element, it pushed the immersive cover down and collided with the
+       absolute top bar (back arrow over its text, "···" over its Go Back).
+       Hide it on mobile; desktop has no top bar and keeps the banner.
+       loadProfile() sets an inline display:flex, so !important is required. */
+    #viewingOtherBanner { display: none !important; }
+
+    /* The "···" trigger moved back to the fixed top bar, aligned with the
+       "Profile" title (standard overflow-menu placement, matching Facebook/
+       LinkedIn/Instagram) — reversing the earlier move that put it beside
+       Edit Profile in the header row. */
+
+    /* ── Layout → single column ── */
+    .profile-layout {
+        grid-template-columns: 1fr;
+        gap: 0;
+        padding: 0 16px;
+        margin-top: 0;
+    }
+    .profile-main-col, .profile-side-col { gap: 14px; }
+
+    /* Let each column's children participate in the parent's single-column flow so they
+       can be freely reordered below via `order` — a real mobile-specific sequence:
+       Profile Info → About Me → Realmates → Write a Post → Posts → Recent Listings. */
+    .profile-left-col, .profile-main-col, .profile-side-col { display: contents; }
+    .profile-card              { order: 0; }
+    .create-post-card          { order: 1; }
+    .profile-tabs              { order: 2; }
+    .profile-wall-section      { order: 3; }
+    .mates-widget              { order: 3; }
+    .listings-card             { order: 3; }
+    .about-card                { order: 3; }
+    .create-post-card, .profile-wall-section { margin: 0 0 14px; }
+
+    .about-card, .listings-card, .mates-widget {
+        border-radius: 20px;
+        padding: 20px 18px;
+        box-shadow: var(--card-shadow);
+        margin: 0 0 14px;
+        border: none;
+    }
+
+    /* Clean, borderless cards to match the app mockup: the composer, each
+       post card, and the empty state drop their 1px outlines (from the
+       shared composer.css) and rely on a soft shadow + rounded corners
+       only. Scoped to dashboard mobile — the feed page loads composer.css
+       without this stylesheet, so its look is unchanged. */
+    .create-post-card,
+    #profileWall .hf-post-card,
+    #profileWall .hf-empty {
+        border: none !important;
+        box-shadow: var(--card-shadow);
+        border-radius: 20px;
+    }
+    .create-post-card { padding: 16px 18px; }
+    /* No "Posts" heading in the mockup — posts flow straight under the composer. */
+    .profile-wall-title { display: none !important; }
+    .profile-wall-section { margin-top: 0 !important; }
+
+    .section-card-title { font-size: 14px; }
+    .about-bio-text { -webkit-line-clamp: 3; font-size: 14px; }
+    .profile-listing-card { padding: 12px; gap: 12px; }
+    .profile-listing-thumb { width: 56px; height: 56px; }
+    .mates-avatar-grid { gap: 16px; }
+    .mate-avatar-img { width: 52px; height: 52px; }
+
+    /* ── Profile hero card — full-width banner, desktop-style structure ──
+       Avatar is stacked ABOVE the info block (not beside it), exactly like
+       desktop — confirmed by request: this is what actually gives the
+       header row its full width, so the name and action buttons can share
+       one row the same way they do on desktop. Sizes are scaled down for
+       mobile; the structure itself now matches desktop's. */
+    .profile-card {
+        grid-column: span 1 !important;
+        border-radius: 0 !important;
+        /* Break out of .profile-layout's 16px side padding so the cover runs
+           edge-to-edge (full-bleed), like the app mockup. The card body below
+           re-establishes its own text inset via .profile-card-body padding. */
+        margin: 0 -16px 0 !important;
+        /* The shared .bento-card mobile rule applies `padding: 20px 16px` here,
+           which was insetting the cover by 16px on the sides and 20px at the top
+           (making it look bordered / not reaching the screen edges). Force it back
+           to zero so the cover truly runs full-bleed to the top and both edges. */
+        padding: 0 !important;
+        box-shadow: none !important;
+    }
+    /* Immersive full-bleed cover: tall, no rounded corners, running to the
+       very top of the screen (there is no header bar above it anymore).
+       A fixed height (not the 16:5 upload ratio) is what gives the cover
+       the tall, app-like presence in the mockup; object-fit:cover keeps
+       uploaded photos filling it without distortion. */
+    .profile-cover { height: 200px; aspect-ratio: auto; border-radius: 0; }
+    /* Mobile-only refinement: smaller (38px, within the 36-40px range) and
+       a green icon instead of desktop's dark one, so it reads as a
+       secondary action rather than the header's focal point. Position
+       (bottom-right, 12px inset), white circular background, and shadow
+       are all inherited unchanged from the base .profile-cover-edit rule
+       above — only size and icon color differ here. */
+    .profile-cover-edit { width: 38px; height: 38px; color: var(--primary); }
+    /* Avatar reduced ~12% (96px → 84px) per feedback; overlap margin retuned
+       to match the smaller diameter. */
+    .profile-avatar-wrap { margin-top: -54px; margin-left: 18px; }
+    .profile-img-container { width: 100px; height: 100px; }
+    .profile-img-container img { width: 100px; height: 100px; border-width: 4px !important; }
+    /* Horizontal padding trimmed slightly (16px → 14px) to give the name
+       row a bit more usable width, per explicit permission to reclaim
+       space before shrinking the name font further than necessary. */
+    .profile-card-body { padding: 8px 14px 16px; }
+    .profile-stats-row { padding: 12px 4px; margin-top: 10px; }
+    .profile-stat { padding: 0 6px; }
+    .profile-stat-num { font-size: 15px; }
+    .profile-stat-label { font-size: 10px; }
+
+    /* Row 1 (name + action icons) uses real CSS Grid so the icon-only
+       buttons can share the name's row without constraining every OTHER
+       row's width too — a flex-row here fixes .profile-info-col's width for
+       its *entire* height (all its wrapped lines), not just the part beside
+       the buttons, which is what made job title / metadata wrap badly in an
+       earlier attempt. With a grid, rows 2+ are separate grid rows spanning
+       the full card width, independent of row 1's narrower name column.
+       Now that Edit Profile is a compact icon (not a text pill), row 1 has
+       much more room, which is what lets the name run this much larger. */
+    /* ── ROOT-CAUSE FIX for the character-by-character name rendering bug
+       (only reproduced when viewing another user's profile) ──
+       This used to be a 2-column grid (name | action buttons) sharing row
+       1, with the name on a "1fr" track and the buttons on "auto". On your
+       own profile the action column is empty, so 1fr got ~all the width
+       and the name looked fine. On someone else's profile, real buttons
+       (Message / Add as Mate / Follow — all white-space:nowrap) live
+       there, and it turns out CSS Grid's "auto" tracks claim their full
+       max-content size *before* "1fr" tracks get anything — 1fr only
+       receives genuine leftover space, it does not get a proportional
+       share. Verified empirically (headless Chromium, real Supabase data
+       for "Bobby Axelrod"): with real action buttons, "auto" claimed
+       ~260px and "1fr" was left with ~15px — about one character wide,
+       which is exactly why overflow-wrap:break-word had nowhere to break
+       except between every character. Neither minmax(0, auto) on the
+       track nor max-width on the action column changed this (both tested
+       live) — the grid was still handing the buttons their full preferred
+       width first regardless.
+       The actual fix: stop making the name compete with the action
+       buttons for the same row at all. The name now gets its own
+       full-width row; the action buttons get their own full-width row
+       right below it (already right-aligned via justify-content:flex-end,
+       already able to wrap onto multiple lines via flex-wrap:wrap) — so
+       there is no track competition left to lose. On your own profile
+       that row is simply empty and collapses to zero height, same as
+       before. */
+    .profile-header-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        row-gap: 0;
+        align-items: start;
+        text-align: left;
+    }
+    /* .profile-info-col's own children (name-line, .profile-title-line —
+       itself display:contents so its own children jobDisplay/identity-line
+       land here too, subline-row, bio-preview) become direct grid items via
+       display:contents — same technique used elsewhere in this file — so
+       each can be placed on its own full-width grid row. */
+    .profile-info-col { display: contents; }
+    .profile-name-line { grid-column: 1 / -1; grid-row: 1; min-width: 0; }
+    /* Moved to row 8 — after every other profile-info row (nickname, role,
+       company, metadata, bio) and immediately before .profile-stats-row
+       (a sibling of .profile-header-row, not a grid row itself), per
+       explicit request to place these buttons "below the user's profile
+       details... above the profile statistics." Row 2 is simply left
+       unoccupied; an empty implicit grid row takes no height. On your own
+       profile this row still has no visible children and stays invisible,
+       same as before. */
+    .profile-action-col { grid-column: 1 / -1; grid-row: 8; min-width: 0; }
+
+    /* The nickname line carries the one intentional gap in this header —
+       below the name (and now below the action-buttons row, which is
+       zero-height and thus invisible on your own profile). Everything
+       from here down (nickname → role → company → metadata) then sits
+       with zero added margin against its neighbor, relying only on each
+       element's own line-height, so the block reads as one tightly
+       grouped unit — closer to a compact mobile-social-profile header.
+       Gap is scaled down to 18px (from 22px) to stay proportional now
+       that the name itself is smaller. */
+    .profile-nickname-line { grid-column: 1 / -1; grid-row: 3; margin-top: 18px; }
+    #nicknameDisplay { display: block; font-size: 15px; font-weight: 600; color: var(--text-sub); line-height: 1.3; }
+
+    /* @handle sits directly under the name (row 2), matching the mockup. */
+    .profile-handle-line { grid-column: 1 / -1; grid-row: 2; margin-top: 2px; }
+    #handleDisplay { font-size: 14px; }
+
+    /* Rows 4-5 (role / company) — zero top margin per earlier request ("no
+       extra vertical spacing between Nickname→Role, Role→Company"); each
+       line's own line-height is the only thing separating it from the one
+       above. Role/Company share one consistent font-weight and line-height
+       so they read as a single tight group underneath the name/nickname. */
+    #jobDisplay { grid-column: 1 / -1; grid-row: 4; font-size: 13px; font-weight: 600; margin-top: 0; line-height: 1.3; }
+    .profile-identity-line { grid-column: 1 / -1; grid-row: 5; margin-top: 12px; gap: 8px; }
+    .profile-pill { font-size: 12.5px; padding: 6px 12px; }
+    /* Metadata row gets its own "one line" gap above (like the name→nickname
+       gap) to visually separate profile metadata from the company line —
+       this is now the second intentional gap in the header. The gap lives
+       here (row's own margin-top) rather than inside the row, so the
+       Location/Years/Languages items themselves stay exactly as compact as
+       before — only the space *before* the row changed. */
+    .profile-subline-row { grid-column: 1 / -1; grid-row: 6; justify-content: flex-start; margin-top: 16px; gap: 4px 12px; }
+    /* These are the resting/fallback sizes before _autoFitMetadataRow()
+       (dashboard-script.js) runs — kept in sync with that function's
+       META_FONT_MAX/META_ICON_MAX so there's no flash of a different size
+       before JS adjusts (or if JS is ever unavailable). */
+    .profile-subline-item { font-size: 13.5px; font-weight: 600; line-height: 1.3; }
+    .profile-subline-item i { font-size: 13px; }
+    /* Location / Years / Languages are separated only by their own icon —
+       no bullet or other separator between groups (removed per explicit
+       request); .profile-subline-row's column-gap above is the only thing
+       keeping the groups visually distinct. */
+
+    /* Hidden on mobile: the inline ABOUT block (#profileAboutInline) now shows the
+       bio, so this header teaser would be a duplicate. !important beats the inline
+       display set by updateUI(). */
+    .profile-bio-preview { display: none !important; }
+
+    /* Three-equal-width, single-row layout, per explicit request: Message /
+       Realmates / Follow share the row evenly instead of right-aligning
+       and wrapping. Grid's repeat(3, 1fr) — not flex:1 — guarantees the
+       three columns are exactly equal: flex:1 1 0 was tried first and
+       measured (headless Chromium) to give the plain <button> item
+       (#profileMessageBtn) a few extra px over the two wrapper <div>
+       items (#profileMateBtn/#profileFollowBtn) despite identical flex
+       values on all three — a real, reproducible flex-distribution
+       asymmetry between a direct flex-item button and same-flex wrapper
+       divs. Grid's 1fr columns don't have that failure mode. */
+    .profile-action-col {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        align-items: stretch;
+        /* margin-top gives clean space below the last profile-info row
+           (bio preview, or metadata/company if no bio) above it; margin-
+           bottom gives a small buffer before .profile-stats-row, which
+           adds its own margin-top on top of this. On your own profile
+           this row has no visible children, so both margins are invisible
+           (there's nothing here to create space around). */
+        width: 100%; margin-top: 16px; margin-bottom: 4px; gap: 8px;
+    }
+    /* The "···" wrapper is always empty on mobile (its trigger lives in
+       the fixed top bar instead — see .mobile-topbar-more) but must stay
+       present, not display:none: #profileMoreMenu is nested inside it in
+       the DOM, and a display:none ancestor would make that menu
+       permanently unrenderable even when the topbar trigger tries to open
+       it (it's position:fixed when open, so it visually escapes this
+       zero-size box just fine). It's the 4th DOM child with only 3
+       explicit grid columns, so it auto-places onto its own implicit row
+       2 below — zero content, zero height, no effect on row 1's 3 equal
+       columns. */
+    #profileMessageBtn, #profileMateBtn, #profileFollowBtn {
+        min-width: 0; display: flex;
+    }
+    .profile-action-col .btn-mate-profile,
+    .profile-action-col .btn-follow,
+    .profile-action-col .btn-message {
+        width: 100%; justify-content: center; align-items: center;
+        /* clamp() instead of a fixed size — per explicit request to "scale
+           button widths and padding proportionally" rather than wrap the
+           *row* of 3 buttons — so all three keep sharing one row as the
+           viewport narrows. Text itself is allowed to wrap (white-space:
+           normal, not nowrap+ellipsis): with 3 equal columns, the longest
+           realistic label ("Accept Request") can still be narrower than
+           its column at very small widths, and text-overflow:ellipsis
+           measurably breaks for *centered* flex content that overflows
+           both edges (verified — it clipped to a garbled "ccept Reque"
+           instead of showing a trailing "…"). Labels staying fully
+           readable (wrapping to 2 lines if truly needed) matters more
+           here than forcing a single line per explicit request that
+           "labels remain fully visible whenever possible." .profile-
+           action-col's align-items:stretch (above) then evens out all
+           three buttons' height to match whichever one is tallest, so a
+           wrapped 2-line label doesn't leave the other two looking
+           shorter/misaligned. */
+        font-size: clamp(11px, 3.1vw, 13px);
+        font-weight: 700; padding: 8px clamp(4px, 2vw, 14px);
+        white-space: normal; text-align: center; line-height: 1.25;
+        min-height: 40px; gap: clamp(4px, 1.5vw, 6px);
+    }
+    /* Edit Profile is no longer a standalone header control on mobile — it
+       moved into the "···" more menu (see .mobile-only-menu-item below).
+       The button itself is removed from the DOM on mobile viewports by
+       loadProfile() (dashboard-script.js), not hidden via CSS, so no rule
+       is needed here; desktop keeps the original pill button untouched. */
+    /* The "···" trigger moved back to the fixed top bar (see .mobile-topbar-more
+       above) — hide just the in-header button (not the whole
+       .profile-more-menu-wrap, since #profileMoreMenu itself lives inside
+       that wrapper in the DOM; hiding the whole wrapper would trap the menu
+       inside a display:none ancestor and make it permanently unrenderable,
+       even when toggled open via the topbar trigger). */
+    .profile-action-col .profile-more-menu-wrap .btn-more-options { display: none; }
+    /* Anchored to the fixed top bar's trigger position again, since that's
+       the active trigger now (not the in-header wrapper). */
+    #profileMoreMenu { position: fixed; top: 58px; right: 16px; left: auto; transform: none; }
+    /* Edit Profile now lives inside this menu on mobile (hidden by default,
+       see base rule near .profile-more-menu a). */
+    .profile-more-menu .mobile-only-menu-item { display: flex; }
+
+    /* 21px is the largest size that still keeps a realistic long name
+       ("Kmell Erisdhun Dungug", 21 characters) on one line at 375px
+       (iPhone SE — the narrowest common mobile viewport this app
+       supports): measured via canvas text metrics against the actual
+       rendered column width, since text-width doesn't reduce to a simple
+       character count with a proportional serif font. Wrapping (not
+       ellipsis truncation) remains the fallback for names too long even
+       at this size — a true last resort, not the common case. min-width:0
+       (here and on .profile-name-line above) lets the h2 shrink to its
+       grid column's width instead of overflowing it. */
+    #nameDisplay {
+        font-size: 21px !important;
+        font-weight: 700;
+        line-height: 1.2;
+        margin-bottom: 0 !important;
+        min-width: 0;
+        white-space: normal;
+        overflow-wrap: break-word;
+    }
+    /* The inline "(Nickname)" next to the name is hidden here — on mobile
+       the nickname instead renders on its own line via #nicknameLine
+       (populated in updateUI(), dashboard-script.js) per explicit request.
+       Desktop is untouched: this rule only applies inside this max-width
+       query, so the inline version there is unaffected. */
+    .profile-name-line .profile-nickname { display: none; }
+
+
+    /* ── Content cards ── */
+    .bento-card {
+        border-radius: 0;
+        border-left: none;
+        border-right: none;
+        border-top: none;
+        border-bottom: 1px solid #f1f5f9;
+        box-shadow: none;
+        padding: 20px 16px;
+        margin-bottom: 0;
+    }
+
+    /* ── New listing composer ── */
+    .creator-box {
+        padding: 20px 16px;
+    }
+
+    .creator-box textarea {
+        min-height: 100px;
+        font-size: 14px;
+    }
+
+    .creator-actions {
+        margin-top: 14px;
+        padding-top: 14px;
+    }
+
+
+    /* ── Modals ── */
+    .modal-content {
+        width: calc(100vw - 32px);
+        border-radius: 24px;
+        max-height: 85vh;
+    }
+    /* Padding moved from .modal-content (which no longer has any of its own —
+       see the flex-column split above) onto the fixed header and scrolling
+       body individually, at the same reduced mobile values as before. */
+    .modal-header-fixed { padding: 24px 20px 14px; }
+    .modal-scroll-body { padding: 14px 20px 24px; }
+}
+
+@media (max-width: 768px) {
+    .mobile-bottom-nav { height: 56px; }
+}
+
+/* =========================================
+   DARK MODE
+   ========================================= */
+html[data-theme="dark"] {
+    --bg: #0d1117;
+    --sidebar-bg: #0f172a;
+    --white: #1e293b;
+    --text-main: #f1f5f9;
+    --text-sub: #94a3b8;
+    --border: #1e293b;
+    --card-shadow: 0 4px 24px rgba(0,0,0,0.3);
+    /* Lightened so each metadata icon keeps sufficient contrast against
+       dark card backgrounds (#1e293b/#0d1117) — same hues as light mode,
+       just brighter. */
+    --icon-location: #38bdf8;
+    --icon-years: #4ade80;
+    --icon-languages: #a78bfa;
+}
+html[data-theme="dark"] body { background: var(--bg); color: var(--text-main); }
+html[data-theme="dark"] .main-content { background: var(--bg); }
+html[data-theme="dark"] .profile-card,
+html[data-theme="dark"] .stats-card,
+html[data-theme="dark"] .activity-card,
+html[data-theme="dark"] .section-card { background: #1e293b; border-color: #334155; }
+html[data-theme="dark"] input,
+html[data-theme="dark"] textarea,
+html[data-theme="dark"] select { background: #0f172a; color: #f1f5f9; border-color: #334155; }
+html[data-theme="dark"] .searchable-dropdown { background: #1e293b; border-color: #334155; }
+html[data-theme="dark"] .searchable-dropdown-item:hover, html[data-theme="dark"] .searchable-dropdown-item.highlighted { background: #334155; }
+html[data-theme="dark"] .searchable-dropdown-empty { color: #94a3b8; }
+html[data-theme="dark"] .searchable-select-chevron input:hover { border-color: #334155; }
+html[data-theme="dark"] .tab-bar,
+html[data-theme="dark"] .tab-item { background: #1e293b; border-color: #334155; color: #94a3b8; }
+html[data-theme="dark"] .tab-item.active { color: #32cd32; border-color: #32cd32; }
+html[data-theme="dark"] .mobile-bottom-nav { background: #0f172a; border-color: #1e293b; }
+html[data-theme="dark"] .mob-nav-item { color: #64748b; }
+html[data-theme="dark"] .mobile-profile-topbar { background: #1e293b; border-color: #334155; }
+html[data-theme="dark"] .mobile-topbar-more:hover { background: #334155; }
+html[data-theme="dark"] .profile-online-dot { border-color: #1e293b; }
+html[data-theme="dark"] .profile-identity-dot { color: #475569; }
+
+/* LIGHT MODE — sidebar override */
+html[data-theme="light"] .sidebar { background: #ffffff; border-right: 1px solid #e2e8f0; }
+html[data-theme="light"] .nav-item { color: #64748b; }
+html[data-theme="light"] .nav-item:hover { background: #f1f5f9; color: #0f172a; }
+html[data-theme="light"] .nav-item.active { background: rgba(50,205,50,0.10); color: #16a34a; border-left-color: #16a34a; }
+
+/* DARK MODE — expanded contrast fixes */
+html[data-theme="dark"] h1,
+html[data-theme="dark"] h2,
+html[data-theme="dark"] h3 { color: #f1f5f9; }
+html[data-theme="dark"] .bento-card { background: #1e293b; border-color: #334155; }
+html[data-theme="dark"] .stat-row { border-color: #1e293b; color: #94a3b8; }
+html[data-theme="dark"] .stat-row span:first-child { color: #94a3b8; }
+html[data-theme="dark"] .stat-row span:last-child { color: #f1f5f9; font-weight: 600; }
+html[data-theme="dark"] .badge { background: rgba(50,205,50,0.15); color: #32cd32; }
+html[data-theme="dark"] .profile-edit-btn { background: #0f172a; border-color: #334155; color: #e2e8f0; }
+html[data-theme="dark"] .profile-listing-thumb { background: #0f172a; }
+html[data-theme="dark"] .profile-listing-thumb-empty { color: #475569; }
+html[data-theme="dark"] .cat-tag { background: rgba(255,255,255,0.06); color: #94a3b8; }
+html[data-theme="dark"] .cat-sale, html[data-theme="dark"] .cat-lease { background: rgba(34,197,94,0.15); color: #86efac; }
+html[data-theme="dark"] .cat-rent { background: rgba(59,130,246,0.15); color: #93c5fd; }
+html[data-theme="dark"] .cat-wbuy, html[data-theme="dark"] .cat-wrent, html[data-theme="dark"] .cat-wlease { background: rgba(245,158,11,0.15); color: #fcd34d; }
+html[data-theme="dark"] .profile-edit-btn:hover { background: #1e293b; }
+html[data-theme="dark"] #jobDisplay { color: #94a3b8; }
+html[data-theme="dark"] .creator-box textarea { color: #f1f5f9; }
+html[data-theme="dark"] .creator-actions { border-color: #1e293b; }
+html[data-theme="dark"] .ai-match-badge { background: #0f172a; color: #64748b; border-color: #334155; }
+html[data-theme="dark"] .listing-badge { background: rgba(50,205,50,0.15); color: #32cd32; }
+html[data-theme="dark"] .post-text { color: #cbd5e1; }
+html[data-theme="dark"] .post-user-info span { color: #f1f5f9; }
+html[data-theme="dark"] .post-user-info small { color: #64748b; }
+html[data-theme="dark"] .post-actions { border-color: #1e293b; }
+html[data-theme="dark"] .action-btn { color: #64748b; }
+html[data-theme="dark"] .action-btn:hover { background: #243044; color: #32cd32; }
+
+/* DARK MODE — buttons, dropdown, all hardcoded whites */
+html[data-theme="dark"] .btn-dark { background: #32cd32; color: #fff; }
+html[data-theme="dark"] .btn-dark:hover { background: #28b828; }
+html[data-theme="dark"] .dropdown { background: #1e293b; border-color: #334155; box-shadow: 0 10px 25px rgba(0,0,0,0.4); }
+html[data-theme="dark"] .dropdown div { color: #cbd5e1; }
+html[data-theme="dark"] .dropdown div:hover { background: #243044; }
+html[data-theme="dark"] .bento-card { background: #1e293b; border-color: #334155; }
+html[data-theme="dark"] .profile-card { background: #1e293b !important; border-color: #334155 !important; }
+html[data-theme="dark"] .creator-box select { background: #0f172a !important; color: #f1f5f9 !important; border: 1px solid #334155 !important; }
+html[data-theme="dark"] .creator-box textarea { background: #0f172a; color: #f1f5f9; }
+html[data-theme="dark"] .creator-box textarea::placeholder { color: #475569; }
+html[data-theme="dark"] .creator-box input { background: #0f172a; color: #f1f5f9; border-color: #334155; }
+html[data-theme="dark"] .creator-box input::placeholder { color: #475569; }
+html[data-theme="dark"] .modal-content { background: #1e293b; border-color: #334155; }
+html[data-theme="dark"] .modal-content h2 { color: #f1f5f9; }
+html[data-theme="dark"] .modal-content p { color: #94a3b8; }
+html[data-theme="dark"] .input-field label { color: #94a3b8; }
+/* Placeholder must stay lighter/quieter than the label even in dark mode —
+   since the label itself already uses #94a3b8 here, the placeholder needs a
+   dimmer (not brighter) gray to keep receding behind it against a dark bg. */
+html[data-theme="dark"] .input-field input::placeholder,
+html[data-theme="dark"] .input-field textarea::placeholder,
+html[data-theme="dark"] .searchable-select input::placeholder,
+html[data-theme="dark"] .tag-select input::placeholder { color: #64748b; }
+html[data-theme="dark"] .input-field input,
+html[data-theme="dark"] .input-field select,
+html[data-theme="dark"] .input-field textarea { background: #0f172a; color: #f1f5f9; border-color: #334155; }
+html[data-theme="dark"] select option { background: #1e293b; color: #f1f5f9; }
+html[data-theme="dark"] .stat-row { border-color: #334155; }
+html[data-theme="dark"] .post-text { color: #cbd5e1; }
+html[data-theme="dark"] .post-user-info span { color: #f1f5f9; }
+html[data-theme="dark"] .post-user-info small,
+html[data-theme="dark"] .post-meta { color: #64748b; }
+html[data-theme="dark"] .post-actions { border-color: #334155; }
+html[data-theme="dark"] .action-btn { color: #64748b; }
+html[data-theme="dark"] .action-btn:hover { background: #243044; color: #32cd32; }
+html[data-theme="dark"] .pin-badge { color: #64748b; }
+html[data-theme="dark"] .menu-dots { color: #64748b; }
+html[data-theme="dark"] .profile-img-container { border-color: #334155; }
+
+/* ── Nav avatar menu ── */
+.mob-nav-avatar-wrap { position: relative; cursor: pointer; justify-content: flex-end; }
+.mob-nav-avatar {
+    width: 18px; height: 18px; border-radius: 50%;
+    background: #32cd32; color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden; flex-shrink: 0;
+    font-size: 9px; font-weight: 700;
+}
+.mob-nav-menu {
+    display: none; position: absolute; bottom: 64px; right: -10px;
+    background: #fff; border: 1px solid #e2e8f0;
+    border-radius: 14px; box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    min-width: 160px; overflow: hidden; z-index: 9999;
+}
+.mob-nav-menu.open { display: block; }
+.mob-nav-menu a {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 16px; font-size: 13px; font-weight: 600;
+    color: #0f172a; text-decoration: none;
+}
+.mob-nav-menu a:hover { background: #f8fafc; }
+.mob-nav-menu a:last-child { color: #ef4444; }
+.mob-nav-menu a i { min-width: 18px; text-align: center; flex-shrink: 0; }
+
+/* Raised center Home button */
+.mob-nav-item.mob-nav-center {
+  position: relative;
+  top: -14px;
+  width: 62px; height: 62px;
+  min-width: 62px; max-width: 62px;
+  padding: 0;
+  border-radius: 50%;
+  background: #fff !important;
+  color: #94a3b8 !important;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.15), 0 1px 4px rgba(0,0,0,0.08);
+  justify-content: center; align-items: center;
+  flex: none;
+  border: 3px solid #e2e8f0;
+  gap: 1px; overflow: hidden;
+}
+.mob-nav-item.mob-nav-center i { font-size: 26px; color: #94a3b8; }
+.mob-nav-item.mob-nav-center span { font-size: 11px; color: #94a3b8; font-weight: 600; white-space: nowrap; line-height: 1; }
+.mob-nav-item.mob-nav-center.active { background: #fff !important; border-color: #e2e8f0; box-shadow: 0 3px 10px rgba(0,0,0,0.15), 0 1px 4px rgba(0,0,0,0.08); }
+.mob-nav-item.mob-nav-center.active i { color: #32cd32; }
+.mob-nav-item.mob-nav-center.active span { color: #32cd32; }
+.mob-nav-item.mob-nav-center:hover i { color: #32cd32; }
+.mob-nav-item.mob-nav-center:hover span { color: #32cd32; }
+
+/* The My Account/My Profile/My Listings modal now lives in the shared
+   account-menu.css (loaded alongside account-menu.js) so Portal and Profile
+   render the identical component — see dashboard-script.js's
+   window.showSellerPopup override and livemarket.js's showSelfPopup(). */
+
+/* =========================================
+   🔒 REALMATE ACCESS GATE — shown in place of Posts/Listings when viewing a
+   non-Realmate's profile. See _realmateGateHtml() in dashboard-script.js.
+   ========================================= */
+.profile-gate-card {
+    display: flex; flex-direction: column; align-items: center; text-align: center;
+    gap: 10px; padding: 40px 24px;
+}
+.profile-gate-icon {
+    width: 52px; height: 52px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--primary-soft); color: var(--primary);
+    font-size: 20px; margin-bottom: 4px;
+}
+.profile-gate-title { font-size: 15px; font-weight: 700; color: var(--text-main); }
+.profile-gate-sub { font-size: 13px; color: var(--text-sub); max-width: 340px; line-height: 1.5; }
+.profile-gate-card .btn-mate-profile { margin-top: 6px; }

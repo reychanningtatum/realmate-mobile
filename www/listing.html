@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Add Listing</title>
+
+  <style>
+    body {
+      font-family: Arial;
+      padding: 20px;
+      background: #f5f7fb;
+    }
+
+    .box {
+      max-width: 500px;
+      margin: auto;
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 10px;
+      margin: 10px 0;
+    }
+
+    button {
+      padding: 10px;
+      background: #2b7cff;
+      color: white;
+      border: none;
+      width: 100%;
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="box">
+
+<h2>Add Listing</h2>
+
+<input id="location" placeholder="Location">
+<input id="price" placeholder="Price">
+<select id="property">
+  <option>Condo</option>
+  <option>House</option>
+</select>
+<input id="bedrooms" placeholder="Bedrooms">
+
+<button onclick="saveListing()">Save Listing</button>
+
+</div>
+
+<script>
+
+function saveListing() {
+
+  let listing = {
+    location: document.getElementById("location").value,
+    price: parseInt(document.getElementById("price").value),
+    property: document.getElementById("property").value,
+    bedrooms: parseInt(document.getElementById("bedrooms").value)
+  }
+
+  let listings = JSON.parse(localStorage.getItem("listings")) || []
+
+  listings.push(listing)
+
+  localStorage.setItem("listings", JSON.stringify(listings))
+
+  alert("Listing saved!")
+
+}
+
+</script>
+
+</body>
+</html>

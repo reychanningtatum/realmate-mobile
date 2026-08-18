@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#060c16">
+<title>Realmate — AI Matches. Real Opportunities.</title>
+<meta name="description" content="Realmate is a private AI matching platform built for real estate sales professionals. Post a listing and instantly connect with the right buyers, sellers, and partners in real time. Currently available exclusively to verified members of the Alveo sales community. realmate is independent and not affiliated with Alveo Land Corp. or Ayala Land, Inc.">
+<link rel="icon" href="images/realmate2.png">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --primary:#32cd32; --primary-dark:#28a428;
+    --bg:#060c16; --bg-2:#080f1a;
+    --card:rgba(255,255,255,0.035); --card-border:rgba(255,255,255,0.08);
+    --text:#f8fafc; --muted:#94a3b8; --muted-2:#64748b; --sub:#e2e8f0;
+    --maxw:1200px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;-webkit-text-size-adjust:100%;}
+  body{
+    margin:0; font-family:'Inter',sans-serif; color:var(--text);
+    background:var(--bg); line-height:1.6; overflow-x:hidden;
+    -webkit-font-smoothing:antialiased;
+  }
+  a{color:inherit;text-decoration:none;}
+  img{max-width:100%;display:block;}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px;}
+  .grn{color:var(--primary);}
+  section{position:relative;}
+
+  /* ambient background */
+  .bg-grid{position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:
+      linear-gradient(rgba(50,205,50,0.035) 1px,transparent 1px),
+      linear-gradient(90deg,rgba(50,205,50,0.035) 1px,transparent 1px);
+    background-size:44px 44px;
+    mask-image:radial-gradient(ellipse 80% 60% at 50% 0%,#000 30%,transparent 75%);
+    -webkit-mask-image:radial-gradient(ellipse 80% 60% at 50% 0%,#000 30%,transparent 75%);}
+  .bg-glow{position:fixed;z-index:0;pointer-events:none;border-radius:50%;filter:blur(20px);}
+  .bg-glow.a{top:-160px;left:-120px;width:520px;height:520px;background:radial-gradient(circle,rgba(50,205,50,0.16),transparent 70%);}
+  .bg-glow.b{top:420px;right:-160px;width:520px;height:520px;background:radial-gradient(circle,rgba(50,205,50,0.10),transparent 70%);}
+  .content{position:relative;z-index:1;}
+
+  /* announcement bar (clickable) */
+  .announce{display:flex;align-items:center;justify-content:center;gap:7px;width:100%;
+    background:linear-gradient(90deg,rgba(50,205,50,0.14),rgba(50,205,50,0.06));
+    border:none;border-bottom:1px solid rgba(50,205,50,0.18);font-family:inherit;
+    font-size:12.5px;font-weight:600;color:#bbf7d0;text-align:center;padding:9px 16px;
+    letter-spacing:.2px;cursor:pointer;transition:background .2s;}
+  .announce:hover{background:linear-gradient(90deg,rgba(50,205,50,0.22),rgba(50,205,50,0.1));}
+  .announce i{color:var(--primary);}
+  .announce .ann-i{opacity:.7;font-size:11px;}
+
+  /* modal */
+  .modal-ov{position:fixed;inset:0;z-index:200;background:rgba(3,7,14,0.72);
+    backdrop-filter:blur(6px);display:none;align-items:center;justify-content:center;padding:22px;}
+  .modal-ov.open{display:flex;}
+  .modal-box{max-width:480px;width:100%;background:linear-gradient(160deg,#0d1622,#0a1018);
+    border:1px solid rgba(50,205,50,0.24);border-radius:22px;padding:34px 30px;
+    box-shadow:0 40px 100px rgba(0,0,0,0.6);position:relative;
+    animation:mpop .25s cubic-bezier(.2,.9,.3,1.2);}
+  @keyframes mpop{from{opacity:0;transform:translateY(14px) scale(.97);}to{opacity:1;transform:none;}}
+  .modal-box .m-close{position:absolute;top:16px;right:16px;width:32px;height:32px;border-radius:10px;
+    background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:var(--muted);
+    font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.2s;}
+  .modal-box .m-close:hover{background:rgba(255,255,255,0.1);color:#fff;}
+  .modal-box .m-seal{width:56px;height:56px;border-radius:16px;background:rgba(50,205,50,0.14);
+    border:1px solid rgba(50,205,50,0.3);color:var(--primary);display:flex;align-items:center;
+    justify-content:center;font-size:23px;margin-bottom:18px;}
+  .modal-box h3{font-size:21px;font-weight:900;letter-spacing:-.4px;margin:0 0 12px;color:#fff;}
+  .modal-box p{font-size:14px;color:var(--muted);line-height:1.6;margin:0 0 14px;}
+  .modal-box p.m-disc{font-size:12.5px;color:var(--muted-2);padding-top:14px;margin-top:4px;
+    border-top:1px solid rgba(255,255,255,0.08);}
+  .modal-box .m-hl{color:var(--primary);font-weight:700;}
+
+  /* nav */
+  nav{position:sticky;top:0;z-index:50;backdrop-filter:blur(14px);
+    background:rgba(6,12,22,0.72);border-bottom:1px solid rgba(255,255,255,0.06);}
+  .nav-in{display:flex;align-items:center;justify-content:space-between;height:66px;}
+  .brand{display:flex;align-items:center;gap:9px;font-weight:800;font-size:19px;letter-spacing:-.5px;}
+  .brand img{height:30px;width:auto;}
+  .nav-links{display:flex;align-items:center;gap:26px;}
+  .nav-links .lk{font-size:14px;font-weight:600;color:var(--muted);transition:color .2s;cursor:pointer;}
+  .nav-links .lk:hover{color:var(--text);}
+
+  /* buttons */
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:9px;
+    font-family:inherit;font-weight:700;font-size:15px;border:none;cursor:pointer;
+    border-radius:12px;padding:14px 26px;transition:transform .15s,box-shadow .2s,background .2s;
+    white-space:nowrap;}
+  .btn:active{transform:translateY(1px);}
+  .btn-primary{background:var(--primary);color:#05230a;box-shadow:0 8px 26px rgba(50,205,50,0.28);}
+  .btn-primary:hover{background:#3ee03e;box-shadow:0 10px 34px rgba(50,205,50,0.4);}
+  .btn-ghost{background:rgba(255,255,255,0.05);color:var(--text);border:1px solid rgba(255,255,255,0.14);}
+  .btn-ghost:hover{background:rgba(255,255,255,0.09);border-color:rgba(255,255,255,0.24);}
+  .btn-sm{padding:10px 18px;font-size:13.5px;border-radius:10px;}
+
+  /* App-store download badges */
+  .store-badges{display:flex;gap:12px;flex-wrap:wrap;margin-top:20px;}
+  .store-badge{display:inline-flex;align-items:center;gap:11px;background:#000;
+    border:1px solid rgba(255,255,255,0.22);border-radius:12px;padding:9px 17px;
+    color:#fff;text-decoration:none;cursor:pointer;
+    transition:transform .15s,border-color .2s,background .2s;}
+  .store-badge:hover{border-color:rgba(255,255,255,0.5);background:#0a0a0a;transform:translateY(-2px);}
+  .store-badge:active{transform:translateY(0);}
+  .store-badge i{font-size:27px;line-height:1;}
+  .store-badge .sb-txt{display:flex;flex-direction:column;line-height:1.12;text-align:left;}
+  .store-badge .sb-small{font-size:9.5px;font-weight:500;letter-spacing:.4px;opacity:.9;}
+  .store-badge .sb-big{font-size:17px;font-weight:600;letter-spacing:.2px;}
+  .final .store-badges{justify-content:center;}
+
+  /* Small transient toast (used by the download badges until store links exist) */
+  .rm-toast{position:fixed;left:50%;bottom:30px;transform:translateX(-50%) translateY(18px);
+    background:rgba(13,20,32,0.96);border:1px solid rgba(50,205,50,0.32);color:#e8f0e8;
+    padding:12px 18px;border-radius:12px;font-size:13.5px;font-weight:600;z-index:100000;
+    opacity:0;pointer-events:none;box-shadow:0 16px 40px rgba(0,0,0,0.5);
+    transition:opacity .25s,transform .25s;}
+  .rm-toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+  /* pills */
+  .pill{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600;
+    padding:7px 14px;border-radius:999px;background:rgba(50,205,50,0.10);
+    border:1px solid rgba(50,205,50,0.28);color:#bbf7d0;}
+  .pill .dot{width:7px;height:7px;border-radius:50%;background:var(--primary);
+    box-shadow:0 0 0 4px rgba(50,205,50,0.18);animation:pulse 2s infinite;}
+  @keyframes pulse{50%{box-shadow:0 0 0 7px rgba(50,205,50,0);}}
+
+  /* hero */
+  /* Hero: two-column layout over the city/podium image as a backdrop. */
+  .hero{position:relative;padding:60px 0 56px;overflow:hidden;}
+  .hero::before{content:"";position:absolute;inset:0;z-index:0;
+    background:url('images/marketing-bg.jpg?v=2') center bottom/cover no-repeat;}
+  .hero::after{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;
+    background:
+      linear-gradient(90deg,rgba(6,12,22,0.82) 0%,rgba(6,12,22,0.4) 40%,rgba(6,12,22,0.12) 100%),
+      linear-gradient(180deg,rgba(6,12,22,0.5) 0%,rgba(6,12,22,0.2) 45%,rgba(6,12,22,0.66) 100%);}
+  .hero > .wrap{position:relative;z-index:1;}
+  .hero-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:40px;align-items:center;}
+  .hero h1{font-size:clamp(40px,5.4vw,68px);font-weight:900;line-height:1.02;
+    letter-spacing:-2px;margin:22px 0 0;}
+  .hero h1 .line2{display:block;color:var(--primary);}
+  .hero .lede{font-size:clamp(16px,1.4vw,18.5px);color:var(--muted);max-width:520px;
+    margin:20px 0 30px;font-weight:500;}
+  .hero-cta{display:flex;gap:14px;flex-wrap:wrap;}
+  .hero-meta{display:flex;align-items:center;gap:10px;margin-top:22px;font-size:13px;color:var(--muted-2);}
+  .hero-meta .av{display:flex;}
+  .hero-meta .av span{width:26px;height:26px;border-radius:50%;border:2px solid var(--bg-2);
+    margin-left:-8px;background:linear-gradient(135deg,#1e293b,#334155);display:flex;align-items:center;
+    justify-content:center;font-size:10px;font-weight:700;color:var(--primary);}
+
+  /* phone mockup — a pre-rendered 3D device render (its own frame, notch, status
+     bar, and app screenshot are all baked into the PNG). The drop-shadows follow
+     the device's alpha silhouette: a deep cast shadow + a soft green glow. */
+  .phone-stage{position:relative;display:flex;justify-content:center;}
+  .phone-img{width:min(100%,430px);height:auto;display:block;z-index:2;
+    position:relative;right:78px;
+    filter:drop-shadow(-26px 36px 52px rgba(0,0,0,0.55)) drop-shadow(0 0 58px rgba(50,205,50,0.16));
+    animation:phonefloat 6s ease-in-out infinite;}
+  @keyframes phonefloat{50%{transform:translateY(-10px);}}
+  @media (prefers-reduced-motion:reduce){.phone-img{animation:none;}}
+
+  /* floating match cards — positioned off the phone's RIGHT SIDE. Horizontal
+     offset via margin-left (not transform) so the floaty keyframe's translateY
+     is free to animate without clobbering the position. */
+  .float-card{position:absolute;z-index:3;width:178px;left:50%;background:rgba(13,20,32,0.86);
+    border:1px solid rgba(50,205,50,0.22);border-radius:14px;padding:10px;
+    backdrop-filter:blur(10px);box-shadow:0 18px 40px rgba(0,0,0,0.5);
+    display:flex;gap:10px;align-items:center;animation:floaty 5s ease-in-out infinite;}
+  .float-card .thumb{width:44px;height:44px;border-radius:10px;flex-shrink:0;
+    background:linear-gradient(135deg,#1e3a5f,#0f172a);display:flex;align-items:center;
+    justify-content:center;color:var(--primary);font-size:15px;}
+  .float-card .mt{font-size:9px;font-weight:800;color:var(--primary);letter-spacing:.3px;}
+  .float-card .nm{font-size:11.5px;font-weight:700;color:#fff;margin:2px 0 1px;}
+  .float-card .ds{font-size:9.5px;color:#94a3b8;}
+  .float-card.c1{top:70px;margin-left:153px;animation-delay:0s;}
+  .float-card.c2{top:208px;margin-left:96px;animation-delay:.8s;}
+  .float-card.c3{top:347px;margin-left:39px;animation-delay:1.6s;}
+  @keyframes floaty{50%{transform:translateY(-12px);}}
+  /* The cards' node positions are calibrated to the phone image at its full
+     430px width. Below ~1080px the hero column narrows the image, so the cards
+     would drift — hide them there and recenter the (now solo) phone. */
+  @media(max-width:1080px){ .float-card,.sonar,.hero-spark,.mini-node,.hero-badge{display:none !important;} .phone-img{right:0;} }
+
+  /* Electricity connectors — a short horizontal stub that plugs each card into
+     the phone's SIDE (its right bezel), not into the screen. The glowing node
+     sits on the phone edge; a spark runs along the stub out to the card. No
+     rotation — the line never angles across the screen. */
+  .float-card .wire{position:absolute;top:50%;right:100%;width:34px;height:2px;
+    transform:translateY(-50%);pointer-events:none;border-radius:2px;
+    background:linear-gradient(90deg,rgba(50,205,50,.9) 0%,rgba(50,205,50,.25) 100%);
+    box-shadow:0 0 6px rgba(50,205,50,.35);}
+  .float-card .wire::before{content:"";position:absolute;left:-4px;top:50%;
+    width:8px;height:8px;border-radius:50%;background:var(--primary);transform:translateY(-50%);
+    box-shadow:0 0 10px 2px rgba(50,205,50,.55);animation:wnode 2s ease-in-out infinite;}
+  .float-card .wire::after{content:"";position:absolute;top:50%;left:0;
+    width:7px;height:7px;border-radius:50%;background:#daffda;transform:translateY(-50%);
+    box-shadow:0 0 10px 3px rgba(50,205,50,.9);animation:spark 1.5s linear infinite;}
+  .float-card.c2 .wire::after{animation-delay:.5s;}
+  .float-card.c3 .wire::after{animation-delay:1s;}
+  @keyframes spark{0%{left:-2px;opacity:0}12%{opacity:1}88%{opacity:1}100%{left:calc(100% - 4px);opacity:0}}
+  @keyframes wnode{50%{transform:translateY(-50%) scale(1.4);box-shadow:0 0 14px 3px rgba(50,205,50,.75);}}
+
+  /* ── Ambient hero life: scan rings, sparkles, and a balancing left node ── */
+  /* Sonar rings pulsing out from behind the phone — the AI "scanning" for matches.
+     Centered on the phone (which is nudged 80px left of the stage center). */
+  .sonar{position:absolute;top:50%;left:calc(50% - 80px);width:300px;height:300px;
+    transform:translate(-50%,-50%);pointer-events:none;z-index:1;}
+  .sonar i{position:absolute;inset:0;border-radius:50%;border:1px solid rgba(50,205,50,0.30);
+    animation:sonar 4.2s ease-out infinite;}
+  .sonar i:nth-child(2){animation-delay:1.4s;}
+  .sonar i:nth-child(3){animation-delay:2.8s;}
+  @keyframes sonar{0%{transform:scale(.42);opacity:0}18%{opacity:.5}100%{transform:scale(1.3);opacity:0}}
+
+  /* Twinkling spark particles scattered around the phone. */
+  .hero-spark{position:absolute;width:6px;height:6px;border-radius:50%;background:var(--primary);
+    box-shadow:0 0 8px 2px rgba(50,205,50,.6);z-index:1;pointer-events:none;
+    animation:twinkle 3.2s ease-in-out infinite;}
+  .hero-spark.sm{width:4px;height:4px;}
+  @keyframes twinkle{0%,100%{opacity:.12;transform:scale(.6)}50%{opacity:1;transform:scale(1.15)}}
+  .hero-spark.k1{top:96px;  left:calc(50% - 300px);animation-delay:0s;}
+  .hero-spark.k2{top:150px; left:calc(50% + 250px);animation-delay:.6s;}
+  .hero-spark.k3{top:520px; left:calc(50% + 250px);animation-delay:1.1s;}
+  .hero-spark.k4{top:250px; left:calc(50% - 330px);animation-delay:1.7s;}
+  .hero-spark.k5{top:120px; left:calc(50% + 200px);animation-delay:2.2s;}
+  .hero-spark.k6{top:540px; left:calc(50% - 300px);animation-delay:.9s;}
+
+  /* Floating "new match" toast in the phone's lower-left (a clear zone below the
+     hero copy) — adds life and balances the three cards on the right. */
+  .mini-node{position:absolute;z-index:3;top:430px;left:50%;margin-left:-455px;
+    display:flex;align-items:center;gap:9px;background:rgba(13,20,32,0.9);
+    border:1px solid rgba(50,205,50,0.22);border-radius:13px;padding:8px 12px 8px 8px;
+    backdrop-filter:blur(8px);box-shadow:0 16px 36px rgba(0,0,0,.5);
+    animation:floaty 5.4s ease-in-out infinite;animation-delay:.4s;}
+  .mini-node .av{position:relative;width:38px;height:38px;border-radius:50%;flex-shrink:0;
+    background:linear-gradient(135deg,#1e3a5f,#0f172a);border:1.5px solid rgba(50,205,50,.55);
+    box-shadow:0 0 16px rgba(50,205,50,.32);display:flex;align-items:center;justify-content:center;
+    color:var(--primary);font-size:14px;}
+  .mini-node .av .dot{position:absolute;right:-2px;bottom:-2px;width:11px;height:11px;border-radius:50%;
+    background:var(--primary);border:2px solid #0b1220;box-shadow:0 0 8px rgba(50,205,50,.7);
+    animation:wnode 2s ease-in-out infinite;}
+  .mini-node b{display:block;font-size:10.5px;color:#fff;font-weight:800;letter-spacing:.1px;}
+  .mini-node span{font-size:9px;color:var(--primary);font-weight:700;}
+
+  /* Small status pill floating above the phone — "engine live" cue. */
+  .hero-badge{position:absolute;z-index:3;top:-6px;left:calc(50% - 40px);transform:translateX(-50%);
+    display:inline-flex;align-items:center;gap:7px;background:rgba(13,20,32,0.92);
+    border:1px solid rgba(50,205,50,0.3);border-radius:999px;padding:7px 13px;
+    font-size:11px;font-weight:800;color:#e8f0e8;letter-spacing:.2px;
+    box-shadow:0 14px 30px rgba(0,0,0,.5),0 0 0 4px rgba(50,205,50,.05);
+    backdrop-filter:blur(8px);animation:floaty 6s ease-in-out infinite;}
+  .hero-badge .ld{width:8px;height:8px;border-radius:50%;background:var(--primary);
+    box-shadow:0 0 0 0 rgba(50,205,50,.6);animation:livepulse 2s ease-out infinite;}
+  @keyframes livepulse{0%{box-shadow:0 0 0 0 rgba(50,205,50,.55)}70%{box-shadow:0 0 0 7px rgba(50,205,50,0)}100%{box-shadow:0 0 0 0 rgba(50,205,50,0)}}
+
+  /* stats strip */
+  .stats{border-top:1px solid rgba(255,255,255,0.06);border-bottom:1px solid rgba(255,255,255,0.06);
+    background:rgba(255,255,255,0.015);margin-top:30px;}
+  .stats-in{display:grid;grid-template-columns:repeat(4,1fr);gap:20px;padding:34px 0;}
+  .stat{display:flex;align-items:center;gap:14px;}
+  .stat .ic{width:46px;height:46px;border-radius:13px;background:rgba(50,205,50,0.10);
+    border:1px solid rgba(50,205,50,0.2);display:flex;align-items:center;justify-content:center;
+    color:var(--primary);font-size:19px;flex-shrink:0;}
+  .stat .big{font-size:24px;font-weight:900;letter-spacing:-.5px;line-height:1;}
+  .stat .lbl{font-size:12.5px;color:var(--muted-2);font-weight:500;margin-top:3px;}
+
+  /* generic section heading */
+  .sec{padding:84px 0;}
+  .eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;font-weight:700;
+    text-transform:uppercase;letter-spacing:1.4px;color:var(--primary);margin-bottom:16px;}
+  .eyebrow::before{content:"";width:22px;height:2px;background:var(--primary);border-radius:2px;}
+  .sec h2{font-size:clamp(28px,3.4vw,42px);font-weight:900;letter-spacing:-1px;line-height:1.1;margin:0 0 16px;}
+  .sec .sub{font-size:16.5px;color:var(--muted);max-width:640px;font-weight:500;}
+  .center{text-align:center;}
+  .center .eyebrow{justify-content:center;}
+  .center .sub{margin-left:auto;margin-right:auto;}
+
+  /* problem / solution */
+  .ps-grid{display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-top:44px;}
+  .ps{border-radius:20px;padding:32px;border:1px solid var(--card-border);background:var(--card);}
+  .ps.prob{border-color:rgba(248,113,113,0.16);}
+  .ps.sol{border-color:rgba(50,205,50,0.22);background:rgba(50,205,50,0.04);}
+  .ps .tag{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:800;
+    text-transform:uppercase;letter-spacing:1px;padding:6px 12px;border-radius:8px;margin-bottom:18px;}
+  .ps.prob .tag{background:rgba(248,113,113,0.12);color:#fca5a5;}
+  .ps.sol .tag{background:rgba(50,205,50,0.14);color:#bbf7d0;}
+  .ps h3{font-size:21px;font-weight:800;margin:0 0 16px;letter-spacing:-.4px;}
+  .ps ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:13px;}
+  .ps li{display:flex;gap:12px;font-size:14.5px;color:var(--sub);}
+  .ps li i{margin-top:3px;flex-shrink:0;}
+  .ps.prob li i{color:#f87171;}
+  .ps.sol li i{color:var(--primary);}
+
+  /* how it works */
+  .steps{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-top:48px;}
+  .step{background:var(--card);border:1px solid var(--card-border);border-radius:18px;padding:26px 22px;
+    position:relative;transition:border-color .2s,transform .2s;}
+  .step:hover{border-color:rgba(50,205,50,0.28);transform:translateY(-4px);}
+  .step .no{font-size:13px;font-weight:900;color:var(--primary);letter-spacing:1px;}
+  .step .si{width:48px;height:48px;border-radius:14px;background:rgba(50,205,50,0.10);
+    display:flex;align-items:center;justify-content:center;color:var(--primary);font-size:20px;margin:14px 0 16px;}
+  .step h4{font-size:16.5px;font-weight:800;margin:0 0 8px;letter-spacing:-.3px;}
+  .step p{font-size:13.5px;color:var(--muted);margin:0;}
+  .step .arrow{position:absolute;top:38px;right:-16px;color:rgba(50,205,50,0.4);font-size:16px;z-index:2;}
+
+  /* features */
+  .feat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:48px;}
+  .feat{background:var(--card);border:1px solid var(--card-border);border-radius:18px;padding:28px;
+    transition:border-color .2s,background .2s,transform .2s;}
+  .feat:hover{border-color:rgba(50,205,50,0.28);background:rgba(50,205,50,0.045);transform:translateY(-4px);}
+  .feat .fi{width:50px;height:50px;border-radius:14px;background:rgba(50,205,50,0.12);
+    display:flex;align-items:center;justify-content:center;color:var(--primary);font-size:21px;margin-bottom:18px;}
+  .feat h4{font-size:18px;font-weight:800;margin:0 0 9px;letter-spacing:-.4px;}
+  .feat p{font-size:14px;color:var(--muted);margin:0;}
+
+  /* split (alternating deep-dives) */
+  .split{display:grid;grid-template-columns:1fr 1fr;gap:56px;align-items:center;margin-top:40px;}
+  .split.alt .txt{order:2;}
+  .split .kv{display:flex;flex-direction:column;gap:14px;margin-top:24px;}
+  .split .kv .row{display:flex;gap:13px;align-items:flex-start;}
+  .split .kv .row i{width:34px;height:34px;border-radius:10px;background:rgba(50,205,50,0.12);
+    color:var(--primary);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;}
+  .split .kv .row b{font-size:15px;font-weight:700;color:var(--sub);display:block;margin-bottom:2px;}
+  .split .kv .row span{font-size:13.5px;color:var(--muted);}
+  .visual{border-radius:22px;border:1px solid var(--card-border);background:linear-gradient(160deg,rgba(50,205,50,0.06),rgba(255,255,255,0.02));
+    padding:30px;min-height:300px;position:relative;overflow:hidden;}
+  .visual::after{content:"";position:absolute;width:240px;height:240px;border-radius:50%;
+    background:radial-gradient(circle,rgba(50,205,50,0.14),transparent 70%);top:-60px;right:-60px;}
+
+  /* match visual */
+  .mrow{display:flex;align-items:center;gap:12px;background:rgba(255,255,255,0.04);
+    border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:13px;margin-bottom:12px;position:relative;z-index:1;}
+  .mrow .badge{font-size:12px;font-weight:900;color:#05230a;background:var(--primary);
+    border-radius:8px;padding:6px 9px;flex-shrink:0;}
+  .mrow .th{width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#1e3a5f,#0f172a);
+    display:flex;align-items:center;justify-content:center;color:var(--primary);flex-shrink:0;}
+  .mrow .nm{font-size:14px;font-weight:700;}
+  .mrow .ds{font-size:12px;color:var(--muted-2);}
+  .mbar{height:7px;border-radius:6px;background:rgba(255,255,255,0.08);overflow:hidden;margin-top:auto;}
+  .mbar i{display:block;height:100%;background:linear-gradient(90deg,var(--primary),#7ef07e);border-radius:6px;}
+
+  /* portal visual */
+  .ptabs{display:flex;gap:8px;margin-bottom:16px;position:relative;z-index:1;flex-wrap:wrap;}
+  .ptabs span{font-size:12px;font-weight:700;padding:8px 13px;border-radius:9px;
+    background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);color:var(--muted);}
+  .ptabs span.on{background:var(--primary);color:#05230a;border-color:transparent;}
+  .plist{position:relative;z-index:1;display:flex;flex-direction:column;gap:10px;}
+  .pitem{display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,0.04);
+    border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:12px 14px;}
+  .pitem .t{font-size:13.5px;font-weight:700;}
+  .pitem .s{font-size:11.5px;color:var(--muted-2);}
+  .pitem .m{font-size:11px;font-weight:800;color:var(--primary);background:rgba(50,205,50,0.12);
+    padding:5px 8px;border-radius:7px;}
+
+  /* network visual */
+  .net{position:relative;z-index:1;display:flex;flex-wrap:wrap;gap:10px;}
+  .chip{display:flex;align-items:center;gap:9px;background:rgba(255,255,255,0.04);
+    border:1px solid rgba(255,255,255,0.08);border-radius:999px;padding:8px 14px 8px 8px;}
+  .chip .a{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#1e293b,#334155);
+    display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:var(--primary);}
+  .chip .n{font-size:13px;font-weight:700;}
+  .chip .role{font-size:10.5px;color:var(--muted-2);}
+  .chip.add{background:rgba(50,205,50,0.1);border-color:rgba(50,205,50,0.28);color:var(--primary);
+    font-size:13px;font-weight:800;padding:10px 16px;}
+
+  /* why / benefits */
+  .why-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-top:44px;}
+  .why{display:flex;gap:15px;background:var(--card);border:1px solid var(--card-border);
+    border-radius:16px;padding:22px;}
+  .why .ic{width:44px;height:44px;border-radius:12px;background:rgba(50,205,50,0.12);color:var(--primary);
+    display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+  .why h4{margin:0 0 6px;font-size:16px;font-weight:800;letter-spacing:-.3px;}
+  .why p{margin:0;font-size:13.5px;color:var(--muted);}
+
+  /* team / founders */
+  .team-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:16px;margin-top:44px;}
+  .member{background:var(--card);border:1px solid var(--card-border);border-radius:18px;
+    padding:28px 16px;text-align:center;transition:border-color .2s,background .2s,transform .2s;}
+  .member:hover{border-color:rgba(50,205,50,0.28);background:rgba(50,205,50,0.045);transform:translateY(-4px);}
+  .m-av{width:62px;height:62px;border-radius:50%;margin:0 auto 15px;display:flex;align-items:center;
+    justify-content:center;font-size:21px;font-weight:800;color:var(--primary);letter-spacing:.5px;
+    background:linear-gradient(135deg,rgba(50,205,50,0.16),rgba(50,205,50,0.05));
+    border:1px solid rgba(50,205,50,0.3);}
+  .m-nm{font-size:15px;font-weight:800;letter-spacing:-.3px;}
+  .m-ro{font-size:12px;color:var(--muted);margin-top:6px;line-height:1.45;}
+
+  /* exclusivity */
+  .excl{margin:0 auto;max-width:920px;border-radius:24px;padding:44px;
+    background:linear-gradient(135deg,rgba(50,205,50,0.09),rgba(255,255,255,0.02));
+    border:1px solid rgba(50,205,50,0.24);text-align:center;position:relative;overflow:hidden;}
+  .excl .seal{width:62px;height:62px;border-radius:18px;background:rgba(50,205,50,0.14);
+    border:1px solid rgba(50,205,50,0.3);color:var(--primary);display:flex;align-items:center;
+    justify-content:center;font-size:26px;margin:0 auto 20px;}
+  .excl h3{font-size:clamp(22px,2.6vw,30px);font-weight:900;letter-spacing:-.6px;margin:0 0 14px;}
+  .excl p{font-size:15px;color:var(--muted);max-width:560px;margin:0 auto;}
+  .excl .disc{font-size:12.5px;color:var(--muted-2);margin-top:20px;padding-top:18px;
+    border-top:1px solid rgba(255,255,255,0.08);max-width:640px;margin-left:auto;margin-right:auto;line-height:1.6;}
+
+  /* final CTA */
+  .final{text-align:center;padding:96px 0;}
+  .final h2{font-size:clamp(32px,4.6vw,56px);font-weight:900;letter-spacing:-1.6px;line-height:1.05;margin:0 0 18px;}
+  .final p{font-size:17px;color:var(--muted);max-width:520px;margin:0 auto 34px;font-weight:500;}
+  .final .hero-cta{justify-content:center;}
+
+  /* footer */
+  footer{border-top:1px solid rgba(255,255,255,0.06);padding:44px 0 40px;}
+  .foot-in{display:flex;justify-content:space-between;align-items:flex-start;gap:30px;flex-wrap:wrap;}
+  .foot-in .brand{margin-bottom:12px;}
+  footer .desc{font-size:13px;color:var(--muted-2);max-width:420px;line-height:1.7;}
+  footer .cols{display:flex;gap:60px;flex-wrap:wrap;}
+  footer .col h5{font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin:0 0 14px;font-weight:700;}
+  footer .col a{display:block;font-size:13.5px;color:var(--muted-2);margin-bottom:10px;transition:color .2s;cursor:pointer;}
+  footer .col a:hover{color:var(--text);}
+  .foot-bottom{margin-top:36px;padding-top:22px;border-top:1px solid rgba(255,255,255,0.06);
+    display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--muted-2);}
+
+  /* reveal on scroll */
+  .reveal{opacity:0;transform:translateY(26px);transition:opacity .7s ease,transform .7s ease;}
+  .reveal.in{opacity:1;transform:none;}
+
+  /* mobile sticky CTA (hidden on desktop) */
+  .m-cta{display:none;}
+
+  /* ─────────────────────────  MOBILE / APP LAYOUT  ───────────────────────── */
+  @media(max-width:860px){
+    .desktop-only{display:none!important;}
+    .nav-in{height:60px;}
+    /* On mobile the sticky bottom bar carries Sign In + Get Started, so the
+       top nav is just the logo — avoids a redundant Get Started at the top. */
+    .nav-links{display:none;}
+    /* Mobile hero: single column over the city backdrop, dark wash for text. */
+    .hero{padding:30px 0 26px;}
+    .hero::before{background-position:center top;}
+    .hero::after{background:linear-gradient(180deg,rgba(6,12,22,0.6) 0%,rgba(6,12,22,0.8) 55%,rgba(6,12,22,0.92) 100%);}
+    .hero-grid{grid-template-columns:1fr;gap:30px;text-align:center;}
+    .hero .lede{margin-left:auto;margin-right:auto;}
+    .hero-cta{justify-content:center;}
+    .hero-meta{justify-content:center;text-align:center;}
+    .hero .pill{margin:0 auto;}
+    .stats-in{grid-template-columns:1fr 1fr;gap:22px 16px;padding:26px 0;}
+    .sec{padding:56px 0;}
+    .ps-grid{grid-template-columns:1fr;gap:16px;margin-top:30px;}
+    .ps{padding:24px;}
+    .steps{grid-template-columns:1fr;gap:14px;margin-top:30px;}
+    .step .arrow{display:none;}
+    .step{display:flex;align-items:flex-start;gap:16px;padding:20px;}
+    .step .si{margin:0;width:44px;height:44px;flex-shrink:0;}
+    .step .stxt{flex:1;}
+    .feat-grid{grid-template-columns:1fr;gap:14px;margin-top:30px;}
+    .feat{padding:22px;display:flex;gap:16px;}
+    .feat .fi{margin-bottom:0;flex-shrink:0;width:46px;height:46px;}
+    .split,.split.alt{grid-template-columns:1fr;gap:26px;}
+    .split.alt .txt{order:0;}
+    .visual{min-height:auto;padding:22px;}
+    .why-grid{grid-template-columns:1fr;gap:12px;margin-top:30px;}
+    .team-grid{grid-template-columns:1fr 1fr;gap:12px;margin-top:30px;}
+    .member{padding:22px 12px;}
+    .excl{padding:32px 22px;}
+    .final{padding:60px 0 40px;}
+    .foot-in{flex-direction:column;gap:26px;}
+    footer .cols{gap:40px;}
+    /* sticky bottom app CTA */
+    .m-cta{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:60;gap:12px;
+      padding:12px 16px calc(12px + env(safe-area-inset-bottom));
+      background:rgba(6,12,22,0.92);backdrop-filter:blur(16px);
+      border-top:1px solid rgba(255,255,255,0.08);}
+    .m-cta .btn{flex:1;}
+    body{padding-bottom:82px;}
+  }
+  @media(max-width:420px){
+    .wrap{padding:0 18px;}
+    .hero h1{letter-spacing:-1.2px;}
+    .stat .big{font-size:21px;}
+    .btn{padding:13px 20px;}
+  }
+  @media(prefers-reduced-motion:reduce){
+    .float-card,.pill .dot,.float-card .wire::after,.float-card .wire::before,.phone-img,
+    .sonar i,.hero-spark,.mini-node,.hero-badge,.hero-badge .ld,.mini-node .av .dot{animation:none;}
+    html{scroll-behavior:auto;}
+    .reveal{transition:none;opacity:1;transform:none;}
+  }
+</style>
+</head>
+<body>
+
+<div class="bg-grid"></div>
+<div class="bg-glow a"></div>
+<div class="bg-glow b"></div>
+
+<div class="content">
+
+  <!-- Exclusivity announcement (immediately visible, clickable) -->
+  <button class="announce" type="button" onclick="rmOpenExcl()" aria-haspopup="dialog">
+    <i class="fas fa-lock"></i> A private platform for real estate professionals — currently open to the Alveo sales community
+    <i class="fas fa-circle-info ann-i"></i>
+  </button>
+
+  <!-- Exclusivity / non-affiliation modal -->
+  <div class="modal-ov" id="exclModal" onclick="if(event.target===this) rmCloseExcl()">
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="exclTitle">
+      <button class="m-close" onclick="rmCloseExcl()" aria-label="Close">&times;</button>
+      <div class="m-seal"><i class="fas fa-user-shield"></i></div>
+      <h3 id="exclTitle">Who can join</h3>
+      <p>realmate is a private platform built for real estate sales professionals. Access is <b>currently available exclusively to verified members of the Alveo sales community</b> — registration requires an <span class="m-hl">@alveoland.com</span> business email and admin approval before you can join the network.</p>
+      <p class="m-disc">realmate is an independent platform and is not affiliated with, owned by, operated by, sponsored by, or endorsed by Alveo Land Corp., Ayala Land, Inc., or their affiliates. Choosing to serve the Alveo sales community does not make realmate an official Alveo system or channel. All company and development names are referenced for professional context only. <a href="disclaimer.html" style="color:#32cd32;font-weight:600;">Read the full Disclaimer</a>.</p>
+    </div>
+  </div>
+
+  <!-- Nav -->
+  <nav>
+    <div class="wrap nav-in">
+      <a class="brand" onclick="rmTop()"><img src="images/realmate2.png" alt="Realmate"></a>
+      <div class="nav-links">
+        <span class="lk desktop-only" onclick="rmScroll('how')">How it works</span>
+        <span class="lk desktop-only" onclick="rmScroll('features')">Features</span>
+        <span class="lk desktop-only" onclick="rmScroll('why')">Why Realmate</span>
+        <span class="lk desktop-only" onclick="rmScroll('team')">About</span>
+        <span class="lk" onclick="rmSignIn()">Sign In</span>
+        <button class="btn btn-primary btn-sm" onclick="rmStart()">Get Started <i class="fas fa-arrow-right"></i></button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <header class="hero">
+    <div class="wrap hero-grid">
+      <div class="reveal in">
+        <span class="pill"><span class="dot"></span> AI-Powered Real Estate Matching</span>
+        <h1>AI matches.<span class="line2">Real opportunities.</span></h1>
+        <p class="lede">Buy, sell, rent, or lease with an intelligent engine that connects the right people in real time — so real estate professionals spend less time searching and more time closing.</p>
+        <div class="hero-cta">
+          <button class="btn btn-primary" onclick="rmStart()">Get Started <i class="fas fa-arrow-right"></i></button>
+          <button class="btn btn-ghost" onclick="rmScroll('how')"><i class="fas fa-circle-play"></i> See how it works</button>
+        </div>
+        <div class="store-badges">
+          <a class="store-badge" href="#" onclick="rmDownload(event,'ios')" aria-label="Download on the App Store">
+            <i class="fab fa-apple"></i>
+            <span class="sb-txt"><span class="sb-small">Download on the</span><span class="sb-big">App Store</span></span>
+          </a>
+          <a class="store-badge" href="#" onclick="rmDownload(event,'android')" aria-label="Get it on Google Play">
+            <i class="fab fa-google-play"></i>
+            <span class="sb-txt"><span class="sb-small">Get it on</span><span class="sb-big">Google Play</span></span>
+          </a>
+        </div>
+        <div class="hero-meta">
+          <div class="av"><span>A</span><span>V</span><span>R</span></div>
+          Built for real estate professionals — connect, match, and close together.
+        </div>
+      </div>
+
+      <!-- Phone mockup with floating AI-match cards, over the city backdrop -->
+      <div class="phone-stage reveal in">
+        <!-- ambient life: scan rings + twinkling sparks behind the phone -->
+        <div class="sonar" aria-hidden="true"><i></i><i></i><i></i></div>
+        <span class="hero-spark k1" aria-hidden="true"></span>
+        <span class="hero-spark sm k2" aria-hidden="true"></span>
+        <span class="hero-spark k3" aria-hidden="true"></span>
+        <span class="hero-spark sm k4" aria-hidden="true"></span>
+        <span class="hero-spark k5" aria-hidden="true"></span>
+        <span class="hero-spark sm k6" aria-hidden="true"></span>
+        <img class="phone-img" src="images/phone2.png?v=1" alt="Realmate AI Match Engine — a 99% match between a Makati 3BR buyer and a listing, shown on an iPhone">
+        <div class="hero-badge"><span class="ld"></span> AI Engine · Live</div>
+        <div class="float-card c1"><span class="wire"></span><div class="thumb"><i class="fas fa-handshake"></i></div><div><div class="mt">98% MATCH</div><div class="nm">Makati · 3BR</div><div class="ds">Willing to Buy · TREC</div></div></div>
+        <div class="float-card c2"><span class="wire"></span><div class="thumb"><i class="fas fa-building"></i></div><div><div class="mt">96% MATCH</div><div class="nm">Makati · 3BR</div><div class="ds">Budget ₱55M</div></div></div>
+        <div class="float-card c3"><span class="wire"></span><div class="thumb"><i class="fas fa-key"></i></div><div><div class="mt">93% MATCH</div><div class="nm">Makati · 3BR</div><div class="ds">Willing to Lease</div></div></div>
+        <div class="mini-node"><div class="av"><i class="fas fa-user-check"></i><span class="dot"></span></div><div><b>New buyer matched</b><span>Just now · Makati</span></div></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Stats -->
+  <section class="stats">
+    <div class="wrap stats-in reveal">
+      <div class="stat"><div class="ic"><i class="fas fa-bullseye"></i></div><div><div class="big">99%</div><div class="lbl">Average Match Accuracy</div></div></div>
+      <div class="stat"><div class="ic"><i class="fas fa-bolt"></i></div><div><div class="big">2 sec</div><div class="lbl">Average Match Time</div></div></div>
+      <div class="stat"><div class="ic"><i class="fas fa-users"></i></div><div><div class="big">Thousands</div><div class="lbl">Potential Connections Daily</div></div></div>
+      <div class="stat"><div class="ic"><i class="fas fa-clock-rotate-left"></i></div><div><div class="big">Real time</div><div class="lbl">Instant Buyer–Seller Pairing</div></div></div>
+    </div>
+  </section>
+
+  <!-- What is Realmate + Problem/Solution -->
+  <section class="sec" id="about">
+    <div class="wrap">
+      <div class="reveal">
+        <span class="eyebrow">What is Realmate</span>
+        <h2>The AI matching network built for<br class="desktop-only"> real estate professionals.</h2>
+        <p class="sub">Realmate is an intelligent platform where real estate professionals post what they have and what they need — then let AI instantly surface the right buyers, sellers, and partners to transact with. It turns scattered listings and group-chat guesswork into precise, real-time matches.</p>
+      </div>
+      <div class="ps-grid">
+        <div class="ps prob reveal">
+          <span class="tag"><i class="fas fa-triangle-exclamation"></i> The problem</span>
+          <h3>Deals get lost in the noise.</h3>
+          <ul>
+            <li><i class="fas fa-xmark"></i> Buyer and seller requirements are buried across group chats, spreadsheets, and scattered posts.</li>
+            <li><i class="fas fa-xmark"></i> Finding the right counterpart for a client takes hours of manual searching and asking around.</li>
+            <li><i class="fas fa-xmark"></i> Perfect-fit matches are missed simply because the right two agents never crossed paths in time.</li>
+            <li><i class="fas fa-xmark"></i> No single, trusted place for the sales team to collaborate and move inventory.</li>
+          </ul>
+        </div>
+        <div class="ps sol reveal">
+          <span class="tag"><i class="fas fa-circle-check"></i> The solution</span>
+          <h3>Realmate matches them for you.</h3>
+          <ul>
+            <li><i class="fas fa-check"></i> Post a listing or a requirement once — AI does the searching across the entire network.</li>
+            <li><i class="fas fa-check"></i> Get ranked, percentage-scored matches by location, unit type, and price in seconds.</li>
+            <li><i class="fas fa-check"></i> Connect and negotiate instantly with the exact agent who has what your client needs.</li>
+            <li><i class="fas fa-check"></i> One professional home for real estate professionals to transact and grow together.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- How it works -->
+  <section class="sec" id="how" style="padding-top:20px;">
+    <div class="wrap">
+      <div class="center reveal">
+        <span class="eyebrow">How it works</span>
+        <h2>From listing to closed deal in four steps.</h2>
+        <p class="sub">A workflow designed to remove the busywork so you can focus on your clients.</p>
+      </div>
+      <div class="steps">
+        <div class="step reveal">
+          <div class="stxt">
+            <div class="no">STEP 01</div>
+            <div class="si"><i class="fas fa-pen-to-square"></i></div>
+            <h4>Post your listing</h4>
+            <p>Add what you're selling — or what your buyer is looking for. Location, unit type, and price is all it takes.</p>
+          </div>
+          <i class="fas fa-arrow-right arrow desktop-only"></i>
+        </div>
+        <div class="step reveal">
+          <div class="stxt">
+            <div class="no">STEP 02</div>
+            <div class="si"><i class="fas fa-wand-magic-sparkles"></i></div>
+            <h4>AI finds matches</h4>
+            <p>The engine analyzes thousands of data points and surfaces the closest counterparts, ranked by match score.</p>
+          </div>
+          <i class="fas fa-arrow-right arrow desktop-only"></i>
+        </div>
+        <div class="step reveal">
+          <div class="stxt">
+            <div class="no">STEP 03</div>
+            <div class="si"><i class="fas fa-comments"></i></div>
+            <h4>Connect & negotiate</h4>
+            <p>Chat in real time, add the agent as a Realmate, and send or receive offers — all inside the app.</p>
+          </div>
+          <i class="fas fa-arrow-right arrow desktop-only"></i>
+        </div>
+        <div class="step reveal">
+          <div class="stxt">
+            <div class="no">STEP 04</div>
+            <div class="si"><i class="fas fa-handshake"></i></div>
+            <h4>Close the deal</h4>
+            <p>Move from match to transaction faster, with the right partner and the data to back every decision.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section class="sec" id="features" style="padding-top:20px;">
+    <div class="wrap">
+      <div class="center reveal">
+        <span class="eyebrow">Key features</span>
+        <h2>Everything you need to match and close.</h2>
+        <p class="sub">A complete toolkit purpose-built for the way real estate salespeople actually work.</p>
+      </div>
+      <div class="feat-grid">
+        <div class="feat reveal"><div class="fi"><i class="fas fa-robot"></i></div><div><h4>AI Match Engine</h4><p>A proprietary algorithm that analyzes thousands of data points to surface precise buyer–seller pairings by unit type, location, and price range.</p></div></div>
+        <div class="feat reveal"><div class="fi"><i class="fas fa-comments"></i></div><div><h4>Real-time Chat</h4><p>Negotiate and close deals instantly with real people. Discuss terms, share details, and move fast without leaving the app.</p></div></div>
+        <div class="feat reveal"><div class="fi"><i class="fas fa-newspaper"></i></div><div><h4>Community Feed</h4><p>A professional feed to post listings, share updates, and celebrate wins — the social hub that keeps real estate professionals connected.</p></div></div>
+        <div class="feat reveal"><div class="fi"><i class="fas fa-users"></i></div><div><h4>Realmates Network</h4><p>Build your professional circle. Add trusted agents as Realmates and grow the network that grows your business.</p></div></div>
+        <div class="feat reveal"><div class="fi"><i class="fas fa-table-columns"></i></div><div><h4>Listings Portal</h4><p>A live, organized hub of active listings and requirements — filter, browse, and act on real opportunities in one place.</p></div></div>
+        <div class="feat reveal"><div class="fi"><i class="fas fa-shield-halved"></i></div><div><h4>Verified Members</h4><p>Every member is a reviewed real estate professional, so you're always transacting inside a trusted, quality network.</p></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- AI Matching deep-dive -->
+  <section class="sec" id="ai">
+    <div class="wrap split">
+      <div class="txt reveal">
+        <span class="eyebrow">AI Matching</span>
+        <h2>The right match, scored and ranked in seconds.</h2>
+        <p class="sub">Instead of scrolling endless listings, Realmate's engine reads the intent behind every post and pairs it with the best-fit counterparts — each with a clear match percentage so you know exactly where to focus.</p>
+        <div class="kv">
+          <div class="row"><i class="fas fa-bullseye"></i><div><b>Percentage-scored matches</b><span>See a 99%, 97%, or 95% fit at a glance and prioritize the strongest opportunities first.</span></div></div>
+          <div class="row"><i class="fas fa-location-dot"></i><div><b>Location, unit & price aware</b><span>Matching that understands developments, unit types, and budget — not just keywords.</span></div></div>
+          <div class="row"><i class="fas fa-bolt"></i><div><b>Real-time results</b><span>New matches surface the moment a compatible listing or requirement enters the network.</span></div></div>
+        </div>
+      </div>
+      <div class="visual reveal">
+        <div class="mrow"><span class="badge">99%</span><div class="th"><i class="fas fa-building"></i></div><div style="flex:1;"><div class="nm">Park East Place, BGC</div><div class="ds">1 Bed · 88.5 sqm · ₱18.5M</div></div></div>
+        <div class="mrow"><span class="badge">97%</span><div class="th"><i class="fas fa-city"></i></div><div style="flex:1;"><div class="nm">Verve Residences, BGC</div><div class="ds">1 Bed · 61.3 sqm · ₱19.2M</div></div></div>
+        <div class="mrow"><span class="badge">95%</span><div class="th"><i class="fas fa-house"></i></div><div style="flex:1;"><div class="nm">Ametrine, Ortigas</div><div class="ds">1 Bed · 60.5 sqm · ₱18.8M</div></div></div>
+        <div style="font-size:11px;color:var(--muted-2);margin-top:14px;position:relative;z-index:1;"><i class="fas fa-circle-nodes grn"></i> Matched against your active buyer requirement · updated live</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Portal deep-dive -->
+  <section class="sec" id="portal">
+    <div class="wrap split alt">
+      <div class="txt reveal">
+        <span class="eyebrow">The Portal</span>
+        <h2>Your live market, all in one organized hub.</h2>
+        <p class="sub">The Portal brings the network's activity into one place — <b>Live Market</b> for everything that's live, <b>My Listings</b> for your own posts, and <b>AI Matches</b> for the buyers and sellers the engine surfaces for you. Filterable and always current.</p>
+        <div class="kv">
+          <div class="row"><i class="fas fa-layer-group"></i><div><b>Live Market, My Listings & AI Matches</b><span>Switch between everything live across the network, your own postings, and the matches found for you.</span></div></div>
+          <div class="row"><i class="fas fa-filter"></i><div><b>Smart filtering</b><span>Narrow by development, unit type, and price to find exactly what your client needs.</span></div></div>
+          <div class="row"><i class="fas fa-arrows-rotate"></i><div><b>Always up to date</b><span>New posts and matches appear in real time, so you never work off stale information.</span></div></div>
+        </div>
+      </div>
+      <div class="visual reveal">
+        <div class="ptabs"><span class="on">Live Market</span><span>My Listings</span><span>AI Matches</span></div>
+        <div class="plist">
+          <div class="pitem"><div><div class="t">Verve Two · 1BR</div><div class="s">BGC · ₱19.0M budget</div></div><span class="m">1 match</span></div>
+          <div class="pitem"><div><div class="t">Park East Place · 1BR</div><div class="s">BGC · 88.5 sqm</div></div><span class="m">98%</span></div>
+          <div class="pitem"><div><div class="t">Ametrine · 1BR</div><div class="s">Ortigas · ₱18.8M</div></div><span class="m">95%</span></div>
+          <div class="pitem"><div><div class="t">Willing to Buy · 2BR</div><div class="s">Makati · ≤ ₱25M</div></div><span class="m">New</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Realmates network -->
+  <section class="sec" id="network">
+    <div class="wrap split">
+      <div class="txt reveal">
+        <span class="eyebrow">Realmates</span>
+        <h2>Connect with the people who close deals with you.</h2>
+        <p class="sub">Every great transaction needs the right partner. Add fellow real estate agents as Realmates to build a trusted circle, message them directly, and keep your best collaborators one tap away.</p>
+        <div class="kv">
+          <div class="row"><i class="fas fa-user-plus"></i><div><b>Add as Realmate</b><span>Send and accept connection requests to grow a network of agents you trust.</span></div></div>
+          <div class="row"><i class="fas fa-comment-dots"></i><div><b>Direct messaging</b><span>Chat one-on-one to coordinate offers, viewings, and closings in real time.</span></div></div>
+          <div class="row"><i class="fas fa-share-nodes"></i><div><b>Grow your reach</b><span>The bigger and stronger your circle, the more matches and opportunities flow your way.</span></div></div>
+        </div>
+      </div>
+      <div class="visual reveal">
+        <div class="net">
+          <div class="chip"><div class="a">J</div><div><div class="n">Jaztin P.</div><div class="role">Sales Manager</div></div></div>
+          <div class="chip"><div class="a">M</div><div><div class="n">Mark H.</div><div class="role">Sales Associate</div></div></div>
+          <div class="chip"><div class="a">D</div><div><div class="n">Danniel L.</div><div class="role">Property Specialist</div></div></div>
+          <div class="chip"><div class="a">E</div><div><div class="n">Eris D.</div><div class="role">Sales Associate</div></div></div>
+          <div class="chip add"><i class="fas fa-plus"></i> Add as Realmate</div>
+        </div>
+        <div style="font-size:11px;color:var(--muted-2);margin-top:16px;position:relative;z-index:1;"><i class="fas fa-users grn"></i> Your circle grows every time you connect and close.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Why sales teams -->
+  <section class="sec" id="why" style="padding-top:20px;">
+    <div class="wrap">
+      <div class="center reveal">
+        <span class="eyebrow">Why Realmate</span>
+        <h2>Built for the way sales teams win.</h2>
+        <p class="sub">Realmate gives real estate professionals an unfair advantage — turning time spent searching into time spent selling.</p>
+      </div>
+      <div class="why-grid">
+        <div class="why reveal"><div class="ic"><i class="fas fa-clock"></i></div><div><h4>Close faster</h4><p>Skip the manual hunt. Get matched to ready buyers and sellers in seconds and shorten every deal cycle.</p></div></div>
+        <div class="why reveal"><div class="ic"><i class="fas fa-bullseye"></i></div><div><h4>Sell smarter</h4><p>Prioritize the highest-fit opportunities using clear, percentage-based match scores — focus your effort where it converts.</p></div></div>
+        <div class="why reveal"><div class="ic"><i class="fas fa-people-arrows"></i></div><div><h4>Never miss a match</h4><p>If someone in the network has what your client needs, Realmate makes sure you find out — in real time.</p></div></div>
+        <div class="why reveal"><div class="ic"><i class="fas fa-people-group"></i></div><div><h4>Grow together</h4><p>A collaborative network means the whole team moves more inventory and earns more, together.</p></div></div>
+        <div class="why reveal"><div class="ic"><i class="fas fa-shield-halved"></i></div><div><h4>Trusted & verified</h4><p>Transact with confidence inside a reviewed community of genuine real estate professionals.</p></div></div>
+        <div class="why reveal"><div class="ic"><i class="fas fa-mobile-screen"></i></div><div><h4>Anywhere you work</h4><p>Fully mobile. Match, chat, and send offers from your phone between viewings and meetings.</p></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Exclusivity statement -->
+  <section class="sec" id="exclusive" style="padding-top:20px;">
+    <div class="wrap">
+      <div class="excl reveal">
+        <div class="seal"><i class="fas fa-user-shield"></i></div>
+        <h3>A private platform for real estate professionals.</h3>
+        <p>realmate is independently built for real estate sales professionals. Access is <b class="grn">currently available exclusively to verified members of the Alveo sales community</b> — registration requires an <b class="grn">@alveoland.com</b> business email and admin approval before you can join the network.</p>
+
+        <div class="disc" style="text-align:left;">
+          <p style="font-weight:800;color:var(--sub);margin:0 0 10px;text-align:center;">Important Disclaimer</p>
+          <p style="margin:0 0 10px;"><b style="color:var(--sub);">realmate is an independent, privately developed platform and is not affiliated with, owned by, operated by, sponsored by, endorsed by, or officially connected with Alveo Land Corp., Ayala Land, Inc., or any of their respective subsidiaries, affiliates, officers, or representatives.</b></p>
+          <p style="margin:0 0 10px;">The platform is independently created and operated by its developers for the use of real estate sales professionals. While access to realmate may be limited to or primarily intended for members of the Alveo sales community, such access does not constitute or imply any official partnership, authorization, endorsement, or representation by Alveo Land Corp. or Ayala Land, Inc.</p>
+          <p style="margin:0 0 10px;"><b style="color:var(--sub);">“Alveo,” “Ayala Land,” and other third-party names, trademarks, logos, project names, and related intellectual property remain the property of their respective owners.</b> Their appearance on the platform, where applicable, is solely for identification, informational, or professional context and does not imply ownership, sponsorship, endorsement, or affiliation.</p>
+          <p style="margin:0 0 10px;">Users are solely responsible for the accuracy, legality, and authorization of the information, listings, materials, and communications they post or share through realmate.</p>
+          <p style="margin:0 0 14px;"><b style="color:var(--sub);">realmate does not represent Alveo Land Corp. or Ayala Land, Inc. and should not be considered an official Alveo system, sales platform, or company communication channel.</b></p>
+          <p style="margin:0 0 10px;padding-top:14px;border-top:1px solid rgba(255,255,255,0.08);"><b style="color:var(--sub);">Property Information Disclaimer:</b> Property information, availability, pricing, specifications, images, and other details displayed on realmate may be provided or posted by individual users and may change without notice. realmate does not independently guarantee the accuracy, completeness, availability, or current status of user-submitted property information. Users should verify all property information directly with the appropriate authorized sales representative or property owner before relying upon it.</p>
+          <p style="margin:0;"><b style="color:var(--sub);">Founder Disclosure:</b> realmate was independently created by individuals who are also engaged in real estate sales. Their professional activities and affiliations do not make realmate an official product, system, or representative of any real estate company.</p>
+          <p style="margin:16px 0 0;text-align:center;"><a href="disclaimer.html" class="grn" style="font-weight:700;">Read the full Disclaimer</a> &nbsp;·&nbsp; <a href="privacy.html" class="grn" style="font-weight:700;">Privacy Policy</a> &nbsp;·&nbsp; <a href="terms.html" class="grn" style="font-weight:700;">Terms of Use</a></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- About / Founders -->
+  <section class="sec" id="team" style="padding-top:20px;">
+    <div class="wrap">
+      <div class="center reveal">
+        <span class="eyebrow">About</span>
+        <h2>Founded &amp; built by <span class="grn">realmate.</span></h2>
+        <p class="sub">A multi-disciplinary founding team building the AI matching network for real estate professionals.</p>
+      </div>
+      <div class="team-grid">
+        <div class="member reveal"><div class="m-av">RB</div><div class="m-nm">Reychan Bernaldez</div><div class="m-ro">Co-Founder · Product &amp; Growth</div></div>
+        <div class="member reveal"><div class="m-av">ED</div><div class="m-nm">Eris Dungug</div><div class="m-ro">Co-Founder · Sales &amp; Technology</div></div>
+        <div class="member reveal"><div class="m-av">DL</div><div class="m-nm">Danniel Libor</div><div class="m-ro">Co-Founder · Software Engineer</div></div>
+        <div class="member reveal"><div class="m-av">JP</div><div class="m-nm">Jaztin Pumaren</div><div class="m-ro">Co-Founder · QA &amp; Testing</div></div>
+        <div class="member reveal"><div class="m-av">MH</div><div class="m-nm">Mark Hequibal</div><div class="m-ro">Co-Founder · Marketing</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Final CTA -->
+  <section class="final">
+    <div class="wrap reveal">
+      <h2>Match. Connect.<br><span class="grn">Close deals.</span></h2>
+      <p>Join Realmate and start turning listings into closed transactions.</p>
+      <div class="hero-cta">
+        <button class="btn btn-primary" onclick="rmStart()">Join Realmate <i class="fas fa-arrow-right"></i></button>
+        <button class="btn btn-ghost" onclick="rmSignIn()">Sign In</button>
+      </div>
+      <div class="store-badges">
+        <a class="store-badge" href="#" onclick="rmDownload(event,'ios')" aria-label="Download on the App Store">
+          <i class="fab fa-apple"></i>
+          <span class="sb-txt"><span class="sb-small">Download on the</span><span class="sb-big">App Store</span></span>
+        </a>
+        <a class="store-badge" href="#" onclick="rmDownload(event,'android')" aria-label="Get it on Google Play">
+          <i class="fab fa-google-play"></i>
+          <span class="sb-txt"><span class="sb-small">Get it on</span><span class="sb-big">Google Play</span></span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <div class="wrap">
+      <div class="foot-in">
+        <div>
+          <a class="brand" onclick="rmTop()"><img src="images/realmate2.png" alt="Realmate"></a>
+          <p class="desc">The AI matching network for real estate professionals. Connect. Match. Close deals.</p>
+        </div>
+        <div class="cols">
+          <div class="col">
+            <h5>Product</h5>
+            <a onclick="rmScroll('how')">How it works</a>
+            <a onclick="rmScroll('features')">Features</a>
+            <a onclick="rmScroll('ai')">AI Matching</a>
+            <a onclick="rmScroll('portal')">The Portal</a>
+          </div>
+          <div class="col">
+            <h5>Get started</h5>
+            <a onclick="rmStart()">Join Realmate</a>
+            <a onclick="rmSignIn()">Sign In</a>
+            <a onclick="rmScroll('team')">About</a>
+            <a onclick="rmOpenExcl()">Who can join</a>
+          </div>
+          <div class="col">
+            <h5>Legal</h5>
+            <a href="privacy.html">Privacy Policy</a>
+            <a href="terms.html">Terms of Use</a>
+            <a href="disclaimer.html">Disclaimer</a>
+          </div>
+        </div>
+      </div>
+      <div class="foot-bottom">
+        <span>© 2026 realmate. All rights reserved. &nbsp;|&nbsp; <a href="privacy.html" style="color:var(--muted);">Privacy Policy</a> &nbsp;|&nbsp; <a href="terms.html" style="color:var(--muted);">Terms of Use</a> &nbsp;|&nbsp; <a href="disclaimer.html" style="color:var(--muted);">Disclaimer</a></span>
+        <span style="max-width:660px;">realmate is an independent platform and is not affiliated with, owned by, operated by, sponsored by, or endorsed by Alveo Land Corp., Ayala Land, Inc., or their affiliates. All third-party names and marks are the property of their respective owners.</span>
+      </div>
+    </div>
+  </footer>
+
+</div>
+
+<!-- Mobile sticky app CTA -->
+<div class="m-cta">
+  <button class="btn btn-ghost" onclick="rmSignIn()">Sign In</button>
+  <button class="btn btn-primary" onclick="rmStart()">Get Started <i class="fas fa-arrow-right"></i></button>
+</div>
+
+<script>
+  // ── First-launch onboarding state ──────────────────────────────
+  // Reaching the marketing page counts as having seen onboarding, so a
+  // returning app/web user is never interrupted by it again. index.html
+  // reads this flag on entry and only redirects first-timers here.
+  function rmMarkSeen(){ try{ localStorage.setItem('rm_seen_marketing','1'); }catch(e){} }
+
+  // Proceed into the app → authentication / onboarding (index.html).
+  function rmStart(){ rmMarkSeen(); window.location.href = 'index.html'; }
+  function rmSignIn(){ rmMarkSeen(); window.location.href = 'index.html'; }
+
+  // App-store download badges. Fill these in with the real listing URLs once the
+  // apps are published; until then a click shows a "coming soon" note.
+  var RM_APP_LINKS = { ios: '', android: '' };
+  function rmDownload(e, store){
+    if (e) e.preventDefault();
+    var url = RM_APP_LINKS[store];
+    if (url) { window.open(url, '_blank', 'noopener'); return; }
+    rmToast('The ' + (store === 'ios' ? 'iOS' : 'Android') + ' app is launching soon — sign up on the web for now.');
+  }
+  function rmToast(msg){
+    var t = document.getElementById('rmToast');
+    if (!t) { t = document.createElement('div'); t.id = 'rmToast'; t.className = 'rm-toast'; document.body.appendChild(t); }
+    t.textContent = msg; t.classList.add('show');
+    clearTimeout(window._rmToastT); window._rmToastT = setTimeout(function(){ t.classList.remove('show'); }, 3000);
+  }
+
+  // In-page navigation
+  function rmScroll(id){ var el=document.getElementById(id); if(el) el.scrollIntoView({behavior:'smooth',block:'start'}); }
+  function rmTop(){ window.scrollTo({top:0,behavior:'smooth'}); }
+
+  // Exclusivity / non-affiliation modal
+  function rmOpenExcl(){ document.getElementById('exclModal').classList.add('open'); }
+  function rmCloseExcl(){ document.getElementById('exclModal').classList.remove('open'); }
+  document.addEventListener('keydown', function(e){ if(e.key==='Escape') rmCloseExcl(); });
+
+  var _yr = document.getElementById('yr'); if (_yr) _yr.textContent = new Date().getFullYear();
+
+  // Reveal-on-scroll
+  (function(){
+    var els = document.querySelectorAll('.reveal');
+    if(!('IntersectionObserver' in window)){ els.forEach(function(e){e.classList.add('in');}); return; }
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(en){ if(en.isIntersecting){ en.target.classList.add('in'); io.unobserve(en.target); } });
+    },{threshold:0.12,rootMargin:'0px 0px -8% 0px'});
+    els.forEach(function(e){ io.observe(e); });
+  })();
+</script>
+</body>
+</html>

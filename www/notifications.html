@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Realmate | Notifications Hub</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="forum.css?v=20260716a">
+    <link rel="stylesheet" href="notifications.css?v=20260812e">
+    <script src="theme.js?v=20260812a"></script>
+  <script src="featureFlags.js?v=20260717a"></script>
+</head>
+<body>
+
+<div class="sidebar">
+    <div class="brand">
+        <img src="images/realmate2.png" onclick="location.href='home.html'" alt="Realmate Logo">
+    </div>
+    <div class="nav-item" onclick="location.href='home.html'"><i class="fas fa-border-all"></i> <span>Feed</span></div>
+    <div class="nav-item" onclick="location.href='dashboard.html'"><i class="fas fa-user-tie"></i> <span>Profile</span></div>
+    <div class="nav-item" onclick="location.href='livemarket.html'"><i class="fas fa-globe"></i> <span>Portal</span></div>
+  <div class="nav-item" onclick="location.href='analytics.html'" style="display:none"><i class="fas fa-chart-area"></i> <span>Analytics</span></div>
+    <div class="nav-item" onclick="location.href='forum.html'" style="display:none"><i class="fas fa-bullhorn"></i> <span>Forum</span></div>
+    <div class="nav-item" onclick="location.href='chat.html'"><i class="fas fa-comment-dots"></i> <span>Chat</span></div>
+    <div class="nav-item active"><i class="fas fa-bell"></i> <span>Notifications</span></div>
+    <div class="nav-item" onclick="location.href='settings.html'"><i class="fas fa-cog"></i> <span>Settings</span></div>
+</div>
+
+<div class="main-content">
+    <div class="notif-hub-top-bar">
+        <div class="notif-hub-page-title">Notifications Hub</div>
+        <div class="action-header-controls">
+            <button class="notif-header-icon-btn" id="notifHeaderSearchBtn" onclick="document.getElementById('searchFab')?.click()" aria-label="Search">
+                <i class="fas fa-magnifying-glass"></i>
+            </button>
+            <div class="notif-menu-wrap">
+                <button class="notif-header-icon-btn notif-menu-trigger" onclick="toggleNotifHeaderMenu(event)" aria-label="More options">
+                    <i class="fas fa-ellipsis"></i>
+                </button>
+                <div class="notif-menu-dropdown" id="notifHeaderMenu">
+                    <button type="button" onclick="markAllNotificationsAsRead(); closeNotifHeaderMenu();">
+                        <i class="fas fa-check-double"></i> Mark all as read
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="notifications-scroll-area">
+        <div class="notif-filter-tabs">
+            <button type="button" class="notif-filter-tab active" data-filter="all" onclick="setNotifFilter('all')">All</button>
+            <button type="button" class="notif-filter-tab" data-filter="unread" onclick="setNotifFilter('unread')">
+                Unread <span class="notif-filter-count" id="notifUnreadTabCount" style="display:none;">0</span>
+            </button>
+            <button type="button" class="notif-filter-tab" data-filter="requests" onclick="setNotifFilter('requests')">
+                Realmate Requests <span class="notif-filter-count" id="notifRequestsTabCount" style="display:none;">0</span>
+            </button>
+        </div>
+
+        <div id="notificationsContainer" class="notifications-list-wrapper">
+            <div class="notif-loading-shimmer">
+                <i class="fas fa-circle-notch fa-spin"></i> Synchronizing stream ledger...
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="search-overlay.js?v=20260812k"></script>
+<script src="auth-guard.js?v=20260815a"></script>
+<script src="mates.js?v=20260814c"></script>
+<script src="notifications.js?v=20260814b"></script>
+<script src="location-engine.js?v=20260809b"></script>
+<script src="match-engine.js?v=12"></script>
+<script src="match-alert.js?v=9"></script>
+<script src="notif-badge.js?v=12"></script>
+<!-- Mobile Bottom Navigation -->
+<nav class="mobile-bottom-nav">
+  <a class="mob-nav-item" href="home.html"><i class="fas fa-border-all"></i><span>Feed</span></a>
+  <a class="mob-nav-item" href="forum.html" style="display:none"><i class="fas fa-bullhorn"></i><span>Forum</span></a>
+  <a class="mob-nav-item" href="realmates.html" style="display:none"><i class="fas fa-user-group"></i><span>Realmates</span></a>
+  <a class="mob-nav-item" href="chat.html"><i class="fas fa-comment-dots"></i><span>Chat</span></a>
+  <a class="mob-nav-item mob-nav-center" href="livemarket.html"><i class="fas fa-globe"></i><span>Portal</span></a>
+  <a class="mob-nav-item active" href="notifications.html"><i class="fas fa-bell"></i><span>Notifications</span></a>
+  <div class="mob-nav-item mob-nav-avatar-wrap" onclick="toggleNavMenu(event)">
+    <div class="mob-nav-avatar" id="navAvatar"><i class="fas fa-user-tie" style="font-size:13px;"></i></div>
+    <span>Me</span>
+    <div class="mob-nav-menu" id="navMenu">
+      <a href="dashboard.html"><i class="fas fa-user-tie"></i> Profile</a>
+      <a href="realmates.html"><i class="fas fa-user-group"></i> Realmates</a>
+      <a href="analytics.html" style="display:none"><i class="fas fa-chart-area"></i> Analytics</a>
+      <a href="settings.html"><i class="fas fa-cog"></i> Settings</a>
+      <a href="#" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</a>
+    </div>
+  </div>
+</nav>
+<script src="nav-menu.js?v=20260809a"></script>
+</body>
+</html>

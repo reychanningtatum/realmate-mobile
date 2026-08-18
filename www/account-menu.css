@@ -1,0 +1,100 @@
+/* =========================================
+   👤 ACCOUNT MENU MODAL — shared by Profile (dashboard.html) and Portal
+   (livemarket.html). Rendered by account-menu.js's openAccountMenu().
+   Self-contained (no dependency on either page's CSS variables) so it looks
+   identical everywhere it's loaded.
+   ========================================= */
+.account-menu-overlay {
+    position: fixed; inset: 0; z-index: 3000;
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.18s ease;
+}
+.account-menu-overlay.open { opacity: 1; pointer-events: auto; }
+.account-menu-backdrop {
+    position: absolute; inset: 0;
+    background: rgba(15, 23, 42, 0.45);
+}
+.account-menu-card {
+    position: relative;
+    width: 100%; max-width: 360px;
+    background: #ffffff;
+    border-radius: 20px;
+    box-shadow: 0 20px 50px -10px rgba(0,0,0,0.25), 0 8px 20px -8px rgba(0,0,0,0.15);
+    padding: 20px;
+    transform: translateY(10px) scale(0.97);
+    transition: transform 0.18s ease;
+}
+.account-menu-overlay.open .account-menu-card { transform: translateY(0) scale(1); }
+.account-menu-header {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    margin-bottom: 14px;
+}
+.account-menu-header-content { flex: 1; min-width: 0; }
+.account-menu-header-content h3 {
+    margin: 0; font-size: 17px; font-weight: 700; color: #0f172a;
+}
+.account-menu-close {
+    flex: 0 0 auto; margin-left: 10px;
+    display: flex; align-items: center; justify-content: center;
+    width: 32px; height: 32px; border-radius: 50%;
+    border: none; background: #f8fafc; color: #64748b;
+    font-size: 14px; cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+.account-menu-close:hover { background: #fee2e2; color: #ef4444; }
+.account-menu-options {
+    display: flex; flex-direction: column; gap: 8px;
+}
+.account-menu-opt {
+    display: flex; align-items: center; gap: 12px;
+    width: 100%; padding: 12px; border-radius: 14px;
+    border: 1px solid #e2e8f0; background: #ffffff;
+    cursor: pointer; text-align: left;
+    transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+}
+.account-menu-opt:hover { background: rgba(50, 205, 50, 0.1); border-color: #32cd32; transform: translateY(-1px); }
+.account-menu-opt-icon {
+    flex: 0 0 auto;
+    display: flex; align-items: center; justify-content: center;
+    width: 40px; height: 40px; border-radius: 12px;
+    background: linear-gradient(135deg, #32cd32 0%, #10b981 100%); color: #ffffff; font-size: 15px;
+}
+.account-menu-opt-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.account-menu-opt-title { font-size: 14.5px; font-weight: 600; color: #0f172a; }
+.account-menu-opt-sub { font-size: 12.5px; color: #64748b; }
+.account-menu-opt-arrow { flex: 0 0 auto; font-size: 12px; color: #64748b; }
+
+/* Identity header variant (viewing someone ELSE's listing) */
+.account-menu-identity { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.account-menu-identity-avatar {
+    flex: 0 0 auto; width: 48px; height: 48px; border-radius: 50%;
+    object-fit: cover; background: #f8fafc;
+}
+.account-menu-identity-text { min-width: 0; }
+.account-menu-identity-name {
+    font-size: 16px; font-weight: 700; color: #0f172a;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.account-menu-identity-job { font-size: 12.5px; color: #64748b; margin-top: 2px; }
+
+html[data-theme="dark"] .account-menu-card { background: #1e293b; }
+html[data-theme="dark"] .account-menu-header-content h3 { color: #f1f5f9; }
+html[data-theme="dark"] .account-menu-close { background: #0f172a; color: #94a3b8; }
+html[data-theme="dark"] .account-menu-opt { background: #0f172a; border-color: #334155; }
+html[data-theme="dark"] .account-menu-opt-title { color: #f1f5f9; }
+html[data-theme="dark"] .account-menu-opt:hover { border-color: #32cd32; }
+html[data-theme="dark"] .account-menu-identity-name { color: #f1f5f9; }
+
+@media (max-width: 768px) {
+    .account-menu-overlay { align-items: flex-end; padding: 0; }
+    .account-menu-card {
+        max-width: 100%;
+        border-radius: 20px 20px 0 0;
+        padding: 18px 16px calc(18px + env(safe-area-inset-bottom));
+        transform: translateY(100%);
+    }
+    .account-menu-overlay.open .account-menu-card { transform: translateY(0); }
+    .account-menu-opt { padding: 14px 12px; }
+}

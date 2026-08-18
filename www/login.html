@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Realmate Login</title>
+
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial;
+      background: #f5f7fb;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    .box {
+      background: white;
+      padding: 30px;
+      border-radius: 10px;
+      width: 300px;
+      text-align: center;
+    }
+
+    input {
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+    }
+
+    button {
+      margin-top: 15px;
+      width: 100%;
+      padding: 10px;
+      background: #32cd32;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    img {
+      width: 120px;
+      margin-bottom: 15px;
+    }
+
+  </style>
+</head>
+
+<body>
+
+<div class="box">
+  <img src="images/realmate2.png">
+
+  <h3>Login</h3>
+
+  <input id="name" placeholder="Enter your name">
+
+  <button onclick="login()">Enter</button>
+</div>
+
+<script>
+
+function login(){
+
+  let name = document.getElementById("name").value
+
+  if(!name){
+    alert("Enter name")
+    return
+  }
+
+  let user = {
+    name: name,
+    image: "https://via.placeholder.com/100"
+  }
+
+  localStorage.setItem("user", JSON.stringify(user))
+
+  location.href = "livemarket.html"
+}
+
+</script>
+
+</body>
+</html>

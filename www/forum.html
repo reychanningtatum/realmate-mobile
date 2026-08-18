@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Realmate | Forum</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="forum.css?v=20260716a">
+    <script src="theme.js?v=20260812a"></script>
+  <script src="featureFlags.js?v=20260717a"></script>
+</head>
+<body>
+
+<div class="sidebar">
+    <div class="brand">
+        <img src="images/realmate2.png" onclick="location.href='home.html'" alt="Realmate Logo">
+    </div>
+    <div class="nav-item" onclick="location.href='home.html'"><i class="fas fa-border-all"></i> <span>Feed</span></div>
+    <div class="nav-item" onclick="location.href='dashboard.html'"><i class="fas fa-user-tie"></i> <span>Profile</span></div>
+    <div class="nav-item" onclick="location.href='livemarket.html'"><i class="fas fa-globe"></i> <span>Portal</span></div>
+  <div class="nav-item" onclick="location.href='analytics.html'" style="display:none"><i class="fas fa-chart-area"></i> <span>Analytics</span></div>
+    <div class="nav-item active"><i class="fas fa-bullhorn"></i> <span>Forum</span></div>
+<div class="nav-item" onclick="location.href='chat.html'"><i class="fas fa-comment-dots"></i> <span>Chat</span></div>
+  <div class="nav-item" onclick="location.href='notifications.html'">
+    <i class="fas fa-bell"></i> <span>Notifications</span>
+</div>
+    <div class="nav-item" onclick="location.href='settings.html'"><i class="fas fa-cog"></i> <span>Settings</span></div>
+    <div style="margin-top: auto;">
+        <div class="nav-item" onclick="logout()"><i class="fas fa-sign-out-alt"></i> <span>Sign Out</span></div>
+    </div>
+</div>
+
+<div class="main-content">
+    <div class="forum-grid">
+        
+        <div class="feed-column">
+            <div class="creator-card">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <h3>Start a Discussion</h3>
+                    <div id="globalAnonBadge" class="my-post-badge" style="display: none; background: #0f172a; color: #fff; border: none;">ANONYMOUS MODE ACTIVE</div>
+                </div>
+                <input type="text" id="forumSubject" placeholder="Enter a subject (e.g. Commission Updates, New Inventory)">
+                
+                <textarea id="forumText" placeholder="What's on your mind?"></textarea>
+
+                <div id="mediaPreviewContainer" style="display: none; margin-top: 15px; position: relative;">
+                    <img id="imagePreview" style="width: 100%; border-radius: 16px; display: none; border: 1px solid var(--border);">
+                    <video id="videoPreview" controls style="width: 100%; border-radius: 16px; display: none; border: 1px solid var(--border);"></video>
+                    <i class="fas fa-times-circle" onclick="clearMediaSelection()" style="position: absolute; top: 10px; right: 10px; color: #ef4444; font-size: 24px; cursor: pointer; background: white; border-radius: 50%;"></i>
+                </div>
+
+                <div class="creator-actions" style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px;">
+                    <div class="upload-options">
+                        <button class="action-btn upload-trigger" onclick="document.getElementById('forumMedia').click()">
+                            <i class="fas fa-photo-video"></i> Add Photo / Video
+                        </button>
+                        <input type="file" id="forumMedia" hidden accept="image/*,video/*" onchange="previewMedia(event)">
+                    </div>
+                    <button class="btn-post" id="postBtn" onclick="createForumPost()">Post Now</button>
+                </div>
+            </div>
+
+            <div id="forumFeed"></div>
+        </div>
+
+        <div class="trending-sidebar">
+            
+            <div class="trending-card-right" style="margin-bottom: 20px;">
+                <div class="market-pulse-header circle-insights-header open">
+                    <div class="market-pulse-subtitle">Top Discussions</div>
+                    <div class="market-pulse-title">
+                        <i class="fas fa-bullhorn"></i>
+                        Forum
+                    </div>
+                </div>
+                <div id="trendingTopicsList" class="circle-insights-body open">
+                    <p style="color: var(--text-sub); font-size: 13px; padding: 12px;">Analyzing current pulse...</p>
+                </div>
+                <div class="circle-insights-toggle-btn" onclick="toggleCircleInsights(this)">
+                    <span class="circle-insights-collapsed-label"><i class="fas fa-fire" style="color:#f97316;"></i> Top Trendings</span>
+                    <span class="circle-insights-chevron open">
+                        <i class="fas fa-chevron-up" style="font-size:11px; display:block;"></i>
+                        <i class="fas fa-chevron-up" style="font-size:11px; display:block; margin-top:-6px;"></i>
+                    </span>
+                </div>
+            </div>
+            
+            <div class="trending-card-right" style="margin-bottom: 20px; padding: 10px 14px; border: 1px solid var(--border);">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+                    <div style="display: flex; align-items: center; gap: 7px;">
+                        <i class="fas fa-user-secret" style="font-size: 13px; color: var(--text-sub);"></i>
+                        <div>
+                            <div style="font-size: 12px; font-weight: 700; color: var(--text-main);">Anonymous Mode</div>
+                            <div style="font-size: 10px; color: var(--text-sub);" id="anonStatusLabel">Identity Visible</div>
+                        </div>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="globalAnonToggle" onchange="handleGlobalAnonToggle()">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<div id="forumDeleteModal" class="modal">
+    <div class="modal-content">
+        <i class="fas fa-exclamation-triangle" style="font-size: 40px; color: #ef4444; margin-bottom: 20px;"></i>
+        <h3>Delete this post?</h3>
+        <p style="color: #64748b; margin-bottom: 25px;">This action cannot be undone.</p>
+        <div style="display: flex; gap: 10px;">
+            <button class="btn-cancel" style="flex: 1; padding: 12px; border-radius: 8px; border: 1px solid #e2e8f0; cursor: pointer; background: white;" onclick="closeForumDeleteModal()">Cancel</button>
+            <button class="btn-confirm" style="flex: 1; padding: 12px; border-radius: 8px; background: #ef4444; color: white; border: none; cursor: pointer; font-weight: 600;" onclick="confirmDeleteForumPost()">Delete Now</button>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="compress.js"></script>
+<script src="search-overlay.js?v=20260812k"></script>
+<script src="auth-guard.js?v=20260815a"></script>
+<script src="anon-generator.js"></script>
+<script src="forum-script.js?v=20260813a"></script>
+<script src="location-engine.js?v=20260809b"></script>
+<script src="match-engine.js?v=12"></script>
+<script src="developers.js?v=36"></script>
+<script src="match-alert.js?v=9"></script>
+<script src="notif-badge.js?v=12"></script>
+<!-- Mobile Bottom Navigation -->
+<nav class="mobile-bottom-nav">
+  <a class="mob-nav-item" href="home.html"><i class="fas fa-border-all"></i><span>Feed</span></a>
+  <a class="mob-nav-item active" href="forum.html" style="display:none"><i class="fas fa-bullhorn"></i><span>Forum</span></a>
+  <a class="mob-nav-item" href="realmates.html" style="display:none"><i class="fas fa-user-group"></i><span>Realmates</span></a>
+  <a class="mob-nav-item" href="chat.html"><i class="fas fa-comment-dots"></i><span>Chat</span></a>
+  <a class="mob-nav-item mob-nav-center" href="livemarket.html"><i class="fas fa-globe"></i><span>Portal</span></a>
+  <a class="mob-nav-item" href="notifications.html"><i class="fas fa-bell"></i><span>Notifications</span></a>
+  <div class="mob-nav-item mob-nav-avatar-wrap" onclick="toggleNavMenu(event)">
+    <div class="mob-nav-avatar" id="navAvatar"><i class="fas fa-user-tie" style="font-size:13px;"></i></div>
+    <span>Me</span>
+    <div class="mob-nav-menu" id="navMenu">
+      <a href="dashboard.html"><i class="fas fa-user-tie"></i> Profile</a>
+      <a href="realmates.html"><i class="fas fa-user-group"></i> Realmates</a>
+      <a href="analytics.html" style="display:none"><i class="fas fa-chart-area"></i> Analytics</a>
+      <a href="settings.html"><i class="fas fa-cog"></i> Settings</a>
+      <a href="#" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</a>
+    </div>
+  </div>
+</nav>
+<script src="nav-menu.js?v=20260809a"></script>
+</body>
+</html>

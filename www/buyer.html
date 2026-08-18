@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Add Buyer</title>
+
+  <style>
+    body {
+      font-family: Arial;
+      padding: 20px;
+      background: #f5f7fb;
+    }
+
+    .box {
+      max-width: 500px;
+      margin: auto;
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 10px;
+      margin: 10px 0;
+    }
+
+    button {
+      padding: 10px;
+      background: #2b7cff;
+      color: white;
+      border: none;
+      width: 100%;
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="box">
+
+<h2>Add Buyer Requirement</h2>
+
+<input id="location" placeholder="Location">
+<input id="budget" placeholder="Max Budget">
+<select id="property">
+  <option>Condo</option>
+  <option>House</option>
+</select>
+<input id="bedrooms" placeholder="Bedrooms">
+
+<button onclick="saveBuyer()">Save Buyer</button>
+
+</div>
+
+<script>
+
+function saveBuyer() {
+
+  let buyer = {
+    location: document.getElementById("location").value,
+    budget: parseInt(document.getElementById("budget").value),
+    property: document.getElementById("property").value,
+    bedrooms: parseInt(document.getElementById("bedrooms").value)
+  }
+
+  let buyers = JSON.parse(localStorage.getItem("buyers")) || []
+
+  buyers.push(buyer)
+
+  localStorage.setItem("buyers", JSON.stringify(buyers))
+
+  alert("Buyer saved!")
+
+}
+
+</script>
+
+</body>
+</html>

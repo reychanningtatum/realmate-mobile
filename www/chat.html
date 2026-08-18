@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Realmate | Chat</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="home.css?v=20260717l">
+  <link rel="stylesheet" href="chat.css?v=20260730b">
+  <link rel="stylesheet" href="mobile-back.css">
+  <script src="theme.js?v=20260812a"></script>
+  <script src="featureFlags.js?v=20260717a"></script>
+</head>
+<body>
+
+<div class="sidebar">
+  <div class="brand">
+    <img src="images/realmate2.png" onclick="location.href='home.html'">
+  </div>
+  <div class="nav-item" onclick="location.href='home.html'"><i class="fas fa-border-all"></i> <span>Feed</span></div>
+  <div class="nav-item" onclick="location.href='dashboard.html'"><i class="fas fa-user-tie"></i> <span>Profile</span></div>
+  <div class="nav-item" onclick="location.href='livemarket.html'"><i class="fas fa-globe"></i> <span>Portal</span></div>
+  <div class="nav-item" onclick="location.href='analytics.html'" style="display:none"><i class="fas fa-chart-area"></i> <span>Analytics</span></div>
+  <div class="nav-item" onclick="location.href='forum.html'" style="display:none"><i class="fas fa-bullhorn"></i> <span>Forum</span></div>
+  <div class="nav-item active"><i class="fas fa-comment-dots"></i> <span>Chat</span></div>
+  <div class="nav-item" onclick="location.href='notifications.html'"><i class="fas fa-bell"></i> <span>Notifications</span></div>
+  <div class="nav-item" onclick="location.href='settings.html'"><i class="fas fa-cog"></i> <span>Settings</span></div>
+</div>
+
+<div class="chat-container">
+
+  <!-- LEFT PANEL — Conversations -->
+  <div class="chat-sidebar" id="chatSidebar">
+    <div class="chat-sidebar-header">
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <div class="chat-sidebar-title" style="margin-bottom:0;">Chat</div>
+        <button class="chat-settings-btn" onclick="toggleChatSettings()" title="Chat Settings">
+          <i class="fas fa-gear"></i>
+        </button>
+      </div>
+
+      <!-- Chat Settings Dropdown -->
+      <div class="chat-settings-panel" id="chatSettingsPanel">
+        <div class="chat-settings-header">
+          <span>Chat Settings</span>
+          <button onclick="toggleChatSettings()"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="chat-settings-row">
+          <div>
+            <div class="chat-settings-label">Active Status</div>
+            <div class="chat-settings-desc">Show others when you're online</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="chatActiveToggle" onchange="saveChatActiveStatus(this.checked)" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="chat-settings-row chat-settings-row-link" onclick="toggleChatSettings(); openArchivedView();">
+          <div>
+            <div class="chat-settings-label">Archived Chats</div>
+            <div class="chat-settings-desc">View and restore chats you've archived</div>
+          </div>
+          <i class="fas fa-chevron-right" style="color:var(--chat-sub);font-size:12px;"></i>
+        </div>
+      </div>
+
+      <!-- Archived-view header — replaces the search bar while browsing archived chats -->
+      <div class="chat-archived-header" id="chatArchivedHeader" style="display:none;">
+        <button onclick="closeArchivedView()" aria-label="Back to chats"><i class="fas fa-arrow-left"></i></button>
+        <span>Archived Chats</span>
+      </div>
+
+      <div class="chat-search-wrap" style="margin-top:12px;" id="chatSearchWrap">
+        <i class="fas fa-search chat-search-icon"></i>
+        <input type="text" class="chat-search-input" id="chatConvSearch"
+               placeholder="Search conversations or messages…" oninput="searchConversations(this.value)" autocomplete="off">
+        <span class="chat-search-clear" id="chatConvSearchClear" onclick="clearConvSearch()">
+          <i class="fas fa-times"></i>
+        </span>
+      </div>
+    </div>
+    <div class="chat-conv-list" id="chatConvList" role="list">
+      <div class="chat-conv-empty" id="chatConvEmpty">
+        <i class="fas fa-comments" style="font-size:32px;color:var(--chat-border);margin-bottom:8px;display:block;"></i>
+        No conversations yet
+      </div>
+    </div>
+    <button class="chat-new-btn" id="chatNewBtn" onclick="openNewChatModal()" title="New conversation">
+      <i class="fas fa-pen-to-square"></i>
+    </button>
+  </div>
+
+  <!-- RIGHT PANEL — Conversation Window -->
+  <div class="chat-main" id="chatMain">
+
+    <!-- Empty state (default) -->
+    <div class="chat-empty-state" id="chatEmptyState">
+      <i class="fas fa-comment-dots"></i>
+      <h3>Select a conversation</h3>
+      <p>Start building relationships on Realmate.</p>
+    </div>
+
+    <!-- Active conversation (hidden by default) -->
+    <div id="chatActiveConv" style="display:none;flex-direction:column;height:100%;">
+
+      <!-- Header -->
+      <div class="chat-header">
+        <button class="chat-header-back rm-mobile-back" onclick="handleChatBack()" aria-label="Back"><i class="fas fa-arrow-left"></i></button>
+        <button class="chat-header-avatar chat-clickable-avatar" id="chatHeaderAvatarBtn" onclick="goToActiveOtherProfile()" aria-label="View profile"><img id="chatHeaderAvatar" src="" alt=""></button>
+        <div class="chat-header-info">
+          <div class="chat-header-name" id="chatHeaderName"></div>
+          <div class="chat-header-status" id="chatHeaderStatus"></div>
+        </div>
+        <button class="chat-header-search-btn" onclick="toggleMsgSearch()" title="Search messages">
+          <i class="fas fa-search"></i>
+        </button>
+      </div>
+
+      <!-- Message Search -->
+      <div class="chat-msg-search-bar" id="chatMsgSearchBar">
+        <input type="text" id="chatMsgSearchInput" placeholder="Search in conversation…"
+               oninput="searchMessages(this.value)" autocomplete="off">
+        <button class="close-btn" onclick="toggleMsgSearch()"><i class="fas fa-times"></i></button>
+      </div>
+
+      <!-- Messages -->
+      <div class="chat-messages" id="chatMessages"></div>
+
+      <!-- Typing indicator -->
+      <div class="chat-typing-indicator" id="chatTypingIndicator"></div>
+
+      <!-- File preview -->
+      <div class="chat-file-preview" id="chatFilePreview">
+        <i class="fas fa-file" style="color:var(--chat-accent);"></i>
+        <span class="chat-file-preview-info" id="chatFilePreviewName"></span>
+        <button class="chat-file-preview-remove" onclick="removeAttachedFile()"><i class="fas fa-times"></i></button>
+      </div>
+
+      <!-- Composer -->
+      <div class="chat-composer">
+        <button class="chat-composer-attach" onclick="document.getElementById('chatFileInput').click()" title="Attach file">
+          <i class="fas fa-paperclip"></i>
+        </button>
+        <input type="file" class="chat-file-input" id="chatFileInput"
+               accept=".jpg,.jpeg,.png,.webp,.pdf,.doc,.docx,.xls,.xlsx"
+               onchange="handleFileAttach(this)">
+        <textarea class="chat-composer-input" id="chatComposerInput"
+                  placeholder="Type a message…" rows="1"
+                  oninput="autoResizeComposer(this); handleTyping()"
+                  onkeydown="handleComposerKeydown(event)"></textarea>
+        <button class="chat-composer-send" id="chatSendBtn" onclick="sendMessage()" disabled>
+          <i class="fas fa-paper-plane"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Message Context Menu -->
+<div class="chat-ctx-menu" id="chatCtxMenu">
+  <button id="ctxCopy" onclick="ctxCopyText()"><i class="fas fa-copy"></i> Copy</button>
+  <button id="ctxUnsend" onclick="ctxUnsendMsg()"><i class="fas fa-rotate-left"></i> Unsend</button>
+</div>
+
+<!-- Conversation actions menu — opened by clicking/tapping the ••• revealed
+     by a short drag/swipe. Shared identically by desktop (mouse drag) and
+     mobile (finger swipe). -->
+<div class="chat-ctx-menu chat-conv-more-menu" id="chatConvMoreMenu">
+  <button type="button" id="convMorePin" data-conv-action="pin"><i class="fas fa-thumbtack"></i><span>Pin Chat</span></button>
+  <button type="button" id="convMoreReadToggle" data-conv-action="toggleread"><i class="fas fa-envelope"></i><span>Mark as Unread</span></button>
+  <button type="button" id="convMoreMute" data-conv-action="mute"><i class="fas fa-bell-slash"></i><span>Mute Notifications</span></button>
+  <button type="button" id="convMoreArchive" data-conv-action="archive"><i class="fas fa-box-archive"></i><span>Archive Chat</span></button>
+  <button type="button" id="convMoreListings" data-conv-action="listings"><i class="fas fa-list-ul"></i><span>View Listings</span></button>
+  <button type="button" id="convMoreDelete" class="chat-ctx-danger" data-conv-action="delete"><i class="fas fa-trash-can"></i><span>Delete Chat</span></button>
+</div>
+
+<!-- Toast notifications (success/error) — replaces every alert()/confirm() in this module -->
+<div class="chat-toast-container" id="chatToastContainer" aria-live="polite"></div>
+
+<!-- Mobile: long-press message preview. Read-only — never marks anything read. -->
+<div class="chat-modal-overlay" id="chatPreviewModal">
+  <div class="chat-modal chat-preview-modal">
+    <div class="chat-preview-header">
+      <img id="chatPreviewAvatar" src="" alt="">
+      <div>
+        <h3 id="chatPreviewName" style="margin:0;"></h3>
+        <p style="margin:2px 0 0;font-size:12px;color:var(--chat-sub);">Preview — not marked as read</p>
+      </div>
+    </div>
+    <div class="chat-preview-messages" id="chatPreviewMessages"></div>
+    <div class="chat-modal-actions">
+      <button class="chat-modal-cancel" onclick="closeMsgPreview()">Close</button>
+      <button class="chat-modal-confirm" id="chatPreviewOpenBtn" onclick="chatPreviewOpenConversation()">Open Conversation</button>
+    </div>
+  </div>
+</div>
+
+<!-- Unsend Confirmation Modal -->
+<div class="chat-modal-overlay" id="unsendModal">
+  <div class="chat-modal">
+    <div class="chat-modal-icon"><i class="fas fa-rotate-left"></i></div>
+    <h3>Unsend this message?</h3>
+    <p>This message will be removed for everyone in this conversation.</p>
+    <div class="chat-modal-actions">
+      <button class="chat-modal-cancel" onclick="closeUnsendModal()">Cancel</button>
+      <button class="chat-modal-confirm" onclick="confirmUnsend()">Unsend</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Chat Confirmation Modal -->
+<div class="chat-modal-overlay" id="deleteChatModal">
+  <div class="chat-modal">
+    <div class="chat-modal-icon" style="color:#ef4444;"><i class="fas fa-trash-can"></i></div>
+    <h3>Delete this chat from your inbox?</h3>
+    <p>This chat will only be removed from your account. The other participant will still have access to the conversation.</p>
+    <div class="chat-modal-actions">
+      <button class="chat-modal-cancel" onclick="closeDeleteChatModal()">Cancel</button>
+      <button class="chat-modal-confirm chat-modal-danger" onclick="confirmDeleteChat()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- Image Lightbox -->
+<div class="chat-lightbox" id="chatLightbox" onclick="closeLightbox()">
+  <button class="chat-lightbox-close" onclick="event.stopPropagation();closeLightbox()"><i class="fas fa-times"></i></button>
+  <button class="chat-lightbox-download" onclick="event.stopPropagation();downloadLightboxImage()"><i class="fas fa-download"></i></button>
+  <img id="chatLightboxImg" src="" alt="Preview" onclick="event.stopPropagation()">
+</div>
+
+<!-- New Chat Modal -->
+<div class="chat-new-modal-overlay" id="chatNewModal" onclick="closeNewChatModal(event)">
+  <div class="chat-new-modal" onclick="event.stopPropagation()">
+    <div class="chat-new-modal-header">
+      <h3>New Conversation</h3>
+      <button onclick="closeNewChatModal()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="chat-new-modal-search">
+      <input type="text" id="chatNewModalSearch" placeholder="Search people…"
+             oninput="searchNewChatUsers(this.value)" autocomplete="off">
+    </div>
+    <div class="chat-new-modal-list" id="chatNewModalList"></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="compress.js"></script>
+<script src="auth-guard.js?v=20260815a"></script>
+<script src="chat.js?v=20260812l"></script>
+<script src="location-engine.js?v=20260809b"></script>
+<script src="match-engine.js?v=12"></script>
+<script src="developers.js?v=36"></script>
+<script src="match-alert.js?v=9"></script>
+<script src="notif-badge.js?v=12"></script>
+
+<!-- Mobile Bottom Navigation -->
+<nav class="mobile-bottom-nav">
+  <a class="mob-nav-item" href="home.html"><i class="fas fa-border-all"></i><span>Feed</span></a>
+  <a class="mob-nav-item" href="forum.html" style="display:none"><i class="fas fa-bullhorn"></i><span>Forum</span></a>
+  <a class="mob-nav-item" href="realmates.html" style="display:none"><i class="fas fa-user-group"></i><span>Realmates</span></a>
+  <a class="mob-nav-item active" href="chat.html"><i class="fas fa-comment-dots"></i><span>Chat</span></a>
+  <a class="mob-nav-item mob-nav-center" href="livemarket.html"><i class="fas fa-globe"></i><span>Portal</span></a>
+  <a class="mob-nav-item" href="notifications.html"><i class="fas fa-bell"></i><span>Notifications</span></a>
+  <div class="mob-nav-item mob-nav-avatar-wrap" onclick="toggleNavMenu(event)">
+    <div class="mob-nav-avatar" id="navAvatar"><i class="fas fa-user-tie" style="font-size:13px;"></i></div>
+    <span>Me</span>
+    <div class="mob-nav-menu" id="navMenu">
+      <a href="dashboard.html"><i class="fas fa-user-tie"></i> Profile</a>
+      <a href="realmates.html"><i class="fas fa-user-group"></i> Realmates</a>
+      <a href="analytics.html" style="display:none"><i class="fas fa-chart-area"></i> Analytics</a>
+      <a href="settings.html"><i class="fas fa-cog"></i> Settings</a>
+      <a href="#" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</a>
+    </div>
+  </div>
+</nav>
+<script src="nav-menu.js?v=20260809a"></script>
+</body>
+</html>

@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Realmate | Market Summary</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="forum.css?v=20260716a">
+  <link rel="stylesheet" href="mobile-back.css">
+  <script src="theme.js?v=20260812a"></script>
+  <style>
+    .ms-header {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+      background: linear-gradient(135deg, #0f172a 0%, #1a1a2e 50%, #0f172a 100%);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 48px; border-bottom: 2px solid #32cd32; overflow: hidden;
+    }
+    .ms-header::after {
+      content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 2px;
+      background: linear-gradient(90deg, transparent, #32cd32, #3b82f6, #32cd32, transparent);
+      background-size: 200% 100%; animation: msBar 4s linear infinite;
+    }
+    @keyframes msBar { 0% { background-position: 0% 0; } 100% { background-position: 200% 0; } }
+    .ms-back { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; color: #94a3b8; cursor: pointer; padding: 6px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.06); transition: all 0.15s; position: relative; z-index: 1; }
+    .ms-back:hover { background: rgba(255,255,255,0.12); color: #fff; }
+    .ms-title { font-size: 16px; font-weight: 800; color: #fff; position: relative; z-index: 1; }
+
+    .ms-page { max-width: 720px; margin: 0 auto; padding: 28px 16px 80px; font-family: 'Inter', sans-serif; }
+
+    .ms-hero { background: #0f172a; border-radius: 16px; padding: 24px; margin-bottom: 16px; color: #fff; }
+    .ms-hero-name { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; }
+    .ms-hero-sub { font-size: 12px; color: #64748b; margin-top: 2px; }
+    .ms-hero-price { font-size: 32px; font-weight: 800; color: #32cd32; margin-top: 12px; letter-spacing: -0.02em; }
+    .ms-hero-spread { font-size: 13px; color: #94a3b8; margin-top: 4px; }
+
+    .ms-sentiment { display: inline-flex; align-items: center; gap: 6px; margin-top: 12px; padding: 6px 14px; border-radius: 999px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+    .ms-sentiment.buy { background: rgba(50,205,50,0.15); color: #32cd32; border: 1px solid rgba(50,205,50,0.3); }
+    .ms-sentiment.sell { background: rgba(239,68,68,0.15); color: #ef4444; border: 1px solid rgba(239,68,68,0.3); }
+    .ms-sentiment.neutral { background: rgba(148,163,184,0.15); color: #94a3b8; border: 1px solid rgba(148,163,184,0.3); }
+
+    .ms-stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 16px; }
+    .ms-stat { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 14px 16px; }
+    .ms-stat-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #9ca3af; margin-bottom: 4px; }
+    .ms-stat-value { font-size: 18px; font-weight: 800; color: #111827; }
+    .ms-stat-sub { font-size: 11px; color: #9ca3af; margin-top: 2px; }
+
+    .ms-section { margin-bottom: 16px; }
+    .ms-section-title { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: #9ca3af; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+
+    .ms-chart-wrap { background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; padding: 16px; margin-bottom: 16px; }
+    .ms-chart-filters { display: flex; gap: 4px; margin-bottom: 12px; }
+    .ms-chart-filter { padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; border: 1px solid #e5e7eb; background: #fff; color: #6b7280; cursor: pointer; font-family: inherit; }
+    .ms-chart-filter.active { background: #111827; color: #fff; border-color: #111827; }
+
+    .ms-ai-card { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+    @keyframes msOrbit { 0% { transform: rotate(0deg) scale(1); } 50% { transform: rotate(180deg) scale(1.1); } 100% { transform: rotate(360deg) scale(1); } }
+    @keyframes msGlow { 0%,100% { text-shadow: 0 0 4px rgba(50,205,50,0.3); } 50% { text-shadow: 0 0 14px rgba(50,205,50,0.8); } }
+    .ms-ai-icon { color: #32cd32; display: inline-block; animation: msOrbit 5s linear infinite, msGlow 2s ease-in-out infinite; }
+    .ms-ai-insight { font-size: 13px; line-height: 1.6; color: #374151; padding: 4px 0; display: flex; align-items: flex-start; gap: 8px; }
+    .ms-ai-insight i { color: #32cd32; margin-top: 3px; flex-shrink: 0; font-size: 10px; }
+
+    .ms-activity { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; }
+    .ms-activity-item { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid #f3f4f6; font-size: 13px; color: #374151; }
+    .ms-activity-item:last-child { border: none; }
+    .ms-activity-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; }
+    .ms-activity-sale { background: #f1f5f9; color: #0f172a; }
+    .ms-activity-buy { background: #f0fdf4; color: #16a34a; }
+    .ms-activity-time { font-size: 10px; color: #9ca3af; margin-left: auto; white-space: nowrap; }
+
+    .ms-loading { text-align: center; padding: 80px 20px; color: #9ca3af; }
+
+    @media (max-width: 768px) {
+      .ms-header { padding: 8px 14px; }
+      .ms-page { padding-top: 6px; }
+      .ms-hero-price { font-size: 26px; }
+      .ms-stats { grid-template-columns: 1fr 1fr; gap: 8px; }
+    }
+    @media (min-width: 769px) { .ms-header { left: 240px; } }
+
+    html[data-theme="dark"] .ms-stat { background: #1e293b; border-color: #334155; }
+    html[data-theme="dark"] .ms-stat-value { color: #f1f5f9; }
+    html[data-theme="dark"] .ms-chart-wrap { background: #1e293b; border-color: #334155; }
+    html[data-theme="dark"] .ms-ai-card { background: #1e293b; border-color: #334155; }
+    html[data-theme="dark"] .ms-ai-insight { color: #94a3b8; }
+    html[data-theme="dark"] .ms-activity { background: #1e293b; border-color: #334155; }
+    html[data-theme="dark"] .ms-activity-item { border-color: #334155; color: #94a3b8; }
+  </style>
+  <script src="featureFlags.js?v=20260717a"></script>
+</head>
+<body>
+
+<div class="sidebar">
+  <div class="brand"><img src="images/realmate2.png" onclick="location.href='home.html'"></div>
+  <div class="nav-item" onclick="location.href='home.html'"><i class="fas fa-border-all"></i><span>Feed</span></div>
+  <div class="nav-item" onclick="location.href='dashboard.html'"><i class="fas fa-user-tie"></i><span>Profile</span></div>
+  <div class="nav-item" onclick="location.href='livemarket.html'"><i class="fas fa-globe"></i><span>Portal</span></div>
+  <div class="nav-item" onclick="location.href='analytics.html'" style="display:none"><i class="fas fa-chart-area"></i><span>Analytics</span></div>
+  <div class="nav-item" onclick="location.href='forum.html'" style="display:none"><i class="fas fa-bullhorn"></i><span>Forum</span></div>
+  <div class="nav-item" onclick="location.href='chat.html'"><i class="fas fa-comment-dots"></i> <span>Chat</span></div>
+  <div class="nav-item" onclick="location.href='notifications.html'"><i class="fas fa-bell"></i><span>Notifications</span></div>
+  <div class="nav-item" onclick="location.href='settings.html'"><i class="fas fa-cog"></i><span>Settings</span></div>
+  <div style="margin-top:auto"><div class="nav-item" onclick="logout()"><i class="fas fa-sign-out-alt"></i><span>Sign Out</span></div></div>
+</div>
+
+<div class="ms-header">
+  <button class="ms-back rm-mobile-back" onclick="goBack()"><i class="fas fa-arrow-left"></i><span class="rm-back-label"> Back</span></button>
+  <span class="ms-title"><i class="fas fa-chart-line" style="margin-right:5px;color:#32cd32;"></i>Market Summary</span>
+</div>
+
+<div class="main-content">
+  <div class="ms-page">
+    <div id="msContent" class="ms-loading"><i class="fas fa-spinner fa-spin" style="font-size:24px;"></i></div>
+  </div>
+</div>
+
+<nav class="mobile-bottom-nav">
+  <a class="mob-nav-item" href="home.html"><i class="fas fa-border-all"></i><span>Feed</span></a>
+  <a class="mob-nav-item" href="forum.html" style="display:none"><i class="fas fa-bullhorn"></i><span>Forum</span></a>
+  <a class="mob-nav-item" href="realmates.html" style="display:none"><i class="fas fa-user-group"></i><span>Realmates</span></a>
+  <a class="mob-nav-item" href="chat.html"><i class="fas fa-comment-dots"></i><span>Chat</span></a>
+  <a class="mob-nav-item mob-nav-center" href="livemarket.html"><i class="fas fa-globe"></i><span>Portal</span></a>
+  <a class="mob-nav-item" href="notifications.html"><i class="fas fa-bell"></i><span>Notifications</span></a>
+  <div class="mob-nav-item mob-nav-avatar-wrap" onclick="toggleNavMenu(event)">
+    <div class="mob-nav-avatar" id="navAvatar"><i class="fas fa-user-tie" style="font-size:13px;"></i></div>
+    <span>Me</span>
+    <div class="mob-nav-menu" id="navMenu">
+      <a href="dashboard.html"><i class="fas fa-user-tie"></i> Profile</a>
+      <a href="realmates.html"><i class="fas fa-user-group"></i> Realmates</a>
+      <a href="analytics.html" style="display:none"><i class="fas fa-chart-area"></i> Analytics</a>
+      <a href="settings.html"><i class="fas fa-cog"></i> Settings</a>
+      <a href="#" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</a>
+    </div>
+  </div>
+</nav>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="search-overlay.js?v=20260812k"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="auth-guard.js?v=20260815a"></script>
+<script src="nav-menu.js?v=20260809a"></script>
+<script src="location-engine.js?v=20260809b"></script>
+<script src="match-engine.js?v=12"></script>
+<script src="match-alert.js?v=9"></script>
+<script src="notif-badge.js?v=12"></script>
+<script>
+const _sb = supabase.createClient('https://wmegpgrfrtprhuzmgjma.supabase.co', 'sb_publishable_Rm_fIBDUfu3DEyLj0_bWZw_qEqo8cd4');
+
+function formatP(n) {
+  if (n >= 1e6) return '₱' + (n/1e6).toFixed(1).replace(/\.0$/,'') + 'M';
+  if (n >= 1e3) return '₱' + (n/1e3).toFixed(0) + 'K';
+  return '₱' + n.toFixed(0);
+}
+
+function timeAgo(d) {
+  const s = Math.floor((Date.now() - new Date(d).getTime()) / 1000);
+  if (s < 60) return 'Just now';
+  if (s < 3600) return Math.floor(s/60) + 'm ago';
+  if (s < 86400) return Math.floor(s/3600) + 'h ago';
+  return Math.floor(s/86400) + 'd ago';
+}
+
+function extractPrice(text) {
+  const lower = text.toLowerCase();
+  let m = lower.match(/(\d+\.?\d*)\s*m(?:illion)?/);
+  if (m) return parseFloat(m[1]) * 1e6;
+  m = text.replace(/,/g,'').match(/\b(\d{7,9})\b/);
+  if (m) return parseFloat(m[1]);
+  return null;
+}
+
+function extractUnit(text) {
+  const lower = text.toLowerCase();
+  if (/\bstudio\b/.test(lower)) return 'Studio';
+  if (/\b1\s*br\b|1\s*bed/i.test(text)) return '1BR';
+  if (/\b2\s*br\b|2\s*bed/i.test(text)) return '2BR';
+  if (/\b3\s*br\b|3\s*bed/i.test(text)) return '3BR';
+  if (/\b4\s*br\b|4\s*bed/i.test(text)) return '4BR';
+  return null;
+}
+
+async function loadSummary() {
+  const SEGMENTS = {
+    ownership: { supply: ['FOR SALE'], demand: ['WILLING TO BUY'], label: 'Ownership' },
+    rental: { supply: ['FOR RENT'], demand: ['WILLING TO RENT'], label: 'Rental' },
+    lease: { supply: ['FOR LEASE'], demand: ['WILLING TO LEASE'], label: 'Lease' }
+  };
+
+  const params = new URLSearchParams(location.search);
+  const key = decodeURIComponent(params.get('key') || '');
+  const parts = key.split('||');
+  const projName = parts[0];
+  const unitType = parts[1] || '';
+  const segment = parts[2] || 'ownership';
+  const segConfig = SEGMENTS[segment] || SEGMENTS.ownership;
+
+  if (!projName) { document.getElementById('msContent').innerHTML = '<p>Project not found.</p>'; return; }
+
+  const { data: listings } = await _sb.from('listings').select('*').eq('archived', false).order('created_at', { ascending: false });
+  if (!listings) { document.getElementById('msContent').innerHTML = '<p>Failed to load data.</p>'; return; }
+
+  const projLower = projName.toLowerCase();
+  const unitLower = unitType.toLowerCase();
+  const allCats = [...segConfig.supply, ...segConfig.demand];
+  const relevant = listings.filter(l => {
+    const text = (l.content || '').toLowerCase();
+    const hasProj = text.includes(projLower);
+    const unit = extractUnit(l.content || '');
+    const hasUnit = unitLower ? (unit || '').toLowerCase() === unitLower : true;
+    const hasCat = allCats.includes(l.category);
+    return hasProj && hasUnit && hasCat;
+  });
+
+  const sellers = relevant.filter(l => segConfig.supply.includes(l.category));
+  const buyers = relevant.filter(l => segConfig.demand.includes(l.category));
+  const allPrices = relevant.map(l => extractPrice(l.content||'')).filter(Boolean);
+  const sellerPrices = sellers.map(l => extractPrice(l.content||'')).filter(Boolean);
+  const buyerPrices = buyers.map(l => extractPrice(l.content||'')).filter(Boolean);
+
+  const avg = allPrices.length ? allPrices.reduce((s,p)=>s+p,0)/allPrices.length : 0;
+  const min = allPrices.length ? Math.min(...allPrices) : 0;
+  const max = allPrices.length ? Math.max(...allPrices) : 0;
+
+  // FMV per sqm
+  const sqmData = relevant.map(l => {
+    const p = extractPrice(l.content||'');
+    const m = (l.content||'').match(/(\d+)\s*(?:sqm|sq\.?\s*m)/i);
+    return (p && m) ? { price: p, sqm: parseInt(m[1]) } : null;
+  }).filter(Boolean);
+  const fmvSqm = sqmData.length ? sqmData.reduce((s,d) => s + d.price / d.sqm, 0) / sqmData.length : null;
+  const sellerAvg = sellerPrices.length ? sellerPrices.reduce((s,p)=>s+p,0)/sellerPrices.length : null;
+  const buyerAvg = buyerPrices.length ? buyerPrices.reduce((s,p)=>s+p,0)/buyerPrices.length : null;
+
+  let sentiment = 'Neutral', sentClass = 'neutral';
+  if (buyers.length > sellers.length * 1.5) { sentiment = 'Strong Buy'; sentClass = 'buy'; }
+  else if (buyers.length > sellers.length) { sentiment = 'Buy'; sentClass = 'buy'; }
+  else if (sellers.length > buyers.length * 1.5) { sentiment = 'Strong Sell'; sentClass = 'sell'; }
+  else if (sellers.length > buyers.length) { sentiment = 'Sell'; sentClass = 'sell'; }
+
+  const demandStr = buyers.length > sellers.length ? 'High' : buyers.length === sellers.length ? 'Balanced' : 'Low';
+  const supplyStr = sellers.length > buyers.length ? 'High' : sellers.length === buyers.length ? 'Balanced' : 'Low';
+
+  // AI insights
+  const insights = [];
+  if (buyers.length > sellers.length) insights.push('Buyer demand currently exceeds seller supply.');
+  else if (sellers.length > buyers.length) insights.push('Seller supply exceeds current buyer demand.');
+  else insights.push('Market supply and demand are currently balanced.');
+  if (sellerAvg && buyerAvg && buyerAvg >= sellerAvg * 0.95) insights.push('Buyer budgets are closely aligned with asking prices — high transaction potential.');
+  if (sellerAvg && buyerAvg && buyerAvg < sellerAvg * 0.8) insights.push('Significant price gap between sellers and buyers — negotiation expected.');
+  if (allPrices.length >= 3) insights.push(`Market value ranges from ${formatP(min)} to ${formatP(max)} based on ${allPrices.length} data points.`);
+  if (relevant.length <= 2) insights.push('Limited market data available — prices may not fully reflect market conditions.');
+  if (fmvSqm) insights.push(`FMV per sqm is ${formatP(fmvSqm)} — ${fmvSqm > 300000 ? 'premium segment pricing' : fmvSqm > 200000 ? 'mid-to-high market positioning' : 'accessible market entry point'}.`);
+  if (avg && sellerAvg && avg > sellerAvg) insights.push('FMV remains above average asking price — demand is supporting upward pressure.');
+  if (avg && buyerAvg && avg < buyerAvg) insights.push('FMV is below average buyer budget — favorable conditions for sellers.');
+
+  // Recent activity
+  const recent = relevant.slice(0, 6);
+
+  const container = document.getElementById('msContent');
+  container.innerHTML = `
+    <div class="ms-hero">
+      <div class="ms-hero-name">${projName}</div>
+      <div class="ms-hero-sub">${unitType || 'All Units'} · ${segConfig.label} Market · Condominium</div>
+      <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.08em;margin-top:14px;">FMV Per Unit</div>
+      <div class="ms-hero-price">${formatP(avg)}</div>
+      ${fmvSqm ? `<div style="font-size:14px;color:#94a3b8;font-weight:700;margin-top:2px;">${formatP(fmvSqm)}<span style="font-size:11px;font-weight:600;">/sqm</span></div>` : ''}
+      <div class="ms-hero-spread">${formatP(min)} – ${formatP(max)}</div>
+      <div class="ms-sentiment ${sentClass}"><i class="fas fa-${sentClass === 'buy' ? 'arrow-trend-up' : sentClass === 'sell' ? 'arrow-trend-down' : 'minus'}"></i> ${sentiment}</div>
+    </div>
+
+    <div class="ms-stats">
+      <div class="ms-stat">
+        <div class="ms-stat-label">FMV Per Unit</div>
+        <div class="ms-stat-value">${formatP(avg)}</div>
+      </div>
+      ${fmvSqm ? `<div class="ms-stat">
+        <div class="ms-stat-label">FMV / sqm</div>
+        <div class="ms-stat-value" style="font-size:16px;">${formatP(fmvSqm)}</div>
+      </div>` : ''}
+      <div class="ms-stat">
+        <div class="ms-stat-label">Highest</div>
+        <div class="ms-stat-value">${formatP(max)}</div>
+      </div>
+      <div class="ms-stat">
+        <div class="ms-stat-label">Lowest</div>
+        <div class="ms-stat-value">${formatP(min)}</div>
+      </div>
+      <div class="ms-stat">
+        <div class="ms-stat-label">Sentiment</div>
+        <div class="ms-stat-value" style="font-size:14px;color:${sentClass==='buy'?'#32cd32':sentClass==='sell'?'#ef4444':'#94a3b8'};">${sentiment}</div>
+      </div>
+      ${sellerAvg ? `<div class="ms-stat"><div class="ms-stat-label">Avg Ask Price</div><div class="ms-stat-value">${formatP(sellerAvg)}</div></div>` : ''}
+      ${buyerAvg ? `<div class="ms-stat"><div class="ms-stat-label">Avg Buyer Budget</div><div class="ms-stat-value">${formatP(buyerAvg)}</div></div>` : ''}
+      <div class="ms-stat">
+        <div class="ms-stat-label">Demand Strength</div>
+        <div class="ms-stat-value" style="font-size:14px;">${demandStr}</div>
+        <div class="ms-stat-sub">${buyers.length} buyer${buyers.length!==1?'s':''}</div>
+      </div>
+      <div class="ms-stat">
+        <div class="ms-stat-label">Supply Strength</div>
+        <div class="ms-stat-value" style="font-size:14px;">${supplyStr}</div>
+        <div class="ms-stat-sub">${sellers.length} seller${sellers.length!==1?'s':''}</div>
+      </div>
+    </div>
+
+    <div class="ms-section">
+      <div class="ms-section-title"><i class="fas fa-chart-area" style="color:#32cd32;"></i> Price Distribution</div>
+      <div class="ms-chart-wrap">
+        <canvas id="msChart" height="200"></canvas>
+      </div>
+    </div>
+
+    <div class="ms-section">
+      <div class="ms-section-title"><i class="fas fa-circle-nodes ms-ai-icon"></i> AI Market Analysis</div>
+      <div class="ms-ai-card">
+        ${insights.map(i => `<div class="ms-ai-insight"><i class="fas fa-circle-check"></i><span>${i}</span></div>`).join('')}
+      </div>
+    </div>
+
+    ${recent.length ? `
+    <div class="ms-section">
+      <div class="ms-section-title"><i class="fas fa-clock-rotate-left" style="color:#9ca3af;"></i> Recent Activity</div>
+      <div class="ms-activity">
+        ${recent.map(l => {
+          const isSeller = (l.category||'').startsWith('FOR');
+          return `<div class="ms-activity-item">
+            <div class="ms-activity-icon ${isSeller ? 'ms-activity-sale' : 'ms-activity-buy'}">
+              <i class="fas fa-${isSeller ? 'tag' : 'hand-holding-dollar'}"></i>
+            </div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-weight:600;font-size:12px;">${l.user_name || 'Agent'}</div>
+              <div style="font-size:11px;color:#9ca3af;">${l.category}</div>
+            </div>
+            <span class="ms-activity-time">${timeAgo(l.created_at)}</span>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>` : ''}
+  `;
+
+  // Render chart
+  const chartEl = document.getElementById('msChart');
+  if (chartEl && allPrices.length >= 1) {
+    const ctx = chartEl.getContext('2d');
+    const hasBoth = sellerPrices.length > 0 && buyerPrices.length > 0;
+    let chartData;
+
+    if (hasBoth) {
+      chartData = {
+        labels: ['Supply (Ask)', 'Demand (Budget)', 'FMV'],
+        datasets: [{
+          label: 'Price',
+          data: [sellerAvg, buyerAvg, avg],
+          backgroundColor: ['#0f172a', '#32cd32', '#3b82f6'],
+          borderRadius: 8
+        }]
+      };
+    } else {
+      const sorted = [...allPrices].sort((a,b) => a - b);
+      chartData = {
+        labels: sorted.map((_,i) => 'L'+(i+1)),
+        datasets: [{
+          label: 'Price',
+          data: sorted,
+          backgroundColor: sorted.map(p => p >= avg ? '#0f172a' : '#94a3b8'),
+          borderRadius: 6
+        }]
+      };
+    }
+
+    new Chart(ctx, {
+      type: 'bar',
+      data: chartData,
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          y: { ticks: { callback: v => formatP(v), font: { family: 'Inter', size: 10 } }, grid: { color: '#f3f4f6' } },
+          x: { ticks: { font: { family: 'Inter', size: 10 } }, grid: { display: false } }
+        }
+      }
+    });
+  } else if (chartEl) {
+    chartEl.parentElement.innerHTML = '<div style="text-align:center;padding:20px;color:#9ca3af;font-size:12px;">Not enough data for chart</div>';
+  }
+}
+
+document.addEventListener('DOMContentLoaded', loadSummary);
+</script>
+</body>
+</html>

@@ -1,0 +1,1287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Realmate | Listing</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="forum.css?v=20260716a">
+  <link rel="stylesheet" href="mobile-back.css">
+  <script src="theme.js?v=20260812a"></script>
+  <style>
+    :root{
+      --ld-bg:#f4f6f9; --ld-card:#ffffff; --ld-text:#0f172a; --ld-sub:#64748b;
+      --ld-border:#eef2f7; --ld-green:#16a34a; --ld-green2:#22c55e;
+    }
+    html[data-theme="dark"]{
+      --ld-bg:#0b1220; --ld-card:#131c2b; --ld-text:#f1f5f9; --ld-sub:#94a3b8; --ld-border:#1f2a3a;
+    }
+    body{ background:var(--ld-bg); font-family:'Inter',sans-serif; }
+
+    /* ── Header ── */
+    .ld-header{
+      position:fixed; top:0; left:0; right:0; z-index:200;
+      background:rgba(255,255,255,0.9);
+      -webkit-backdrop-filter:saturate(180%) blur(14px); backdrop-filter:saturate(180%) blur(14px);
+      display:flex; align-items:center; gap:10px; padding:11px 16px;
+      border-bottom:1px solid var(--ld-border);
+    }
+    .ld-back{
+      width:36px; height:36px; border-radius:10px; border:none; background:transparent;
+      color:var(--ld-green); font-size:20px; cursor:pointer;
+      display:inline-flex; align-items:center; justify-content:center; transition:background .15s;
+    }
+    .ld-back:hover{ background:#f1f5f9; }
+    .ld-header-title{ font-size:18px; font-weight:800; color:var(--ld-text); letter-spacing:-0.01em; flex:1; }
+    .ld-header-actions{ display:flex; align-items:center; gap:4px; }
+    .ld-hicon{
+      width:38px; height:38px; border-radius:50%; border:none; background:transparent;
+      color:#475569; font-size:17px; cursor:pointer;
+      display:inline-flex; align-items:center; justify-content:center; transition:background .15s,color .15s;
+    }
+    .ld-hicon:hover{ background:#f1f5f9; color:var(--ld-text); }
+    .ld-hicon.pinned{ color:#f59e0b; }
+
+    /* ── Page ── */
+    .ld-page{ max-width:680px; margin:0 auto; padding:66px 14px 108px; }
+    .ld-loading{ text-align:center; padding:80px 20px; color:#94a3b8; }
+
+    .ld-sec{ background:var(--ld-card); border-radius:16px; box-shadow:0 1px 2px rgba(15,23,42,0.04), 0 12px 26px -18px rgba(15,23,42,0.35); }
+
+    /* ── Hero photos ── */
+    .ld-hero{ position:relative; border-radius:18px; overflow:hidden; background:#e9edf2; box-shadow:0 12px 34px -14px rgba(15,23,42,0.3); }
+    .ld-images-scroll{ display:flex; overflow-x:auto; scroll-snap-type:x mandatory; scrollbar-width:none; -webkit-overflow-scrolling:touch; }
+    .ld-images-scroll::-webkit-scrollbar{ display:none; }
+    .ld-images-scroll img{ width:100%; min-width:100%; height:66vw; max-height:440px; object-fit:cover; scroll-snap-align:start; cursor:pointer; flex-shrink:0; }
+    .ld-cat-pill{
+      position:absolute; top:14px; left:14px; display:inline-flex; align-items:center; gap:8px;
+      padding:8px 15px; border-radius:999px; background:rgba(15,23,42,0.82);
+      -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px); z-index:2;
+    }
+    .ld-cat-tag{ color:#fff; font-size:11.5px; font-weight:800; letter-spacing:0.06em; text-transform:uppercase; }
+    .ld-cat-dot{ width:8px; height:8px; border-radius:50%; flex-shrink:0; box-shadow:0 0 0 2px rgba(255,255,255,0.18); }
+    .ld-cat-sale .ld-cat-dot{ background:#22c55e; } .ld-cat-rent .ld-cat-dot{ background:#3b82f6; }
+    .ld-cat-lease .ld-cat-dot{ background:#a855f7; } .ld-cat-wbuy .ld-cat-dot{ background:#f59e0b; }
+    .ld-cat-wrent .ld-cat-dot{ background:#06b6d4; } .ld-cat-wlease .ld-cat-dot{ background:#ec4899; }
+    .ld-img-count{
+      position:absolute; top:14px; right:14px; display:inline-flex; align-items:center; gap:5px;
+      background:rgba(15,23,42,0.7); color:#fff; font-size:12px; font-weight:700; padding:5px 11px;
+      border-radius:999px; -webkit-backdrop-filter:blur(4px); backdrop-filter:blur(4px); pointer-events:none; z-index:2;
+    }
+    .ld-img-dots{ position:absolute; left:0; right:0; bottom:12px; display:flex; justify-content:center; gap:5px; z-index:2; }
+    .ld-img-dot{ width:6px; height:6px; border-radius:50%; background:rgba(255,255,255,0.55); transition:all .2s; }
+    .ld-img-dot.active{ background:#fff; width:18px; border-radius:3px; }
+
+    /* ── Price / title card (overlaps the hero) ── */
+    .ld-price-card{ position:relative; z-index:3; margin:-34px 14px 0; padding:18px 20px; display:flex; align-items:stretch; gap:16px; }
+    .ld-price-card--nohero{ margin:0; }
+    .ld-price-main{ flex:1; min-width:0; }
+    .ld-price-main .ld-cat-pill{ position:static; margin-bottom:10px; background:rgba(15,23,42,0.9); }
+    /* Standalone category chip — shown at the very top when a listing has NO
+       image, so the post type is always clear. Neutralizes the hero-overlay
+       absolute positioning and reuses the same in-card pill look. */
+    .ld-cat-standalone{ margin:2px 14px 6px; }
+    .ld-cat-standalone .ld-cat-pill{ position:static; background:rgba(15,23,42,0.9); }
+    .ld-price{ font-size:26px; font-weight:800; color:var(--ld-green); letter-spacing:-0.02em; line-height:1.1; }
+    .ld-title{ font-size:22px; font-weight:800; color:var(--ld-text); letter-spacing:-0.01em; margin-top:5px; overflow-wrap:anywhere; }
+    .ld-loc{ display:flex; align-items:center; gap:6px; font-size:14px; font-weight:600; color:var(--ld-sub); margin-top:8px; }
+    .ld-loc i{ color:var(--ld-green); font-size:14px; }
+    .ld-price-side{ display:flex; align-items:center; gap:5px; padding-left:16px; border-left:1px solid var(--ld-border); font-size:12.5px; font-weight:600; color:#94a3b8; white-space:nowrap; align-self:center; }
+    .ld-price-side i{ font-size:12px; }
+
+    /* ── Specs card ── */
+    .ld-specs-card{ margin:12px 14px 0; padding:16px 4px; display:flex; overflow-x:auto; scrollbar-width:none; }
+    .ld-specs-card::-webkit-scrollbar{ display:none; }
+    /* Few specs fill the width evenly (like the mock); many scroll horizontally */
+    .ld-spec{ flex:1 0 auto; min-width:60px; display:flex; flex-direction:column; align-items:center; gap:6px; text-align:center; padding:2px 8px; position:relative; }
+    .ld-spec + .ld-spec::before{ content:''; position:absolute; left:0; top:50%; transform:translateY(-50%); width:1px; height:66%; background:var(--ld-border); }
+    .ld-spec-ic{ color:#334155; font-size:19px; height:22px; display:flex; align-items:center; }
+    html[data-theme="dark"] .ld-spec-ic{ color:#cbd5e1; }
+    .ld-spec-val{ font-size:14.5px; font-weight:800; color:var(--ld-text); line-height:1.15; white-space:nowrap; }
+    .ld-spec-lbl{ font-size:11px; font-weight:600; color:#94a3b8; white-space:nowrap; }
+
+    /* ── About card ── */
+    .ld-about-card{ margin:12px 14px 0; padding:18px 20px; }
+    .ld-card-title{ font-size:16px; font-weight:800; color:var(--ld-text); margin-bottom:10px; }
+    .ld-about-text{ font-size:14.5px; line-height:1.65; color:var(--ld-sub); white-space:pre-line; overflow-wrap:anywhere; }
+    .ld-about-text.clamp{ display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
+    .ld-readmore{ display:inline-flex; align-items:center; gap:5px; margin-top:9px; font-size:13.5px; font-weight:700; color:var(--ld-green); cursor:pointer; }
+
+    /* ── Property Information (tabbed highlights) ── */
+    .ld-info-card{ margin:12px 14px 0; padding:0; overflow:hidden; }
+    .ld-info-card.ld-info-card--nohero{ margin-top:0; }
+    .ld-tabs{ display:flex; border-bottom:1px solid var(--ld-border); }
+    .ld-tab{
+      flex:1; padding:15px 10px; background:transparent; border:none; font-family:inherit;
+      font-size:14px; font-weight:700; color:var(--ld-sub); cursor:pointer; position:relative; transition:color .15s;
+    }
+    .ld-tab.active{ color:var(--ld-green); }
+    .ld-tab.active::after{ content:''; position:absolute; left:16px; right:16px; bottom:-1px; height:2.5px; background:var(--ld-green); border-radius:2px 2px 0 0; }
+    .ld-tab-panel{ padding:4px 20px 8px; }
+    .ld-info-row{ padding:14px 0; border-bottom:1px solid var(--ld-border); }
+    .ld-info-row:last-child{ border-bottom:none; }
+    .ld-info-lbl{ display:block; font-size:12px; font-weight:600; color:#94a3b8; letter-spacing:0.01em; margin-bottom:5px; }
+    .ld-info-val{ display:block; font-size:17px; font-weight:800; color:var(--ld-text); line-height:1.25; overflow-wrap:anywhere; }
+    .ld-info-val.price{ color:var(--ld-green); }
+    .ld-info-val.empty{ color:#cbd5e1; font-weight:700; }
+    html[data-theme="dark"] .ld-info-val.empty{ color:#475569; }
+    /* Highlight rows (Price·Name·Location and Unit Details) render as the
+       original .ld-spec chip widgets. This modifier only lets longer values
+       (e.g. "2 Bedroom Condominium") wrap, tints the price, and mutes "—". */
+    .ld-specs-wrap .ld-spec-val{ white-space:normal; }
+    .ld-spec-val-price{ color:var(--ld-green); }
+    .ld-spec-val-empty{ color:#cbd5e1; }
+    html[data-theme="dark"] .ld-spec-val-empty{ color:#475569; }
+
+    /* Row 1 — an elevated card that floats ~10% over the hero. Plain stacked
+       text: Project Name (largest, bold, black), Price (green), Location
+       (smallest, green pin + black text). */
+    .ld-hl-card{
+      position:relative; z-index:3;
+      display:flex; align-items:center; justify-content:space-between; gap:14px;
+      margin:-42px 16px 0; padding:14px 18px;
+      border-radius:16px; background:var(--ld-card);
+      box-shadow:0 2px 6px rgba(15,23,42,0.06), 0 24px 50px -24px rgba(15,23,42,0.5);
+    }
+    html[data-theme="dark"] .ld-hl-card{ box-shadow:0 2px 6px rgba(0,0,0,0.4), 0 24px 50px -22px rgba(0,0,0,0.7); }
+    /* No photo → no overlap; sit as a normal card. */
+    .ld-hl-card--nohero{ margin:12px 14px 0; box-shadow:0 1px 2px rgba(15,23,42,0.04), 0 12px 26px -18px rgba(15,23,42,0.35); }
+    .ld-hl-main{ flex:1; min-width:0; }
+    .ld-hl-name{ font-size:25px; font-weight:800; color:var(--ld-text); letter-spacing:-0.025em; line-height:1.1; overflow-wrap:anywhere; }
+    .ld-hl-price{ font-size:21px; font-weight:800; color:var(--ld-green); letter-spacing:-0.01em; margin-top:3px; line-height:1.15; }
+    /* No Property Name → Price leads the card (larger, no top gap). */
+    .ld-hl-price-lead{ font-size:25px; margin-top:0; }
+    .ld-hl-loc{ display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:600; color:var(--ld-text); margin-top:6px; line-height:1.1; overflow-wrap:anywhere; }
+    .ld-hl-loc i{ color:var(--ld-green); font-size:13px; flex-shrink:0; }
+    .ld-hl-empty{ color:#cbd5e1; }
+    html[data-theme="dark"] .ld-hl-empty{ color:#475569; }
+    /* SOLD banner — prominent red badge when a unit is off the market. */
+    .ld-sold-banner{ display:inline-flex; align-items:center; gap:7px; margin:6px 0 2px; padding:6px 12px; border-radius:8px; background:#fee2e2; color:#b91c1c; font-size:13px; font-weight:800; letter-spacing:0.03em; text-transform:uppercase; }
+    .ld-sold-banner i{ font-size:13px; }
+    html[data-theme="dark"] .ld-sold-banner{ background:rgba(220,38,38,0.18); color:#f87171; }
+    /* Demand-side (Willing to …) completions are a success for the client → green. */
+    .ld-sold-banner-willing{ background:#dcfce7; color:#15803d; }
+    html[data-theme="dark"] .ld-sold-banner-willing{ background:rgba(22,163,74,0.18); color:#4ade80; }
+    .ld-btn-sold{ opacity:0.75; cursor:not-allowed; }
+    .ld-btn-sold i{ color:#dc2626; }
+    .ld-btn-sold-willing i{ color:#16a34a; }
+    /* Posted date — pinned to the right of the highlight card, set off by a
+       hairline divider on its left. */
+    .ld-hl-date{ flex-shrink:0; display:flex; flex-direction:column; align-items:flex-end; text-align:right; gap:1px; padding-left:14px; border-left:1px solid var(--ld-border); }
+    .ld-hl-date-lbl{ display:inline-flex; align-items:center; gap:5px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:#94a3b8; }
+    .ld-hl-date-lbl i{ font-size:10px; color:var(--ld-green); }
+    .ld-hl-date-day{ font-size:14px; font-weight:800; color:var(--ld-text); white-space:nowrap; margin-top:2px; }
+    .ld-hl-date-time{ font-size:11.5px; font-weight:600; color:var(--ld-sub); white-space:nowrap; }
+
+    /* ── Property Detail (verbatim original post) ── */
+    .ld-detail-card{ margin:12px 14px 0; padding:18px 20px; }
+    .ld-detail-head{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px; }
+    .ld-detail-time{ display:inline-flex; align-items:center; gap:5px; font-size:12px; font-weight:600; color:#94a3b8; white-space:nowrap; }
+    .ld-detail-time i{ font-size:11px; }
+    .ld-detail-text{ font-size:14.5px; line-height:1.65; color:var(--ld-text); white-space:pre-wrap; overflow-wrap:anywhere; }
+
+    /* ── Posted-by card ── */
+    .ld-poster-card{ margin:12px 14px 0; padding:16px 18px; cursor:pointer; }
+    .ld-poster-label{ font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:#94a3b8; margin-bottom:12px; }
+    .ld-poster-row{ display:flex; align-items:center; gap:14px; }
+    .ld-poster-av{ position:relative; flex-shrink:0; }
+    .ld-poster-av img{ width:52px; height:52px; border-radius:50%; object-fit:cover; border:2px solid #fff; box-shadow:0 2px 8px rgba(15,23,42,0.18); }
+    .ld-poster-badge{ position:absolute; right:-3px; bottom:-3px; }
+    .ld-poster-check{ position:absolute; right:-2px; bottom:-2px; width:18px; height:18px; border-radius:50%; background:#22c55e; color:#fff; border:2px solid #fff; display:flex; align-items:center; justify-content:center; font-size:9px; }
+    .ld-poster-meta{ flex:1; min-width:0; }
+    .ld-poster-name{ font-size:16px; font-weight:800; color:var(--ld-text); }
+    .ld-poster-sub{ font-size:12.5px; font-weight:500; color:var(--ld-sub); margin-top:2px; }
+    .ld-poster-chev{ color:#cbd5e1; font-size:16px; flex-shrink:0; }
+
+    /* ── Fixed bottom action bar ── */
+    .ld-actionbar{
+      position:fixed; left:0; right:0; bottom:0; z-index:150; display:flex; gap:12px;
+      padding:12px 16px calc(12px + env(safe-area-inset-bottom));
+      background:rgba(255,255,255,0.94); -webkit-backdrop-filter:blur(12px); backdrop-filter:blur(12px);
+      border-top:1px solid var(--ld-border);
+    }
+    .ld-btn-ghost, .ld-mate{
+      flex:1; display:inline-flex; align-items:center; justify-content:center; gap:8px; height:50px;
+      border-radius:14px; font-size:15px; font-weight:700; cursor:pointer; font-family:inherit; transition:all .15s;
+    }
+    .ld-btn-ghost{ background:var(--ld-card); border:1.5px solid #e2e8f0; color:var(--ld-text); }
+    .ld-btn-ghost:hover{ border-color:#cbd5e1; background:#f8fafc; }
+    .ld-mate{ background:var(--ld-green2); border:1.5px solid var(--ld-green2); color:#fff; box-shadow:0 8px 18px -8px rgba(34,197,94,0.7); }
+    .ld-mate:hover:not(:disabled){ background:#16a34a; border-color:#16a34a; }
+    .ld-mate.mate-status-pending{ background:#f1f5f9; border-color:#e2e8f0; color:#94a3b8; box-shadow:none; cursor:default; }
+    .ld-mate.mate-status-mates{ background:#f0fdf4; border-color:#22c55e; color:#16a34a; box-shadow:none; }
+    html[data-theme="dark"] .ld-btn-ghost{ border-color:#243044; }
+    html[data-theme="dark"] .ld-btn-ghost:hover{ background:#1a2434; border-color:#33445a; }
+    html[data-theme="dark"] .ld-mate.mate-status-pending{ background:#0f172a; border-color:#243044; color:#64748b; }
+    html[data-theme="dark"] .ld-mate.mate-status-mates{ background:rgba(34,197,94,0.12); color:#86efac; }
+
+    /* This page uses its own action bar instead of the app's mobile tab bar */
+    .mobile-bottom-nav{ display:none !important; }
+
+    /* ── Lightbox ── */
+    .ld-lightbox{ position:fixed; inset:0; background:rgba(0,0,0,0.92); z-index:99999; display:flex; align-items:center; justify-content:center; cursor:zoom-out; }
+    .ld-lightbox img{ max-width:92vw; max-height:90vh; object-fit:contain; border-radius:10px; }
+    .ld-lb-nav{ position:absolute; top:50%; transform:translateY(-50%); width:40px; height:40px; border-radius:50%; background:rgba(255,255,255,0.15); border:none; color:#fff; font-size:18px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+    .ld-lb-nav:hover{ background:rgba(255,255,255,0.3); }
+    .ld-lb-prev{ left:16px; } .ld-lb-next{ right:16px; }
+    .ld-lb-close{ position:absolute; top:16px; right:16px; width:36px; height:36px; border-radius:50%; background:rgba(255,255,255,0.15); border:none; color:#fff; font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+
+    /* ── Toast ── */
+    .ld-toast{ position:fixed; left:50%; bottom:92px; transform:translateX(-50%) translateY(10px); display:inline-flex; align-items:center; gap:8px; max-width:calc(100vw - 32px); background:#0f172a; color:#fff; font-size:13px; font-weight:600; padding:11px 18px; border-radius:999px; box-shadow:0 12px 30px -8px rgba(15,23,42,0.55); opacity:0; transition:opacity .25s ease, transform .25s ease; z-index:99999; pointer-events:none; }
+    .ld-toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+    .ld-toast i{ color:#4ade80; font-size:14px; }
+    html[data-theme="dark"] .ld-toast{ background:#1e293b; }
+
+    /* ── Copy-text modal ── */
+    .ld-modal-overlay{ position:fixed; inset:0; z-index:99998; display:flex; align-items:center; justify-content:center; padding:20px; background:rgba(15,23,42,0.55); -webkit-backdrop-filter:blur(4px); backdrop-filter:blur(4px); opacity:0; transition:opacity .2s ease; }
+    .ld-modal-overlay.show{ opacity:1; }
+    .ld-modal{ background:var(--ld-card); width:100%; max-width:540px; max-height:82vh; border-radius:20px; box-shadow:0 26px 64px -14px rgba(15,23,42,0.55); display:flex; flex-direction:column; overflow:hidden; transform:translateY(14px) scale(0.97); transition:transform .24s cubic-bezier(0.16,1,0.3,1); }
+    .ld-modal-overlay.show .ld-modal{ transform:none; }
+    .ld-modal-head{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:18px 20px; border-bottom:1px solid var(--ld-border); flex-shrink:0; }
+    .ld-modal-title{ font-size:16px; font-weight:800; color:var(--ld-text); letter-spacing:-0.01em; display:flex; align-items:center; gap:10px; }
+    .ld-modal-title i{ color:var(--ld-green); font-size:15px; }
+    .ld-modal-x{ width:34px; height:34px; border-radius:9px; border:none; background:transparent; color:#94a3b8; font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background .15s,color .15s; flex-shrink:0; }
+    .ld-modal-x:hover{ background:#f1f5f9; color:var(--ld-text); }
+    html[data-theme="dark"] .ld-modal-x:hover{ background:#1a2434; color:#fff; }
+    .ld-modal-body{ padding:16px 20px; overflow-y:auto; -webkit-overflow-scrolling:touch; }
+    .ld-raw-text{ margin:0; font-family:'Inter',sans-serif; font-size:14px; line-height:1.6; color:var(--ld-text); white-space:pre-wrap; overflow-wrap:break-word; background:#f8fafc; border:1px solid var(--ld-border); border-radius:12px; padding:15px 16px; user-select:text; -webkit-user-select:text; }
+    html[data-theme="dark"] .ld-raw-text{ background:#0f172a; }
+    .ld-modal-foot{ display:flex; gap:10px; padding:14px 20px 18px; border-top:1px solid var(--ld-border); flex-shrink:0; }
+    .ld-mbtn{ height:46px; border-radius:12px; font-size:14px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:8px; font-family:inherit; transition:transform .12s ease, background .15s, border-color .15s; }
+    .ld-mbtn:active{ transform:scale(0.97); }
+    .ld-mbtn-close{ flex:0 0 auto; padding:0 22px; background:var(--ld-card); border:1.5px solid #e2e8f0; color:var(--ld-text); }
+    .ld-mbtn-close:hover{ background:#f8fafc; border-color:#cbd5e1; }
+    html[data-theme="dark"] .ld-mbtn-close{ border-color:#243044; }
+    html[data-theme="dark"] .ld-mbtn-close:hover{ background:#1a2434; border-color:#33445a; }
+    .ld-mbtn-copy{ flex:1; background:var(--ld-green2); border:1.5px solid var(--ld-green2); color:#fff; box-shadow:0 10px 20px -8px rgba(34,197,94,0.7); }
+    .ld-mbtn-copy:hover{ background:#16a34a; border-color:#16a34a; }
+    .ld-hicon:active{ transform:scale(0.9); }
+
+    html[data-theme="dark"] .ld-header{ background:rgba(11,18,32,0.85); }
+    html[data-theme="dark"] .ld-hicon{ color:#94a3b8; }
+    html[data-theme="dark"] .ld-hicon:hover{ background:#1a2434; color:#fff; }
+    html[data-theme="dark"] .ld-back:hover{ background:#1a2434; }
+    html[data-theme="dark"] .ld-actionbar{ background:rgba(11,18,32,0.94); }
+
+    @media (max-width:768px){
+      .ld-header{ padding:10px 12px; }
+      .ld-header-title{ font-size:16px; }
+      .ld-price{ font-size:23px; }
+      .ld-title{ font-size:20px; }
+    }
+    @media (min-width:769px){
+      .ld-header{ left:240px; }
+      .ld-actionbar{ left:240px; }
+    }
+  </style>
+  <script src="featureFlags.js?v=20260717a"></script>
+</head>
+<body>
+
+<div class="sidebar">
+  <div class="brand"><img src="images/realmate2.png" onclick="location.href='home.html'"></div>
+  <div class="nav-item" onclick="location.href='home.html'"><i class="fas fa-border-all"></i><span>Feed</span></div>
+  <div class="nav-item" onclick="location.href='dashboard.html'"><i class="fas fa-user-tie"></i><span>Profile</span></div>
+  <div class="nav-item" onclick="location.href='livemarket.html'"><i class="fas fa-globe"></i><span>Portal</span></div>
+  <div class="nav-item" onclick="location.href='analytics.html'" style="display:none"><i class="fas fa-chart-area"></i><span>Analytics</span></div>
+  <div class="nav-item" onclick="location.href='forum.html'" style="display:none"><i class="fas fa-bullhorn"></i><span>Forum</span></div>
+  <div class="nav-item" onclick="location.href='chat.html'"><i class="fas fa-comment-dots"></i> <span>Chat</span></div>
+  <div class="nav-item" onclick="location.href='notifications.html'"><i class="fas fa-bell"></i><span>Notifications</span></div>
+  <div class="nav-item" onclick="location.href='settings.html'"><i class="fas fa-cog"></i><span>Settings</span></div>
+  <div style="margin-top:auto"><div class="nav-item" onclick="logout()"><i class="fas fa-sign-out-alt"></i><span>Sign Out</span></div></div>
+</div>
+
+<div class="ld-header">
+  <button class="ld-back" onclick="goBack()" aria-label="Back"><i class="fas fa-chevron-left"></i></button>
+  <span class="ld-header-title">Listing Detail</span>
+  <div class="ld-header-actions">
+    <button class="ld-hicon" id="ldPinBtn" onclick="togglePinLd(this)" aria-label="Pin listing" title="Pin"><i class="fas fa-thumbtack"></i></button>
+    <button class="ld-hicon" onclick="openCopyModal()" aria-label="Copy original listing text" title="Copy original text"><i class="far fa-copy"></i></button>
+  </div>
+</div>
+
+<div class="main-content">
+  <div class="ld-page">
+    <div id="ldContent" class="ld-loading"><i class="fas fa-spinner fa-spin" style="font-size:24px;"></i></div>
+  </div>
+</div>
+
+<div class="ld-actionbar" id="ldActionBar" style="display:none"></div>
+<div class="ld-toast" id="ldToast"></div>
+
+<!-- Copy original listing text -->
+<div class="ld-modal-overlay" id="ldCopyModal" style="display:none" onclick="if(event.target===this)closeCopyModal()">
+  <div class="ld-modal" role="dialog" aria-modal="true" aria-label="Original Listing Text">
+    <div class="ld-modal-head">
+      <div class="ld-modal-title"><i class="far fa-file-lines"></i> Original Listing Text</div>
+      <button class="ld-modal-x" onclick="closeCopyModal()" aria-label="Close"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="ld-modal-body"><pre class="ld-raw-text" id="ldRawText"></pre></div>
+    <div class="ld-modal-foot">
+      <button class="ld-mbtn ld-mbtn-close" onclick="closeCopyModal()">Close</button>
+      <button class="ld-mbtn ld-mbtn-copy" onclick="copyOriginalText()"><i class="far fa-copy"></i> Copy Text</button>
+    </div>
+  </div>
+</div>
+
+<nav class="mobile-bottom-nav">
+  <a class="mob-nav-item" href="home.html"><i class="fas fa-border-all"></i><span>Feed</span></a>
+  <a class="mob-nav-item" href="chat.html"><i class="fas fa-comment-dots"></i><span>Chat</span></a>
+  <a class="mob-nav-item mob-nav-center" href="livemarket.html"><i class="fas fa-globe"></i><span>Portal</span></a>
+  <a class="mob-nav-item" href="notifications.html"><i class="fas fa-bell"></i><span>Notifications</span></a>
+  <div class="mob-nav-item mob-nav-avatar-wrap" onclick="toggleNavMenu(event)">
+    <div class="mob-nav-avatar" id="navAvatar"><i class="fas fa-user-tie" style="font-size:13px;"></i></div>
+    <span>Me</span>
+    <div class="mob-nav-menu" id="navMenu">
+      <a href="dashboard.html"><i class="fas fa-user-tie"></i> Profile</a>
+      <a href="settings.html"><i class="fas fa-cog"></i> Settings</a>
+      <a href="#" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</a>
+    </div>
+  </div>
+</nav>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="auth-guard.js?v=20260815a"></script>
+<script src="visibility.js?v=20260812j"></script>
+<script src="mates.js?v=20260814c"></script>
+<script src="nav-menu.js?v=20260809a"></script>
+<script src="location-engine.js?v=20260809b"></script>
+<script src="match-engine.js?v=12"></script>
+<script src="developers.js?v=36"></script>
+<script src="rm-track.js?v=2"></script>
+<script src="match-alert.js?v=9"></script>
+<script src="notif-badge.js?v=12"></script>
+<script>
+const _sb = supabase.createClient('https://wmegpgrfrtprhuzmgjma.supabase.co', 'sb_publishable_Rm_fIBDUfu3DEyLj0_bWZw_qEqo8cd4');
+
+const CAT_DOT_CLASS = {
+  'FOR SALE':'ld-cat-sale', 'FOR RENT':'ld-cat-rent', 'FOR LEASE':'ld-cat-lease',
+  'WILLING TO BUY':'ld-cat-wbuy', 'WILLING TO RENT':'ld-cat-wrent', 'WILLING TO LEASE':'ld-cat-wlease'
+};
+const LOCATION_KW = {
+  'bgc':'BGC','bonifacio':'BGC','fort':'BGC','taguig':'Taguig',
+  'makati':'Makati','salcedo':'Makati','legazpi':'Makati','rockwell':'Makati',
+  'pasig':'Pasig','ortigas':'Pasig','eastwood':'Pasig',
+  'mandaluyong':'Mandaluyong','quezon city':'Quezon City','qc':'Quezon City',
+  'alabang':'Alabang','muntinlupa':'Muntinlupa','pasay':'Pasay',
+  'laguna':'Laguna','cavite':'Cavite','cebu':'Cebu','rizal':'Rizal',
+  'bulacan':'Bulacan','pampanga':'Pampanga','mckinley':'BGC','uptown':'BGC',
+};
+const PROJECTS = ['One Maridien','Two Maridien','Verve One','Verve Two','Verve Residences','Park Triangle Residences','Park Central Towers','Trevi Towers','One Serendra','Two Serendra','Sereneo','Caleia','Ametrine','Nuveo','Kroma','Lerato','Senta','TREC','The Residences At Greenbelt'];
+
+// ── Standalone spec extractors ──
+function _xSqm(t){const m=t.match(/(\d[\d,.]*)\s*(?:sqm|sq\.?\s*m)/i);return m?m[1].replace(/,/g,'')+' sqm':null;}
+function _xBath(t){const m=t.match(/(\d+)\s*(?:bath|bathroom|t&b|toilet)/i);return m?m[1]:null;}
+function _xPark(t){if(/\bwith\s*parking\b/i.test(t))return 'Yes';if(/\bno\s*parking\b/i.test(t))return 'No';const m=t.match(/\b(\d+)\s*parking/i);return m?m[1]:null;}
+function _xTower(t){const m=t.match(/tower\s*(\w+)/i);return m?'Tower '+m[1]:null;}
+function _xFurn(t){const l=t.toLowerCase();if(/\bfull(?:y)?\s*furnished\b/.test(l))return 'Fully Furnished';if(/\bsemi[\s-]*furnished\b/.test(l))return 'Semi-Furnished';if(/\bunfurnished\b|\bbare\b/.test(l))return 'Bare';if(/\bfurnished\b/.test(l))return 'Furnished';return null;}
+function _xFloor(t){const m=t.match(/(\d+)(?:th|st|nd|rd)\s*floor/i);return m?m[0]:null;}
+// ── Intelligent Unit Type detection ───────────────────────────────
+// Identify the property the seller is ACTUALLY offering — not a suggested use,
+// investment angle, or future development. A type keyword is ignored when it
+// sits in a "possible use" context ("suitable for a townhouse", "ideal for
+// condominium development", "can be converted into an office"). Surviving
+// mentions are scored by where they appear: listing title > explicit type
+// label > opening sentence > repeated references. More specific types
+// ("Residential Lot") beat generic ones ("Lot") that overlap the same words.
+//
+// Canonical types, ordered specific → generic. Earlier (more specific) matches
+// claim their characters so a generic pattern can't recount the same words.
+const _TYPE_DEFS = [
+  ['Residential Lot',  /residential\s+lot/i],
+  ['Commercial Lot',   /commercial\s+lot/i],
+  ['Industrial Lot',   /industrial\s+lot/i],
+  ['House & Lot',      /house\s*(?:and|&|\+)?\s*lot/i],
+  ['Townhouse',        /town\s*house/i],
+  ['Penthouse',        /pent\s*house/i],
+  ['Condominium',      /condo(?:minium)?/i],
+  ['Office Space',     /office\s*(?:space|unit|condo(?:minium)?)/i],
+  ['Commercial Space', /commercial\s+space/i],
+  ['Warehouse',        /ware\s*house/i],
+  ['Building',         /building/i],
+  ['Office',           /office/i],
+  ['Lot',              /(?:vacant\s+|bare\s+|raw\s+)?lot/i],
+];
+// True when the type keyword at [s,e] describes a POSSIBLE USE rather than the
+// asset being sold — judged within the keyword's own sentence.
+function _isUseMention(text, s, e){
+  const before = text.slice(0, s);
+  const sentStart = Math.max(before.lastIndexOf('.'), before.lastIndexOf('!'),
+                             before.lastIndexOf('?'), before.lastIndexOf('\n')) + 1;
+  const rel = text.slice(e).search(/[.!?\n]/);
+  const sentEnd = rel === -1 ? text.length : e + rel;
+  const pre  = text.slice(sentStart, s).toLowerCase();
+  const post = text.slice(e, sentEnd).toLowerCase();
+  // Development/use noun immediately after the keyword ("townhouse development").
+  if(/^\s*(?:development|redevelopment|project|subdivision|banking|conversion|business|venture|rental|opportunit(?:y|ies)|purposes?)\b/.test(post)) return true;
+  // A use-linker earlier in the same sentence ("suitable for … townhouse").
+  if(/\b(?:suitable|ideal|perfect|great|good|best|fit|fitting|recommended|zoned|primed)\s+(?:for|as)\b/.test(pre)) return true;
+  if(/\b(?:convert(?:ed|ible)?|use[d]?|turn(?:ed)?)\s+(?:in)?to\b/.test(pre)) return true;
+  if(/\b(?:convert(?:ed|ible)?|use[d]?)\s+as\b/.test(pre)) return true;
+  if(/\bpotential(?:ly)?\s+(?:for|as)\b/.test(pre)) return true;
+  if(/\b(?:can|could|may|might|would)\s+be\s+(?:converted|used|turned|developed|transformed)\b/.test(pre)) return true;
+  return false;
+}
+function _xType(t){
+  const text = (t || '').replace(/\r/g, '');
+  const firstLine = (text.split('\n').find(l => l.trim()) || '').trim();
+  const opening = ((text.split(/[.!?\n]/).find(s => s.trim()) || '').trim());
+  const titleStart = firstLine ? text.indexOf(firstLine) : -1;
+  const titleEnd = titleStart >= 0 ? titleStart + firstLine.length : -1;
+  const openStart = opening ? text.indexOf(opening) : -1;
+  const openEnd = openStart >= 0 ? openStart + opening.length : -1;
+
+  const claimed = [];                            // char ranges taken by specific types
+  const overlaps = (s, e) => claimed.some(([cs, ce]) => s < ce && e > cs);
+
+  let best = null, bestScore = -1;
+  for(const [name, re] of _TYPE_DEFS){
+    const g = new RegExp(re.source, 'gi');
+    let m, subjects = 0, inTitle = false, inLabel = false, inOpen = false;
+    while((m = g.exec(text))){
+      const s = m.index, e = s + m[0].length;
+      if(overlaps(s, e)) continue;               // already part of a more specific type
+      if(_isUseMention(text, s, e)) continue;    // a possible use, not the asset
+      subjects++;
+      claimed.push([s, e]);
+      if(titleEnd >= 0 && s >= titleStart && s < titleEnd) inTitle = true;
+      if(openEnd  >= 0 && s >= openStart  && s < openEnd)  inOpen = true;
+      // Explicit label just before it: "Property Type: …", "For Sale: …".
+      if(/(?:property\s+type|unit\s+type|type|for\s+sale|for\s+rent|for\s+lease|offering)\s*[:\-]\s*$/i
+           .test(text.slice(Math.max(0, s - 32), s))) inLabel = true;
+    }
+    if(!subjects) continue;
+    let score = subjects * 10;
+    if(inTitle) score += 100;
+    if(inLabel) score += 60;
+    if(inOpen)  score += 40;
+    if(name.indexOf(' ') !== -1) score += 5;     // nudge multi-word types on ties
+    if(score > bestScore){ bestScore = score; best = name; }
+  }
+  return best;
+}
+function _xTurnover(t){if(/\brfo\b|\bready\s*for\s*occupancy\b/i.test(t))return 'Ready for Occupancy';if(/\bpre[\s-]*selling\b/i.test(t))return 'Pre-Selling';if(/\bturnover\b/i.test(t))return 'Turnover Ready';return null;}
+// Display casing for a detected developer — known brands/acronyms keep their
+// exact form; anything else from the shared COMPANY_NAMES list is Title-Cased.
+const _DEV_DISPLAY = {
+  'alveo land corp':'Alveo Land','alveo land':'Alveo Land','alveo':'Alveo',
+  'ayala land':'Ayala Land','ayala':'Ayala Land','avida':'Avida','avida land':'Avida Land',
+  'amaia':'Amaia','amaia land':'Amaia Land','bellavita':'BellaVita',
+  'sm prime':'SM Prime','sm prime holdings':'SM Prime','sm development corporation':'SMDC','smdc':'SMDC',
+  'dmci':'DMCI','dmci homes':'DMCI Homes','megaworld':'Megaworld','empire east':'Empire East',
+  'rockwell':'Rockwell','rockwell land':'Rockwell Land','federal land':'Federal Land',
+  'filinvest':'Filinvest','filinvest land':'Filinvest Land','8990':'8990','8990 housing':'8990 Housing'
+};
+function _devDisplay(name){
+  if(_DEV_DISPLAY[name]) return _DEV_DISPLAY[name];
+  return name.split(/\s+/).map(w =>
+    /^(sm|smdc|dmci|bpi|dd|8990)$/i.test(w) ? w.toUpperCase()
+      : w.charAt(0).toUpperCase()+w.slice(1)
+  ).join(' ');
+}
+// Recognizes EVERY developer saved in the shared engine (window.RM_MATCH
+// .COMPANY_NAMES), not just a hardcoded handful. Longest names first so
+// "alveo land" wins over "alveo", "sm prime holdings" over "sm prime".
+function _xDev(t){
+  const list = (window.RM_MATCH && RM_MATCH.COMPANY_NAMES) ? RM_MATCH.COMPANY_NAMES
+    : ['alveo land','ayala land','smdc','dmci','megaworld','rockwell','federal land','filinvest','avida','amaia','alveo'];
+  const sorted = [...list].sort((a,b)=>b.length-a.length);
+  for(const name of sorted){
+    if(new RegExp('\\b'+name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'\\b','i').test(t)) return _devDisplay(name);
+  }
+  return null;
+}
+
+// ── Fuzzy project match (so misspellings like "two maridiem" resolve) ──
+// ── Property Name detection (high-confidence only) ──
+// Only surface a Property Name when we're confident it is the actual project /
+// development being sold. NEVER guess: brokers, developers, companies, building
+// uses, barangays, cities, streets, and marketing words must never be mistaken
+// for the project name. (The old fuzzy matcher is gone — it turned "Lot area"
+// into "TREC".) A name is accepted only if it (1) matches the curated project
+// list exactly, or (2) is a clear "<Proper Noun(s)> Residences/Towers/Suites/…"
+// structure. Anything else → null, and the layout simply omits the name.
+function _titleCaseName(s){
+  return s.replace(/\S+/g, w => (w.length > 1 && w === w.toUpperCase() && /[A-Z]/.test(w))
+    ? w.charAt(0) + w.slice(1).toLowerCase()
+    : w);
+}
+function detectProjectName(text){
+  const t = text || '';
+  // (1) Use the SHARED match engine (window.RM_MATCH) so Listing Detail knows
+  //     every project the Portal knows — Ayala Land Premier, Alveo Land, and any
+  //     learned names — with the same separator-normalization + fuzzy matching.
+  //     A hyphenated post like "the columns - ayala avenue" now resolves here
+  //     exactly as it does on the Portal card. Falls back to the small local
+  //     PROJECTS list only if match-engine.js somehow failed to load.
+  if(window.RM_MATCH && RM_MATCH.extractProject){
+    const p = RM_MATCH.extractProject(t);
+    if(p) return p;
+  } else {
+    for(const pr of PROJECTS){
+      if(new RegExp('\\b' + pr.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + '\\b', 'i').test(t)) return pr;
+    }
+  }
+  // (2) High-confidence structural name: 1–3 proper-noun words immediately
+  //     followed by a strong project suffix. Requires real capitalization so
+  //     lowercase marketing ("prime residences") is excluded, and rejects
+  //     location/use/marketing lead words.
+  const SUFFIX = 'residences?|residenza|towers?|suites?|enclave|palazzo|terraces?|residency';
+  const re = new RegExp('\\b([A-Za-z0-9&\'’.-]+(?:\\s+[A-Za-z0-9&\'’.-]+){0,2})\\s+(' + SUFFIX + ')\\b', 'ig');
+  const STOP = /^(?:the|new|old|for|near|along|in|at|of|prime|luxury|modern|brand|best|great|ideal|our|this)$/i;
+  let m;
+  while((m = re.exec(t))){
+    const words = m[1].split(/\s+/);
+    if(!words.every(w => /^[A-Z]/.test(w))) continue;   // proper nouns only
+    if(STOP.test(words[0])) continue;                    // not a place/use/marketing lead
+    const suf = m[2].charAt(0).toUpperCase() + m[2].slice(1).toLowerCase();
+    return _titleCaseName(m[1]) + ' ' + suf;
+  }
+  return null;
+}
+
+function parse(text){
+  const lower=text.toLowerCase();
+  // Shared PH location engine (location-engine.js) — hierarchy-aware and
+  // word-boundary safe, so "New Manila" resolves to Quezon City instead of also
+  // matching the City of Manila. Falls back to the legacy substring map.
+  const locs = (window.RM_LOC)
+    ? window.RM_LOC.extractCities(text)
+    : [...new Set(Object.entries(LOCATION_KW).filter(([k])=>lower.includes(k)).map(([,v])=>v))];
+  let unit=null;
+  if(/\bstudio\b/i.test(text)) unit='Studio';
+  else if(/\b1\s*br\b|1\s*bed/i.test(text)) unit='1BR';
+  else if(/\b2\s*br\b|2\s*bed/i.test(text)) unit='2BR';
+  else if(/\b3\s*br\b|3\s*bed/i.test(text)) unit='3BR';
+  else if(/\b4\s*br\b|4\s*bed/i.test(text)) unit='4BR';
+  const project = detectProjectName(text);
+  const projectPhrase = project;
+  // Single source of the highlighted peso figure (price-parser.js), so the
+  // Admin panel's Sold totals sum exactly what's shown here. 0 → no price.
+  let price = (window.RM_PRICE ? RM_PRICE.extractAmount(text) : 0) || null;
+  if(price===null){ let m=lower.match(/(\d+\.?\d*)\s*m(?:illion)?/);
+    if(m) price=parseFloat(m[1])*1e6;
+    else if((m=lower.match(/(\d+\.?\d*)\s*k\b/))) price=parseFloat(m[1])*1e3;
+    else { m=text.replace(/,/g,'').match(/\b(\d{7,9})\b/); if(m) price=parseFloat(m[1]); }
+  }
+  return { locs, unit, project, projectPhrase, price };
+}
+
+function fmtPrice(price, range){
+  if(range){ const mult=range.unit==='K'?1e3:1e6; const lo=Math.round(range.low*mult), hi=Math.round(range.high*mult); return '₱'+lo.toLocaleString('en-PH')+' – ₱'+hi.toLocaleString('en-PH'); }
+  if(price) return '₱'+Math.round(price).toLocaleString('en-PH');
+  return '';
+}
+
+// Build the structured detail model used to render the sectioned card.
+function extractDetails(listing){
+  const raw = listing.content || '';
+  const p = parse(raw);
+  const developer=_xDev(raw), unitType=_xType(raw), sqm=_xSqm(raw), bath=_xBath(raw),
+        park=_xPark(raw), furn=_xFurn(raw), tower=_xTower(raw), floor=_xFloor(raw), turnover=_xTurnover(raw);
+  // Mirror the Portal's extractPriceRange so rent/lease budgets in "k"
+  // (e.g. "30k-50k a month") produce the same ₱30,000 – ₱50,000 highlight
+  // instead of no price at all. The unit rides along so fmtPrice scales it.
+  const priceRange=(()=>{
+    const lo=raw.toLowerCase();
+    let m=lo.match(/(\d+\.?\d*)\s*m?\s*(?:-|to|or)\s*(\d+\.?\d*)\s*m(?:illion)?/);
+    if(m) return {low:parseFloat(m[1]),high:parseFloat(m[2]),unit:'M'};
+    m=lo.match(/(\d+\.?\d*)\s*k?\s*(?:-|to|or)\s*(\d+\.?\d*)\s*k\b/);
+    if(m) return {low:parseFloat(m[1]),high:parseFloat(m[2]),unit:'K'};
+    return null;
+  })();
+
+  const unitRangeMatch=raw.match(/(studio|\d[\s-]*(?:br|bedroom\w*))\s+or\s+(studio|\d[\s-]*(?:br|bedroom\w*))/i);
+  const unitLabel = unitRangeMatch
+    ? (()=>{ const norm=s=>{const m=s.match(/^(\d)/);return m?m[1]+'BR':'Studio';}; return norm(unitRangeMatch[1])+' or '+norm(unitRangeMatch[2]); })()
+    : p.unit;
+
+  // Spec chips
+  const specs=[];
+  if(unitLabel){
+    if(/studio/i.test(unitLabel) && !/\d/.test(unitLabel)) specs.push({ic:'fa-bed',val:'Studio',lbl:'Type'});
+    else { const nums=(unitLabel.match(/\d+/g)||[]); specs.push({ic:'fa-bed',val:nums.length?nums.join('–'):unitLabel,lbl:'Bedrooms'}); }
+  }
+  if(bath) specs.push({ic:'fa-bath',val:bath,lbl:'Bathrooms'});
+  if(sqm)  specs.push({ic:'fa-vector-square',val:sqm,lbl:'Unit Size'});
+  if(tower) specs.push({ic:'fa-building',val:tower,lbl:'Tower'});
+  if(floor) specs.push({ic:'fa-layer-group',val:floor,lbl:'Floor'});
+  if(furn) specs.push({ic:'fa-couch',val:({'Fully Furnished':'Fully','Semi-Furnished':'Semi','Bare':'Bare','Furnished':'Yes'}[furn]||furn),lbl:'Furnishing'});
+  if(park) specs.push({ic:'fa-car',val:park,lbl:'Parking'});
+  if(turnover) specs.push({ic:'fa-key',val:({'Ready for Occupancy':'RFO','Pre-Selling':'Pre-Sell','Turnover Ready':'Turnover'}[turnover]||turnover),lbl:'Status'});
+  if(!unitLabel && unitType) specs.push({ic:'fa-building',val:unitType,lbl:'Type'});
+
+  // About / description — strip every field that is shown structurally above.
+  let body = raw;
+  body = body.replace(/(?:studio|\d[\s-]*(?:br|bedroom\w*))\s+or\s+(?:studio|\d[\s-]*(?:br|bedroom\w*))/gi,'');
+  body = body.replace(/\b(studio|1[\s-]*br|2[\s-]*br|3[\s-]*br|4[\s-]*br|\d+[\s-]*bedroom\w*|one\s*bedroom|two\s*bedroom|three\s*bedroom|four\s*bedroom)\b/gi,'');
+  body = body.replace(/\b(?:budget|asking|price|php|₱)?\s*\d+\.?\d*\s*m?\s*(?:-|to|or)\s*\d+\.?\d*\s*m(?:illion)?\b/gi,'');
+  body = body.replace(/\b(?:budget|asking price|asking)\b/gi,'');
+  body = body.replace(/(?:₱|php)?\s*\d+\.?\d*\s*m(?:illion)?\b/gi,'');
+  body = body.replace(/\b(?:budget|asking|price|php|₱)?\s*\d+\.?\d*\s*k\b/gi,'');
+  body = body.replace(/\b\d{7,9}\b/g,'');
+  body = body.replace(/\b(only|negotiable|neg|net|all[\s-]?in|cash|flat|fixed|firm)\b/gi,'');
+  Object.keys(LOCATION_KW).forEach(k=>{ body = body.replace(new RegExp(k.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi'),''); });
+  if(p.projectPhrase){
+    // Separator-insensitive so a canonical "The Columns Ayala Avenue" also strips
+    // a posted "the columns - ayala avenue" out of the summary body.
+    const projPat = (window.RM_MATCH && RM_MATCH.separatorInsensitivePattern)
+      ? RM_MATCH.separatorInsensitivePattern(p.projectPhrase)
+      : p.projectPhrase.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+    body = body.replace(new RegExp(projPat,'gi'),'');
+  }
+  if(unitType) body = body.replace(/\b(residential\s*lot|commercial\s*lot|condo(?:minium)?|townhouse|house\s*(?:and|&)\s*lot|office\s*space|office)\b/gi,'');
+  if(sqm)  body = body.replace(/\d[\d,.]*\s*(?:sqm|sq\.?\s*m)/gi,'');
+  if(bath) body = body.replace(/\b\d+\s*(?:bath|bathroom|t&b|toilet)\w*/gi,'');
+  if(park) body = body.replace(/\b(with\s*parking|no\s*parking|\d+\s*parking)\b/gi,'');
+  if(furn) body = body.replace(/\b(full(?:y)?\s*furnished|semi[\s-]*furnished|unfurnished|bare|furnished)\b/gi,'');
+  if(tower) body = body.replace(/\btower\s*\w+\b/gi,'');
+  if(floor) body = body.replace(/\b\d+(?:th|st|nd|rd)\s*floor\b/gi,'');
+  if(turnover) body = body.replace(/\b(rfo|ready\s*for\s*occupancy|pre[\s-]*selling|turnover\s*ready)\b/gi,'');
+  if(developer){
+    // Strip the ONE developer we actually detected (separator-insensitive, with
+    // an optional leading "by "), rather than a hardcoded brand list.
+    const devPat = (window.RM_MATCH && RM_MATCH.separatorInsensitivePattern)
+      ? RM_MATCH.separatorInsensitivePattern(developer)
+      : developer.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+    body = body.replace(new RegExp('(?:by\\s+)?'+devPat,'gi'),'');
+  }
+  body = body
+    .replace(/[([{][\s,;:·•\-–—]*[)\]}]/g,'')
+    .replace(/\s+([.,;:])/g,'$1')
+    .replace(/([.,;:])\s*(?=[.,;:])/g,'')
+    .replace(/^\s*[,\-–—·•:;.\n]+/gm,'')
+    .replace(/[,\-–—·•:;]\s*$/gm,'')
+    .replace(/\n{2,}/g,'\n')
+    .replace(/[ \t]{2,}/g,' ')
+    .trim();
+
+  return { price:p.price, priceRange, project:p.project, developer, locs:p.locs, specs, about:body };
+}
+
+// ── Tab 2 highlights (AI-extracted, display-only) ──
+// Unit Type — resolved to a SINGLE value with the exact same intelligence the
+// Portal highlight uses (livemarket.js _hlUnitType), so a post that reads
+// "house or townhouse with 2 to 3 bedrooms" shows just "Townhouse" here too
+// instead of "3 Bedroom Townhouse". Distinctive structure types win over a
+// bedroom count; possible-use mentions ("ideal for a townhouse") never win.
+// Ported verbatim from the Portal so the two stay uniform by construction.
+function _hlUseMention(text, s, e) {
+  const before = text.slice(0, s);
+  const sentStart = Math.max(before.lastIndexOf('.'), before.lastIndexOf('!'),
+                             before.lastIndexOf('?'), before.lastIndexOf('\n')) + 1;
+  const rel = text.slice(e).search(/[.!?\n]/);
+  const sentEnd = rel === -1 ? text.length : e + rel;
+  const pre  = text.slice(sentStart, s).toLowerCase();
+  const post = text.slice(e, sentEnd).toLowerCase();
+  if (/^\s*(?:development|redevelopment|project|subdivision|banking|conversion|business|venture|rental|opportunit(?:y|ies)|purposes?)\b/.test(post)) return true;
+  if (/\b(?:suitable|ideal|perfect|great|good|best|fit|fitting|recommended|zoned|primed)\s+(?:for|as)\b/.test(pre)) return true;
+  if (/\b(?:convert(?:ed|ible)?|use[d]?|turn(?:ed)?)\s+(?:in)?to\b/.test(pre)) return true;
+  if (/\b(?:convert(?:ed|ible)?|use[d]?)\s+as\b/.test(pre)) return true;
+  if (/\bpotential(?:ly)?\s+(?:for|as)\b/.test(pre)) return true;
+  if (/\b(?:can|could|may|might|would)\s+be\s+(?:converted|used|turned|developed|transformed)\b/.test(pre)) return true;
+  return false;
+}
+function _hlSubject(text, re) {
+  const g = new RegExp(re.source, 'gi');
+  let m;
+  while ((m = g.exec(text))) {
+    if (!_hlUseMention(text, m.index, m.index + m[0].length)) return true;
+  }
+  return false;
+}
+function _hlBedCountSubject(text) {
+  const w = { one: 1, two: 2, three: 3, four: 4, five: 5 };
+  for (const re of [/\b([1-5])\s*-?\s*(?:br|bedrooms?)\b/gi,
+                    /\b(one|two|three|four|five)[\s-]*bed\s*rooms?\b/gi]) {
+    let m;
+    while ((m = re.exec(text))) {
+      if (_hlUseMention(text, m.index, m.index + m[0].length)) continue;
+      const v = m[1].toLowerCase();
+      return /^\d$/.test(v) ? parseInt(v, 10) : w[v];
+    }
+  }
+  return null;
+}
+function _hlUnitType(raw){
+  const text = (raw || '').replace(/\r/g, '');
+  if (_hlSubject(text, /\bpent[\s-]*house\b/))                 return 'Penthouse';
+  if (_hlSubject(text, /\btown[\s-]*house\b/))                 return 'Townhouse';
+  if (_hlSubject(text, /\bhouse\s*(?:and|&|\+)?\s*lot\b/))     return 'House and Lot';
+  if (_hlSubject(text, /\bresidential\s*lot\b/))               return 'Residential Lot';
+  if (_hlSubject(text, /\bcommercial\s*lot\b/))                return 'Commercial Lot';
+  if (_hlSubject(text, /\bindustrial\s*lot\b/))                return 'Industrial Lot';
+  if (_hlSubject(text, /\bcommercial\s*space\b/))              return 'Commercial Space';
+  if (_hlSubject(text, /\boffice\s*building\b/))               return 'Office Building';
+  if (_hlSubject(text, /\boffice\s*(?:space|unit|condo\w*)\b/)) return 'Office Space';
+  if (_hlSubject(text, /\bstudio\b/))                          return 'Studio';
+  const bed = _hlBedCountSubject(text);
+  if (bed) return bed === 1 ? '1 Bedroom' : `${bed} Bedrooms`;
+  if (_hlSubject(text, /\boffice\b/))                          return 'Office Space';
+  if (_hlSubject(text, /\bbuilding\b/))                        return 'Building';
+  return '';
+}
+function ldUnitType(raw){ return _hlUnitType(raw || ''); }
+// Unit Size — e.g. "85 sqm" (or '' when undetected).
+function ldUnitSize(raw){ return _xSqm(raw) || ''; }
+// Unit Fitout — resolved to Bare / Semi-Furnished / Fully Furnished only.
+// A plain "furnished" (no qualifier) is read as Fully Furnished.
+function ldFitout(raw){
+  const f = _xFurn(raw);
+  if(!f) return '';
+  return f === 'Furnished' ? 'Fully Furnished' : f;
+}
+// One stacked label/value row. The label ALWAYS renders; a missing value
+// falls back to an em-dash so every listing shows the same fields.
+function ldInfoRow(label, value, cls){
+  const v = value
+    ? `<span class="ld-info-val${cls ? ' ' + cls : ''}">${value}</span>`
+    : '<span class="ld-info-val empty">—</span>';
+  return `<div class="ld-info-row"><span class="ld-info-lbl">${label}</span>${v}</div>`;
+}
+
+function ldCatPill(category){
+  if(!category) return '';
+  return `<span class="ld-cat-pill ${CAT_DOT_CLASS[category]||''}"><span class="ld-cat-dot"></span><span class="ld-cat-tag">${safeText(category)}</span></span>`;
+}
+// Completed-status wording depends on the ORIGINAL post category. Supply-side
+// posts (For Sale/Rent/Lease) describe the PROPERTY changing hands ("Unit
+// Sold/Rented/Leased"); demand-side posts (Willing to Buy/Rent/Lease) describe
+// the CLIENT achieving their goal ("Client Already Bought/Rented/Leased").
+// A completed listing carries status==='sold' regardless of category, so the
+// category is what decides the message.
+const LD_COMPLETION_TEXT = {
+  'FOR SALE':         'Unit Sold',
+  'WILLING TO BUY':   'Client Already Bought',
+  'FOR RENT':         'Unit Rented',
+  'WILLING TO RENT':  'Client Already Rented',
+  'FOR LEASE':        'Unit Leased',
+  'WILLING TO LEASE': 'Client Already Leased'
+};
+function ldCompletionText(category){
+  return LD_COMPLETION_TEXT[(category||'').toUpperCase().trim()] || 'Unit Sold';
+}
+// Demand-side (Willing to …) completions are a positive outcome for the client,
+// so they wear the GREEN "success" banner; supply-side sales/rentals/leases keep
+// the RED "off the market" banner — mirroring the Portal card ribbons.
+function ldIsWilling(category){ return (category||'').toUpperCase().trim().startsWith('WILLING'); }
+function avatarFallback(n){ return `https://ui-avatars.com/api/?name=${encodeURIComponent(n||'?')}&background=0f172a&color=fff`; }
+
+// ── Realmate access gate ──────────────────────────────
+// Renders the gate that stands in for a non-Realmate's listing. It reflects the
+// ACTUAL request status (resolved before render), so a request already sent from
+// another tab/page is recognized here instead of offering to send another one.
+// state: 'none' | 'pending-sent' | 'pending-incoming' (accepted → no gate).
+function ldRealmateGateHtml(state, name, img, job) {
+  const safeName = String(name || 'this user').replace(/'/g, "\\'");
+  const head = `
+      <img src="${img}" onerror="this.src='${avatarFallback(name)}'" style="width:72px;height:72px;border-radius:50%;object-fit:cover;">
+      <div style="font-size:17px;font-weight:800;color:#0f172a;">${name}</div>
+      ${job ? `<div style="font-size:13px;color:#64748b;font-weight:600;">${job}</div>` : ''}`;
+
+  if (state === 'pending-sent') {
+    return `
+      ${head}
+      <div style="width:44px;height:44px;border-radius:50%;background:rgba(148,163,184,0.15);color:#64748b;display:flex;align-items:center;justify-content:center;font-size:17px;margin-top:10px;"><i class="fas fa-clock"></i></div>
+      <div style="font-size:15px;font-weight:700;color:#0f172a;">Realmate Request Sent</div>
+      <div style="font-size:13px;color:#64748b;max-width:320px;line-height:1.5;">Your Realmate request is pending. You'll be able to view this listing once the user accepts your request.</div>
+      <button disabled style="margin-top:8px;display:inline-flex;align-items:center;gap:8px;padding:10px 20px;border-radius:24px;border:1.5px solid #cbd5e1;background:#f8fafc;color:#94a3b8;font-weight:700;font-size:13.5px;cursor:default;">
+        <i class="fas fa-clock"></i> Request Sent
+      </button>`;
+  }
+
+  if (state === 'pending-incoming') {
+    return `
+      ${head}
+      <div style="width:44px;height:44px;border-radius:50%;background:rgba(59,130,246,0.12);color:#3b82f6;display:flex;align-items:center;justify-content:center;font-size:17px;margin-top:10px;"><i class="fas fa-user-clock"></i></div>
+      <div style="font-size:15px;font-weight:700;color:#0f172a;">${name} wants to be your Realmate</div>
+      <div style="font-size:13px;color:#64748b;max-width:320px;line-height:1.5;">Accept their request to connect and view this listing.</div>
+      <button onclick="ldGateAcceptMate(this)" style="margin-top:8px;display:inline-flex;align-items:center;gap:8px;padding:10px 20px;border-radius:24px;border:1.5px solid #3b82f6;background:#3b82f6;color:#fff;font-weight:700;font-size:13.5px;cursor:pointer;">
+        <i class="fas fa-check"></i> Accept Request
+      </button>`;
+  }
+
+  // 'none' (or unresolved) → offer to send a request.
+  return `
+      ${head}
+      <div style="width:44px;height:44px;border-radius:50%;background:rgba(50,205,50,0.12);color:#32cd32;display:flex;align-items:center;justify-content:center;font-size:17px;margin-top:10px;"><i class="fas fa-lock"></i></div>
+      <div style="font-size:15px;font-weight:700;color:#0f172a;">Become Realmates to view this listing.</div>
+      <div style="font-size:13px;color:#64748b;max-width:320px;line-height:1.5;">Add this user as a Realmate to access their property listings.</div>
+      <button onclick="ldGateAddMate(this)" style="margin-top:8px;display:inline-flex;align-items:center;gap:8px;padding:10px 20px;border-radius:24px;border:1.5px solid #32cd32;background:#fff;color:#15803d;font-weight:700;font-size:13.5px;cursor:pointer;">
+        <i class="fas fa-user-plus"></i> Add as Realmate
+      </button>`;
+}
+
+// Wrap the gate inner-HTML in the shared flex container, carrying the poster's
+// details as data-* so the in-page handlers can re-render after a status change.
+function ldGateWrap(state, name, img, job) {
+  const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return `<div id="ldRealmateGate" data-name="${esc(name)}" data-img="${esc(img)}" data-job="${esc(job||'')}"
+       style="display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px;padding:60px 24px;">
+      ${ldRealmateGateHtml(state, name, img, job)}
+    </div>`;
+}
+
+// "Add as Realmate" from the gate: send the request, then flip the gate to the
+// pending state so no second request can be sent and the status stays in sync.
+async function ldGateAddMate(btn) {
+  const gate = document.getElementById('ldRealmateGate');
+  const name = gate?.dataset.name || '';
+  const img  = gate?.dataset.img  || '';
+  const job  = gate?.dataset.job  || '';
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+  const result = (typeof sendMateRequest === 'function')
+    ? await sendMateRequest(name, img)
+    : { success: false, error: 'unavailable' };
+
+  if (result.success && result.accepted) {
+    // They had already requested us → now Realmates. Reload to reveal the listing.
+    location.reload();
+    return;
+  }
+  if (result.success) {
+    if (gate) gate.innerHTML = ldRealmateGateHtml('pending-sent', name, img, job);
+    return;
+  }
+  // Failed (including an already-pending request the DB rejected) → show pending,
+  // never leave an actionable "Add" that would just error again.
+  if (/pending|already/i.test(result.error || '')) {
+    if (gate) gate.innerHTML = ldRealmateGateHtml('pending-sent', name, img, job);
+    return;
+  }
+  btn.disabled = false;
+  btn.innerHTML = '<i class="fas fa-user-plus"></i> Add as Realmate';
+  console.error('Realmate request failed:', result.error);
+  alert('Could not send Realmate request: ' + (result.error || 'Unknown error'));
+}
+
+// "Accept Request" from the gate: accept the incoming request, then reload so the
+// now-unlocked listing renders.
+async function ldGateAcceptMate(btn) {
+  const gate = document.getElementById('ldRealmateGate');
+  const name = gate?.dataset.name || '';
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+  const result = (typeof acceptMateRequest === 'function')
+    ? await acceptMateRequest(name)
+    : { success: false };
+  if (result.success) { location.reload(); return; }
+  btn.disabled = false;
+  btn.innerHTML = '<i class="fas fa-check"></i> Accept Request';
+}
+// A ui-avatars.com URL is an auto-generated initials placeholder, not a real
+// uploaded photo — it bakes in whatever name was current when generated, so
+// trusting a stored one as-is after a rename shows stale initials forever.
+// Regenerate fresh from the current name whenever there's no real upload.
+function liveAvatarFor(name, storedUrl){ return (storedUrl && !storedUrl.includes('ui-avatars.com')) ? storedUrl : avatarFallback(name); }
+function safeText(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function timeAgo(d){
+  const s=Math.floor((Date.now()-new Date(d).getTime())/1000);
+  if(s<60) return 'Just now';
+  if(s<3600) return Math.floor(s/60)+'m ago';
+  if(s<86400) return Math.floor(s/3600)+'h ago';
+  return Math.floor(s/86400)+'d ago';
+}
+// Actual posting date/time for the highlight card, e.g. { day:'Aug 5, 2026',
+// time:'2:34 PM' }. Rendered in the viewer's local timezone.
+function formatPostDate(d){
+  const dt = new Date(d);
+  if(isNaN(dt.getTime())) return { day:'', time:'' };
+  return {
+    day:  dt.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' }),
+    time: dt.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit' }),
+  };
+}
+function goToProfile(userId){ if(userId) location.href=`dashboard.html?user_id=${userId}`; }
+
+async function loadListing(){
+  const id = new URLSearchParams(location.search).get('id');
+  const container = document.getElementById('ldContent');
+  if(!id){ container.innerHTML='<p style="text-align:center;color:#94a3b8;">Listing not found.</p>'; return; }
+
+  const { data: listing, error } = await _sb.from('listings').select('*').eq('id', id).single();
+  if(error || !listing){ container.innerHTML='<p style="text-align:center;color:#94a3b8;">Listing not found or has been removed.</p>'; return; }
+
+  // Behavioural intelligence (dormant unless BEHAVIORAL_DATA_COLLECTION_ENABLED): listing view.
+  try { window.RMTrack && RMTrack.emit('listing_view', { listing_id: listing.id, target_user_id: listing.user_id, metadata: { category: listing.category } }); } catch(e){}
+
+  // Overlay the poster's LIVE profile (name + avatar + position) so a
+  // rename, new profile picture, or admin-assigned position change shows
+  // here too, not the snapshot stored at post time.
+  if(!listing.is_anonymous && listing.user_id){
+    try {
+      const { data: prof } = await _sb.from('profiles').select('full_name,avatar_url,job_title').eq('id', listing.user_id).maybeSingle();
+      if(prof){
+        if(prof.full_name)  listing.user_name = prof.full_name;
+        listing.user_img = liveAvatarFor(listing.user_name, prof.avatar_url);
+        listing.user_job = '';
+      }
+    } catch(e){ console.warn('[LiveAuthor] resolve failed', e); }
+  }
+
+  const name = listing.user_name || 'Unknown';
+  const img  = listing.user_img || avatarFallback(name);
+  // Listing Detail shows the Cover Photo FIRST, then every additional photo. The
+  // cover designation is stored separately (cover_image_url); older posts without
+  // it just keep their original order.
+  let imgs = listing.image_urls || [];
+  const _cover = (listing.cover_image_url || '').trim();
+  if (_cover && imgs.includes(_cover)) {
+    imgs = [_cover, ...imgs.filter(u => u !== _cover)];
+  }
+  const isAnon = listing.is_anonymous;
+  const d = extractDetails(listing);
+  const priceStr = fmtPrice(d.price, d.priceRange);
+  // Most specific single locality for the highlight (e.g. "New Manila, Quezon
+  // City"), collapsing redundant parents and picking the first city on ambiguity.
+  let locDisplay = (window.RM_LOC)
+    ? window.RM_LOC.displayLocation(listing.content || '')
+    : (d.locs.length ? d.locs.join(', ') : '');
+  // Dataset backfill: when the post text names no location but we've recognized a
+  // known project, show that project's location from the shared developer dataset
+  // (RM_DEVELOPERS) — that's the point of the dataset: Realmate fills in what the
+  // post leaves implicit. The post always wins; the dataset only fills a blank. We
+  // use the curated location string as-is (RM_LOC mis-parses road names like
+  // "Alabang-Zapote Road" as the wrong city, so we don't re-run it through RM_LOC).
+  if(!locDisplay && d.project && window.RM_DEVELOPERS && RM_DEVELOPERS.getProject){
+    const _rec = RM_DEVELOPERS.getProject(d.project);
+    if(_rec && _rec.location) locDisplay = _rec.location;
+  }
+
+  const badge = listing.user_verified
+    ? `<span class="ld-poster-check"><i class="fas fa-check"></i></span>`
+    : '';
+  const sellerClick = isAnon ? '' : `onclick="goToProfile('${listing.user_id}')"`;
+
+  window._ldImages = imgs;
+  window._ldListing = listing;
+  window._sellerId = listing.user_id;
+  window._sellerName = name;
+
+  // A sold unit is off the market: it gets a prominent Sold banner and no
+  // Send Offer button (see the action bar below).
+  const isSold = listing.status === 'sold';
+
+  // Am I the owner of this listing? (no Send Offer / Add as Mate on your own post)
+  let isOwner = false;
+  let myAuthId = null;
+  try { const { data:_a } = await _sb.auth.getUser(); myAuthId = _a?.user?.id || null; isOwner = !!(myAuthId && myAuthId === listing.user_id); } catch(e){}
+
+  // Visibility Controls — a non-owner whose account is hidden from this listing
+  // must not be able to open it via a direct link, unless the owner already
+  // reached out (a conversation exists between them).
+  if (!isOwner && window.RMVisibility) {
+    try {
+      const unlocked = await RMVisibility.fetchUnlockedOwnerIds(_sb, myAuthId);
+      if (!RMVisibility.visibleToViewer(listing, myAuthId, unlocked)) {
+        container.innerHTML = '<p style="text-align:center;color:#94a3b8;">Listing not found or has been removed.</p>';
+        return;
+      }
+    } catch(e) { console.warn('[Visibility] listing-detail guard failed', e); }
+  }
+
+  // Realmate-gated listing access — a non-Realmate must not be able to view
+  // the full listing via a direct link either, not just via search results.
+  // Skipped for the owner's own listing and for anonymous ones (there's no
+  // identifiable poster to gate against without breaking the anonymity).
+  // Fails closed: a lookup error hides the listing rather than showing it.
+  if (!isOwner && !isAnon && listing.user_id) {
+    // Resolve the FULL relationship (not just 'accepted') so an already-pending
+    // request — possibly sent from another tab/page — is recognized here and the
+    // gate shows the pending state instead of another "Add as Realmate" button.
+    // state: 'none' | 'pending-sent' | 'pending-incoming' | 'accepted'.
+    let mateState = 'none';
+    try {
+      if (myAuthId) {
+        const { data: mateRows } = await _sb
+          .from('mates')
+          .select('status, requester_id')
+          .or(`and(requester_id.eq.${myAuthId},recipient_id.eq.${listing.user_id}),and(requester_id.eq.${listing.user_id},recipient_id.eq.${myAuthId})`)
+          .limit(1);
+        const row = mateRows && mateRows[0];
+        if (row) {
+          if (row.status === 'accepted') mateState = 'accepted';
+          else if (row.status === 'pending') mateState = (row.requester_id === myAuthId) ? 'pending-sent' : 'pending-incoming';
+        }
+      }
+    } catch (e) { console.warn('[RealmateGate] listing-detail check failed', e); }
+
+    if (mateState !== 'accepted') {
+      container.className = '';
+      container.innerHTML = ldGateWrap(mateState, name, img, listing.user_job || '');
+      return;
+    }
+  }
+
+  container.className = '';
+  container.innerHTML = `
+    ${imgs.length ? `<div class="ld-hero">
+      <div class="ld-images-scroll" id="ldImageScroll">${imgs.map((im,i)=>`<img src="${im}" onclick="openLdLightbox(${i})">`).join('')}</div>
+      ${ldCatPill(listing.category)}
+      ${imgs.length>1 ? `<span class="ld-img-count"><i class="fas fa-images"></i> 1 / ${imgs.length}</span>` : ''}
+      ${imgs.length>1 ? `<div class="ld-img-dots" id="ldDots">${imgs.map((_,i)=>`<div class="ld-img-dot${i===0?' active':''}"></div>`).join('')}</div>` : ''}
+    </div>` : ''}
+
+    ${imgs.length ? '' : `<div class="ld-cat-standalone">${ldCatPill(listing.category)}</div>`}
+
+    <!-- Row 1 — Project Name (largest, bold, black), Price (green), Location
+         (smallest, pin + black text). Plain stacked text; AI-extracted and
+         display-only, never modifies the seller's original post below. -->
+    <div class="ld-sec ld-hl-card${imgs.length?'':' ld-hl-card--nohero'}">
+      <div class="ld-hl-main">
+        ${d.project ? `<div class="ld-hl-name">${safeText(d.project)}</div>` : ''}
+        ${isSold ? `<div class="ld-sold-banner${ldIsWilling(listing.category)?' ld-sold-banner-willing':''}"><i class="fas fa-check-circle"></i> ${safeText(ldCompletionText(listing.category))}</div>` : ''}
+        <div class="ld-hl-price${d.project?'':' ld-hl-price-lead'}${priceStr?'':' ld-hl-empty'}">${priceStr?priceStr:'—'}</div>
+        <div class="ld-hl-loc"><i class="fas fa-location-dot"></i> <span class="${locDisplay?'':'ld-hl-empty'}">${locDisplay?safeText(locDisplay):'—'}</span></div>
+      </div>
+      ${(()=>{ const pd=formatPostDate(listing.created_at); return pd.day ? `<div class="ld-hl-date">
+        <span class="ld-hl-date-lbl"><i class="far fa-clock"></i> Posted</span>
+        <span class="ld-hl-date-day">${pd.day}</span>
+        <span class="ld-hl-date-time">${pd.time}</span>
+      </div>` : ''; })()}
+    </div>
+
+    <!-- Row 2 — Unit Details widgets. Same always-on, "—"-fallback behaviour. -->
+    <div class="ld-sec ld-specs-card ld-specs-wrap">
+      ${[
+        {ic:'fa-bed',           lbl:'Unit Type',   val:ldUnitType(listing.content||'')},
+        {ic:'fa-vector-square', lbl:'Unit Size',   val:ldUnitSize(listing.content||'')},
+        {ic:'fa-couch',         lbl:'Unit Fitout', val:ldFitout(listing.content||'')},
+      ].map(s=>`<div class="ld-spec">
+          <span class="ld-spec-ic"><i class="fas ${s.ic}"></i></span>
+          <span class="ld-spec-val${s.val?'':' ld-spec-val-empty'}">${s.val?safeText(String(s.val)):'—'}</span>
+          <span class="ld-spec-lbl">${s.lbl}</span>
+        </div>`).join('')}
+    </div>
+
+    <!-- Property Detail — the seller's EXACT original posting, verbatim.
+         Never rewritten, reformatted, trimmed, or re-extracted. -->
+    <div class="ld-sec ld-detail-card">
+      <div class="ld-detail-head">
+        <span class="ld-card-title" style="margin:0;">Property Detail</span>
+      </div>
+      <div class="ld-detail-text">${safeText(listing.content || '')}</div>
+    </div>
+
+    <div class="ld-sec ld-poster-card" ${sellerClick}>
+      <div class="ld-poster-label">Posted by</div>
+      <div class="ld-poster-row">
+        <div class="ld-poster-av"><img src="${img}" onerror="this.src='${avatarFallback(name)}'">${badge}</div>
+        <div class="ld-poster-meta">
+          <div class="ld-poster-name">${safeText(name)}</div>
+          ${listing.user_job ? `<div class="ld-poster-sub">${safeText(listing.user_job)}</div>` : ''}
+        </div>
+        ${isAnon ? '' : '<i class="fas fa-chevron-right ld-poster-chev"></i>'}
+      </div>
+    </div>
+  `;
+
+  // Bottom action bar
+  const bar = document.getElementById('ldActionBar');
+  if(isAnon || isOwner){
+    bar.style.display = 'none';
+  } else if(isSold){
+    // Sold units are off the market — no Send Offer, but you can still connect
+    // with the seller.
+    bar.innerHTML = `<button class="ld-btn-ghost ld-btn-sold${ldIsWilling(listing.category)?' ld-btn-sold-willing':''}" disabled><i class="fas fa-check-circle"></i> ${safeText(ldCompletionText(listing.category))}</button>${mateButtonHtml(name,'ld-mate')}`;
+    bar.style.display = 'flex';
+  } else {
+    bar.innerHTML = `<button class="ld-btn-ghost" onclick="sendOfferLd(this)"><i class="fas fa-handshake"></i> Send Offer</button>${mateButtonHtml(name,'ld-mate')}`;
+    bar.style.display = 'flex';
+  }
+
+  // Restore pinned state (shared with the Portal's 'rm_pinned' store)
+  try{
+    const pins = JSON.parse(localStorage.getItem('rm_pinned')||'[]');
+    if(pins.map(String).includes(String(id))) document.getElementById('ldPinBtn').classList.add('pinned');
+  }catch(e){}
+
+  // Track image scroll → dots + counter
+  const scroll = document.getElementById('ldImageScroll');
+  if(scroll && imgs.length>1){
+    scroll.addEventListener('scroll', ()=>{
+      const idx = Math.round(scroll.scrollLeft / scroll.offsetWidth);
+      document.querySelectorAll('.ld-img-dot').forEach((dot,i)=>dot.classList.toggle('active', i===idx));
+      const counter = document.querySelector('.ld-img-count');
+      if(counter) counter.innerHTML = `<i class="fas fa-images"></i> ${idx+1} / ${imgs.length}`;
+    });
+  }
+}
+
+// Send Offer — same flow as the Portal's card button (confirmOffer): record the
+// offer, post the listing-reference card + a templated message into the chat with
+// the seller, notify them, then open the conversation.
+async function sendOfferLd(btn){
+  const listing = window._ldListing; if(!listing) return;
+  // Defense in depth: the button is already hidden on sold listings, but
+  // re-check the live status so a stale page can't still send an offer.
+  try {
+    const { data: statusRow } = await _sb.from('listings').select('status').eq('id', listing.id).single();
+    if(statusRow?.status === 'sold'){
+      btn.disabled = true;
+      const done = ldCompletionText(listing.category);
+      btn.innerHTML = `<i class="fas fa-check-circle"></i> ${safeText(done)}`;
+      showLdToast(`This listing is already completed — ${done}`);
+      return;
+    }
+  } catch(e){ console.warn('sendOfferLd sold-check', e); }
+  const listingId = listing.id, ownerId = listing.user_id, ownerName = listing.user_name || 'Unknown', category = listing.category;
+  const img = (listing.image_urls && listing.image_urls[0]) || listing.user_img || '';
+  const orig = btn.innerHTML;
+  btn.disabled = true; btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Sending...';
+
+  const SUPA_URL = 'https://wmegpgrfrtprhuzmgjma.supabase.co';
+  const SUPA_KEY = 'sb_publishable_Rm_fIBDUfu3DEyLj0_bWZw_qEqo8cd4';
+  const h = { 'apikey':SUPA_KEY, 'Authorization':`Bearer ${SUPA_KEY}`, 'Content-Type':'application/json', 'Prefer':'return=representation' };
+
+  try {
+    const { data: authData } = await _sb.auth.getUser();
+    const myId = authData?.user?.id;
+    if(!myId) throw new Error('Not authenticated');
+
+    // Record the offer (one per user per listing)
+    try { await _sb.from('listing_offers').upsert({ listing_id:listingId, user_id:myId }, { onConflict:'listing_id,user_id', ignoreDuplicates:true }); } catch(e){ console.warn('listing_offers error', e); }
+    // Behavioural intelligence (dormant unless enabled): offer sent.
+    try { window.RMTrack && RMTrack.emit('offer', { listing_id: listingId, target_user_id: ownerId, metadata: { category } }); } catch(e){}
+
+    // Find or create the conversation with the seller
+    let convId = null;
+    const myParts = await (await fetch(`${SUPA_URL}/rest/v1/conversation_participants?select=conversation_id&user_id=eq.${myId}`, { headers:h })).json();
+    const myConvIds = (Array.isArray(myParts)?myParts:[]).map(p=>p.conversation_id);
+    if(myConvIds.length){
+      const idStr = myConvIds.map(id=>`"${id}"`).join(',');
+      const otherParts = await (await fetch(`${SUPA_URL}/rest/v1/conversation_participants?select=conversation_id&user_id=eq.${ownerId}&conversation_id=in.(${idStr})`, { headers:h })).json();
+      if(Array.isArray(otherParts) && otherParts.length) convId = otherParts[0].conversation_id;
+    }
+    if(!convId){
+      const now = new Date().toISOString();
+      const convData = await (await fetch(`${SUPA_URL}/rest/v1/conversations`, { method:'POST', headers:h, body:JSON.stringify({ created_at:now, updated_at:now }) })).json();
+      convId = (Array.isArray(convData)?convData[0]:convData)?.id;
+      if(!convId) throw new Error('No conversation id');
+      await fetch(`${SUPA_URL}/rest/v1/conversation_participants`, { method:'POST', headers:h, body:JSON.stringify({ conversation_id:convId, user_id:myId }) });
+      await fetch(`${SUPA_URL}/rest/v1/conversation_participants`, { method:'POST', headers:h, body:JSON.stringify({ conversation_id:convId, user_id:ownerId }) });
+    }
+
+    // Listing reference card, then the templated offer message
+    const refPayload = JSON.stringify({ id:listingId, img, category, content:listing.content||'', created_at:listing.created_at||'' });
+    await fetch(`${SUPA_URL}/rest/v1/messages`, { method:'POST', headers:h, body:JSON.stringify({ conversation_id:convId, sender_id:myId, message_type:'TEXT', message_text:`__LISTING_REF__${refPayload}`, is_read:false }) });
+
+    const localUser = JSON.parse(localStorage.getItem('user') || '{}');
+    const senderName = localUser.name || 'Someone';
+    const autoMsg = `Hi ${ownerName}! I'd like to make an offer on your ${category || 'property'} listing. Please let me know if you're open to discussing. 🤝`;
+    await fetch(`${SUPA_URL}/rest/v1/messages`, { method:'POST', headers:h, body:JSON.stringify({ conversation_id:convId, sender_id:myId, message_type:'TEXT', message_text:autoMsg, is_read:false }) });
+
+    // Notify the seller
+    await fetch(`${SUPA_URL}/rest/v1/notifications`, { method:'POST', headers:h, body:JSON.stringify({
+      recipient_user_name:ownerName, sender_user_name:senderName, sender_user_id:myId,
+      sender_profile_picture: localUser.image || localUser.img || localUser.avatar || '',
+      type:'offer', message:`${senderName} sent you an offer on your ${category || 'property'} listing.`,
+      is_read:false, created_at:new Date().toISOString()
+    }) });
+
+    btn.innerHTML = '<i class="fas fa-check"></i> Offer Sent!';
+    await new Promise(r=>setTimeout(r, 700));
+    sessionStorage.setItem('openChatWith', JSON.stringify({ userId:ownerId, name:ownerName }));
+    location.href = 'chat.html';
+  } catch(e){
+    console.warn('sendOfferLd error', e);
+    btn.disabled = false; btn.innerHTML = orig;
+    showLdToast('Could not send offer');
+  }
+}
+// Pin/unpin — writes to the Portal's shared 'rm_pinned' store so the post
+// appears under Live Market ▸ Pinned.
+function togglePinLd(btn){
+  const id=new URLSearchParams(location.search).get('id'); if(!id) return;
+  const sid=String(id);
+  let pins=[]; try{ pins=JSON.parse(localStorage.getItem('rm_pinned')||'[]'); }catch(e){}
+  const pinning=!pins.map(String).includes(sid);
+  if(pinning) pins.push(sid); else pins=pins.filter(p=>String(p)!==sid);
+  localStorage.setItem('rm_pinned', JSON.stringify(pins));
+  btn.classList.toggle('pinned', pinning);
+  if(pinning) showLdToast('Pinned — find it under Live Market ▸ Pinned', 'fa-thumbtack');
+  else showLdToast('Removed from Pinned', 'fa-thumbtack');
+}
+function shareListing(){
+  try{ navigator.clipboard.writeText(location.href); showLdToast('Link copied'); }
+  catch(e){ showLdToast('Could not copy link'); }
+}
+let _toastT;
+function showLdToast(msg, icon){
+  const t=document.getElementById('ldToast'); if(!t) return;
+  t.innerHTML = (icon ? `<i class="fas ${icon}"></i>` : '') + `<span>${msg}</span>`;
+  t.classList.add('show');
+  clearTimeout(_toastT); _toastT=setTimeout(()=>t.classList.remove('show'), 2600);
+}
+
+// ── Copy original listing text ──
+function openCopyModal(){
+  const listing = window._ldListing; if(!listing) return;
+  // textContent keeps the seller's text verbatim (CSS white-space:pre-wrap preserves line breaks/spacing)
+  document.getElementById('ldRawText').textContent = listing.content || '';
+  const m = document.getElementById('ldCopyModal');
+  m.style.display = 'flex';
+  requestAnimationFrame(()=>m.classList.add('show'));
+  document.body.style.overflow = 'hidden';
+}
+function closeCopyModal(){
+  const m = document.getElementById('ldCopyModal'); if(!m) return;
+  m.classList.remove('show');
+  document.body.style.overflow = '';
+  setTimeout(()=>{ m.style.display = 'none'; }, 220);
+}
+async function copyOriginalText(){
+  const listing = window._ldListing;
+  const text = (listing && listing.content) || '';
+  try{
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      await navigator.clipboard.writeText(text);
+    } else {
+      const ta = document.createElement('textarea');
+      ta.value = text; ta.style.position = 'fixed'; ta.style.top = '-1000px'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.focus(); ta.select();
+      document.execCommand('copy'); ta.remove();
+    }
+    closeCopyModal();
+    showLdToast('Original listing text copied to clipboard', 'fa-circle-check');
+  }catch(e){
+    console.warn('copyOriginalText error', e);
+    showLdToast('Could not copy text');
+  }
+}
+// Close the modal with Escape
+document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ const m=document.getElementById('ldCopyModal'); if(m && m.classList.contains('show')) closeCopyModal(); } });
+
+// ── Lightbox ──
+let _ldLbIdx = 0;
+function openLdLightbox(idx){
+  _ldLbIdx = idx;
+  const imgs = window._ldImages || []; if(!imgs.length) return;
+  document.getElementById('ldLightbox')?.remove();
+  const lb = document.createElement('div');
+  lb.id='ldLightbox'; lb.className='ld-lightbox';
+  lb.innerHTML = `
+    <button class="ld-lb-close" onclick="closeLdLightbox()"><i class="fas fa-times"></i></button>
+    ${imgs.length>1 ? `<button class="ld-lb-nav ld-lb-prev" onclick="event.stopPropagation(); navLdLightbox(-1)"><i class="fas fa-chevron-left"></i></button>` : ''}
+    <img id="ldLbImg" src="${imgs[idx]}">
+    ${imgs.length>1 ? `<button class="ld-lb-nav ld-lb-next" onclick="event.stopPropagation(); navLdLightbox(1)"><i class="fas fa-chevron-right"></i></button>` : ''}
+    ${imgs.length>1 ? `<span style="position:absolute;bottom:20px;left:50%;transform:translateX(-50%);color:#fff;font-size:13px;font-weight:700;background:rgba(0,0,0,0.5);padding:4px 14px;border-radius:20px;" id="ldLbCount">${idx+1} / ${imgs.length}</span>` : ''}
+  `;
+  lb.addEventListener('click', e=>{ if(e.target===lb) closeLdLightbox(); });
+  document.body.appendChild(lb);
+}
+function closeLdLightbox(){ document.getElementById('ldLightbox')?.remove(); }
+function navLdLightbox(dir){
+  const imgs = window._ldImages || [];
+  _ldLbIdx = (_ldLbIdx + dir + imgs.length) % imgs.length;
+  document.getElementById('ldLbImg').src = imgs[_ldLbIdx];
+  const count = document.getElementById('ldLbCount');
+  if(count) count.textContent = `${_ldLbIdx+1} / ${imgs.length}`;
+}
+
+document.addEventListener('DOMContentLoaded', loadListing);
+</script>
+</body>
+</html>

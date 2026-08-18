@@ -1,0 +1,15 @@
+{
+  "name": "realmate-mobile",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Realmate mobile app — Capacitor wrapper around a one-way snapshot of the Realmate website frontend. Separate from the website repo.",
+  "scripts": {
+    "cap": "cap"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.0.0"
+  },
+  "dependencies": {
+    "@capacitor/core": "^7.0.0"
+  }
+}

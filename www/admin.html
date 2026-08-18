@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Realmate | Admin</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="admin.css?v=16">
+</head>
+<body>
+
+<!-- ── Password Gate ── -->
+<div id="gateScreen">
+  <div class="gate-card">
+    <img src="images/realmate2.png" class="gate-logo">
+    <h2 class="gate-title">Admin Access</h2>
+    <p class="gate-sub">Enter the admin password to continue.</p>
+    <div class="gate-input-wrap" style="position:relative;">
+      <i class="fas fa-lock" style="position:absolute;left:16px;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:14px;pointer-events:none;z-index:2;"></i>
+      <input type="password" id="gateInput" placeholder="Password" style="padding-left:44px;" onkeydown="if(event.key==='Enter') attemptLogin()" autocomplete="off">
+      <i class="fas fa-eye" id="gateEye" onclick="toggleGatePassword()"></i>
+    </div>
+    <div id="gateError" class="gate-error" style="display:none;"><i class="fas fa-circle-exclamation"></i> Incorrect password.</div>
+    <button class="gate-btn" onclick="attemptLogin()">Sign In</button>
+  </div>
+</div>
+
+<!-- ── Admin Dashboard ── -->
+<div id="adminDash" style="display:none;">
+
+  <div class="admin-sidebar">
+    <img src="images/realmate2.png" class="sb-logo">
+    <div class="sb-label">Admin Panel</div>
+    <nav class="sb-nav">
+      <!-- HIDDEN — features removed from the app (Market Pulse Video, Market Report PDF, Top Producers).
+           Panels + JS loaders are commented out below; uncomment all to restore. -->
+      <div class="sb-item active" data-tab="registrations" tabindex="0" role="button" onclick="switchTab('registrations', this)"><i class="fas fa-user-check"></i> Registrations</div>
+      <div class="sb-item" data-tab="sold" tabindex="0" role="button" onclick="switchTab('sold', this)"><i class="fas fa-handshake"></i> Sold Records</div>
+      <div class="sb-item" data-tab="users" tabindex="0" role="button" onclick="switchTab('users', this)"><i class="fas fa-users"></i> Users</div>
+      <div class="sb-item" data-tab="analytics" tabindex="0" role="button" onclick="switchTab('analytics', this)"><i class="fas fa-chart-column"></i> Analytics</div>
+      <div class="sb-item" data-tab="intelligence" tabindex="0" role="button" onclick="switchTab('intelligence', this)"><i class="fas fa-brain"></i> Nexus</div>
+      <div class="sb-item" data-tab="security" tabindex="0" role="button" onclick="switchTab('security', this)"><i class="fas fa-shield-alt"></i> Change Password</div>
+    </nav>
+    <div class="sb-logout" tabindex="0" role="button" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Exit Admin</div>
+  </div>
+
+  <!-- Mobile nav drawer — mirrors the desktop sidebar's items/links so both
+       stay in sync automatically via switchTab()'s data-tab lookup. Only
+       reachable/visible on mobile widths (see admin.css). -->
+  <div class="mobile-nav-overlay" id="mobileNavOverlay" onclick="closeMobileDrawer()"></div>
+  <div class="mobile-nav-drawer" id="mobileNavDrawer" role="dialog" aria-modal="true" aria-label="Admin navigation">
+    <div class="mnd-head">
+      <img src="images/realmate2.png" class="sb-logo" style="margin:0;">
+      <button class="mnd-close" onclick="closeMobileDrawer()" aria-label="Close menu">&times;</button>
+    </div>
+    <div class="sb-label" style="padding:0; margin:20px 0 12px;">Admin Panel</div>
+    <nav class="sb-nav">
+      <!-- HIDDEN — features removed from the app (Market Pulse Video, Market Report PDF, Top Producers).
+           Panels + JS loaders are commented out below; uncomment all to restore. -->
+      <div class="sb-item active" data-tab="registrations" tabindex="0" role="button" onclick="switchTab('registrations', this)"><i class="fas fa-user-check"></i> Registrations</div>
+      <div class="sb-item" data-tab="sold" tabindex="0" role="button" onclick="switchTab('sold', this)"><i class="fas fa-handshake"></i> Sold Records</div>
+      <div class="sb-item" data-tab="users" tabindex="0" role="button" onclick="switchTab('users', this)"><i class="fas fa-users"></i> Users</div>
+      <div class="sb-item" data-tab="analytics" tabindex="0" role="button" onclick="switchTab('analytics', this)"><i class="fas fa-chart-column"></i> Analytics</div>
+      <div class="sb-item" data-tab="intelligence" tabindex="0" role="button" onclick="switchTab('intelligence', this)"><i class="fas fa-brain"></i> Nexus</div>
+      <div class="sb-item" data-tab="security" tabindex="0" role="button" onclick="switchTab('security', this)"><i class="fas fa-shield-alt"></i> Change Password</div>
+    </nav>
+    <div class="sb-logout" tabindex="0" role="button" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Exit Admin</div>
+  </div>
+
+  <div class="admin-main">
+
+    <!-- Mobile top bar -->
+    <div class="mobile-admin-topbar">
+      <button class="mnd-hamburger" onclick="openMobileDrawer()" aria-label="Open menu"><i class="fas fa-bars"></i></button>
+      <span class="mnd-topbar-title" id="mobileTopbarTitle">Registrations</span>
+      <button class="mnd-topbar-logout" onclick="logout()" aria-label="Exit Admin"><i class="fas fa-sign-out-alt"></i></button>
+    </div>
+
+    <!-- HIDDEN TAB — Market Pulse Video (feature removed from app). Uncomment this block + its nav item + showDash() loaders to restore.
+    <div id="tab-youtube" class="admin-tab">
+      <div class="tab-header">
+        <h2>Market Edge ANC</h2>
+        <p>Paste any YouTube URL here. It will appear as an embedded video on the Live Market Feed.</p>
+      </div>
+      <div class="admin-card">
+        <label class="field-label">YouTube URL</label>
+        <div class="url-input-row">
+          <input type="text" id="ytUrlInput" placeholder="https://www.youtube.com/watch?v=... or live stream URL">
+          <button class="btn-save" onclick="saveYoutubeUrl()"><i class="fas fa-save"></i> Save</button>
+        </div>
+        <div id="ytStatus" class="status-msg" style="display:none;"></div>
+        <div id="ytPreviewWrap" style="display:none; margin-top:24px;">
+          <div class="field-label" style="margin-bottom:10px;">Preview</div>
+          <div class="yt-preview-frame">
+            <iframe id="ytPreviewIframe" src="" frameborder="0" allowfullscreen
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"></iframe>
+          </div>
+        </div>
+      </div>
+
+      <div class="admin-card" style="margin-top:16px;">
+        <label class="field-label">Video Courtesy Attribution</label>
+        <div class="url-input-row">
+          <input type="text" id="videoCourtesyInput" placeholder="e.g. ANC">
+          <button class="btn-save" onclick="saveCourtesy('video_courtesy','videoCourtesyInput','videoCourtesyStatus')"><i class="fas fa-save"></i> Save</button>
+        </div>
+        <div id="videoCourtesyStatus" class="status-msg" style="display:none;"></div>
+      </div>
+    </div>
+    HIDDEN TAB END -->
+
+    <!-- HIDDEN TAB — Market Report PDF (feature removed from app). Uncomment this block + its nav item + showDash() loaders to restore.
+    <div id="tab-report" class="admin-tab">
+      <div class="tab-header">
+        <h2>Market Report PDF</h2>
+        <p>Upload a PDF market report. It will appear as a horizontal slide strip beside the video on Market Pulse.</p>
+      </div>
+      <div class="admin-card">
+        <div class="card-section-title"><i class="fas fa-upload"></i> Upload PDF</div>
+        <div class="pdf-upload-area" id="pdfDropArea" onclick="document.getElementById('pdfFileInput').click()">
+          <i class="fas fa-file-pdf" style="font-size:36px; color:#ef4444; margin-bottom:12px;"></i>
+          <div style="font-weight:700; color:#0f172a; margin-bottom:4px;">Click to choose a PDF file</div>
+          <div style="font-size:12px; color:#64748b;" id="pdfFileName">No file selected</div>
+        </div>
+        <input type="file" id="pdfFileInput" accept="application/pdf" style="display:none" onchange="onPdfSelected(this)">
+        <div class="pdf-actions-row" style="margin-top:16px; display:flex; gap:12px; align-items:center;">
+          <button class="btn-save" onclick="uploadMarketReport()"><i class="fas fa-cloud-upload-alt"></i> Upload & Save</button>
+          <button class="btn-cancel-sm" onclick="clearMarketReport()" style="display:inline-flex;"><i class="fas fa-trash"></i> Remove Report</button>
+        </div>
+        <div id="pdfStatus" class="status-msg" style="display:none; margin-top:12px;"></div>
+        <div id="pdfProgressWrap" style="display:none; margin-top:14px;">
+          <div style="font-size:12px; font-weight:600; color:#64748b; margin-bottom:6px;">Uploading…</div>
+          <div style="background:#e2e8f0; border-radius:99px; height:6px;">
+            <div id="pdfProgressBar" style="background:#32cd32; height:6px; border-radius:99px; width:0%; transition:width 0.2s;"></div>
+          </div>
+        </div>
+      </div>
+      <div class="admin-card" id="pdfCurrentWrap" style="display:none;">
+        <div class="card-section-title"><i class="fas fa-eye"></i> Current Report</div>
+        <div class="pdf-current-row" style="display:flex; align-items:center; gap:12px;">
+          <i class="fas fa-file-pdf" style="font-size:28px; color:#ef4444;"></i>
+          <div>
+            <div style="font-weight:700; color:#0f172a; font-size:14px;" id="pdfCurrentName">market-report.pdf</div>
+            <a id="pdfCurrentLink" href="#" target="_blank" style="font-size:12px; color:#32cd32; font-weight:600;">Open PDF ↗</a>
+          </div>
+        </div>
+      </div>
+      <div class="admin-card" style="margin-top:16px;">
+        <label class="field-label">PDF Courtesy Attribution</label>
+        <div class="url-input-row">
+          <input type="text" id="pdfCourtesyInput" placeholder="e.g. Colliers Philippines">
+          <button class="btn-save" onclick="saveCourtesy('pdf_courtesy','pdfCourtesyInput','pdfCourtesyStatus')"><i class="fas fa-save"></i> Save</button>
+        </div>
+        <div id="pdfCourtesyStatus" class="status-msg" style="display:none;"></div>
+      </div>
+    </div>
+    HIDDEN TAB END -->
+
+    <!-- HIDDEN TAB — Top Producers (feature removed from app). Uncomment this block + its nav item + showDash() loaders to restore.
+    <div id="tab-producers" class="admin-tab">
+      <div class="tab-header">
+        <h2>Top Producers</h2>
+        <p>Add, edit, or remove monthly top producers. Changes appear immediately on the home feed.</p>
+      </div>
+
+      <div class="admin-card" style="margin-bottom:20px;">
+        <div class="card-section-title"><i class="fas fa-plus-circle"></i> Add / Edit Producer</div>
+        <input type="hidden" id="editingId">
+        <div class="form-grid">
+          <div class="form-field">
+            <label class="field-label">Full Name *</label>
+            <input type="text" id="pName" placeholder="e.g. Maria Santos">
+          </div>
+          <div class="form-field">
+            <label class="field-label">Position / Rank</label>
+            <input type="text" id="pPosition" placeholder="e.g. Area Sales Director">
+          </div>
+          <div class="form-field">
+            <label class="field-label">Team / Group</label>
+            <input type="text" id="pTeam" placeholder="e.g. Royals">
+          </div>
+          <div class="form-field">
+            <label class="field-label">Sales Value (₱) *</label>
+            <input type="number" id="pValue" placeholder="e.g. 72000000">
+          </div>
+          <div class="form-field">
+            <label class="field-label">Month</label>
+            <input type="text" id="pMonth" placeholder="e.g. June 2026">
+          </div>
+          <div class="form-field">
+            <label class="field-label">Period Label</label>
+            <input type="text" id="pPeriod" placeholder="e.g. Month to Date">
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn-save" id="pSaveBtn" onclick="saveProducer()"><i class="fas fa-save"></i> Save Producer</button>
+          <button class="btn-cancel-sm" id="pCancelBtn" onclick="cancelEdit()" style="display:none;">Cancel</button>
+        </div>
+        <div id="pStatus" class="status-msg" style="display:none;"></div>
+      </div>
+
+      <div class="admin-card">
+        <div class="card-section-title"><i class="fas fa-list"></i> Current Producers</div>
+        <div id="producersList"><div class="loading-row"><i class="fas fa-spinner fa-spin"></i> Loading…</div></div>
+      </div>
+    </div>
+    HIDDEN TAB END -->
+
+    <!-- Registrations Tab -->
+    <div id="tab-registrations" class="admin-tab active">
+      <div class="tab-header">
+        <h2>Registrations</h2>
+        <p>Review new sign-ups, verify their uploaded Alveo ID, then approve or reject the account.</p>
+      </div>
+
+      <div class="admin-card" style="margin-bottom:20px;">
+        <div class="reg-status-row">
+          <div class="form-field reg-status-field">
+            <label class="field-label">Status</label>
+            <select id="regFilterStatus" class="reg-select" onchange="loadRegistrations()">
+              <option value="Pending Approval" selected>Pending Approval</option>
+              <option value="Approved">Approved</option>
+              <option value="Rejected">Rejected</option>
+              <option value="All">All</option>
+            </select>
+          </div>
+          <button type="button" class="btn-cancel-sm" id="regAdvancedToggleBtn" onclick="toggleAdvancedFilters()"><i class="fas fa-sliders-h"></i> Search Filters</button>
+        </div>
+
+        <!-- Hidden by default — pending review needs no search. Useful for
+             digging through Approved/Rejected history. -->
+        <div class="reg-filter-grid" id="regAdvancedFilters" style="display:none;">
+          <div class="form-field">
+            <label class="field-label">Registered From</label>
+            <input type="date" id="regFilterFrom">
+          </div>
+          <div class="form-field">
+            <label class="field-label">Registered To</label>
+            <input type="date" id="regFilterTo">
+          </div>
+          <div class="form-field">
+            <label class="field-label">Full Name</label>
+            <input type="text" id="regFilterName" placeholder="Search name…">
+          </div>
+          <div class="form-field">
+            <label class="field-label">Username</label>
+            <input type="text" id="regFilterUsername" placeholder="Search username…">
+          </div>
+          <div class="form-field">
+            <label class="field-label">Email</label>
+            <input type="text" id="regFilterEmail" placeholder="Search email…">
+          </div>
+          <div class="form-field">
+            <label class="field-label">Division</label>
+            <input type="text" id="regFilterDivision" placeholder="Search division…">
+          </div>
+          <div class="form-field">
+            <label class="field-label">Group</label>
+            <input type="text" id="regFilterGroup" placeholder="Search group…">
+          </div>
+        </div>
+        <div class="form-actions" id="regAdvancedActions" style="display:none;">
+          <button class="btn-save" onclick="loadRegistrations()"><i class="fas fa-search"></i> Apply Filters</button>
+          <button class="btn-cancel-sm" onclick="resetRegistrationFilters()">Reset</button>
+        </div>
+      </div>
+
+      <div class="admin-card">
+        <div class="card-section-title"><i class="fas fa-users"></i> Registrations</div>
+        <div id="registrationsList"><div class="loading-row"><i class="fas fa-spinner fa-spin"></i> Loading…</div></div>
+      </div>
+    </div>
+
+    <!-- Sold Records Tab -->
+    <div id="tab-sold" class="admin-tab">
+      <div class="tab-header">
+        <h2>Sold Records</h2>
+        <p>A permanent history of every completed transaction, separated by category. Each record is saved the moment the seller confirms the sale — kept here even after the listing is auto-deleted 24 hours later. Amounts are the peso figure highlighted on each listing.</p>
+      </div>
+
+      <!-- Sales totals: category × time period. Computed live from the records. -->
+      <div class="admin-card" style="margin-bottom:20px;">
+        <div class="card-section-title"><i class="fas fa-peso-sign"></i> Sales Totals</div>
+        <div class="sold-matrix-scroll">
+          <div id="soldTotalsMatrix"><div class="loading-row"><i class="fas fa-spinner fa-spin"></i> Loading…</div></div>
+        </div>
+      </div>
+
+      <!-- Filters: category + time period + search drive the record list below. -->
+      <div class="admin-card" style="margin-bottom:20px;">
+        <label class="field-label">Category</label>
+        <div class="sold-filter-chips" id="soldCatChips">
+          <button type="button" class="sold-chip active" data-cat="all"    onclick="setSoldCat('all', this)">All</button>
+          <button type="button" class="sold-chip" data-cat="Sold"   onclick="setSoldCat('Sold', this)">Sold</button>
+          <button type="button" class="sold-chip" data-cat="Bought" onclick="setSoldCat('Bought', this)">Bought</button>
+          <button type="button" class="sold-chip" data-cat="Rented" onclick="setSoldCat('Rented', this)">Rented</button>
+          <button type="button" class="sold-chip" data-cat="Leased" onclick="setSoldCat('Leased', this)">Leased</button>
+        </div>
+        <label class="field-label" style="margin-top:16px;">Time Period</label>
+        <div class="sold-filter-chips" id="soldPeriodChips">
+          <button type="button" class="sold-chip active" data-period="all"     onclick="setSoldPeriod('all', this)">All-Time</button>
+          <button type="button" class="sold-chip" data-period="today"   onclick="setSoldPeriod('today', this)">Today</button>
+          <button type="button" class="sold-chip" data-period="week"    onclick="setSoldPeriod('week', this)">This Week</button>
+          <button type="button" class="sold-chip" data-period="month"   onclick="setSoldPeriod('month', this)">This Month</button>
+          <button type="button" class="sold-chip" data-period="quarter" onclick="setSoldPeriod('quarter', this)">This Quarter</button>
+          <button type="button" class="sold-chip" data-period="half"    onclick="setSoldPeriod('half', this)">This Half-Year</button>
+          <button type="button" class="sold-chip" data-period="annual"  onclick="setSoldPeriod('annual', this)">Annual</button>
+        </div>
+        <div class="url-input-row" style="margin-top:16px;">
+          <input type="text" id="soldSearchInput" placeholder="Search by seller, category, or listing ID…" oninput="filterSoldRecords()">
+        </div>
+      </div>
+
+      <div id="soldRecordsList"><div class="loading-row"><i class="fas fa-spinner fa-spin"></i> Loading…</div></div>
+    </div>
+
+    <!-- Users Tab -->
+    <div id="tab-users" class="admin-tab">
+      <div class="tab-header">
+        <h2>Users</h2>
+        <p>Every registered account.</p>
+      </div>
+
+      <div class="admin-card" style="margin-bottom:20px;">
+        <div class="url-input-row">
+          <input type="text" id="usersSearchInput" placeholder="Search by name, username, or email…" oninput="filterUsers()">
+        </div>
+      </div>
+
+      <div class="admin-card">
+        <div class="card-section-title"><i class="fas fa-users"></i> All Users</div>
+        <div id="usersList"><div class="loading-row"><i class="fas fa-spinner fa-spin"></i> Loading…</div></div>
+      </div>
+    </div>
+
+    <!-- Analytics Tab — five core KPIs (Registered Users, Active Users, New
+         Registrations, Listings, Matches) across Today / 7 Days / 30 Days.
+         Read-only, computed live from Supabase via the password-gated
+         admin-analytics Edge Function (service role); never exposed to users. -->
+    <div id="tab-analytics" class="admin-tab">
+      <div class="tab-header">
+        <h2>Analytics</h2>
+        <p>Core growth &amp; engagement metrics, computed live from realmate's database. Periods are Asia/Manila, calendar-day aligned and cumulative (Today ⊆ 7 Days ⊆ 30 Days).</p>
+      </div>
+
+      <div class="admin-card">
+        <div class="analytics-head">
+          <div class="card-section-title" style="margin:0;"><i class="fas fa-chart-column"></i> Key Metrics</div>
+          <button type="button" class="btn-cancel-sm" onclick="loadAnalytics()"><i class="fas fa-rotate-right"></i> Refresh</button>
+        </div>
+        <div class="analytics-scroll">
+          <div id="analyticsTable"><div class="loading-row"><i class="fas fa-spinner fa-spin"></i> Loading…</div></div>
+        </div>
+        <div id="analyticsMeta" class="analytics-meta"></div>
+      </div>
+    </div>
+
+    <!-- Nexus Tab — Founders' view of Nexus, realmate's behavioral intelligence
+         engine. Reads processed intelligence from Supabase via the intel-admin
+         Edge Function (service role). Dormant during bug-testing: shows Nexus OFF
+         and zeroed volumes until a founder activates a stage. -->
+    <div id="tab-intelligence" class="admin-tab">
+      <div class="tab-header">
+        <h2>Nexus</h2>
+        <p>What realmate is learning through Nexus. Private, aggregated observation of the intelligence engine.</p>
+      </div>
+
+      <!-- Always-visible dataset label so real-user behaviour is never mistaken for synthetic. -->
+      <div id="intelDatasetBanner" style="display:none;padding:12px 16px;border-radius:12px;font-weight:800;letter-spacing:.4px;margin-bottom:16px;"></div>
+
+      <div class="admin-card" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+        <div class="card-section-title" style="margin:0;"><i class="fas fa-server"></i> Environment</div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span id="nexusEnvBadge" class="intel-badge intel-off">—</span>
+          <select id="nexusEnvSelect" onchange="setNexusEnv(this.value)" style="padding:8px 12px;border:1px solid #cbd5e1;border-radius:10px;font-weight:700;color:#334155;">
+            <option value="production">Production</option>
+            <option value="testing">Testing</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="admin-card" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+        <div class="card-section-title" style="margin:0;"><i class="fas fa-layer-group"></i> Dataset</div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span id="nexusDatasetBadge" class="intel-badge intel-off">—</span>
+          <select id="nexusDatasetSelect" onchange="setNexusDataset(this.value)" style="padding:8px 12px;border:1px solid #cbd5e1;border-radius:10px;font-weight:700;color:#334155;">
+            <option value="synthetic">Synthetic Data (benchmark)</option>
+            <option value="realuser">Realmate Test Users</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="admin-card" id="intelRealUsersCard" style="display:none;">
+        <div class="card-section-title"><i class="fas fa-user-shield"></i> Realmate Test Users</div>
+        <div id="intelRealUsers"><div class="loading-row">—</div></div>
+      </div>
+
+      <div class="admin-card">
+        <div class="card-section-title"><i class="fas fa-brain"></i> Nexus Engine Status</div>
+        <div id="intelStatus"><div class="loading-row"><i class="fas fa-spinner fa-spin"></i> Loading…</div></div>
+      </div>
+
+      <div class="admin-card">
+        <div class="card-section-title"><i class="fas fa-database"></i> Data Volume</div>
+        <div id="intelCounts"><div class="loading-row">—</div></div>
+      </div>
+
+      <div class="admin-card">
+        <div class="card-section-title"><i class="fas fa-chart-line"></i> Market &amp; Preference Trends</div>
+        <div id="intelTrends"><div class="loading-row">—</div></div>
+      </div>
+
+      <div class="admin-card">
+        <div class="card-section-title"><i class="fas fa-building"></i> Developer &amp; Project Intelligence</div>
+        <div id="intelEntities"><div class="loading-row">—</div></div>
+      </div>
+
+      <div class="admin-card">
+        <div class="card-section-title"><i class="fas fa-bullseye"></i> Matching &amp; Recommendation Performance</div>
+        <div id="intelPerformance"><div class="loading-row">—</div></div>
+      </div>
+
+      <div class="admin-card">
+        <div class="card-section-title"><i class="fas fa-lightbulb"></i> Dataset Enrichment Suggestions</div>
+        <div id="intelEnrichment"><div class="loading-row">—</div></div>
+      </div>
+    </div>
+
+    <!-- Security Tab -->
+    <div id="tab-security" class="admin-tab">
+      <div class="tab-header">
+        <h2>Change Password</h2>
+        <p>Update the admin password. You'll need to use the new password next time you log in.</p>
+      </div>
+      <div class="admin-card" style="max-width:440px;">
+        <div class="form-field" style="margin-bottom:16px;">
+          <label class="field-label">Current Password</label>
+          <input type="password" id="secCurrent" placeholder="Enter current password">
+        </div>
+        <div class="form-field" style="margin-bottom:16px;">
+          <label class="field-label">New Password</label>
+          <input type="password" id="secNew" placeholder="Enter new password">
+        </div>
+        <div class="form-field" style="margin-bottom:20px;">
+          <label class="field-label">Confirm New Password</label>
+          <input type="password" id="secConfirm" placeholder="Repeat new password">
+        </div>
+        <button class="btn-save" onclick="changePassword()"><i class="fas fa-key"></i> Update Password</button>
+        <div id="secStatus" class="status-msg" style="display:none; margin-top:12px;"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Alveo ID Preview -->
+<div class="rm-modal-overlay" id="alveoPreviewOverlay" style="display:none;" role="dialog" aria-modal="true" aria-label="Alveo ID preview">
+  <div class="rm-modal-box rm-modal-box-fullscreen">
+    <div class="rm-modal-head">
+      <span>Alveo ID Preview</span>
+      <span class="rm-modal-close" role="button" tabindex="0" aria-label="Close preview" onclick="closeAlveoPreview()">&times;</span>
+    </div>
+    <div class="rm-modal-body" id="alveoPreviewBody"></div>
+    <div class="rm-modal-foot">
+      <a id="alveoPreviewOpenLink" href="#" target="_blank" rel="noopener" class="btn-cancel-sm">Open in New Tab</a>
+      <button id="alveoPreviewDownloadBtn" class="btn-save" style="display:none;" onclick="downloadAlveoId()"><i class="fas fa-download"></i> Download</button>
+    </div>
+  </div>
+</div>
+
+<!-- Approve Confirmation -->
+<div class="rm-modal-overlay" id="approveConfirmOverlay" style="display:none;" role="dialog" aria-modal="true" aria-label="Approve registration">
+  <div class="rm-modal-box rm-modal-box-sm">
+    <div class="rm-modal-head">
+      <span>Approve Registration?</span>
+      <span class="rm-modal-close" role="button" tabindex="0" aria-label="Cancel approval" onclick="closeApproveConfirm()">&times;</span>
+    </div>
+    <div class="rm-modal-body">
+      <p class="reg-confirm-message">This account will be activated immediately. The user will receive an approval email and will be able to log in to Realmate.</p>
+    </div>
+    <div class="rm-modal-foot">
+      <button class="btn-cancel-sm" onclick="closeApproveConfirm()">Cancel</button>
+      <button class="btn-save" onclick="confirmApprove()"><i class="fas fa-check"></i> Approve</button>
+    </div>
+  </div>
+</div>
+
+<!-- Reject Reason -->
+<div class="rm-modal-overlay" id="rejectReasonOverlay" style="display:none;" role="dialog" aria-modal="true" aria-label="Reject registration">
+  <div class="rm-modal-box">
+    <div class="rm-modal-head">
+      <span>Reject Registration</span>
+      <span class="rm-modal-close" role="button" tabindex="0" aria-label="Cancel rejection" onclick="closeRejectModal()">&times;</span>
+    </div>
+    <div class="rm-modal-body">
+      <label class="field-label">Reason (optional)</label>
+      <textarea id="rejectReasonInput" class="reg-reason-textarea" rows="4" placeholder="Enter rejection reason (optional)"></textarea>
+      <div class="reg-reason-chips">
+        <button type="button" class="reg-chip" onclick="pickRejectReason('Uploaded Alveo ID is unclear.')">Unclear ID</button>
+        <button type="button" class="reg-chip" onclick="pickRejectReason('Invalid Alveo ID.')">Invalid ID</button>
+        <button type="button" class="reg-chip" onclick="pickRejectReason('Unable to verify registration.')">Unable to verify</button>
+        <button type="button" class="reg-chip" onclick="pickRejectReason('Other.')">Other</button>
+      </div>
+    </div>
+    <div class="rm-modal-foot">
+      <button class="btn-cancel-sm" onclick="closeRejectModal()">Cancel</button>
+      <button class="btn-save reg-confirm-reject" onclick="confirmReject()"><i class="fas fa-ban"></i> Reject Registration</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="price-parser.js?v=20260812a"></script>
+<script src="nexus-env.js?v=2"></script>
+<script src="admin.js?v=26"></script>
+</body>
+</html>
