@@ -58,3 +58,68 @@ workflows:
           zip -r -y Realmate-simulator-app.zip App.app
     artifacts:
       - ios/build/Build/Products/Debug-iphonesimulator/*.zip
+
+  # ---------------------------------------------------------------------------
+  # ios-release: signed real-device build -> App Store Connect / TestFlight.
+  # This is a NEW, separate workflow. It does not change ios-debug (which stays
+  # an unsigned iphonesimulator build) or android-debug. Automatic App Store
+  # distribution signing is handled by Codemagic via the "Apple Developer Portal"
+  # integration named "Codemagic Realmate" — no certificates, provisioning
+  # profiles, API keys, or .p8 files are ever committed to this repo.
+  ios-release:
+    name: Realmate iOS Release (signed device build -> TestFlight)
+    instance_type: mac_mini_m2      # M2 has Xcode + CocoaPods (same as ios-debug)
+    max_build_duration: 60          # signing + archive + TestFlight upload is slower
+    integrations:
+      app_store_connect: Codemagic Realmate   # integration configured in the Codemagic UI
+    environment:
+      node: 20                      # Capacitor 7 needs Node 20+
+      xcode: 26.4                   # pinned, NOT "latest"
+      ios_signing:
+        distribution_type: app_store          # automatic App Store / TestFlight signing
+        bundle_identifier: com.realmate.app   # signs this bundle id
+      vars:
+        BUNDLE_ID: "com.realmate.app"
+        APPLE_TEAM_ID: "RYT2TFV64G"           # team behind the "Codemagic Realmate" integration
+        APP_STORE_APPLE_ID: 6802656686        # numeric App Store Connect app id (build-number lookup)
+    # No 'triggering:' block => manual start only (no minutes until you click build).
+    scripts:
+      - name: Install JS dependencies (reproducible)
+        script: npm ci
+      - name: Generate iOS project in the cloud (Capacitor uses CI's CocoaPods)
+        # ios/ is NOT committed; it is generated here where CocoaPods + Xcode exist.
+        script: |
+          if [ ! -d ios ]; then npx cap add ios; fi
+          npx cap sync ios
+      - name: Set ITSAppUsesNonExemptEncryption = false in the generated Info.plist
+        # ios/App/App/Info.plist is generated (not committed), so set the export-
+        # compliance key here to avoid the "Missing Compliance" hold on TestFlight.
+        script: |
+          PLIST=ios/App/App/Info.plist
+          /usr/libexec/PlistBuddy -c "Add :ITSAppUsesNonExemptEncryption bool false" "$PLIST" 2>/dev/null \
+            || /usr/libexec/PlistBuddy -c "Set :ITSAppUsesNonExemptEncryption false" "$PLIST"
+      - name: Apply App Store signing profiles fetched via the integration
+        # Pulls/creates the distribution cert + provisioning profile (team RYT2TFV64G)
+        # using the App Store Connect API key, then writes them into the Xcode project.
+        script: xcode-project use-profiles
+      - name: Set a unique, incrementing build number (based on latest TestFlight build)
+        script: |
+          cd ios/App
+          LATEST_BUILD_NUMBER=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID" 2>/dev/null || true)
+          if [ -z "$LATEST_BUILD_NUMBER" ]; then LATEST_BUILD_NUMBER=0; fi
+          agvtool new-version -all $(($LATEST_BUILD_NUMBER + 1))
+      - name: Build signed IPA (Release configuration, device / iphoneos)
+        # build-ipa archives for a real device (iphoneos, NOT iphonesimulator)
+        # and exports a signed .ipa using the applied App Store profile.
+        script: |
+          xcode-project build-ipa \
+            --workspace ios/App/App.xcworkspace \
+            --scheme App \
+            --config Release
+    artifacts:
+      - build/ios/ipa/*.ipa                   # the signed .ipa
+      - /tmp/xcodebuild_logs/*.log            # build logs (for debugging failures)
+    publishing:
+      app_store_connect:
+        auth: integration           # authenticate with the "Codemagic Realmate" API key
+        submit_to_testflight: true  # upload the .ipa and release it to TestFlight
