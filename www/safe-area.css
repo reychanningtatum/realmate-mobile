@@ -1,0 +1,45 @@
+/* ==========================================================================
+   iOS SAFE-AREA HANDLING  (Capacitor / notched iPhones)
+   --------------------------------------------------------------------------
+   Loaded LAST on each app-shell page so it layers on top of the shell CSS.
+   Requires `viewport-fit=cover` in the page's <meta name="viewport"> — that is
+   what makes env(safe-area-inset-*) resolve to the device's real insets.
+
+   On non-notched devices, older iPhones without a home indicator, and desktop
+   browsers these insets resolve to 0, so every rule below is INERT there — the
+   layout only changes on hardware that actually reports a safe area. No fixed
+   pixel offsets are used, so it adapts to every screen size (notch, Dynamic
+   Island, home indicator) automatically.
+   ========================================================================== */
+
+/* Push the ENTIRE page content in from the device safe area.
+   border-box keeps the fixed-height (100vh flex) shells exactly one viewport
+   tall while shrinking their content box by the insets; on the body-scroll
+   shells it simply adds the inset as padding. Either way the top tabs / header
+   start below the status bar / Dynamic Island / notch, and content never sits
+   under the side insets. */
+body {
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top);
+  padding-right: env(safe-area-inset-right);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+}
+
+/* The mobile bottom navigation is position:fixed to the viewport edge, so the
+   body padding above cannot move it. Extend it downward by the bottom inset.
+   content-box keeps the tappable bar at its original height and adds the inset
+   underneath as clear space over the home indicator, so the last nav row no
+   longer sits against the bottom edge. The matching body padding-bottom above
+   preserves the existing scroll clearance between content and this taller bar. */
+.mobile-bottom-nav {
+  box-sizing: content-box;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* A sticky top bar pins to the scrollport top (y = 0, under the notch) once the
+   page scrolls; hold it at the safe-area edge instead so it never tucks under
+   the status bar / Dynamic Island. No-op on pages without this element. */
+.top-fixed-wrap {
+  top: env(safe-area-inset-top);
+}
