@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Realmate</string>
+    <string name="title_activity_main">Realmate</string>
+    <string name="package_name">com.realmate.app</string>
+    <string name="custom_url_scheme">com.realmate.app</string>
+</resources>
