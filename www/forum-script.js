@@ -11,7 +11,7 @@ function getUser() {
     return JSON.parse(localStorage.getItem("user")) || {
         name: "Reychan Bernaldez",
         division: "Alveo Land",
-        image: "https://via.placeholder.com/150"
+        image: "https://ui-avatars.com/api/?name=?&background=0f172a&color=32cd32"
     };
 }
 let user = getUser();
@@ -292,7 +292,7 @@ async function fetchForumPosts() {
             <div class="post-card" id="post-${post.id}">
                 <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">
                     <div style="display:flex; gap:12px; align-items:center;">
-                        <img src="${post.user_img || 'https://via.placeholder.com/150'}" class="avatar" ${profileClickAttr}>
+                        <img src="${post.user_img || 'https://ui-avatars.com/api/?name=?&background=0f172a&color=32cd32'}" class="avatar" ${profileClickAttr}>
                         <div>
                             <div style="display:flex; align-items:center; gap:8px;">
                                 <strong class="user-name-text" ${profileClickAttr}>${post.user_name || "Agent"}</strong>
@@ -865,7 +865,7 @@ async function dispatchNotificationTrigger({ recipientName, type, postId, commen
     const effectiveSenderName = currentSettings.useAnon ? currentSettings.anonName : user.name;
     const effectiveSenderImg = currentSettings.useAnon
         ? `https://ui-avatars.com/api/?name=${encodeURIComponent(currentSettings.anonName)}&background=0f172a&color=fff`
-        : (user.image || "https://via.placeholder.com/150");
+        : (user.image || "https://ui-avatars.com/api/?name=?&background=0f172a&color=32cd32");
 
     // Prevent self-notifications
     if (user.name === recipientName || currentSettings.anonName === recipientName) return;

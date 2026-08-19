@@ -4,9 +4,9 @@ const supabaseKey = 'sb_publishable_Rm_fIBDUfu3DEyLj0_bWZw_qEqo8cd4';
 const _supabase = supabase.createClient(supabaseUrl, supabaseKey);
 
 let user = JSON.parse(localStorage.getItem("user")) || {
-    name: "Reychan Bernaldez",
-    division: "Alveo Land",
-    image: "https://via.placeholder.com/150"
+    name: "",
+    division: "",
+    image: "https://ui-avatars.com/api/?name=?&background=0f172a&color=32cd32"
 };
 
 let localNotificationsCache = [];
@@ -232,7 +232,7 @@ function _buildNotificationCard(notif) {
 
     row.innerHTML = `
         <div class="hub-avatar-block">
-            <img src="${notif.sender_profile_picture || 'https://via.placeholder.com/150'}" class="hub-avatar-img hub-avatar-clickable" alt="Sender Avatar" title="View profile" onclick="event.stopPropagation(); _notifGoToSenderProfileById('${notif.id}')">
+            <img src="${notif.sender_profile_picture || 'https://ui-avatars.com/api/?name=?&background=0f172a&color=32cd32'}" class="hub-avatar-img hub-avatar-clickable" alt="Sender Avatar" title="View profile" onclick="event.stopPropagation(); _notifGoToSenderProfileById('${notif.id}')">
             <div class="hub-type-badge-icon ${contextClass}">
                 <i class="fas ${typeIcon}"></i>
             </div>

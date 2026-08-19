@@ -162,6 +162,7 @@ function toggleSettingsPassword(inputId, iconEl) {
 }
 
 function logout() {
+    try { _supabase.auth.signOut(); } catch (e) {}
     localStorage.clear();
     location.href = "index.html";
 }

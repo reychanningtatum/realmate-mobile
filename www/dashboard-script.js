@@ -194,7 +194,7 @@ try {
 // 🔥 GLOBAL DATA
 let user = JSON.parse(localStorage.getItem("user")) || {
     name: "Reychan Bernaldez",
-    image: "https://via.placeholder.com/150",
+    image: "https://ui-avatars.com/api/?name=?&background=0f172a&color=32cd32",
     job: "Real Estate Manager",
     division: "Alveo Land",
     group: "Echelon",
