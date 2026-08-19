@@ -2375,11 +2375,27 @@ let _feedChannel = null;
 function subscribeToFeed() {
     if (_feedChannel) return;
     _feedChannel = _supaHome
-        .channel('home-feed-inserts')
+        .channel('home-feed-realtime')
         .on('postgres_changes',
             { event: 'INSERT', schema: 'public', table: 'forum_posts', filter: 'source=eq.home' },
             (payload) => { handleNewPost(payload.new); })
+        .on('postgres_changes',
+            // DELETE payloads carry only the primary key (default replica identity),
+            // so we cannot server-filter by source; the handler removes the card only
+            // if it is actually on the home feed (a harmless no-op otherwise).
+            { event: 'DELETE', schema: 'public', table: 'forum_posts' },
+            (payload) => { handleDeletedPost(payload.old); })
         .subscribe();
+}
+
+// Remote deletion (another device/user removed a post) — drop its card and cache
+// entry live, mirroring the local confirmHomeDelete() removal.
+function handleDeletedPost(oldRow) {
+    const id = oldRow && oldRow.id;
+    if (id == null) return;
+    document.getElementById(`hfpost-${id}`)?.remove();
+    const idx = _homePosts.findIndex(p => p.id == id);
+    if (idx !== -1) _homePosts.splice(idx, 1);
 }
 
 async function handleNewPost(post) {
