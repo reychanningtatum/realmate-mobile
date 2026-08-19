@@ -189,6 +189,18 @@ function _buildNotificationCard(notif) {
     } else if (type === 'mate_declined') {
         typeIcon = "fa-user-xmark";
         contextClass = "badge-mate";
+    } else if (type === 'follow') {
+        typeIcon = "fa-user-check";
+        contextClass = "badge-mate";
+    } else if (type === 'match') {
+        typeIcon = "fa-bolt";
+        contextClass = "badge-offer";
+    } else if (type === 'post_share') {
+        typeIcon = "fa-share";
+        contextClass = "badge-reply";
+    } else if (type === 'broadcast') {
+        typeIcon = "fa-bullhorn";
+        contextClass = "badge-reply";
     } else if (type.includes("like")) {
         typeIcon = "fa-heart";
         contextClass = "badge-like";
