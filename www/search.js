@@ -73,7 +73,7 @@ async function runSearch(q) {
             .or(`full_name.ilike.${pattern},job_title.ilike.${pattern},division.ilike.${pattern}`)
             .limit(20),
         _sbSearch.from('listings')
-            .select('id, content, category, user_name, user_id, created_at')
+            .select('id, content, category, user_name, user_id, created_at, hidden_user_ids')
             .or(`content.ilike.${pattern},category.ilike.${pattern},user_name.ilike.${pattern}`)
             .eq('archived', false)
             .order('created_at', { ascending: false })
@@ -96,6 +96,19 @@ async function runSearch(q) {
         _allListings.forEach(l => {
             if (l.user_id && nameById[l.user_id]) l.user_name = nameById[l.user_id];
         });
+    }
+
+    // Visibility Controls: hide listings this viewer isn't allowed to discover
+    // (same filter the Portal applies via visibility.js). Fails open — any error
+    // or missing data leaves the listing visible, matching the prior behavior.
+    if (window.RMVisibility) {
+        try {
+            const myId = (await _sbSearch.auth.getUser()).data?.user?.id || null;
+            const unlockedOwners = await RMVisibility.fetchUnlockedOwnerIds(_sbSearch, myId);
+            _allListings = _allListings.filter(l => RMVisibility.visibleToViewer(l, myId, unlockedOwners));
+        } catch (e) {
+            console.warn('[Visibility] search filter failed, showing all:', e);
+        }
     }
 
     renderResults(_allPeople, _allListings);
