@@ -220,7 +220,7 @@ async function handleFollow(btn, targetUserId, targetName) {
     } else {
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-user-plus"></i> Follow';
-        alert('Could not follow: ' + (result.error || 'Unknown error'));
+        (window.showToast || alert)('Could not follow: ' + (result.error || 'Unknown error'), 'error');
     }
 }
 

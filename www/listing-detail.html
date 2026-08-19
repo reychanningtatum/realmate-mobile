@@ -857,7 +857,7 @@ async function ldGateAddMate(btn) {
   btn.disabled = false;
   btn.innerHTML = '<i class="fas fa-user-plus"></i> Add as Realmate';
   console.error('Realmate request failed:', result.error);
-  alert('Could not send Realmate request: ' + (result.error || 'Unknown error'));
+  (window.showToast || alert)('Could not send Realmate request: ' + (result.error || 'Unknown error'), 'error');
 }
 
 // "Accept Request" from the gate: accept the incoming request, then reload so the

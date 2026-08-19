@@ -734,8 +734,8 @@ async function submitHomePost() {
     if (isPoll) {
         syncPollOptions();
         const opts = _pollOptions.map(s => (s || '').trim()).filter(Boolean);
-        if (!text) { alert('Add a question for your poll.'); return; }
-        if (opts.length < 2) { alert('A poll needs at least 2 options.'); return; }
+        if (!text) { (window.showToast || alert)('Add a question for your poll.', 'error'); return; }
+        if (opts.length < 2) { (window.showToast || alert)('A poll needs at least 2 options.', 'error'); return; }
         poll = { options: opts.map((t, i) => ({ id: 'o' + i, text: t })), allow_multiple: false };
     } else if (!text && !_homePostFiles.length) {
         return;
@@ -822,7 +822,7 @@ async function submitHomePost() {
         const _pw = document.getElementById('profileWall');
         if (_pw && authData?.user?.id) loadHomeFeed(_pw, { type: 'userId', value: authData.user.id });
     } catch (err) {
-        alert('Failed to post: ' + (err.message || 'Unknown error'));
+        (window.showToast || alert)('Failed to post: ' + (err.message || 'Unknown error'), 'error');
     } finally {
         submitBtn.disabled = false;
         submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Post';
@@ -1200,11 +1200,11 @@ function buildPollHtml(post, pollData) {
 
 async function votePoll(postId, optionId) {
     const user = getUser();
-    if (!user) { alert('Sign in to vote.'); return; }
+    if (!user) { (window.showToast || alert)('Sign in to vote.', 'error'); return; }
     // Single-choice: clear any prior vote by this user on this poll, then record the new one
     await _supaHome.from('forum_poll_votes').delete().eq('post_id', postId).eq('user_name', user.name);
     const { error } = await _supaHome.from('forum_poll_votes').insert({ post_id: postId, option_id: optionId, user_name: user.name });
-    if (error) { alert('Could not record vote: ' + error.message); return; }
+    if (error) { (window.showToast || alert)('Could not record vote: ' + error.message, 'error'); return; }
 
     const { data: votes } = await _supaHome.from('forum_poll_votes')
         .select('option_id, user_name').eq('post_id', postId);
@@ -1307,7 +1307,7 @@ function setReaction(postId, type) {
 
 async function applyReaction(postId, type) {
     const user = getUser();
-    if (!user) { alert('Sign in to react.'); return; }
+    if (!user) { (window.showToast || alert)('Sign in to react.', 'error'); return; }
 
     // One reaction per user: clear the old one first
     await _supaHome.from('forum_likes').delete().eq('post_id', postId).eq('user_name', user.name);
@@ -1778,7 +1778,7 @@ function openHomeImgLightbox(src) {
 // ══════════════════════════════════════════════════
 async function toggleSave(postId) {
     const user = getUser();
-    if (!user) { alert('Sign in to save posts.'); return; }
+    if (!user) { (window.showToast || alert)('Sign in to save posts.', 'error'); return; }
     const pid = parseInt(postId);
     const isSaved = _savedSet.has(pid);
     if (isSaved) {
@@ -1813,10 +1813,10 @@ async function pinPost(postId) {
     if (!user) return;
     const { data: authData } = await _supaHome.auth.getUser();
     const uid = authData?.user?.id;
-    if (!uid) { alert('Could not pin — please sign in again.'); return; }
+    if (!uid) { (window.showToast || alert)('Could not pin — please sign in again.', 'error'); return; }
     const { error } = await _supaHome.from('profiles').update({ pinned_post_id: parseInt(postId) }).eq('id', uid);
-    if (error) alert('Could not pin: ' + error.message);
-    else alert('📌 Pinned to your profile.');
+    if (error) (window.showToast || alert)('Could not pin: ' + error.message, 'error');
+    else (window.showToast || alert)('📌 Pinned to your profile.', 'success');
     const menu = document.getElementById(`hfmenu-${postId}`);
     if (menu) menu.style.display = 'none';
 }
@@ -1863,7 +1863,7 @@ async function submitShare() {
         source: 'home'
     });
     btn.disabled = false; btn.innerHTML = '<i class="fas fa-share"></i> Share now';
-    if (error) { alert('Could not share: ' + error.message); return; }
+    if (error) { (window.showToast || alert)('Could not share: ' + error.message, 'error'); return; }
 
     // Live-bump the original post's share counter if it's on screen
     const shareSpan = document.querySelector(`#hfstats-${_sharePostId} .hf-share-count`);
@@ -2082,7 +2082,7 @@ async function loadFollowTopics() {
 
 async function toggleTopicFollow(topic, btn) {
     const user = getUser();
-    if (!user) { alert('Sign in to follow topics.'); return; }
+    if (!user) { (window.showToast || alert)('Sign in to follow topics.', 'error'); return; }
     const following = btn.classList.contains('following');
     if (following) {
         await _supaHome.from('topic_follows').delete().eq('user_name', user.name).eq('topic', topic);
@@ -2281,7 +2281,7 @@ async function sendBirthdayGreeting(name) {
         content:   `🎂 Happy Birthday, ${name}! Wishing you an amazing day! 🎉`,
         is_anonymous: false
     });
-    alert(`Birthday greeting sent to ${name}! 🎂`);
+    (window.showToast || alert)(`Birthday greeting sent to ${name}! 🎂`, 'success');
     loadHomeFeed();
 }
 
