@@ -1234,7 +1234,7 @@ html[data-theme="dark"] .chat-archived-header button { background: #1e293b; colo
 @media (max-width: 768px) {
   .chat-container {
     position: fixed;
-    top: 0;
+    top: env(safe-area-inset-top);
     left: 0;
     right: 0;
     bottom: calc(56px + env(safe-area-inset-bottom, 0px));

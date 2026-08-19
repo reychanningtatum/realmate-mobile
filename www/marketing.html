@@ -41,7 +41,7 @@
   .bg-glow{position:fixed;z-index:0;pointer-events:none;border-radius:50%;filter:blur(20px);}
   .bg-glow.a{top:-160px;left:-120px;width:520px;height:520px;background:radial-gradient(circle,rgba(50,205,50,0.16),transparent 70%);}
   .bg-glow.b{top:420px;right:-160px;width:520px;height:520px;background:radial-gradient(circle,rgba(50,205,50,0.10),transparent 70%);}
-  .content{position:relative;z-index:1;}
+  .content{position:relative;z-index:1;padding-top:env(safe-area-inset-top);}
 
   /* announcement bar (clickable) */
   .announce{display:flex;align-items:center;justify-content:center;gap:7px;width:100%;
@@ -76,7 +76,7 @@
   .modal-box .m-hl{color:var(--primary);font-weight:700;}
 
   /* nav */
-  nav{position:sticky;top:0;padding-top:env(safe-area-inset-top);z-index:50;backdrop-filter:blur(14px);
+  nav{position:sticky;top:env(safe-area-inset-top);z-index:50;backdrop-filter:blur(14px);
     background:rgba(6,12,22,0.72);border-bottom:1px solid rgba(255,255,255,0.06);}
   .nav-in{display:flex;align-items:center;justify-content:space-between;height:66px;}
   .brand{display:flex;align-items:center;gap:9px;font-weight:800;font-size:19px;letter-spacing:-.5px;}

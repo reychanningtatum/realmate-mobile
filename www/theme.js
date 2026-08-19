@@ -3,6 +3,7 @@
 // so accounts that had toggled dark mode before now render light as well.
 (function () {
     document.documentElement.setAttribute('data-theme', 'light');
+    document.documentElement.style.backgroundColor = '#f4f7fa';
     try { localStorage.removeItem('rm_theme'); } catch (e) {}
 })();
 
