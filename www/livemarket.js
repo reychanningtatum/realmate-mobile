@@ -3888,7 +3888,7 @@ async function renderMarketReportPdf() {
     }
 
     lib.GlobalWorkerOptions.workerSrc =
-        'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        'vendor/pdfjs/pdf.worker.min.js?v=3.11.174';
 
     // Respect user preference
     if (localStorage.getItem('rm_hide_pdf') === '1') return;
