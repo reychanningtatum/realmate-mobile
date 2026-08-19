@@ -551,20 +551,31 @@
         ]);
         let listings = lr.data || [];
 
+        let me = {};
+        try { me = JSON.parse(localStorage.getItem('user') || '{}') || {}; } catch (e) {}
+        const myId = me.id ? String(me.id) : null;
+
         // Visibility Controls — drop listings this viewer is hidden from, so a
-        // hidden post never surfaces in search. (Owner-initiated unlocks aren't
-        // checked here for speed; a hidden user can still reach an unlocked post
-        // via chat or its direct link.)
-        listings = filterHiddenListings(listings);
+        // hidden post never surfaces in search. Uses the shared, fail-open
+        // RMVisibility.visibleToViewer (owner + hidden + owner-unlock) to match
+        // the Portal and Search page; falls back to the local owner/hidden check
+        // if visibility.js isn't loaded. Never throws — shows all on error.
+        try {
+            if (window.RMVisibility) {
+                const unlockedOwners = await RMVisibility.fetchUnlockedOwnerIds(sb, myId);
+                listings = listings.filter(l => RMVisibility.visibleToViewer(l, myId, unlockedOwners));
+            } else {
+                listings = filterHiddenListings(listings);
+            }
+        } catch (e) {
+            console.warn('[Visibility] overlay filter failed, showing all:', e);
+        }
 
         // Listings only surface for accounts the searcher is actually
         // Realmates with (their own listings always included) — this applies
         // everywhere the search overlay is used, not just Forum. Profiles are
         // exempt — searching for a person should never require being
         // connected to them first.
-        let me = {};
-        try { me = JSON.parse(localStorage.getItem('user') || '{}') || {}; } catch (e) {}
-        const myId = me.id ? String(me.id) : null;
         const realmateIds = await getMyRealmateIds(sb, myId);
         listings = listings.filter(l => l.user_id && (String(l.user_id) === myId || realmateIds.has(String(l.user_id))));
 
