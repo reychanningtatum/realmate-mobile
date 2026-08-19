@@ -270,13 +270,17 @@ function showError(input, show){
 
 function validateName(i){ showError(i,i.value.trim().length<2) }
 function validatePhone(i){ showError(i,!/^[0-9]{10,13}$/.test(i.value.trim())) }
-// Registration is restricted to Alveo business emails only — the address
-// must end in exactly @alveoland.com (case-insensitive). This rejects Gmail,
-// Yahoo, and every other domain. Used by both the on-blur field validation
-// and the final gate in registerUser().
+// Any valid email may register. Alveo business emails (exactly @alveoland.com,
+// case-insensitive) make admin approval easier, but ALL registrations still
+// upload an Alveo ID for verification (see registerUser + the NOT NULL
+// alveo_id_file column in registration-approval-migration.sql). isAlveoEmail
+// stays available for the "easier approval" signal; on-blur validation and the
+// register gate use general email-format validation instead.
 const ALVEO_EMAIL_RE = /^[^\s@]+@alveoland\.com$/i;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 function isAlveoEmail(v){ return ALVEO_EMAIL_RE.test((v || '').trim()); }
-function validateEmail(i){ showError(i,!isAlveoEmail(i.value)) }
+function isValidEmail(v){ return EMAIL_RE.test((v || '').trim()); }
+function validateEmail(i){ showError(i,!isValidEmail(i.value)) }
 function validatePassword(i){ showError(i,!/^(?=.*[A-Z])(?=.*[0-9]).{8,}$/.test(i.value)) }
 function validateBirthday(){
   const input = document.getElementById("birthday");
@@ -895,12 +899,12 @@ async function registerUser(){
     showRegToast("Please fill in all required fields.", "error");
     return;
   }
-  // Domain gate — only Alveo business emails may register. Validate before
-  // any upload or signUp call so no account or file is ever created for a
-  // disallowed domain.
-  if (!isAlveoEmail(email)) {
+  // Email format check — any valid email may register (non-Alveo included).
+  // Alveo emails just make admin approval easier; every registration still
+  // uploads an Alveo ID for verification (enforced below and in the DB).
+  if (!isValidEmail(email)) {
     validateEmail(document.getElementById("regEmail"));
-    showRegToast("Registration is limited to Alveo business emails. Please use your @alveoland.com email address.", "error");
+    showRegToast("Please enter a valid email address.", "error");
     return;
   }
   if (!_selectedAlveoFile) {
