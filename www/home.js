@@ -2432,3 +2432,45 @@ document.addEventListener('DOMContentLoaded', () => {
     loadMemories();
     subscribeToFeed();
 });
+
+// ── Bug 3: Feed search bar — hide on scroll-down, reveal on ANY scroll-up ──
+// Mirrors the Portal top-bar pattern (dual scroll-source, rAF-throttled) with an
+// added upward-scroll reveal branch so the bar returns immediately without the
+// user having to scroll back to the top. Design/markup unchanged — only the
+// .search-hidden class toggles. The scroll container on Feed is .main-content
+// (body is height:100vh; overflow:hidden), so we listen there and on window.
+(function initFeedSearchReveal() {
+    const wrap = document.querySelector('.home-search-wrap');
+    if (!wrap) return;
+    const mc = document.querySelector('.main-content');
+    const input = document.getElementById('homeSearchInput');
+    const getY = () => Math.max(
+        window.pageYOffset || 0,
+        document.documentElement.scrollTop || 0,
+        mc ? mc.scrollTop : 0
+    );
+    const REVEAL_ZONE = 8;   // within this many px of the top → always shown
+    const HIDE_AFTER  = 80;  // only start hiding past this scroll depth
+    const DOWN_DELTA  = 6;   // downward movement needed to hide (ignore jitter)
+    const UP_DELTA    = 6;   // upward movement needed to reveal (ignore jitter)
+    let lastY = getY();
+    let ticking = false;
+    function evaluate() {
+        const y = getY();
+        const dy = y - lastY;
+        if (input && input.value) {
+            wrap.classList.remove('search-hidden');       // never hide mid-search
+        } else if (y <= REVEAL_ZONE) {
+            wrap.classList.remove('search-hidden');        // near the top → shown
+        } else if (dy <= -UP_DELTA) {
+            wrap.classList.remove('search-hidden');        // any upward scroll → reveal
+        } else if (dy >= DOWN_DELTA && y > HIDE_AFTER) {
+            wrap.classList.add('search-hidden');           // downward past depth → hide
+        }
+        lastY = y;
+        ticking = false;
+    }
+    function onScroll() { if (!ticking) { ticking = true; requestAnimationFrame(evaluate); } }
+    window.addEventListener('scroll', onScroll, { passive: true });
+    if (mc) mc.addEventListener('scroll', onScroll, { passive: true });
+})();

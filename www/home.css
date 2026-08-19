@@ -1299,3 +1299,13 @@ html[data-theme="dark"] .memory-row:hover,
 html[data-theme="dark"] .hf-mention-item:hover,
 html[data-theme="dark"] .emoji-grid button:hover,
 html[data-theme="dark"] .hf-comment-tool:hover { background: #243044; }
+
+/* Bug 3: Feed search bar hide-on-scroll-down / reveal-on-scroll-up (mobile only; desktop Feed unchanged) */
+@media (max-width: 768px) {
+  .home-search-wrap {
+    position: sticky; top: 0; z-index: 50;
+    background: var(--bg);
+    transition: transform 0.25s ease, opacity 0.25s ease;
+  }
+  .home-search-wrap.search-hidden { transform: translateY(-140%); opacity: 0; pointer-events: none; }
+}
