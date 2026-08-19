@@ -91,6 +91,10 @@ workflows:
         script: |
           if [ ! -d ios ]; then npx cap add ios; fi
           npx cap sync ios
+      - name: Generate app icon + splash from assets/ (into the CI-generated ios project)
+        # @capacitor/assets writes AppIcon + splash into ios/App/App/Assets.xcassets.
+        # Runs AFTER 'npx cap add ios' (the project must exist) and before build.
+        script: npx capacitor-assets generate --ios
       - name: Set ITSAppUsesNonExemptEncryption = false in the generated Info.plist
         # ios/App/App/Info.plist is generated (not committed), so set the export-
         # compliance key here to avoid the "Missing Compliance" hold on TestFlight.
