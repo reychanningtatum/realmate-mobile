@@ -9,6 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="forum.css?v=20260716a">
   <script src="theme.js?v=20260812a"></script>
+  <script src="toast.js?v=20260819a"></script>
   <style>
     .rm-page { max-width: 760px; margin: 0 auto; padding: 28px 20px 60px; }
     /* Bug 2: align mobile spacing with the Feed (main-content adds the 80px bottom) */
@@ -331,7 +332,7 @@ async function acceptFromPage(requesterName) {
   if (result && result.success) {
     loadRealmates();
   } else {
-    alert('Could not accept: ' + ((result && result.error) || 'Unknown error'));
+    (window.showToast || alert)('Could not accept: ' + ((result && result.error) || 'Unknown error'), 'error');
   }
 }
 
@@ -340,7 +341,7 @@ async function declineFromPage(requesterName) {
   if (result && result.success) {
     loadRealmates();
   } else {
-    alert('Could not decline: ' + ((result && result.error) || 'Unknown error'));
+    (window.showToast || alert)('Could not decline: ' + ((result && result.error) || 'Unknown error'), 'error');
   }
 }
 
@@ -356,7 +357,7 @@ async function removeFromPage(mateName) {
   if (result && result.success) {
     loadRealmates();
   } else {
-    alert('Could not remove: ' + ((result && result.error) || 'Unknown error'));
+    (window.showToast || alert)('Could not remove: ' + ((result && result.error) || 'Unknown error'), 'error');
   }
 }
 

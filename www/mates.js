@@ -928,7 +928,7 @@ async function handleAddMate(btn, userName) {
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-user-plus"></i> Add as Mate';
         console.error('Mate request failed:', result.error);
-        alert('Could not send mate request: ' + (result.error || 'Unknown error'));
+        (window.showToast || alert)('Could not send mate request: ' + (result.error || 'Unknown error'), 'error');
     }
 }
 
@@ -952,7 +952,7 @@ async function handleRemoveMate(btn, userName) {
     } else {
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-user-group"></i> Realmates';
-        alert('Could not remove Realmate: ' + (result.error || 'Unknown error'));
+        (window.showToast || alert)('Could not remove Realmate: ' + (result.error || 'Unknown error'), 'error');
     }
 }
 
@@ -976,7 +976,7 @@ async function handleCancelMate(btn, userName) {
     } else {
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-clock"></i> Pending';
-        alert('Could not cancel request: ' + (result.error || 'Unknown error'));
+        (window.showToast || alert)('Could not cancel request: ' + (result.error || 'Unknown error'), 'error');
     }
 }
 

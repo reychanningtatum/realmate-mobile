@@ -522,8 +522,7 @@ async function handleNotifAcceptMate(btn, senderName, notifId) {
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-check"></i> Accept';
         console.error('[notif] accept failed:', result && result.error);
-        if (typeof showToast === 'function') showToast(`Could not accept request: ${(result && result.error) || 'Unknown error'}`);
-        else alert(`Could not accept request: ${(result && result.error) || 'Unknown error'}`);
+        (window.showToast || alert)(`Could not accept request: ${(result && result.error) || 'Unknown error'}`, 'error');
         return;
     }
 

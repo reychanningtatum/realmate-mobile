@@ -136,7 +136,7 @@ async function handleGateAddMate(btn, userName) {
     btn.disabled = false;
     btn.innerHTML = '<i class="fas fa-user-plus"></i> Add as Realmate';
     console.error('Realmate request failed:', result.error);
-    if (card) alert('Could not send Realmate request: ' + (result.error || 'Unknown error'));
+    if (card) (window.showToast || alert)('Could not send Realmate request: ' + (result.error || 'Unknown error'), 'error');
 }
 
 // Gate "Accept Request": accept the incoming request, then reload so the now-
@@ -1548,7 +1548,7 @@ async function uploadImage(file, path) {
         if (error) throw error;
         const { data: { publicUrl } } = _supabase.storage.from('images').getPublicUrl(fileName);
         return publicUrl;
-    } catch (err) { alert("Upload Error: " + err.message); return null; }
+    } catch (err) { (window.showToast || alert)("Upload Error: " + err.message, 'error'); return null; }
 }
 
 
@@ -1887,7 +1887,7 @@ async function applyCrop() {
             showPhotoToast();
         }
     } catch(e) {
-        alert("Upload failed: " + e.message);
+        (window.showToast || alert)("Upload failed: " + e.message, 'error');
     } finally {
         closeCropModal();
     }
@@ -2027,7 +2027,7 @@ async function applyCoverCrop() {
         closeCoverCropModal();
         showPhotoToast(_coverIsNewUpload ? 'Cover photo updated!' : 'Cover photo repositioned!');
     } catch (e) {
-        alert('Failed to save cover: ' + e.message);
+        (window.showToast || alert)('Failed to save cover: ' + e.message, 'error');
     } finally {
         btn.innerHTML = '<i class="fas fa-check"></i> Save';
         btn.disabled = false;
