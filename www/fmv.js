@@ -218,13 +218,31 @@ function similarityScore(subject, comp) {
 // subjectListing: the listing we're valuing
 // allListings: array of all other listings with prices
 // Returns: { fmv, confidence, comparablesUsed } or null
+// Phase 1 structured-first: prefer structured listing columns when present, else
+// fall back to parsing content. Output is identical when all columns are NULL.
+function fmvFieldsFor(listing) {
+    const p = parseListingText(listing && listing.content);
+    if (!listing) return p;
+    const has = v => v != null && String(v).trim() !== '';
+    return {
+        ...p,
+        price:     (listing.price != null && listing.price !== '') ? Number(listing.price) : p.price,
+        bedrooms:  (listing.bedrooms != null && listing.bedrooms !== '') ? Number(listing.bedrooms) : p.bedrooms,
+        floorArea: (listing.floor_area_sqm != null && listing.floor_area_sqm !== '') ? Number(listing.floor_area_sqm) : p.floorArea,
+        developer: has(listing.developer) ? String(listing.developer) : p.developer,
+        project:   has(listing.project) ? String(listing.project) : p.project,
+        city:      has(listing.location_city) ? String(listing.location_city) : p.city,
+        area:      has(listing.location_area) ? String(listing.location_area) : p.area,
+    };
+}
+
 function calculateFMV(subjectListing, allListings) {
-    const subject = parseListingText(subjectListing.content);
+    const subject = fmvFieldsFor(subjectListing);
     if (!subject.price) return null; // can't value without a price on subject
 
     const comparables = allListings.filter(l => {
         if (l.id === subjectListing.id) return false;
-        const parsed = parseListingText(l.content);
+        const parsed = fmvFieldsFor(l);
         return parsed.price && parsed.price > 0;
     });
 
@@ -234,7 +252,7 @@ function calculateFMV(subjectListing, allListings) {
     let denominator = 0;
 
     comparables.forEach(comp => {
-        const parsed = parseListingText(comp.content);
+        const parsed = fmvFieldsFor(comp);
         const sim = similarityScore(subject, parsed);
         const rec = recencyFactor(comp.created_at);
         numerator   += parsed.price * sim * rec;

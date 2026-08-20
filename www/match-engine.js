@@ -839,7 +839,7 @@
     const _parseListingCache = new Map();
     function parseListing(listing) {
         const text = listing.content || '';
-        const key = (listing.id != null) ? (listing.id + ' ' + text) : null;
+        const key = (listing.id != null) ? (listing.id + ' ' + text + '|s|' + [listing.price, listing.unit_type, listing.location_city, listing.location_area, listing.project].map(function(v){ return v == null ? '' : v; }).join('|')) : null;
         if (key !== null) {
             const hit = _parseListingCache.get(key);
             if (hit) {
@@ -852,11 +852,21 @@
         const parsed = {
             id: listing.id,
             category: listing.category,
-            locations: extractLocations(text),
+            // Phase 1 structured-first: prefer the structured column when present,
+            // else fall back to parsing content (identical when the column is NULL).
+            locations: (listing.location_city || listing.location_area)
+                ? extractLocations([listing.location_area, listing.location_city].filter(Boolean).join(' '))
+                : extractLocations(text),
             unit: extractUnit(text),
-            unitTypes: unitTypesForMatch(text),
-            project: extractProject(text),
-            price: extractPrice(text),
+            unitTypes: (listing.unit_type != null && String(listing.unit_type).trim() !== '')
+                ? [String(listing.unit_type)]
+                : unitTypesForMatch(text),
+            project: (listing.project != null && String(listing.project).trim() !== '')
+                ? String(listing.project)
+                : extractProject(text),
+            price: (listing.price != null && listing.price !== '')
+                ? Number(listing.price)
+                : extractPrice(text),
             budget: extractBudgetRange(text),
             features: extractFeatures(text),
             userId: listing.user_id,

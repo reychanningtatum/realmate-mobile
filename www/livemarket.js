@@ -1970,9 +1970,10 @@ function buildMarketPrices(listings) {
 
     listings.forEach(l => {
         const text = l.content || '';
-        const price = extractPrice(text);
-        const unit  = extractUnit(text);
-        const proj  = extractProject(text);
+        // Phase 1 structured-first: prefer structured columns, else parse content.
+        const price = (l.price != null && l.price !== '') ? Number(l.price) : extractPrice(text);
+        const unit  = (l.unit_type != null && String(l.unit_type).trim() !== '') ? String(l.unit_type) : extractUnit(text);
+        const proj  = (l.project != null && String(l.project).trim() !== '') ? String(l.project) : extractProject(text);
         if (!price || !unit || !proj) return;
         if (COMPANY_NAMES.some(c => proj.toLowerCase() === c)) return;
 
@@ -2469,10 +2470,10 @@ function applyFilters() {
     // engine, fall back to the legacy exact-tag (lowercased) comparison.
     if (loc) {
         if (window.RM_LOC && window.RM_LOC.matchesFilter) {
-            pool = pool.filter(l => window.RM_LOC.matchesFilter(l.content || '', loc));
+            pool = pool.filter(l => window.RM_LOC.matchesFilter(((l.location_city || l.location_area) ? [l.location_area, l.location_city].filter(Boolean).join(', ') : (l.content || '')), loc));
         } else {
             const locLower = loc.toLowerCase();
-            pool = pool.filter(l => extractLocations(l.content || '').some(x => x.toLowerCase() === locLower));
+            pool = pool.filter(l => extractLocations((l.location_city || l.location_area) ? [l.location_area, l.location_city].filter(Boolean).join(' ') : (l.content || '')).some(x => x.toLowerCase() === locLower));
         }
     }
 

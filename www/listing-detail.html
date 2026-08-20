@@ -350,7 +350,7 @@
 <script src="mates.js?v=20260814c"></script>
 <script src="nav-menu.js?v=20260809a"></script>
 <script src="location-engine.js?v=20260809b"></script>
-<script src="match-engine.js?v=12"></script>
+<script src="match-engine.js?v=20260821p1"></script>
 <script src="developers.js?v=36"></script>
 <script src="rm-track.js?v=2"></script>
 <script src="match-alert.js?v=9"></script>
@@ -581,8 +581,16 @@ function fmtPrice(price, range){
 function extractDetails(listing){
   const raw = listing.content || '';
   const p = parse(raw);
-  const developer=_xDev(raw), unitType=_xType(raw), sqm=_xSqm(raw), bath=_xBath(raw),
-        park=_xPark(raw), furn=_xFurn(raw), tower=_xTower(raw), floor=_xFloor(raw), turnover=_xTurnover(raw);
+  // Phase 1 structured-first: prefer structured columns, else parse content.
+  const developer=(listing.developer!=null&&String(listing.developer).trim()!==''?String(listing.developer):_xDev(raw)),
+        unitType=(listing.unit_type!=null&&String(listing.unit_type).trim()!==''?String(listing.unit_type):_xType(raw)),
+        sqm=(listing.floor_area_sqm!=null&&listing.floor_area_sqm!==''?(String(listing.floor_area_sqm)+' sqm'):_xSqm(raw)),
+        bath=(listing.bathrooms!=null&&listing.bathrooms!==''?String(listing.bathrooms):_xBath(raw)),
+        park=(listing.parking!=null&&listing.parking!==''?String(listing.parking):_xPark(raw)),
+        furn=(listing.furnishing!=null&&String(listing.furnishing).trim()!==''?String(listing.furnishing):_xFurn(raw)),
+        tower=_xTower(raw),
+        floor=(listing.floor_level!=null&&listing.floor_level!==''?String(listing.floor_level):_xFloor(raw)),
+        turnover=(listing.turnover_status!=null&&String(listing.turnover_status).trim()!==''?String(listing.turnover_status):_xTurnover(raw));
   // Mirror the Portal's extractPriceRange so rent/lease budgets in "k"
   // (e.g. "30k-50k a month") produce the same ₱30,000 – ₱50,000 highlight
   // instead of no price at all. The unit rides along so fmtPrice scales it.
@@ -660,7 +668,14 @@ function extractDetails(listing){
     .replace(/[ \t]{2,}/g,' ')
     .trim();
 
-  return { price:p.price, priceRange, project:p.project, developer, locs:p.locs, specs, about:body };
+  return {
+    price: (listing.price!=null&&listing.price!=='') ? Number(listing.price) : p.price,
+    priceRange,
+    project: (listing.project!=null&&String(listing.project).trim()!=='') ? String(listing.project) : p.project,
+    developer,
+    locs: (listing.location_city||listing.location_area) ? [listing.location_area, listing.location_city].filter(Boolean) : p.locs,
+    specs, about:body
+  };
 }
 
 // ── Tab 2 highlights (AI-extracted, display-only) ──
