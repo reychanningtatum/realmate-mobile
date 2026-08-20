@@ -6,6 +6,16 @@ const _sbAdmin = window.supabase.createClient(
 const DEFAULT_PASSWORD = 'ADMIN@realmate';
 let _currentPassword = DEFAULT_PASSWORD;
 
+// ── JWT admin session check (additive; password path unchanged) ──
+async function _adminSessionIsAdmin() {
+    try {
+        const { data: { session } } = await _sbAdmin.auth.getSession();
+        if (!session) return false;
+        const { data, error } = await _sbAdmin.rpc('is_admin');
+        return !error && data === true;
+    } catch (e) { return false; }
+}
+
 // ── Auth ──────────────────────────────────────────────
 function toggleGatePassword() {
     const input = document.getElementById('gateInput');
@@ -25,6 +35,7 @@ async function attemptLogin() {
     _currentPassword = data?.value || DEFAULT_PASSWORD;
 
     if (input === _currentPassword) {
+        sessionStorage.removeItem('rm_admin_signed_out');
         sessionStorage.setItem('rm_admin', '1');
         showDash();
     } else {
@@ -48,6 +59,7 @@ function showDash() {
 }
 
 function logout() {
+    sessionStorage.setItem('rm_admin_signed_out', '1');
     sessionStorage.removeItem('rm_admin');
     document.getElementById('gateInput').value = '';
     document.getElementById('adminDash').style.display = 'none';
@@ -57,6 +69,12 @@ function logout() {
 
 // ── Auto-restore session on refresh ──────────────────
 window.addEventListener('DOMContentLoaded', async () => {
+    // NEW: JWT path — a logged-in admin unlocks WITHOUT the password.
+    if (sessionStorage.getItem('rm_admin_signed_out') !== '1' && await _adminSessionIsAdmin()) {
+        sessionStorage.setItem('rm_admin', '1');
+        showDash();
+        return;
+    }
     if (sessionStorage.getItem('rm_admin') === '1') {
         const { data } = await _sbAdmin.from('site_settings').select('value').eq('key', 'admin_password').single();
         _currentPassword = data?.value || DEFAULT_PASSWORD;
