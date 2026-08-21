@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="vendor/fontawesome/css/all.min.css?v=6.5.0">
     <link rel="stylesheet" href="vendor/googlefonts/fonts.css?v=1">
     <link rel="stylesheet" href="forum.css?v=20260716a">
-    <link rel="stylesheet" href="settings.css?v=20260812a">
+    <link rel="stylesheet" href="settings.css?v=20260821acct">
     <link rel="stylesheet" href="mobile-back.css">
     <script src="theme.js?v=20260812a"></script>
   <script src="toast.js?v=20260819a"></script>
@@ -102,12 +102,32 @@
             </div>
         </div>
 
+        <div class="settings-card settings-danger">
+            <div class="settings-card-title"><i class="fas fa-triangle-exclamation" style="color:#e11d48;"></i> Delete Account</div>
+            <p class="settings-card-sub">Permanently delete your Realmate account and all associated data. This action cannot be undone.</p>
+            <button class="settings-btn settings-btn-danger" id="deleteAccountBtn" onclick="openDeleteAccountModal()">Delete My Account</button>
+        </div>
+
     </div>
+</div>
+
+<div id="deleteAccountOverlay" class="da-overlay" hidden onclick="if(event.target===this) closeDeleteAccountModal()">
+  <div class="da-modal" role="dialog" aria-modal="true" aria-labelledby="daTitle">
+    <div class="da-title" id="daTitle"><i class="fas fa-triangle-exclamation"></i> Delete your account?</div>
+    <p class="da-body">This permanently deletes your profile, listings, posts, connections, messages and uploaded documents (including your Alveo ID). <strong>This cannot be undone.</strong></p>
+    <label class="da-label" for="daConfirmInput">Type <strong>DELETE</strong> to confirm</label>
+    <input type="text" id="daConfirmInput" class="settings-input" autocomplete="off" placeholder="DELETE" oninput="daSyncConfirm()">
+    <div class="da-actions">
+      <button class="settings-btn da-cancel" onclick="closeDeleteAccountModal()">Cancel</button>
+      <button class="settings-btn settings-btn-danger" id="daConfirmBtn" onclick="confirmDeleteAccount()" disabled>Delete permanently</button>
+    </div>
+    <div id="daStatus" class="da-status" role="status"></div>
+  </div>
 </div>
 
 <script src="vendor/supabase-js.min.js?v=2.112.3"></script>
 <script src="auth-guard.js?v=20260815a"></script>
-<script src="settings.js?v=20260812a"></script>
+<script src="settings.js?v=20260821acct"></script>
 <script src="location-engine.js?v=20260809b"></script>
 <script src="match-engine.js?v=20260821p1"></script>
 <script src="match-alert.js?v=9"></script>

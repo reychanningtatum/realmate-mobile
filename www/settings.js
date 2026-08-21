@@ -174,3 +174,36 @@ window.onload = () => {
     initPortalNotifsToggle();
     loadAccountEmail();
 };
+
+
+/* ── Account deletion (Apple Guideline 5.1.1v) ───────────────── */
+function openDeleteAccountModal(){
+  const ov=document.getElementById('deleteAccountOverlay'); if(!ov) return;
+  const inp=document.getElementById('daConfirmInput'); if(inp) inp.value='';
+  const st=document.getElementById('daStatus'); if(st) st.textContent='';
+  const cb=document.getElementById('daConfirmBtn'); if(cb){ cb.disabled=true; cb.textContent='Delete permanently'; }
+  ov.hidden=false;
+}
+function closeDeleteAccountModal(){ const ov=document.getElementById('deleteAccountOverlay'); if(ov) ov.hidden=true; }
+function daSyncConfirm(){
+  const v=(document.getElementById('daConfirmInput').value||'').trim().toUpperCase();
+  const cb=document.getElementById('daConfirmBtn'); if(cb) cb.disabled=(v!=='DELETE');
+}
+async function confirmDeleteAccount(){
+  const btn=document.getElementById('daConfirmBtn'); const status=document.getElementById('daStatus');
+  if(!btn||btn.disabled) return;
+  btn.disabled=true; btn.textContent='Deleting\u2026'; if(status) status.textContent='Deleting your account\u2026';
+  try{
+    const { data, error } = await _supabase.functions.invoke('delete-account', { body: { confirm: true } });
+    if(error) throw error;
+    if(data && data.ok===false) throw new Error('Deletion did not complete. Please try again or contact support.');
+    if(status) status.textContent='Your account has been deleted.';
+    try { await _supabase.auth.signOut(); } catch(e){}
+    localStorage.clear();
+    setTimeout(function(){ location.href='marketing.html'; }, 1200);
+  }catch(err){
+    console.error('[Settings] confirmDeleteAccount:', err);
+    if(status) status.textContent=(err && err.message) ? err.message : 'Could not delete account. Please try again.';
+    btn.disabled=false; btn.textContent='Delete permanently';
+  }
+}
