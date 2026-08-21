@@ -4151,70 +4151,7 @@ async function downloadPdf() {
 // PDF.js script is loaded before livemarket.js so pdfjsLib is already available
 renderMarketReportPdf();
 
-(async function loadYoutubeEmbed() {
-    const { data } = await _sb.from('site_settings').select('value').eq('key', 'youtube_url').single();
-    if (!data?.value) return;
-    if (localStorage.getItem('rm_hide_video') === '1') return;
-    try {
-        const u = new URL(data.value);
-        let videoId = null;
-        if (u.hostname.includes('youtu.be')) {
-            videoId = u.pathname.slice(1);
-        } else if (u.hostname.includes('youtube.com')) {
-            if (u.pathname === '/watch') videoId = u.searchParams.get('v');
-            else if (u.pathname.startsWith('/live/')) videoId = u.pathname.split('/live/')[1].split('?')[0];
-            else if (u.pathname.startsWith('/embed/')) videoId = u.pathname.split('/embed/')[1].split('?')[0];
-        }
-        if (!videoId) return;
-
-        const section = document.getElementById('ytEmbedSection');
-        section.style.display = 'block';
-        const vidCourtesy = document.getElementById('videoCourtesy');
-        if (vidCourtesy) vidCourtesy.style.display = 'flex';
-
-        // Load YouTube IFrame API
-        const tag = document.createElement('script');
-        tag.src = 'https://www.youtube.com/iframe_api';
-        document.head.appendChild(tag);
-
-        // Override the global callback
-        window.onYouTubeIframeAPIReady = function() {
-            _ytPlayer = new YT.Player('ytEmbedFrame', {
-                videoId,
-                width: '100%',
-                height: '100%',
-                playerVars: { autoplay: 1, mute: 1, rel: 0, modestbranding: 1, playsinline: 1 },
-                events: {
-                    onReady: function(e) {
-                        const autoMute = localStorage.getItem('rm_automute_video') !== '0';
-                        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-                        if (autoMute || isMobile) {
-                            _ytMuted = true;
-                            e.target.mute();
-                            const btn = document.getElementById('ytMuteBtn');
-                            if (btn) btn.innerHTML = '<i class="fas fa-volume-xmark"></i>';
-                            if (isMobile) {
-                                const hint = document.getElementById('ytMuteHint');
-                                if (hint) hint.style.display = 'block';
-                            }
-                        } else {
-                            _ytMuted = false;
-                            try { e.target.unMute(); e.target.setVolume(100); } catch {}
-                            const btn = document.getElementById('ytMuteBtn');
-                            if (btn) btn.innerHTML = '<i class="fas fa-volume-high"></i>';
-                        }
-                        updateFilterBarTop();
-                    },
-                    onStateChange: function(e) {
-                    }
-                }
-            });
-        };
-
-        updateFilterBarTop();
-        window.addEventListener('resize', updateFilterBarTop);
-    } catch {}
-})();
+// (Market Pulse YouTube embed removed — no third-party content)
 
 // Sync top padding on mobile for fixed header
 function syncTopPadding() {
