@@ -207,3 +207,21 @@ async function confirmDeleteAccount(){
     btn.disabled=false; btn.textContent='Delete permanently';
   }
 }
+
+
+/* ── Blocked users (App Store Guideline 1.2) ── */
+function _rmbrEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+async function loadBlockedUsers(){
+  const el=document.getElementById('blockedUsersList'); if(!el||!window.RMBR) return;
+  const list=await RMBR.listBlocked();
+  if(!list.length){ el.innerHTML='<div class="blocked-empty">You haven’t blocked anyone.</div>'; return; }
+  el.innerHTML=list.map(function(b){ return '<div class="blocked-row"><span class="blocked-name">'+_rmbrEsc(b.blocked_name||b.blocked_id)+'</span><button class="settings-btn blocked-unblock" onclick="unblockBlockedUser(\''+b.blocked_id+'\')">Unblock</button></div>'; }).join('');
+}
+async function unblockBlockedUser(id){
+  if(!window.RMBR) return;
+  const ok=await RMBR.unblockUser(id);
+  if(ok){ showSettingsNotificationToast('User unblocked.','success'); loadBlockedUsers(); }
+  else { showSettingsNotificationToast('Could not unblock. Please try again.','error'); }
+}
+document.addEventListener('rmbr:ready', loadBlockedUsers);
+document.addEventListener('DOMContentLoaded', function(){ setTimeout(loadBlockedUsers, 900); });

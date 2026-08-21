@@ -316,3 +316,13 @@
   .da-cancel{ background:#1e293b; color:#cbd5e1; }
   .settings-danger{ border-color:#7f1d1d; }
 }
+
+
+/* ── Blocked users list ── */
+.blocked-list{margin-top:6px;}
+.blocked-empty{font-size:13px;color:#94a3b8;padding:6px 0;}
+.blocked-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid #eef2f7;}
+.blocked-row:last-child{border-bottom:none;}
+.blocked-name{font-size:14px;color:#334155;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.blocked-unblock{width:auto;padding:6px 14px;font-size:13px;}
+@media (prefers-color-scheme:dark){ .blocked-row{border-color:#1e293b;} .blocked-name{color:#cbd5e1;} }

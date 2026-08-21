@@ -410,7 +410,7 @@ function renderConvList(filter) {
     const archived = _getConvFlagSet('archived');
 
     // Archived view shows ONLY archived chats; the normal view hides them.
-    const base = conversations.filter(c => _showingArchived ? archived.has(c.id) : !archived.has(c.id));
+    const base = conversations.filter(c => (_showingArchived ? archived.has(c.id) : !archived.has(c.id)) && !(window.RMBR && RMBR.isBlocked(c.otherUser && c.otherUser.id, c.otherUser && c.otherUser.name)));
 
     // When searching, match on the person's name OR on any message content in the
     // conversation. If a message matched (but the name didn't), surface that message
@@ -1310,6 +1310,14 @@ function _convAction(action, convId) {
             _toggleConvFlag('manualUnread', convId);
             _updateConvRow(convId);
             showToast('Conversation marked as unread.', 'success');
+        }
+    } else if (action === 'report') {
+        if (window.RMBR) RMBR.openReport({ type: 'message', contentId: conv.id, userId: conv.otherUser && conv.otherUser.id, userName: conv.otherUser && conv.otherUser.name });
+    } else if (action === 'block') {
+        if (window.RMBR && conv.otherUser) {
+            RMBR.blockUser(conv.otherUser.id, conv.otherUser.name).then(function (ok) {
+                if (ok) { if (activeConversationId === convId) backToConvList(); renderConvList(document.getElementById('chatConvSearch') && document.getElementById('chatConvSearch').value); }
+            });
         }
     }
 }

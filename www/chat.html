@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="vendor/googlefonts/fonts.css?v=1">
   <link rel="stylesheet" href="home.css?v=20260717l">
   <link rel="stylesheet" href="chat.css?v=20260730b">
+  <link rel="stylesheet" href="block-report.css?v=20260821br">
   <link rel="stylesheet" href="mobile-back.css">
   <link rel="stylesheet" href="safe-area.css">
   <script src="theme.js?v=20260812a"></script>
@@ -174,6 +175,8 @@
   <button type="button" id="convMoreMute" data-conv-action="mute"><i class="fas fa-bell-slash"></i><span>Mute Notifications</span></button>
   <button type="button" id="convMoreArchive" data-conv-action="archive"><i class="fas fa-box-archive"></i><span>Archive Chat</span></button>
   <button type="button" id="convMoreListings" data-conv-action="listings"><i class="fas fa-list-ul"></i><span>View Listings</span></button>
+  <button type="button" id="convMoreReport" data-conv-action="report"><i class="fas fa-flag"></i><span>Report</span></button>
+  <button type="button" id="convMoreBlock" class="chat-ctx-danger" data-conv-action="block"><i class="fas fa-ban"></i><span>Block User</span></button>
   <button type="button" id="convMoreDelete" class="chat-ctx-danger" data-conv-action="delete"><i class="fas fa-trash-can"></i><span>Delete Chat</span></button>
 </div>
 
@@ -249,7 +252,8 @@
 <script src="vendor/supabase-js.min.js?v=2.112.3"></script>
 <script src="compress.js"></script>
 <script src="auth-guard.js?v=20260815a"></script>
-<script src="chat.js?v=20260812l"></script>
+<script src="chat.js?v=20260821br"></script>
+<script src="block-report.js?v=20260821br"></script>
 <script src="location-engine.js?v=20260809b"></script>
 <script src="match-engine.js?v=20260821p1"></script>
 <script src="developers.js?v=36"></script>
