@@ -3222,6 +3222,59 @@ init();
 
 // ── Post Listing Modal ────────────────────────────
 let lmSelectedCat = null;
+
+// ── Phase 2a: structured composer (feature-gated) ──────────────
+let lmSelectedUnitType = null;
+const lmIsSupply      = cat => cat === 'FOR SALE' || cat === 'FOR RENT' || cat === 'FOR LEASE';
+const lmDefaultPeriod = cat => (cat === 'FOR RENT' || cat === 'FOR LEASE' || cat === 'WILLING TO RENT' || cat === 'WILLING TO LEASE') ? 'monthly' : 'total';
+const lmStructuredOn  = () => (typeof window.isFeatureEnabled === 'function') ? window.isFeatureEnabled('structuredComposer') : true;
+const _lmNum = id => { const v = parseFloat((document.getElementById(id)?.value||'').replace(/,/g,'')); return isNaN(v)?null:v; };
+const _lmInt = id => { const v = parseInt((document.getElementById(id)?.value||'').replace(/,/g,''),10); return isNaN(v)?null:v; };
+const _lmTxt = id => { const v = (document.getElementById(id)?.value||'').trim(); return v||null; };
+const _lmPrune = o => { const r={}; Object.keys(o).forEach(k=>{ if(o[k]!=null && o[k]!=='') r[k]=o[k]; }); return r; };
+function lmCanonProject(v){ const t=(v||'').trim(); if(!t) return null; const r=(window.RM_DEVELOPERS&&RM_DEVELOPERS.getProject)?RM_DEVELOPERS.getProject(t):null; return r?r.name:t; }
+function lmCanonCity(v){ const t=(v||'').trim(); if(!t) return null; const cs=(window.RM_LOC&&RM_LOC.extractCities)?RM_LOC.extractCities(t):[]; return cs&&cs.length?cs[0]:t; }
+function lmSetPeriod(p){ const s=document.getElementById('lmPricePeriod'); if(!s) return; s.dataset.period=p; s.querySelectorAll('.lm-seg-opt').forEach(o=>o.classList.toggle('active',o.dataset.period===p)); }
+function lmSyncCategoryUI(){ const sup=lmIsSupply(lmSelectedCat); document.querySelectorAll('#lmDetails .lm-req').forEach(el=>el.style.display=sup?'':'none'); const s=document.getElementById('lmPricePeriod'); if(s&&!s.dataset.userSet) lmSetPeriod(lmDefaultPeriod(lmSelectedCat)); }
+function lmCollectStructured(){
+  if(!lmStructuredOn()) return {};
+  const proj = lmCanonProject(document.getElementById('lmProject')?.value);
+  return _lmPrune({
+    price:_lmNum('lmPrice'),
+    price_period:(document.getElementById('lmPricePeriod')?.dataset.period)||lmDefaultPeriod(lmSelectedCat),
+    unit_type:lmSelectedUnitType,
+    location_city:(document.getElementById('lmLocationCity')?.dataset.canon)||lmCanonCity(document.getElementById('lmLocationCity')?.value),
+    location_area:_lmTxt('lmLocationArea'),
+    project:proj,
+    developer:_lmTxt('lmDeveloper')||((window.RM_DEVELOPERS&&proj)?RM_DEVELOPERS.getDeveloper(proj):null),
+    bedrooms:_lmInt('lmBedrooms'), bathrooms:_lmInt('lmBathrooms'),
+    floor_area_sqm:_lmNum('lmFloorArea'), parking:_lmInt('lmParking'),
+    furnishing:_lmTxt('lmFurnishing'), turnover_status:_lmTxt('lmTurnover'), floor_level:_lmInt('lmFloorLevel'),
+  });
+}
+function lmValidateStructured(s){
+  if(!lmStructuredOn()) return null;
+  if(lmIsSupply(lmSelectedCat)){
+    const miss=[]; if(s.price==null||s.price<=0) miss.push('Price'); if(!s.location_city) miss.push('Location'); if(!s.unit_type) miss.push('Unit type');
+    if(miss.length) return 'Please add: '+miss.join(', ')+'.';
+  }
+  const checks=[['price','Price'],['bedrooms','Beds'],['bathrooms','Baths'],['floor_area_sqm','Sqm'],['parking','Parking'],['floor_level','Floor']];
+  for(const kv of checks){ const k=kv[0], l=kv[1]; if(s[k]!=null && (isNaN(s[k])||s[k]<0)) return l+' must be a valid number.'; }
+  return null;
+}
+function lmDupFieldsFromStructured(s, content, category){
+  const p = parseListing({ content:content||'', id:null, category, price:s.price, unit_type:s.unit_type,
+                           location_city:s.location_city, location_area:s.location_area, project:s.project });
+  return {
+    category:String(category||'').trim().toUpperCase(),
+    loc:(p.locations||[]).map(x=>String(x).toLowerCase().trim()).filter(Boolean).sort().join('|'),
+    price:(s.price!=null)?s.price:lmDupPrice(content),
+    project:p.project?p.project.toLowerCase().trim():'',
+    unitType:(p.unitTypes||[]).map(x=>String(x).toLowerCase().trim()).filter(Boolean).sort().join('|'),
+    unitNumber:extractUnitNumber(content)
+  };
+}
+
 // When set, the modal is editing an existing listing (its id) instead of creating
 // a new one — submitLMPost() runs an UPDATE and resetPostModal() clears it.
 let lmEditId      = null;
@@ -3285,6 +3338,24 @@ async function editListing(listingId) {
     lmSelectedCat = listing.category || null;
     document.querySelectorAll('.lm-cat-btn').forEach(b =>
         b.classList.toggle('selected', b.dataset.cat === lmSelectedCat));
+    if (lmStructuredOn()) {
+      const c = listing.content || '', setV=(id,v)=>{const el=document.getElementById(id); if(el&&v!=null&&v!=='') el.value=v;};
+      setV('lmPrice', listing.price ?? (window.RM_MATCH?RM_MATCH.extractPrice(c):null));
+      const ut = listing.unit_type ?? (window.RM_MATCH?RM_MATCH.unitTypesForMatch(c)[0]:null);
+      if(ut){ const chip=document.querySelector('#lmUnitTypes .lm-unit-chip[data-unit="'+ut+'"]'); if(chip){chip.classList.add('selected'); lmSelectedUnitType=ut;} }
+      const city = listing.location_city ?? (window.RM_LOC?RM_LOC.extractCities(c)[0]:null);
+      const ce=document.getElementById('lmLocationCity'); if(ce&&city){ce.value=city;ce.dataset.canon=city;}
+      setV('lmLocationArea', listing.location_area);
+      const proj = listing.project ?? (window.RM_MATCH?RM_MATCH.extractProject(c):null);
+      setV('lmProject', proj);
+      setV('lmDeveloper', listing.developer ?? ((proj&&window.RM_DEVELOPERS)?RM_DEVELOPERS.getDeveloper(proj):null));
+      setV('lmBedrooms', listing.bedrooms); setV('lmBathrooms', listing.bathrooms);
+      setV('lmFloorArea', listing.floor_area_sqm); setV('lmParking', listing.parking); setV('lmFloorLevel', listing.floor_level);
+      if(listing.furnishing){const el=document.getElementById('lmFurnishing'); if(el) el.value=listing.furnishing;}
+      if(listing.turnover_status){const el=document.getElementById('lmTurnover'); if(el) el.value=listing.turnover_status;}
+      if(listing.price_period){ lmSetPeriod(listing.price_period); const _pp=document.getElementById('lmPricePeriod'); if(_pp) _pp.dataset.userSet='1'; }
+    }
+    lmSyncCategoryUI();
 
     // Rehydrate Visibility Controls from the stored hidden_user_ids. Names/avatars
     // come from the user directory (fetched on demand); fall back to a bare chip
@@ -3462,6 +3533,14 @@ function resetPostModal() {
     if (visSearch) visSearch.value = '';
     const visResults = document.getElementById('lmVisResults');
     if (visResults) { visResults.hidden = true; visResults.innerHTML = ''; }
+    // Phase 2a structured fields
+    lmSelectedUnitType = null;
+    document.querySelectorAll('#lmUnitTypes .lm-unit-chip').forEach(c=>c.classList.remove('selected'));
+    ['lmPrice','lmBedrooms','lmBathrooms','lmFloorArea','lmParking','lmLocationArea','lmProject','lmDeveloper','lmFloorLevel','lmFurnishing','lmTurnover'].forEach(id=>{const el=document.getElementById(id); if(el) el.value='';});
+    const _ce=document.getElementById('lmLocationCity'); if(_ce){_ce.value='';_ce.dataset.canon='';}
+    const _seg=document.getElementById('lmPricePeriod'); if(_seg){delete _seg.dataset.userSet; lmSetPeriod('total');}
+    ['lmProjectMenu','lmLocCityMenu'].forEach(id=>{const m=document.getElementById(id); if(m){m.hidden=true;m.innerHTML='';}});
+    lmSyncCategoryUI();
     renderVisChips();
     updateVisSummary();
 }
@@ -3472,10 +3551,57 @@ document.getElementById('lmCatGrid')?.addEventListener('click', e => {
     document.querySelectorAll('.lm-cat-btn').forEach(b => b.classList.remove('selected'));
     btn.classList.add('selected');
     lmSelectedCat = btn.dataset.cat;
+    lmSyncCategoryUI();
     // Changing the category means it may no longer be a duplicate — clear the
     // Already-Posted alert and re-enable Post Now.
     if (_lmDupBlocked) lmClearDupAlert();
 });
+
+document.getElementById('lmUnitTypes')?.addEventListener('click', e=>{
+  const chip=e.target.closest('.lm-unit-chip'); if(!chip) return;
+  const on=chip.classList.contains('selected');
+  document.querySelectorAll('#lmUnitTypes .lm-unit-chip').forEach(c=>c.classList.remove('selected'));
+  if(on){ lmSelectedUnitType=null; } else { chip.classList.add('selected'); lmSelectedUnitType=chip.dataset.unit; }
+});
+document.getElementById('lmPricePeriod')?.addEventListener('click', e=>{
+  const o=e.target.closest('.lm-seg-opt'); if(!o) return;
+  document.getElementById('lmPricePeriod').dataset.userSet='1'; lmSetPeriod(o.dataset.period);
+});
+function lmInitProjectAutocomplete(){
+  const input=document.getElementById('lmProject'), menu=document.getElementById('lmProjectMenu'); if(!input||!menu) return; let t=null;
+  const render=q=>{ const nq=(q||'').trim().toLowerCase(); const all=(window.RM_DEVELOPERS&&RM_DEVELOPERS.all)||[];
+    if(!nq){menu.hidden=true;return;} const sc=[];
+    for(const p of all){ const n=(p.name||'').toLowerCase(), al=(p.aliases||[]).map(a=>a.toLowerCase()); let s=-1;
+      if(n.startsWith(nq))s=0; else if(n.includes(nq))s=1; else if(al.some(a=>a.startsWith(nq)))s=2; else if(al.some(a=>a.includes(nq)))s=3;
+      if(s>=0) sc.push([s,p]); }
+    sc.sort((a,b)=>a[0]-b[0]); const top=sc.slice(0,8); if(!top.length){menu.hidden=true;return;}
+    menu.innerHTML=top.map(pair=>{ const p=pair[1]; const sub=[p.developer,p.category,p.location].filter(Boolean).join(' · ');
+      return '<div class="lm-suggest-item" data-name="'+(p.name||'').replace(/"/g,'&quot;')+'"><div class="lm-suggest-name">'+p.name+'</div><div class="lm-suggest-sub">'+sub+'</div></div>'; }).join('');
+    menu.hidden=false;
+    menu.querySelectorAll('.lm-suggest-item').forEach(el=>el.addEventListener('mousedown',ev=>{ev.preventDefault(); lmPickProject(el.dataset.name); menu.hidden=true;})); };
+  input.addEventListener('input',()=>{clearTimeout(t);t=setTimeout(()=>render(input.value),120);});
+  input.addEventListener('focus',()=>{ if(input.value.trim()) render(input.value); });
+  input.addEventListener('blur',()=>setTimeout(()=>menu.hidden=true,150));
+}
+function lmPickProject(name){
+  const pe=document.getElementById('lmProject'); pe.value=name;
+  const rec=(window.RM_DEVELOPERS&&RM_DEVELOPERS.getProject)?RM_DEVELOPERS.getProject(name):null; if(!rec) return;
+  const de=document.getElementById('lmDeveloper'); if(rec.developer && !de.value.trim()) de.value=rec.developer;
+  const ce=document.getElementById('lmLocationCity');
+  if(rec.location && ce && !ce.dataset.canon){ const c=(window.RM_LOC&&RM_LOC.extractCities)?RM_LOC.extractCities(rec.location)[0]:null; if(c){ce.value=c;ce.dataset.canon=c;} }
+}
+function lmInitLocationPicker(){
+  const input=document.getElementById('lmLocationCity'), menu=document.getElementById('lmLocCityMenu'); if(!input||!menu) return;
+  const groups=(window.RM_LOC&&RM_LOC.filterOptions)?RM_LOC.filterOptions():[]; const cities=[];
+  groups.forEach(g=>g.options.forEach(o=>{ if(o.value.indexOf('city:')===0) cities.push(o.label); })); let t=null;
+  const render=q=>{ const nq=(q||'').trim().toLowerCase(); const list=(nq?cities.filter(c=>c.toLowerCase().indexOf(nq)>=0):cities).slice(0,12);
+    menu.innerHTML=list.map(c=>'<div class="lm-suggest-item" data-city="'+c.replace(/"/g,'&quot;')+'">'+c+'</div>').join(''); menu.hidden=!list.length;
+    menu.querySelectorAll('.lm-suggest-item').forEach(el=>el.addEventListener('mousedown',ev=>{ev.preventDefault(); input.value=el.dataset.city; input.dataset.canon=el.dataset.city; menu.hidden=true;})); };
+  input.addEventListener('input',()=>{input.dataset.canon='';clearTimeout(t);t=setTimeout(()=>render(input.value),100);});
+  input.addEventListener('focus',()=>render(input.value));
+  input.addEventListener('blur',()=>setTimeout(()=>menu.hidden=true,150));
+}
+lmInitProjectAutocomplete(); lmInitLocationPicker();
 
 const LM_MAX_IMAGES = 10;
 
@@ -3697,6 +3823,10 @@ async function submitLMPost() {
     const localUser = JSON.parse(localStorage.getItem('user'));
     if (!localUser)      { status.className = 'lm-post-status error'; status.textContent = 'You must be logged in to post.'; return; }
 
+    const structured = lmCollectStructured();
+    const sErr = lmValidateStructured(structured);
+    if (sErr) { status.className = 'lm-post-status error'; status.textContent = sErr; return; }
+
     const isAnon = false;
 
     const btn = document.getElementById('lmSubmitBtn');
@@ -3717,7 +3847,8 @@ async function submitLMPost() {
                 .from('listings').select('id, content, category')
                 .eq('user_id', dupUid).eq('archived', false);
             if (!dupErr && myListings && myListings.length) {
-                const neu = lmDupFields(content, lmSelectedCat);
+                const neu = lmStructuredOn() ? lmDupFieldsFromStructured(structured, content, lmSelectedCat)
+                                             : lmDupFields(content, lmSelectedCat);
                 // When editing, the post being changed must not count as a duplicate
                 // of itself.
                 const others = lmEditId ? myListings.filter(l => String(l.id) !== String(lmEditId)) : myListings;
@@ -3776,6 +3907,7 @@ async function submitLMPost() {
                 content,
                 hidden_user_ids: hiddenUsers.length ? hiddenUsers : null
             };
+            Object.assign(editRow, _lmPrune(structured));
             if (imageUrls.length) {
                 editRow.image_urls = imageUrls;
                 editRow.cover_image_url = coverUrl;
@@ -3820,6 +3952,7 @@ async function submitLMPost() {
             is_anonymous: isAnon,
             archived:     false,
             pinned:       false,
+            ..._lmPrune(structured),
             ...(hiddenUsers.length     ? { hidden_user_ids:  hiddenUsers }     : {})
         };
 

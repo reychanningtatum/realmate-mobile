@@ -9,11 +9,11 @@
   <link rel="stylesheet" href="vendor/googlefonts/fonts.css?v=1">
   <script src="vendor/supabase-js.min.js?v=2.112.3"></script>
 <script src="auth-guard.js?v=20260815a"></script>
-  <link rel="stylesheet" href="livemarket.css?v=20260814c">
+  <link rel="stylesheet" href="livemarket.css?v=20260821p2a">
   <link rel="stylesheet" href="mobile-back.css">
   <script src="theme.js?v=20260812a"></script>
   <script src="toast.js?v=20260819a"></script>
-  <script src="featureFlags.js?v=20260717a"></script>
+  <script src="featureFlags.js?v=20260821p2a"></script>
 <link rel="stylesheet" href="safe-area.css">
 </head>
 <body>
@@ -270,6 +270,77 @@
         <button class="lm-cat-btn cat-wlease" data-cat="WILLING TO LEASE">Willing to Lease</button>
       </div>
 
+      <!-- Phase 2a: structured property details -->
+      <div class="lm-details" id="lmDetails">
+        <div class="lm-details-head">Property details
+          <span class="lm-details-hint">Required for For Sale / Rent / Lease</span></div>
+
+        <div class="lm-field">
+          <label class="lm-field-label" for="lmPrice">Price <span class="lm-req">*</span></label>
+          <div class="lm-price-row">
+            <input type="number" inputmode="numeric" min="0" step="1000" id="lmPrice" class="lm-input" placeholder="e.g. 12500000">
+            <div class="lm-seg" id="lmPricePeriod" data-period="total">
+              <button type="button" class="lm-seg-opt active" data-period="total">Total</button>
+              <button type="button" class="lm-seg-opt" data-period="monthly">/ month</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="lm-field">
+          <label class="lm-field-label">Unit type <span class="lm-req">*</span></label>
+          <div class="lm-unit-chips" id="lmUnitTypes">
+            <button type="button" class="lm-unit-chip" data-unit="Studio">Studio</button>
+            <button type="button" class="lm-unit-chip" data-unit="1BR">1BR</button>
+            <button type="button" class="lm-unit-chip" data-unit="2BR">2BR</button>
+            <button type="button" class="lm-unit-chip" data-unit="3BR">3BR</button>
+            <button type="button" class="lm-unit-chip" data-unit="4BR">4BR</button>
+            <button type="button" class="lm-unit-chip" data-unit="Lot">Lot</button>
+            <button type="button" class="lm-unit-chip" data-unit="House & Lot">House &amp; Lot</button>
+            <button type="button" class="lm-unit-chip" data-unit="Townhouse">Townhouse</button>
+            <button type="button" class="lm-unit-chip" data-unit="Office">Office</button>
+            <button type="button" class="lm-unit-chip" data-unit="Commercial">Commercial</button>
+          </div>
+        </div>
+
+        <div class="lm-field lm-suggest-wrap">
+          <label class="lm-field-label" for="lmLocationCity">Location (city) <span class="lm-req">*</span></label>
+          <input type="text" id="lmLocationCity" class="lm-input" placeholder="Search city or CBD…" autocomplete="off" data-canon="">
+          <div class="lm-suggest-menu" id="lmLocCityMenu" hidden></div>
+        </div>
+
+        <div class="lm-field">
+          <label class="lm-field-label" for="lmLocationArea">Area / district <span class="lm-opt">optional</span></label>
+          <input type="text" id="lmLocationArea" class="lm-input" placeholder="e.g. Salcedo Village">
+        </div>
+
+        <div class="lm-field lm-suggest-wrap">
+          <label class="lm-field-label" for="lmProject">Project <span class="lm-opt">optional</span></label>
+          <input type="text" id="lmProject" class="lm-input" placeholder="Start typing a project…" autocomplete="off">
+          <div class="lm-suggest-menu" id="lmProjectMenu" hidden></div>
+        </div>
+
+        <div class="lm-field">
+          <label class="lm-field-label" for="lmDeveloper">Developer <span class="lm-opt">optional</span></label>
+          <input type="text" id="lmDeveloper" class="lm-input" placeholder="Auto-fills from project">
+        </div>
+
+        <div class="lm-grid-4">
+          <div class="lm-field"><label class="lm-field-label" for="lmBedrooms">Beds <span class="lm-opt">opt</span></label><input type="number" min="0" step="1" id="lmBedrooms" class="lm-input"></div>
+          <div class="lm-field"><label class="lm-field-label" for="lmBathrooms">Baths <span class="lm-opt">opt</span></label><input type="number" min="0" step="1" id="lmBathrooms" class="lm-input"></div>
+          <div class="lm-field"><label class="lm-field-label" for="lmFloorArea">Sqm <span class="lm-opt">opt</span></label><input type="number" min="0" step="0.1" id="lmFloorArea" class="lm-input"></div>
+          <div class="lm-field"><label class="lm-field-label" for="lmParking">Parking <span class="lm-opt">opt</span></label><input type="number" min="0" step="1" id="lmParking" class="lm-input"></div>
+        </div>
+
+        <div class="lm-grid-3">
+          <div class="lm-field"><label class="lm-field-label" for="lmFurnishing">Furnishing <span class="lm-opt">opt</span></label>
+            <select id="lmFurnishing" class="lm-input"><option value="">—</option><option>Bare</option><option>Semi-Furnished</option><option>Fully Furnished</option></select></div>
+          <div class="lm-field"><label class="lm-field-label" for="lmTurnover">Turnover <span class="lm-opt">opt</span></label>
+            <select id="lmTurnover" class="lm-input"><option value="">—</option><option>RFO</option><option>Pre-Selling</option><option>Turnover Ready</option></select></div>
+          <div class="lm-field"><label class="lm-field-label" for="lmFloorLevel">Floor <span class="lm-opt">opt</span></label>
+            <input type="number" min="0" step="1" id="lmFloorLevel" class="lm-input"></div>
+        </div>
+      </div>
+
       <label class="lm-field-label" for="lmPostText">Describe your listing</label>
       <textarea id="lmPostText" class="lm-textarea" placeholder="Project, unit type, price, location…" rows="5" oninput="if (_lmDupBlocked) lmClearDupAlert();"></textarea>
 
@@ -376,7 +447,7 @@
   <script src="match-engine.js?v=20260821p1"></script>
 <script src="developers.js?v=36"></script>
 <script src="rm-track.js?v=2"></script>
-  <script src="livemarket.js?v=20260821p1"></script>
+  <script src="livemarket.js?v=20260821p2a"></script>
   <script src="match-alert.js?v=9"></script>
   <script src="notif-badge.js?v=12"></script>
   <script src="nav-menu.js?v=20260809a"></script>

@@ -27,6 +27,13 @@
   'use strict';
 
   var FEATURES = {
+    structuredComposer: {
+      enabled: true,
+      version: 'v2',
+      label: 'Structured Listing Composer',
+      notes: 'Phase 2a. Structured property fields in the Portal post modal (livemarket.html/js). Logic-gated in livemarket.js via isFeatureEnabled("structuredComposer").',
+      selectors: ['#lmDetails']
+    },
     forum: {
       enabled: false,
       version: 'v2',
