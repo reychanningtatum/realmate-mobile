@@ -95,13 +95,21 @@ workflows:
         # @capacitor/assets writes AppIcon + splash into ios/App/App/Assets.xcassets.
         # Runs AFTER 'npx cap add ios' (the project must exist) and before build.
         script: npx capacitor-assets generate --ios
-      - name: Set ITSAppUsesNonExemptEncryption = false in the generated Info.plist
-        # ios/App/App/Info.plist is generated (not committed), so set the export-
-        # compliance key here to avoid the "Missing Compliance" hold on TestFlight.
+      - name: Set required Info.plist keys (export compliance + camera/photo usage)
+        # ios/App/App/Info.plist is generated (not committed). Set export compliance
+        # to avoid the "Missing Compliance" TestFlight hold, AND the camera/photo
+        # usage strings the registration (Alveo ID) + composer photo pickers need:
+        # a web <input type=file> invokes the native picker, and without these keys
+        # iOS hard-crashes on the first photo tap and App Review rejects the build.
         script: |
           PLIST=ios/App/App/Info.plist
-          /usr/libexec/PlistBuddy -c "Add :ITSAppUsesNonExemptEncryption bool false" "$PLIST" 2>/dev/null \
-            || /usr/libexec/PlistBuddy -c "Set :ITSAppUsesNonExemptEncryption false" "$PLIST"
+          plist_set() {
+            /usr/libexec/PlistBuddy -c "Add :$1 $2 $3" "$PLIST" 2>/dev/null \
+              || /usr/libexec/PlistBuddy -c "Set :$1 $3" "$PLIST"
+          }
+          plist_set ITSAppUsesNonExemptEncryption bool false
+          plist_set NSCameraUsageDescription string "Realmate uses the camera so you can take and upload photos of your property listings and verification documents."
+          plist_set NSPhotoLibraryUsageDescription string "Realmate accesses your photos so you can attach listing images and upload your Alveo ID for account verification."
       - name: Apply App Store signing profiles fetched via the integration
         # Pulls/creates the distribution cert + provisioning profile (team RYT2TFV64G)
         # using the App Store Connect API key, then writes them into the Xcode project.
