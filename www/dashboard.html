@@ -14,6 +14,7 @@
   <!-- Live Market post styles (scoped under .lm-post-embed) so the profile's
        Listings section renders each post exactly like the Portal. -->
   <link rel="stylesheet" href="listing-card.css?v=20260812l">
+  <link rel="stylesheet" href="block-report.css?v=20260822br">
   <script src="theme.js?v=20260812a"></script>
   <script src="toast.js?v=20260819a"></script>
   <script src="featureFlags.js?v=20260822off"></script>
@@ -152,6 +153,8 @@
                             <div class="profile-more-menu" id="profileMoreMenu">
                                 <a href="#" onclick="event.preventDefault(); toggleProfileMoreMenu(event); openEditModal();" id="profileMoreEditLink" class="mobile-only-menu-item edit-only"><i class="fas fa-pen"></i> <span>Edit Profile</span></a>
                                 <a href="#" onclick="shareProfileLink(event)"><i class="fas fa-share-nodes"></i> <span>Share Profile</span></a>
+                                <a href="#" onclick="event.preventDefault(); toggleProfileMoreMenu(event); rmbrReportProfile();" id="profileMoreReportLink" style="display:none;"><i class="fas fa-flag"></i> <span>Report User</span></a>
+                                <a href="#" onclick="event.preventDefault(); toggleProfileMoreMenu(event); rmbrBlockProfile();" id="profileMoreBlockLink" style="display:none;"><i class="fas fa-ban"></i> <span>Block User</span></a>
                                 <a href="settings.html" id="profileMoreSettingsLink" style="display:none;"><i class="fas fa-gear"></i> Settings</a>
                             </div>
                         </div>
@@ -605,8 +608,9 @@
 <script src="match-engine.js?v=20260821p1"></script>
 <script src="developers.js?v=36"></script>
 <script src="livemarket.js?v=20260822a"></script>
-<script src="dashboard-script.js?v=20260814a"></script>
+<script src="dashboard-script.js?v=20260822br"></script>
 <script src="home.js?v=20260813j"></script>
+<script src="block-report.js?v=20260822br"></script>
 <script src="congrats.js?v=20260810b"></script>
 <script src="match-alert.js?v=9"></script>
 <script src="notif-badge.js?v=12"></script>

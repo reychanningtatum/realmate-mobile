@@ -45,6 +45,21 @@ function effectivelyViewingOtherProfile() {
     return _isViewingOther && window._isViewingOther_override !== false;
 }
 
+// ── Report / Block this profile's owner (App Store Guideline 1.2) ──
+// Wired to the profile "More options" menu; only shown when viewing another
+// member (see the effectivelyViewingOther branch in the profile loader).
+function rmbrReportProfile() {
+    if (!window.RMBR || !_viewUserId) return;
+    RMBR.openReport({ type: 'user', userId: _viewUserId, userName: (typeof user !== 'undefined' && user && user.name) || null });
+}
+async function rmbrBlockProfile() {
+    if (!window.RMBR || !_viewUserId) return;
+    const nm = (typeof user !== 'undefined' && user && user.name) || null;
+    const ok = await RMBR.blockUser(_viewUserId, nm);
+    // On success their content must disappear — leave the now-hidden profile.
+    if (ok) location.href = 'home.html';
+}
+
 // Shown in place of Posts/Listings on a non-Realmate's profile, and (via
 // listing-detail.html, which loads this same file) in place of a listing's
 // full content. Reuses the existing handleAddMate button (mates.js) rather
@@ -1165,6 +1180,12 @@ async function loadProfile() {
         }
         const msgBtn = document.getElementById('profileMessageBtn');
         if (msgBtn) msgBtn.style.display = 'inline-flex';
+        // Report / Block this user (App Store Guideline 1.2) — only on another
+        // member's profile, and never your own.
+        const reportLink = document.getElementById('profileMoreReportLink');
+        if (reportLink) reportLink.style.display = 'flex';
+        const blockLink = document.getElementById('profileMoreBlockLink');
+        if (blockLink) blockLink.style.display = 'flex';
     } else {
         _applyEditProfileButtonVisibility();
         const settingsLink = document.getElementById('profileMoreSettingsLink');
