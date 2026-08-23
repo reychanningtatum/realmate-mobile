@@ -82,7 +82,17 @@ workflows:
         BUNDLE_ID: "com.realmate.app"
         APPLE_TEAM_ID: "RYT2TFV64G"           # team behind the "Codemagic Realmate" integration
         APP_STORE_APPLE_ID: 6802656686        # numeric App Store Connect app id (build-number lookup)
-    # No 'triggering:' block => manual start only (no minutes until you click build).
+    # Auto-build: every push to master rebuilds and uploads to TestFlight, so the
+    # app tracks the code with no manual "Start build" click. Uses free-tier
+    # minutes per push (~3 min each); master is only pushed on deliberate releases.
+    # (Requires Codemagic's GitHub webhook, which is set up when the app is added.)
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: master
+          include: true
+          source: true
     scripts:
       - name: Install JS dependencies (reproducible)
         script: npm ci
