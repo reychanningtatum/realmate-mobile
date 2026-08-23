@@ -1031,6 +1031,18 @@ async function loadProfile() {
             const _authUser = (await _supabase.auth.getUser()).data.user;
             const myAuthId = _authUser?.id;
 
+            // UGC safety (App Store Guideline 1.2): a blocked user's profile cannot
+            // be viewed. Wait for RMBR's block list, then bounce back to the feed.
+            // Undo is Settings-only, so we do NOT offer an unblock here.
+            if (_viewUserId && _viewUserId !== myAuthId && window.RMBR) {
+                if (!RMBR.ready) { await new Promise(r => { const f = () => r(); document.addEventListener('rmbr:ready', f, { once: true }); setTimeout(f, 1500); }); }
+                if (RMBR.isBlocked(_viewUserId, null)) {
+                    if (typeof showToast === 'function') showToast('You blocked this user. Unblock in Settings to view their profile.');
+                    location.replace('home.html');
+                    return;
+                }
+            }
+
             // If the URL param is the current user's own ID, strip it and load normally
             if (_isViewingOther && _viewUserId === myAuthId) {
                 history.replaceState(null, '', 'dashboard.html');

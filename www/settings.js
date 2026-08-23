@@ -223,5 +223,23 @@ async function unblockBlockedUser(id){
   if(ok){ showSettingsNotificationToast('User unblocked.','success'); loadBlockedUsers(); }
   else { showSettingsNotificationToast('Could not unblock. Please try again.','error'); }
 }
+/* ── Blocked posts/listings (individually hidden items — undo lives ONLY here) ── */
+async function loadBlockedPosts(){
+  const el=document.getElementById('blockedPostsList'); if(!el||!window.RMBR||!RMBR.listBlockedPosts) return;
+  const list=await RMBR.listBlockedPosts();
+  if(!list.length){ el.innerHTML='<div class="blocked-empty">You haven’t hidden any posts.</div>'; return; }
+  el.innerHTML=list.map(function(b){
+    const kind=b.content_type==='listing'?'Listing':'Post';
+    const label=b.content_label?_rmbrEsc(b.content_label):(kind+' '+_rmbrEsc(b.content_id));
+    return '<div class="blocked-row"><span class="blocked-name"><strong>'+kind+'</strong> · '+label+'</span><button class="settings-btn blocked-unblock" onclick="unblockBlockedPost(\''+_rmbrEsc(b.content_type)+'\',\''+_rmbrEsc(b.content_id)+'\')">Unblock</button></div>';
+  }).join('');
+}
+async function unblockBlockedPost(type, id){
+  if(!window.RMBR||!RMBR.unblockPost) return;
+  const ok=await RMBR.unblockPost(type, id);
+  if(ok){ showSettingsNotificationToast((type==='listing'?'Listing':'Post')+' unblocked.','success'); loadBlockedPosts(); }
+  else { showSettingsNotificationToast('Could not unblock. Please try again.','error'); }
+}
 document.addEventListener('rmbr:ready', loadBlockedUsers);
-document.addEventListener('DOMContentLoaded', function(){ setTimeout(loadBlockedUsers, 900); });
+document.addEventListener('rmbr:ready', loadBlockedPosts);
+document.addEventListener('DOMContentLoaded', function(){ setTimeout(loadBlockedUsers, 900); setTimeout(loadBlockedPosts, 900); });

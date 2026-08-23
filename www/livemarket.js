@@ -1833,12 +1833,31 @@ function buildCardMenu(listing, { isOwner, canDismiss, isPinned }) {
             items += `<div class="lc-menu-item" onclick="event.stopPropagation(); closeLcMenu('${id}'); editListing('${id}')"><i class="fas fa-pen"></i> <span>Edit</span></div>`;
         }
         items += `<div class="lc-menu-item lc-menu-danger" onclick="event.stopPropagation(); closeLcMenu('${id}'); deleteListing('${id}')"><i class="fas fa-trash"></i> <span>Delete</span></div>`;
+    } else {
+        // UGC safety (App Store Guideline 1.2): Report + two separate blocks.
+        // Report listing / Block post (hides only this listing) / Block user
+        // (blocks the whole account across the app). Undo is Settings-only.
+        const uid = listing.user_id || '';
+        const uname = String(listing.user_name || '').replace(/'/g, "\\'");
+        items += `<div class="lc-menu-item" onclick="event.stopPropagation(); closeLcMenu('${id}'); lcReportListing('${id}')"><i class="fas fa-flag"></i> <span>Report listing</span></div>`;
+        items += `<div class="lc-menu-item" onclick="event.stopPropagation(); closeLcMenu('${id}'); lcHideListing('${id}')"><i class="fas fa-eye-slash"></i> <span>Block post</span></div>`;
+        items += `<div class="lc-menu-item lc-menu-danger" onclick="event.stopPropagation(); closeLcMenu('${id}'); lcBlockUser('${uid}','${uname}')"><i class="fas fa-ban"></i> <span>Block user</span></div>`;
     }
     return `<div class="lc-menu-wrap">
         <button class="lc-menu-btn" aria-label="Post options" onclick="toggleLcMenu('${id}', event)"><i class="fas fa-ellipsis-vertical"></i></button>
         <div class="lc-menu" id="lcmenu-${id}">${items}</div>
     </div>`;
 }
+
+// ── Portal UGC actions (Report / Block post / Block user) ──
+function _lcFindListing(id){ try { return (allListings||[]).find(l => String(l.id) === String(id)) || null; } catch(e){ return null; } }
+function lcReportListing(id){ const l=_lcFindListing(id); if(window.RMBR) RMBR.openReport({ type:'listing', contentId:id, userId:(l&&l.user_id)||null, userName:(l&&l.user_name)||null }); }
+async function lcHideListing(id){ const l=_lcFindListing(id); if(!window.RMBR) return; const label=(l&&l.user_name?l.user_name+' — ':'')+String((l&&(l.location_city||l.content))||'').slice(0,60); const ok=await RMBR.blockPost('listing', id, label||null); if(ok){ if(typeof applyFilters==='function') applyFilters(); else location.reload(); } }
+async function lcBlockUser(uid, uname){ if(!window.RMBR||!uid) return; const ok=await RMBR.blockUser(uid, uname||null); if(ok) location.reload(); }
+// RMBR loads asynchronously; re-filter once the block lists arrive or change so
+// blocked content never lingers on the first paint.
+document.addEventListener('rmbr:ready',  () => { if (typeof applyFilters === 'function') applyFilters(); });
+document.addEventListener('rmbr:changed', () => { if (typeof applyFilters === 'function') applyFilters(); });
 
 // ── Portal post action bar ────────────────────────
 // A clean footer. For other people's posts: a non-clickable "🔥 N Offers
@@ -2462,6 +2481,10 @@ function applyFilters() {
         const dismissedSet = getDismissedMatches();
         if (dismissedSet.size) pool = pool.filter(l => !dismissedSet.has(String(l.id)));
     }
+
+    // UGC safety (App Store Guideline 1.2): hide listings from whole-account
+    // blocks (Block user) and individually blocked listings (Block post).
+    if (window.RMBR) pool = pool.filter(l => !(RMBR.isBlocked(l.user_id, l.user_name) || RMBR.isPostBlocked('listing', l.id)));
 
     if (q)   pool = pool.filter(l => listingMatchesQuery(l, q));
     // Location filter. With the shared engine the dropdown value is level-encoded
@@ -4378,12 +4401,6 @@ function showSellerPopup(userId, name, img, job) {
     openAccountMenu({
         header: { type: 'identity', avatar: img, name, job },
         options: [
-            {
-                icon: 'fa-gear',
-                title: 'My Account',
-                sub: 'Manage your account and settings.',
-                onClick: () => { location.href = 'settings.html'; }
-            },
             {
                 icon: 'fa-user-tie',
                 title: 'View Profile',

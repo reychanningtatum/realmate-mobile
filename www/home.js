@@ -882,7 +882,7 @@ async function loadHomeFeed(feedEl, filterArg) {
         _homePosts = (posts || []).filter(p =>
             p.privacy !== 'private' ||
             (_viewer && (p.user_name === _viewer.name || p.user_id === _viewer.supabaseId))
-        ).filter(p => !(window.RMBR && RMBR.isBlocked(p.user_id, p.user_name)));
+        ).filter(p => !(window.RMBR && (RMBR.isBlocked(p.user_id, p.user_name) || RMBR.isPostBlocked('post', p.id))));
         if (!_homePosts.length) {
             feed.innerHTML = `<div class="hf-empty">
                 <i class="fas fa-newspaper"></i>
@@ -1048,7 +1048,8 @@ function buildHomePostCard(post, stats) {
             <div class="hf-post-menu" id="hfmenu-${post.id}" style="display:none;">
                 <div onclick="toggleSave('${post.id}')"><i class="fas fa-bookmark"></i> ${isSaved ? 'Unsave' : 'Save'} post</div>
                 ${!isOwn ? `<div onclick="rmbrReportPost('${post.id}')"><i class="fas fa-flag"></i> Report post</div>` : ''}
-                ${!isOwn ? `<div class="hf-menu-danger" onclick="rmbrBlockPost('${post.id}')"><i class="fas fa-ban"></i> Block user</div>` : ''}
+                ${!isOwn ? `<div onclick="rmbrHidePost('${post.id}')"><i class="fas fa-eye-slash"></i> Block post</div>` : ''}
+                ${!isOwn ? `<div class="hf-menu-danger" onclick="rmbrBlockUserFromPost('${post.id}')"><i class="fas fa-ban"></i> Block user</div>` : ''}
                 ${isOwn ? `<div onclick="pinPost('${post.id}')"><i class="fas fa-thumbtack"></i> Pin to profile</div>` : ''}
                 ${isOwn ? `<div class="hf-menu-danger" onclick="deleteHomePost('${post.id}')"><i class="fas fa-trash"></i> Delete</div>` : ''}
             </div>
@@ -1240,7 +1241,10 @@ function reactionSummaryHtml(reactCounts, postId) {
 
 function _rmbrFindPost(id){ try { return (_homePosts||[]).find(p=>String(p.id)===String(id)) || null; } catch(e){ return null; } }
 function rmbrReportPost(id){ const p=_rmbrFindPost(id); if(window.RMBR) RMBR.openReport({type:'post',contentId:id,userId:(p&&p.user_id)||null,userName:(p&&p.user_name)||null}); const m=document.getElementById('hfmenu-'+id); if(m) m.style.display='none'; }
-async function rmbrBlockPost(id){ const p=_rmbrFindPost(id); if(!p||!window.RMBR) return; const ok=await RMBR.blockUser(p.user_id||null, p.user_name||null); if(ok) location.reload(); }
+// Block POST — hides only this post; the author's other posts stay visible.
+async function rmbrHidePost(id){ const p=_rmbrFindPost(id); if(!window.RMBR) return; const m=document.getElementById('hfmenu-'+id); if(m) m.style.display='none'; const label=(p&&p.user_name?p.user_name+' — ':'')+String((p&&p.content)||'').slice(0,60); const ok=await RMBR.blockPost('post', id, label||null); if(ok){ const el=document.getElementById('hfpost-'+id); if(el&&el.remove) el.remove(); else location.reload(); } }
+// Block USER — blocks the whole account (all their content disappears everywhere).
+async function rmbrBlockUserFromPost(id){ const p=_rmbrFindPost(id); if(!p||!window.RMBR) return; const ok=await RMBR.blockUser(p.user_id||null, p.user_name||null); if(ok) location.reload(); }
 function togglePostMenu(postId) {
     const menu = document.getElementById(`hfmenu-${postId}`);
     if (!menu) return;

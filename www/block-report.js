@@ -16,6 +16,7 @@
       (window.supabase ? (window.__rmbrClient || (window.__rmbrClient = window.supabase.createClient(SB_URL, SB_KEY))) : null);
   }
   var blockedIds = new Set(), blockedNames = new Set();
+  var blockedPosts = new Set();   // keys "type:id" — individually hidden posts/listings
   var myId = null, ready = false;
 
   function myName() { try { var u = JSON.parse(localStorage.getItem('user') || '{}'); return (u && u.name) || null; } catch (e) { return null; } }
@@ -30,6 +31,12 @@
         if (row.blocker_id === myId) { if (row.blocked_id) blockedIds.add(row.blocked_id); if (row.blocked_name) blockedNames.add(String(row.blocked_name).toLowerCase()); }
         if (row.blocked_id === myId) { blockedIds.add(row.blocker_id); }
       });
+    } catch (e) {}
+    // Individually hidden posts/listings (separate from whole-account blocks).
+    // Fail-open: if the table isn't there yet, nothing is hidden.
+    try {
+      var bp = await sb.from('blocked_posts').select('content_type,content_id').eq('blocker_id', myId);
+      (bp.data || []).forEach(function (r) { if (r.content_id) blockedPosts.add(r.content_type + ':' + r.content_id); });
     } catch (e) {}
     ready = true;
     document.dispatchEvent(new CustomEvent('rmbr:ready'));
@@ -58,6 +65,28 @@
   async function listBlocked() {
     var sb = client(); if (!sb || !myId) return [];
     try { var q = await sb.from('user_blocks').select('blocked_id,blocked_name,created_at').eq('blocker_id', myId).order('created_at', { ascending: false }); return q.data || []; } catch (e) { return []; }
+  }
+
+  // ── Block a single post/listing (hides only that item; author stays visible) ──
+  function _pkey(type, id) { return (type || 'post') + ':' + String(id); }
+  function isPostBlocked(type, id) { return id != null && blockedPosts.has(_pkey(type, id)); }
+  async function blockPost(type, id, label) {
+    var sb = client(); if (!sb || !myId || id == null) return false;
+    try {
+      await sb.from('blocked_posts').upsert({ blocker_id: myId, content_type: type || 'post', content_id: String(id), content_label: label || null }, { onConflict: 'blocker_id,content_type,content_id', ignoreDuplicates: true });
+      blockedPosts.add(_pkey(type, id));
+      toast((type === 'listing' ? 'Listing' : 'Post') + ' hidden. Manage in Settings.');
+      document.dispatchEvent(new CustomEvent('rmbr:changed'));
+      return true;
+    } catch (e) { toast('Could not hide. Please try again.'); return false; }
+  }
+  async function unblockPost(type, id) {
+    var sb = client(); if (!sb || !myId || id == null) return false;
+    try { await sb.from('blocked_posts').delete().eq('blocker_id', myId).eq('content_type', type || 'post').eq('content_id', String(id)); blockedPosts.delete(_pkey(type, id)); document.dispatchEvent(new CustomEvent('rmbr:changed')); return true; } catch (e) { return false; }
+  }
+  async function listBlockedPosts() {
+    var sb = client(); if (!sb || !myId) return [];
+    try { var q = await sb.from('blocked_posts').select('content_type,content_id,content_label,created_at').eq('blocker_id', myId).order('created_at', { ascending: false }); return q.data || []; } catch (e) { return []; }
   }
 
   // ── Report modal ──
@@ -121,7 +150,8 @@
 
   function toast(m) { if (typeof window.showToast === 'function') window.showToast(m); }
 
-  window.RMBR = { init: init, isBlocked: isBlocked, blockUser: blockUser, unblockUser: unblockUser, listBlocked: listBlocked, openReport: openReport };
+  window.RMBR = { init: init, isBlocked: isBlocked, blockUser: blockUser, unblockUser: unblockUser, listBlocked: listBlocked, openReport: openReport,
+    isPostBlocked: isPostBlocked, blockPost: blockPost, unblockPost: unblockPost, listBlockedPosts: listBlockedPosts };
   Object.defineProperty(window.RMBR, 'ready', { get: function () { return ready; } });
   Object.defineProperty(window.RMBR, 'myId', { get: function () { return myId; } });
   if (document.readyState !== 'loading') init(); else document.addEventListener('DOMContentLoaded', init);
