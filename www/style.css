@@ -730,7 +730,7 @@
     /* Hide subtitle inside card since it's in the header now */
     .subtitle { display: none; }
 
-    .logo { width: 130px; }
+    .logo { width: 155px; }
 
     .purpose-footer {
       background: #0f172a;

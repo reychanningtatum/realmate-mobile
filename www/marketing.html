@@ -426,6 +426,8 @@
   @media(max-width:860px){
     .desktop-only{display:none!important;}
     .nav-in{height:60px;}
+    /* Logo scrolls with the page on mobile instead of sticking to the top. */
+    nav{position:static;}
     /* On mobile the sticky bottom bar carries Sign In + Get Started, so the
        top nav is just the logo — avoids a redundant Get Started at the top. */
     .nav-links{display:none;}
@@ -481,7 +483,6 @@
     .reveal{transition:none;opacity:1;transform:none;}
   }
 </style>
-  <link rel="stylesheet" href="safe-area.css">
 </head>
 <body>
 
