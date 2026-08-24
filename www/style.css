@@ -695,18 +695,18 @@
       z-index: 0;
     }
 
-    /* Brand tagline — first flex item, sits in the dark header */
+    /* Brand slogan banner — the login.png image fills the dark header.
+       aspect-ratio matches the source (2938x1292) so the full banner shows
+       edge-to-edge with no cropping; its own dark sky blends into #080f1a. */
     .right-panel::before {
-      content: "Post. Match. Connect.";
+      content: "";
       display: block;
       width: 100%;
-      text-align: center;
-      color: rgba(50,205,50,0.75);
-      font-family: 'Inter', sans-serif;
-      font-size: 12px;
-      font-weight: 600;
-      letter-spacing: 0.8px;
-      padding-top: 28px;
+      /* Ratio box: padding-top = 1292/2938 = 43.98% keeps the banner's
+         proportions on every iOS WebView (older ones lack aspect-ratio). */
+      height: 0;
+      padding-top: 43.98%;
+      background: url('images/login.png') center center / cover no-repeat;
       position: relative;
       z-index: 1;
     }
@@ -718,7 +718,8 @@
       padding: 32px 24px 44px;
       box-shadow: none;
       border: none;
-      margin-top: 100px;
+      /* Rounded card rises over the bottom edge of the slogan banner. */
+      margin-top: -24px;
       z-index: 1;
       position: relative;
       flex: 1;
