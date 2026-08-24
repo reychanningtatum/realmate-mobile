@@ -697,7 +697,7 @@
 
     /* Brand tagline — first flex item, sits in the dark header */
     .right-panel::before {
-      content: "Connect. Match. Close Deals.";
+      content: "Post. Match. Connect.";
       display: block;
       width: 100%;
       text-align: center;
