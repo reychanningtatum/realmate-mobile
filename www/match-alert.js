@@ -98,7 +98,7 @@
             el.textContent = `
                 .seg-tab{position:relative;}
                 .seg-tab-match-badge{position:absolute;top:2px;right:6px;background:#ef4444;color:#fff;font-size:9px;font-weight:800;min-width:15px;height:15px;border-radius:8px;display:flex;align-items:center;justify-content:center;padding:0 3px;line-height:1;box-shadow:0 2px 6px rgba(239,68,68,0.45);pointer-events:none;z-index:5;}
-                #rmMatchBanner{position:fixed;top:14px;left:50%;transform:translateX(-50%) translateY(-160%);width:calc(100% - 24px);max-width:520px;z-index:100000;
+                #rmMatchBanner{position:fixed;top:calc(14px + env(safe-area-inset-top));left:50%;transform:translateX(-50%) translateY(-160%);width:calc(100% - 24px);max-width:520px;z-index:100000;
                     display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:14px;
                     background:linear-gradient(135deg,#0f172a,#1e3a5f);border:1px solid #32cd32;
                     box-shadow:0 12px 34px -8px rgba(0,0,0,0.55),0 0 0 1px rgba(50,205,50,0.15);
