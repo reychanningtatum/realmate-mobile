@@ -702,11 +702,13 @@
       content: "";
       display: block;
       width: 100%;
-      /* Ratio box: padding-top = 1292/2938 = 43.98% keeps the banner's
-         proportions on every iOS WebView (older ones lack aspect-ratio). */
-      height: 0;
-      padding-top: 43.98%;
-      background: url('images/login.png') center center / cover no-repeat;
+      /* Explicit viewport-width height keeps the login.png banner's ratio
+         (1292/2938 = 44%) reliably inside the flex column — percentage
+         padding is fragile on flex items. flex-shrink off so it can't collapse. */
+      height: 44vw;
+      max-height: 260px;
+      flex: 0 0 auto;
+      background: url('images/login.png') center top / cover no-repeat;
       position: relative;
       z-index: 1;
     }
