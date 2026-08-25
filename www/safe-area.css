@@ -43,3 +43,33 @@ body {
 .top-fixed-wrap {
   top: env(safe-area-inset-top);
 }
+
+/* ==========================================================================
+   TAB SWITCHING — cross-document View Transitions
+   --------------------------------------------------------------------------
+   Bottom-nav tabs are separate pages; a normal navigation re-renders the bar
+   and shows the WKWebView "brownout" flash. The View Transitions API holds the
+   old page until the new one is ready (kills the flash) and animates the swap
+   — no SPA rewrite. The bottom nav is pulled into its own transition group,
+   frozen (0s), so it stays perfectly fixed while the page content pans.
+   Progressive enhancement: engines without support (older iOS) just navigate
+   instantly as before — no regression. Needs WebKit 18.2+ (iOS 18.2 / iOS 26).
+   ========================================================================== */
+@view-transition { navigation: auto; }
+
+/* Keep the bottom bar completely stationary — no move, resize, or re-render. */
+.mobile-bottom-nav { view-transition-name: rm-bottom-nav; }
+::view-transition-group(rm-bottom-nav),
+::view-transition-old(rm-bottom-nav),
+::view-transition-new(rm-bottom-nav) { animation-duration: 0s !important; }
+
+/* Content pans: new tab slides in from the right, old eases out left. Fast +
+   subtle so navigation still feels instant. */
+::view-transition-old(root) { animation: rm-tab-out 240ms cubic-bezier(.4,0,.2,1) both; }
+::view-transition-new(root) { animation: rm-tab-in  240ms cubic-bezier(.4,0,.2,1) both; }
+@keyframes rm-tab-out { to   { transform: translateX(-16%); opacity: 0; } }
+@keyframes rm-tab-in  { from { transform: translateX(16%);  opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root), ::view-transition-new(root) { animation: none; }
+}
