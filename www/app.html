@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <style id="rm-flash-guard">html{background-color:#f4f7fa}</style>
+  <title>Realmate</title>
+  <link rel="stylesheet" href="vendor/fontawesome/css/all.min.css?v=6.5.0">
+  <link rel="stylesheet" href="vendor/googlefonts/fonts.css?v=1">
+  <!-- home.css carries the .mobile-bottom-nav styling; the shell layout below
+       overrides html/body so the feed layout rules stay inert. -->
+  <link rel="stylesheet" href="home.css?v=20260812a">
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #f4f7fa;
+      font-family: 'Inter', sans-serif; }
+
+    /* Nav bar height + the device's bottom safe-area = the space reserved below
+       the content host. The bar itself is fixed to the very bottom. */
+    :root { --rm-navh: 56px; }
+    .mobile-bottom-nav {
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 200;
+      box-sizing: content-box;
+      padding-bottom: env(safe-area-inset-bottom);
+      view-transition-name: rm-bottom-nav;
+    }
+
+    /* Persistent content host: fills everything ABOVE the nav bar. Tab iframes
+       stack inside it; only the active one shows. */
+    #rmHost {
+      position: fixed; top: 0; left: 0; right: 0;
+      bottom: calc(var(--rm-navh) + env(safe-area-inset-bottom));
+      background: #f4f7fa; overflow: hidden;
+      view-transition-name: rm-content;
+    }
+    .rm-frame { position: absolute; inset: 0; width: 100%; height: 100%;
+      border: 0; background: #f4f7fa; display: none; }
+    .rm-frame.rm-active { display: block; }
+    #rmLoading { position: absolute; inset: 0; display: flex; align-items: center;
+      justify-content: center; color: #32cd32; font-size: 30px; z-index: 0; }
+    #rmLoading.rm-hide { display: none; }
+
+    /* SAME-document tab transition. The content host pans; the nav bar is a
+       frozen group so it never moves, fades, or blinks. No document swap = no
+       whole-app flash. */
+    ::view-transition-group(rm-bottom-nav) { animation: none !important; }
+    ::view-transition-old(rm-bottom-nav),
+    ::view-transition-new(rm-bottom-nav) { animation: none !important; opacity: 1 !important; }
+    ::view-transition-old(rm-content) { animation: rm-tab-out 240ms cubic-bezier(.4,0,.2,1) both; }
+    ::view-transition-new(rm-content) { animation: rm-tab-in  240ms cubic-bezier(.4,0,.2,1) both; }
+    @keyframes rm-tab-out { to   { transform: translateX(-16%); } }
+    @keyframes rm-tab-in  { from { transform: translateX(16%);  } }
+    @media (prefers-reduced-motion: reduce) {
+      ::view-transition-old(rm-content), ::view-transition-new(rm-content) { animation: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="rmHost"><div id="rmLoading"><i class="fas fa-spinner fa-spin"></i></div></div>
+
+  <!-- One nav bar for the whole app — rendered once, never reloaded. Same
+       icons as the per-page bar so notif-badge.js still attaches. -->
+  <nav class="mobile-bottom-nav">
+    <a class="mob-nav-item active" data-tab="home" onclick="rmTab('home')"><i class="fas fa-border-all"></i><span>Feed</span></a>
+    <a class="mob-nav-item" data-tab="chat" onclick="rmTab('chat')"><i class="fas fa-comment-dots"></i><span>Chat</span></a>
+    <a class="mob-nav-item mob-nav-center" data-tab="portal" onclick="rmTab('portal')"><i class="fas fa-globe"></i><span>Portal</span></a>
+    <a class="mob-nav-item" data-tab="notifications" onclick="rmTab('notifications')"><i class="fas fa-bell"></i><span>Notifications</span></a>
+    <div class="mob-nav-item mob-nav-avatar-wrap" onclick="toggleNavMenu(event)">
+      <div class="mob-nav-avatar" id="navAvatar"><i class="fas fa-user-tie" style="font-size:13px;"></i></div>
+      <span>Me</span>
+      <div class="mob-nav-menu" id="navMenu">
+        <a href="#" onclick="event.preventDefault(); rmMe('dashboard.html')"><i class="fas fa-user-tie"></i> Profile</a>
+        <a href="#" onclick="event.preventDefault(); rmMe('realmates.html')"><i class="fas fa-user-group"></i> Realmates</a>
+        <a href="#" onclick="event.preventDefault(); rmMe('settings.html')"><i class="fas fa-cog"></i> Settings</a>
+        <a href="#" onclick="event.preventDefault(); logout()"><i class="fas fa-sign-out-alt"></i> Logout</a>
+      </div>
+    </div>
+  </nav>
+
+  <script src="vendor/supabase-js.min.js?v=2.112.3"></script>
+  <script src="theme.js?v=20260812a"></script>
+  <script src="toast.js?v=20260819a"></script>
+  <script src="auth-guard.js?v=20260815a"></script>
+  <script src="notif-badge.js?v=12"></script>
+  <script src="app-shell.js?v=1"></script>
+  <script src="nav-menu.js?v=20260809a"></script>
+</body>
+</html>

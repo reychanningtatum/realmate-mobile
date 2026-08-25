@@ -611,7 +611,10 @@ async function login(){
       successSpan.textContent = "Login successful. Redirecting you now…";
     }
     successEl.style.display = "flex";
-    setTimeout(() => location.href = "livemarket.html", 1400);
+    // Mobile / native app lands in the persistent tab shell (app.html); desktop
+    // web keeps its sidebar layout. Opens on Portal, matching the old target.
+    var _rmDest = (window.Capacitor || window.matchMedia("(max-width: 900px)").matches) ? "app.html?tab=portal" : "livemarket.html";
+    setTimeout(() => location.href = _rmDest, 1400);
 
   } catch(err) {
     showLoginError("Something went wrong. Please try again.");
