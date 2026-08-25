@@ -57,18 +57,27 @@ body {
    ========================================================================== */
 @view-transition { navigation: auto; }
 
-/* Keep the bottom bar completely stationary — no move, resize, or re-render. */
+/* Keep the bottom bar continuously painted and stationary. Both snapshots are
+   held fully OPAQUE and un-animated (not a 0s fade) so there is never a frame
+   where the bar is faded or gapped — it simply never blinks. */
 .mobile-bottom-nav { view-transition-name: rm-bottom-nav; }
-::view-transition-group(rm-bottom-nav),
+::view-transition-group(rm-bottom-nav) { animation: none !important; }
 ::view-transition-old(rm-bottom-nav),
-::view-transition-new(rm-bottom-nav) { animation-duration: 0s !important; }
+::view-transition-new(rm-bottom-nav) {
+  animation: none !important;
+  opacity: 1 !important;
+  mix-blend-mode: normal !important;
+}
 
-/* Content pans: new tab slides in from the right, old eases out left. Fast +
-   subtle so navigation still feels instant. */
+/* Content pans: new tab slides in from the right, old eases out left. The slide
+   is OPAQUE — no opacity fade — because a cross-fade briefly lets the app
+   background bleed through both half-transparent snapshots (the "whole-app
+   blink"). With ±16% travel the two full-viewport snapshots always overlap, so
+   the incoming page covers the outgoing with no gap and no background flash. */
 ::view-transition-old(root) { animation: rm-tab-out 240ms cubic-bezier(.4,0,.2,1) both; }
 ::view-transition-new(root) { animation: rm-tab-in  240ms cubic-bezier(.4,0,.2,1) both; }
-@keyframes rm-tab-out { to   { transform: translateX(-16%); opacity: 0; } }
-@keyframes rm-tab-in  { from { transform: translateX(16%);  opacity: 0; } }
+@keyframes rm-tab-out { to   { transform: translateX(-16%); } }
+@keyframes rm-tab-in  { from { transform: translateX(16%);  } }
 
 @media (prefers-reduced-motion: reduce) {
   ::view-transition-old(root), ::view-transition-new(root) { animation: none; }
