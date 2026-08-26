@@ -2563,6 +2563,16 @@ document.addEventListener('DOMContentLoaded', () => {
             // re-minimizes them into the FAB (see evaluate). This mirrors Portal
             // and is NOT a jump-to-top like tapping the Feed tab.
             setHidden(false);
+            // The tap hides the FAB (pointer-events:none), so WebKit's follow-up
+            // "ghost" click would fall THROUGH to whatever is now under it — e.g.
+            // a post's Share button. Swallow that one click so tapping Search only
+            // ever triggers Search, never something behind it.
+            var swallow = function (ev) {
+                ev.preventDefault(); ev.stopPropagation();
+                document.removeEventListener('click', swallow, true);
+            };
+            document.addEventListener('click', swallow, true);
+            setTimeout(function () { document.removeEventListener('click', swallow, true); }, 500);
         }
     }
     fab.addEventListener('pointerup', endDrag);

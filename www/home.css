@@ -1308,9 +1308,19 @@ html[data-theme="dark"] .hf-comment-tool:hover { background: #243044; }
 .feed-search-fab { display: none; } /* base: hidden on desktop; the mobile block below re-enables it */
 @media (max-width: 768px) {
   .home-search-wrap {
-    position: sticky; top: 0; z-index: 50;
+    /* Pin BELOW the status bar / notch (was top:0, which tucked it under the
+       clock + battery and made search hard to reach). The solid var(--bg) plus
+       the padding-bottom give the pinned top bar an opaque backing down to the
+       write-a-post box, and the ::before fills the status-bar strip above it —
+       so the feed never shows through the header. */
+    position: sticky; top: env(safe-area-inset-top); z-index: 50;
     background: var(--bg);
+    padding-bottom: 12px; margin-bottom: 0;
     transition: transform 0.25s ease, opacity 0.25s ease;
+  }
+  .home-search-wrap::before {
+    content: ""; position: absolute; left: 0; right: 0; bottom: 100%;
+    height: env(safe-area-inset-top); background: var(--bg);
   }
   .home-search-wrap.search-hidden { transform: translateY(-140%); opacity: 0; pointer-events: none; }
 
@@ -1320,8 +1330,12 @@ html[data-theme="dark"] .hf-comment-tool:hover { background: #243044; }
      is what lets a FAB tap display BOTH search + write-a-post in place without
      scrolling. Mobile only; the desktop feed layout is untouched. */
   .create-post-card {
+    /* Pin just UNDER the search bar's bottom edge (which extends to ~54px via
+       its padding). The small overlap is hidden by the search bar's opaque bg
+       (higher z-index), so there's no transparent seam for the feed to show
+       through between the two — one continuous solid header. */
     position: sticky;
-    top: 56px;
+    top: calc(env(safe-area-inset-top) + 48px);
     z-index: 49;
     transition: transform 0.25s ease, opacity 0.25s ease;
   }
