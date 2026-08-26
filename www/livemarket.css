@@ -1962,6 +1962,20 @@ html[data-theme="dark"] .mate-status-received { border-color: #60a5fa; color: #6
 
 @media (min-width: 769px) {
   .yt-embed-wrap { margin-bottom: 12px; }
+
+  /* Desktop: center the Portal in a fixed-width column so posts occupy the
+     central portion of the screen instead of stretching full width, leaving
+     reserved side space (for future content) either side — mirroring the
+     Dashboard's centered-content feel. main-content is a flex child, so
+     margin-inline:auto absorbs the extra track and centers it; the sticky top
+     bar centers along with it. Below 769px the sidebar is hidden and this whole
+     block is inert, so the mobile layout keeps its full-width responsiveness. */
+  .main-content {
+    max-width: 960px;
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+  }
 }
 
 @media (min-width: 769px) and (max-width: 1100px) {

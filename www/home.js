@@ -2508,7 +2508,15 @@ document.addEventListener('DOMContentLoaded', () => {
     function evaluate() {
         const y = getY();
         const dy = y - lastY;
+        const vh = window.innerHeight || 0;
+        const docH = document.documentElement.scrollHeight || 0;
+        const scrollable = docH > vh + 20;
+        // At the very bottom, the momentum settle / rubber-band bounce fires a
+        // small upward dy that used to reveal the bar and hide the FAB. Keep the
+        // FAB visible there instead (Bug 6): reaching the bottom must not drop it.
+        const nearBottom = scrollable && y > REVEAL_ZONE && (y + vh) >= (docH - 4);
         if (input && input.value)                    setHidden(false); // never hide mid-search
+        else if (nearBottom)                         setHidden(true);  // bottom of feed → FAB stays visible
         else if (y <= REVEAL_ZONE)                   setHidden(false); // near the top → shown
         else if (dy <= -UP_DELTA)                    setHidden(false); // any upward scroll → reveal + hide FAB
         else if (dy >= DOWN_DELTA && y > HIDE_AFTER)  setHidden(true);  // downward past depth → minimize
@@ -2545,7 +2553,15 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!dragging) return; dragging = false;
         fab.classList.remove('dragging');
         try { fab.releasePointerCapture(e.pointerId); } catch (_) {}
-        if (!moved) setHidden(false); // tap → restore the search bar (scroll unchanged)
+        if (!moved) {
+            // Tap → bring back BOTH the search bar and the write-a-post box.
+            // Unlike Portal (whole bar is sticky), the Feed's write-a-post lives
+            // in the scroll flow, so restoring both means scrolling to the top;
+            // the scroll handler then reveals the bar and hides the FAB (Bug 5).
+            try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (_) { window.scrollTo(0, 0); }
+            if (mc) { try { mc.scrollTo({ top: 0, behavior: 'smooth' }); } catch (_) { mc.scrollTop = 0; } }
+            setHidden(false);
+        }
     }
     fab.addEventListener('pointerup', endDrag);
     fab.addEventListener('pointercancel', endDrag);

@@ -24,6 +24,31 @@
 
   function el(x) { return typeof x === 'string' ? document.querySelector(x) : x; }
 
+  // Subtle "refresh" blip, synthesized via Web Audio (no asset to ship). Played
+  // ONCE at the moment the refresh actually triggers — never during scrolling or
+  // while merely pulling. The pull gesture is a user interaction, so audio is
+  // allowed to start here. Soft sine with a quick pitch drop + short envelope;
+  // low gain so it stays non-intrusive. One shared AudioContext, resumed lazily.
+  var _actx = null;
+  function playRefreshSound() {
+    try {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      if (!_actx) _actx = new AC();
+      if (_actx.state === 'suspended') _actx.resume();
+      var t = _actx.currentTime;
+      var o = _actx.createOscillator(), g = _actx.createGain();
+      o.type = 'sine';
+      o.frequency.setValueAtTime(660, t);
+      o.frequency.exponentialRampToValueAtTime(430, t + 0.12);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.07, t + 0.02); // ~ -23 dB peak: audible but gentle
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.19);
+      o.connect(g); g.connect(_actx.destination);
+      o.start(t); o.stop(t + 0.22);
+    } catch (e) { /* audio is best-effort; never disrupt the refresh */ }
+  }
+
   function init(opts) {
     opts = opts || {};
     var content = el(opts.content || opts.scroller);
@@ -118,6 +143,7 @@
       active = false;
       if (dist >= THRESHOLD) {
         busy = true;
+        playRefreshSound();                 // subtle blip — only when refresh truly triggers
         if (arrow) arrow.className = 'fas fa-spinner';
         if (label) { labelEl.textContent = label; ind.classList.add('rm-has-label'); }
         ind.classList.add('rm-busy');
@@ -126,10 +152,19 @@
         moveInd(REST);
         ind.style.opacity = '1';
         setTimeout(function () {
+          // The spinner must NEVER hang. onRefresh (e.g. loadLedger) awaits
+          // network calls that can occasionally stall with no timeout of their
+          // own — if its promise never settles, the old code left the indicator
+          // spinning forever and, because `busy` stayed true, disabled the whole
+          // gesture. Settle on whichever comes first: onRefresh finishing, or a
+          // hard safety cap. `done` is idempotent so it can only finish once.
+          var settled = false;
+          function done() { if (settled) return; settled = true; finish(); }
           var r;
           try { r = onRefresh(); } catch (e) { r = null; }
-          if (r && typeof r.then === 'function') { r.then(finish, finish); }
-          else { setTimeout(finish, 500); }
+          if (r && typeof r.then === 'function') { r.then(done, done); }
+          else { setTimeout(done, 500); }
+          setTimeout(done, 7000); // safety cap: guarantees the spinner clears
         }, 260);
       } else {
         reset();
