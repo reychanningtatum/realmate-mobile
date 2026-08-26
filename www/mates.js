@@ -949,6 +949,12 @@ async function handleRemoveMate(btn, userName) {
         btn.outerHTML = `<button class="${baseClass}" onclick="handleAddMate(this,'${userName.replace(/'/g, "\\'")}')">
                               <i class="fas fa-user-plus"></i> Add as Mate
                          </button>`;
+        // #5: hide this ex-Realmate's content in real time everywhere. A
+        // same-origin storage event reaches the other shell iframes; the Feed
+        // re-checks post access + drops now-hidden posts, and the Profile (if
+        // you're on their page) re-gates posts/listings/About.
+        try { localStorage.setItem('rm_mate_removed', JSON.stringify({ name: userName, t: Date.now() })); } catch (e) {}
+        try { window.dispatchEvent(new CustomEvent('rm:mate_removed', { detail: { name: userName } })); } catch (e) {}
     } else {
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-user-group"></i> Realmates';

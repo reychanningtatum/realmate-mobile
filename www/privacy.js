@@ -61,5 +61,38 @@
     return out;
   }
 
-  window.RMPriv = { can: can, resolve: resolve };
+  // Batch: given a list of owner ids (e.g. the authors of a feed of posts),
+  // return the set of owners whose POSTS the current viewer may see — my own,
+  // Public accounts, and accounts I follow (accepted) or am Realmates with. Runs
+  // a small fixed number of queries regardless of feed size (vs resolve() per
+  // owner), so the Feed can filter efficiently. Fails open to "only mine +
+  // public" on error (never leaks Private content).
+  //   -> { set: Set<string ownerId>, myId: string|null }
+  async function postAccessSet(ownerIds) {
+    var res = { set: new Set(), myId: null };
+    try {
+      var c = sb(); if (!c) return res;
+      var ids = []; var seen = {};
+      (ownerIds || []).forEach(function (o) { var s = o && String(o); if (s && !seen[s]) { seen[s] = 1; ids.push(s); } });
+      var me = (await c.auth.getUser()).data.user;
+      var myId = me && me.id; res.myId = myId || null;
+      if (myId) res.set.add(String(myId));                 // my own posts always
+      if (!ids.length) return res;
+      var pub = await c.from('profiles').select('id').in('id', ids).eq('is_public', true);
+      (pub.data || []).forEach(function (r) { res.set.add(String(r.id)); });
+      if (myId) {
+        var fol = await c.from('follows').select('following_id')
+          .eq('follower_id', myId).eq('status', 'accepted').in('following_id', ids);
+        (fol.data || []).forEach(function (r) { res.set.add(String(r.following_id)); });
+        var mts = await c.from('mates').select('requester_id,recipient_id')
+          .eq('status', 'accepted').or('requester_id.eq.' + myId + ',recipient_id.eq.' + myId);
+        (mts.data || []).forEach(function (r) {
+          res.set.add(String(String(r.requester_id) === String(myId) ? r.recipient_id : r.requester_id));
+        });
+      }
+    } catch (e) { /* fail open to mine + public */ }
+    return res;
+  }
+
+  window.RMPriv = { can: can, resolve: resolve, postAccessSet: postAccessSet };
 })();

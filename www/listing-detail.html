@@ -348,7 +348,7 @@
 <script src="vendor/supabase-js.min.js?v=2.112.3"></script>
 <script src="auth-guard.js?v=20260826a"></script>
 <script src="visibility.js?v=20260812j"></script>
-<script src="mates.js?v=20260814c"></script>
+<script src="mates.js?v=20260826a"></script>
 <script src="nav-menu.js?v=20260826a"></script>
 <script src="location-engine.js?v=20260809b"></script>
 <script src="match-engine.js?v=20260821p1"></script>
@@ -1001,38 +1001,11 @@ async function loadListing(){
     } catch(e) { console.warn('[Visibility] listing-detail guard failed', e); }
   }
 
-  // Realmate-gated listing access — a non-Realmate must not be able to view
-  // the full listing via a direct link either, not just via search results.
-  // Skipped for the owner's own listing and for anonymous ones (there's no
-  // identifiable poster to gate against without breaking the anonymity).
-  // Fails closed: a lookup error hides the listing rather than showing it.
-  if (!isOwner && !isAnon && listing.user_id) {
-    // Resolve the FULL relationship (not just 'accepted') so an already-pending
-    // request — possibly sent from another tab/page — is recognized here and the
-    // gate shows the pending state instead of another "Add as Realmate" button.
-    // state: 'none' | 'pending-sent' | 'pending-incoming' | 'accepted'.
-    let mateState = 'none';
-    try {
-      if (myAuthId) {
-        const { data: mateRows } = await _sb
-          .from('mates')
-          .select('status, requester_id')
-          .or(`and(requester_id.eq.${myAuthId},recipient_id.eq.${listing.user_id}),and(requester_id.eq.${listing.user_id},recipient_id.eq.${myAuthId})`)
-          .limit(1);
-        const row = mateRows && mateRows[0];
-        if (row) {
-          if (row.status === 'accepted') mateState = 'accepted';
-          else if (row.status === 'pending') mateState = (row.requester_id === myAuthId) ? 'pending-sent' : 'pending-incoming';
-        }
-      }
-    } catch (e) { console.warn('[RealmateGate] listing-detail check failed', e); }
-
-    if (mateState !== 'accepted') {
-      container.className = '';
-      container.innerHTML = ldGateWrap(mateState, name, img, listing.user_job || '');
-      return;
-    }
-  }
+  // #12: a SPECIFIC listing is viewable even when the two users aren't Realmates
+  // (a listing lives in the public Portal marketplace — the Realmate gate applies
+  // to a seller's *full listings list*, not an individual listing you opened).
+  // The owner-hide check above (RMVisibility) still applies, so a listing hidden
+  // from you specifically stays hidden.
 
   container.className = '';
   container.innerHTML = `

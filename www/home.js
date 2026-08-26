@@ -881,12 +881,21 @@ async function loadHomeFeed(feedEl, filterArg, silent) {
 
         if (error) throw error;
 
-        // Privacy: hide other members' Private posts (full enforcement lands in Phase 3)
+        // Privacy: hide other members' Private *posts* (per-post setting) + blocked.
         const _viewer = user;
         _homePosts = (posts || []).filter(p =>
             p.privacy !== 'private' ||
             (_viewer && (p.user_name === _viewer.name || p.user_id === _viewer.supabaseId))
         ).filter(p => !(window.RMBR && (RMBR.isBlocked(p.user_id, p.user_name) || RMBR.isPostBlocked('post', p.id))));
+
+        // Account privacy (#8): drop posts whose AUTHOR has a Private account that
+        // this viewer isn't allowed into — not mine, not Public, and I don't
+        // follow (accepted) or share a Realmate connection with them.
+        if (window.RMPriv && typeof RMPriv.postAccessSet === 'function') {
+            const _owners = _homePosts.map(p => p.user_id).filter(Boolean);
+            const _access = await RMPriv.postAccessSet(_owners);
+            _homePosts = _homePosts.filter(p => !p.user_id || _access.set.has(String(p.user_id)));
+        }
         if (!_homePosts.length) {
             feed.innerHTML = `<div class="hf-empty">
                 <i class="fas fa-newspaper"></i>
@@ -1308,6 +1317,21 @@ async function confirmHomeDelete() {
 window.addEventListener('storage', function (e) {
     if (e.key === 'rm_post_deleted' && e.newValue) {
         try { var d = JSON.parse(e.newValue); if (d && d.id) document.getElementById('hfpost-' + d.id)?.remove(); } catch (_) {}
+    }
+    // #5: a Realmate was removed elsewhere — re-check post access and drop any
+    // posts in this feed that are no longer visible (e.g. that ex-Realmate's, if
+    // I don't otherwise follow them / they're not Public).
+    if (e.key === 'rm_mate_removed' && e.newValue && window.RMPriv && Array.isArray(typeof _homePosts !== 'undefined' ? _homePosts : null)) {
+        (async function () {
+            try {
+                var owners = _homePosts.map(function (p) { return p.user_id; }).filter(Boolean);
+                var access = await RMPriv.postAccessSet(owners);
+                _homePosts.forEach(function (p) {
+                    if (p.user_id && !access.set.has(String(p.user_id))) document.getElementById('hfpost-' + p.id)?.remove();
+                });
+                _homePosts = _homePosts.filter(function (p) { return !p.user_id || access.set.has(String(p.user_id)); });
+            } catch (_) {}
+        })();
     }
 });
 

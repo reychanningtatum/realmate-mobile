@@ -1025,6 +1025,22 @@ const _isViewingOther = !!_viewUserId;
 // to the Add action).
 let _viewMateState = null;
 
+// #5: when a Realmate is removed (here or in another shell tab), if we're viewing
+// THAT ex-Realmate's profile, re-run loadProfile so posts/listings/About re-gate
+// to the new non-Realmate access — no manual refresh.
+function _onMateRemovedRegate(name) {
+    try {
+        if (name && _isViewingOther && typeof user !== 'undefined' && user && user.name === name
+            && typeof loadProfile === 'function') {
+            loadProfile();
+        }
+    } catch (e) {}
+}
+window.addEventListener('rm:mate_removed', function (e) { _onMateRemovedRegate(e.detail && e.detail.name); });
+window.addEventListener('storage', function (e) {
+    if (e.key === 'rm_mate_removed' && e.newValue) { try { _onMateRemovedRegate(JSON.parse(e.newValue).name); } catch (_) {} }
+});
+
 async function loadProfile() {
     if (_supabase) {
         try {
@@ -1245,6 +1261,17 @@ async function loadProfile() {
         } else if (typeof loadHomeFeed === 'function') {
             loadHomeFeed(wallEl, { type: 'userId', value: targetId });
         }
+    }
+
+    // About (#8): the bio card + the private sublines follow the same access rule
+    // as posts — hide them for a viewer who isn't allowed in. Runs AFTER
+    // updateUI() (line ~1140) populated them, so this hide is the final word.
+    if (effectivelyViewingOther && !_canPosts) {
+        const _aboutCard = document.querySelector('.about-card');
+        if (_aboutCard) _aboutCard.style.display = 'none';
+        ['locationLine', 'relationshipLine', 'yearsLine', 'languagesLine'].forEach(function (id) {
+            var el = document.getElementById(id); if (el) el.style.display = 'none';
+        });
     }
 }
 
