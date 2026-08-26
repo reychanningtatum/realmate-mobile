@@ -1,4 +1,31 @@
 /* =========================================
+   EMBEDDED (iOS app shell) — hard guard against horizontal overflow
+   -----------------------------------------------------------------
+   In the mobile app shell (app.html iframe) WKWebView can lay this page out
+   WIDER than the phone screen — paragraphs render on a single line and drive the
+   iframe's content width past the viewport, clipping the right edge so cards,
+   text and the "Update Email" button get cut off (looks fine in a normal browser
+   at the same width, so it only shows on-device). Pin every container to the
+   shell width and force text to wrap so the content can never exceed the screen.
+   rm-embedded is set by the inline script in the page head; inert on the
+   standalone / desktop page. ========================================= */
+html.rm-embedded body { overflow-x: hidden; max-width: 100%; }
+html.rm-embedded .main-content,
+html.rm-embedded .settings-simple,
+html.rm-embedded .settings-page-header,
+html.rm-embedded .settings-card,
+html.rm-embedded .settings-row,
+html.rm-embedded .settings-field,
+html.rm-embedded .settings-input,
+html.rm-embedded .settings-btn { max-width: 100% !important; box-sizing: border-box; }
+html.rm-embedded .settings-card-title,
+html.rm-embedded .settings-card-sub,
+html.rm-embedded .settings-row-label,
+html.rm-embedded .settings-row-desc,
+html.rm-embedded .settings-card p,
+html.rm-embedded .settings-field > label { overflow-wrap: anywhere; word-break: break-word; }
+
+/* =========================================
    🏗️ SETTINGS — simple, focused layout
    ========================================= */
 .settings-simple {
