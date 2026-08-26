@@ -351,8 +351,8 @@
     </div>
   </div>
 </nav>
-<script src="pull-refresh.js?v=1"></script>
+<script src="pull-refresh.js?v=2"></script>
 <script src="nav-menu.js?v=20260809a"></script>
-<script>document.addEventListener("DOMContentLoaded",function(){if(window.rmPullRefresh)rmPullRefresh({scroller:".main-content"});});</script>
+<script>document.addEventListener("DOMContentLoaded",function(){if(window.rmPullRefresh)rmPullRefresh({scroller:".main-content",onRefresh:function(){return window.loadHomeFeed?loadHomeFeed():location.reload();}});});</script>
 </body>
 </html>

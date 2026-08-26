@@ -2592,9 +2592,9 @@ async function _resolveLiveAuthors(...arrays) {
     } catch (e) { console.warn('[LiveAuthors] resolve failed', e); }
 }
 
-async function loadLedger() {
+async function loadLedger(silent) {
     const grid = document.getElementById('listingsGrid');
-    grid.innerHTML = `<div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Loading listings…</p></div>`;
+    if (!silent) grid.innerHTML = `<div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Loading listings…</p></div>`;
 
     const localUser = JSON.parse(localStorage.getItem('user'));
 
@@ -2609,7 +2609,7 @@ async function loadLedger() {
     ]);
 
     if (error || !data) {
-        grid.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>Failed to load listings</p></div>`;
+        if (!silent) grid.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>Failed to load listings</p></div>`;
         return;
     }
 

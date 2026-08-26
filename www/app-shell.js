@@ -117,9 +117,31 @@
     go('me', url || TABS.me);
   };
 
+  // Auto-dismiss the account/profile dropdown: once it opens it closes itself
+  // after a short idle window, so it never lingers over a tab (e.g. sitting on
+  // the profile with the menu still up). Any tap inside the shell or a tab still
+  // closes it instantly via the existing listeners; this only handles the
+  // "opened it, did nothing" case. Watching the class avoids coupling to the
+  // toggle code in nav-menu.js.
+  function watchNavMenu() {
+    var m = document.getElementById('navMenu');
+    if (!m || m.__rmAutoClose) return;
+    m.__rmAutoClose = true;
+    var timer = null;
+    new MutationObserver(function () {
+      if (m.classList.contains('open')) {
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(function () { m.classList.remove('open'); }, 2600);
+      } else if (timer) {
+        clearTimeout(timer); timer = null;
+      }
+    }).observe(m, { attributes: true, attributeFilter: ['class'] });
+  }
+
   document.addEventListener('DOMContentLoaded', function () {
     host = document.getElementById('rmHost');
     loading = document.getElementById('rmLoading');
+    watchNavMenu();
     var t = new URLSearchParams(location.search).get('tab');
     go(TABS[t] ? t : 'home');
   });

@@ -1,25 +1,35 @@
 /* pull-refresh.js — Facebook-style pull-to-refresh.
  *
- *   rmPullRefresh({ scroller: '.main-content', onRefresh: fn })
+ *   rmPullRefresh({ scroller: '.main-content', onRefresh: fn })          // element scrolls
+ *   rmPullRefresh({ content: '.main-content', windowScroll: true, onRefresh: fn })  // page scrolls
  *
- * When the scroller is at the very top and the user drags DOWN, the content
- * itself follows the finger (rubber-band) with a spinner above it. Past the
- * threshold it snaps to a loading position and runs onRefresh (default: reload,
- * which re-fetches the latest posts). Only engages at scrollTop 0, so normal
- * scrolling is untouched. Touch-only, so it is inert on desktop.
+ * At the very top of the scroll, dragging DOWN makes the content follow the
+ * finger (rubber-band) with a spinner above it. Past the threshold it holds a
+ * loading position and runs onRefresh; when that resolves it snaps back with the
+ * fresh data. onRefresh should REFRESH DATA IN PLACE (not reload the page) so
+ * there is no empty-state / re-render flash. Only engages when the scroll is
+ * genuinely at the top, so scrolling elsewhere never triggers it. Touch-only.
  */
 (function () {
   'use strict';
 
+  function el(x) { return typeof x === 'string' ? document.querySelector(x) : x; }
+
   function init(opts) {
     opts = opts || {};
-    var scroller = typeof opts.scroller === 'string'
-      ? document.querySelector(opts.scroller) : opts.scroller;
-    if (!scroller || scroller.__rmPtr) return;
-    scroller.__rmPtr = true;
+    var content = el(opts.content || opts.scroller);
+    if (!content || content.__rmPtr) return;
+    content.__rmPtr = true;
+    var winScroll = !!opts.windowScroll;
+    var scrollEl = winScroll ? null : (el(opts.scroller) || content);
     var onRefresh = opts.onRefresh || function () { location.reload(); };
 
-    var THRESHOLD = 70, MAX = 110, DAMP = 0.55, REST = 48, IND_BASE = 46;
+    var THRESHOLD = 72, MAX = 110, DAMP = 0.55, REST = 48, IND_BASE = 46;
+
+    function scrollTop() {
+      return winScroll ? (window.pageYOffset || document.documentElement.scrollTop || 0)
+                       : (scrollEl.scrollTop || 0);
+    }
 
     if (!document.getElementById('rm-ptr-style')) {
       var st = document.createElement('style');
@@ -42,52 +52,59 @@
 
     var startY = 0, active = false, dist = 0, busy = false;
 
-    function atTop() { return scroller.scrollTop <= 0; }
-    function noEase() { scroller.style.transition = 'none'; ind.style.transition = 'none'; }
+    function atTop() { return scrollTop() <= 0; }
+    function noEase() { content.style.transition = 'none'; ind.style.transition = 'none'; }
     function ease() {
-      scroller.style.transition = 'transform .28s cubic-bezier(.2,.8,.2,1)';
+      content.style.transition = 'transform .28s cubic-bezier(.2,.8,.2,1)';
       ind.style.transition = 'transform .28s cubic-bezier(.2,.8,.2,1), opacity .2s';
     }
     function drag(pull) {
       var y = Math.min(pull, MAX);
-      scroller.style.transform = 'translateY(' + y + 'px)';   // content follows finger
+      content.style.transform = 'translateY(' + y + 'px)';
       ind.style.opacity = y > 6 ? '1' : '0';
       ind.style.transform = 'translateY(' + (y - IND_BASE) + 'px)';
       if (arrow) arrow.style.transform = 'rotate(' + (pull >= THRESHOLD ? 180 : 0) + 'deg)';
     }
     function reset() {
       ease();
-      scroller.style.transform = 'translateY(0)';
+      content.style.transform = 'translateY(0)';
       ind.classList.remove('rm-spin');
       ind.style.opacity = '0';
       ind.style.transform = 'translateY(-52px)';
     }
+    function done() { busy = false; reset(); }
 
-    scroller.addEventListener('touchstart', function (e) {
+    content.addEventListener('touchstart', function (e) {
+      // Only arm the gesture when the scroll is genuinely at the very top.
       if (busy || !atTop()) { active = false; return; }
       startY = e.touches[0].clientY; active = true; dist = 0; noEase();
     }, { passive: true });
 
-    scroller.addEventListener('touchmove', function (e) {
+    content.addEventListener('touchmove', function (e) {
       if (!active) return;
       var raw = e.touches[0].clientY - startY;
       if (raw <= 0 || !atTop()) { active = false; reset(); return; }
       dist = raw * DAMP;
       drag(dist);
-      if (raw > 6 && e.cancelable) e.preventDefault();   // suppress native overscroll while pulling
+      if (raw > 6 && e.cancelable) e.preventDefault(); // suppress native overscroll while pulling
     }, { passive: false });
 
-    scroller.addEventListener('touchend', function () {
+    content.addEventListener('touchend', function () {
       if (!active) return;
       active = false;
       if (dist >= THRESHOLD) {
         busy = true;
         ease();
-        scroller.style.transform = 'translateY(' + REST + 'px)';   // hold while refreshing
+        content.style.transform = 'translateY(' + REST + 'px)';
         ind.style.transform = 'translateY(' + (REST - IND_BASE) + 'px)';
         ind.style.opacity = '1';
         ind.classList.add('rm-spin');
-        setTimeout(onRefresh, 320);
+        setTimeout(function () {
+          var r;
+          try { r = onRefresh(); } catch (e) { r = null; }
+          if (r && typeof r.then === 'function') { r.then(done, done); }
+          else { setTimeout(done, 500); }
+        }, 260);
       } else {
         reset();
       }
