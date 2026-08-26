@@ -1085,7 +1085,7 @@ function offersOpenChat(userId, name) {
     // Reuse chat.html's handoff: opens the existing 1:1 conversation with this
     // user, or creates one if none exists yet.
     try { sessionStorage.setItem('openChatWith', JSON.stringify({ userId, name })); } catch (e) {}
-    location.href = 'chat.html';
+    rmGoChat();
 }
 async function showOffersReceived(listingId) {
     let overlay = document.getElementById('offersRxOverlay');
@@ -1279,7 +1279,7 @@ async function confirmOffer() {
         await new Promise(r => setTimeout(r, 700));
         closeOfferPopup();
         sessionStorage.setItem('openChatWith', JSON.stringify({ userId: ownerId, name: ownerName }));
-        location.href = 'chat.html';
+        rmGoChat();
 
     } catch(e) {
         console.warn('confirmOffer error', e);
@@ -4338,7 +4338,7 @@ function _ensureSellerPopup() {
                     </span>
                     <i class="fas fa-chevron-right sp-opt-arrow"></i>
                 </button>
-                <button id="sellerOptMessage" onclick="closeSellerPopup(); sessionStorage.setItem('openChatWith', JSON.stringify({userId:window._spUserId,name:window._spName})); location.href='chat.html'">
+                <button id="sellerOptMessage" onclick="closeSellerPopup(); sessionStorage.setItem('openChatWith', JSON.stringify({userId:window._spUserId,name:window._spName})); rmGoChat()">
                     <span class="sp-opt-icon sp-opt-icon-msg"><i class="fas fa-comment-dots"></i></span>
                     <span class="sp-opt-text">
                         <span class="sp-opt-title">Message</span>
@@ -4376,7 +4376,7 @@ function _ensureLockedPopup() {
                 <button id="spLockedAddBtn" onclick="handleAddMateFromLocked()">
                     <i class="fas fa-user-plus"></i> Add as Realmate
                 </button>
-                <button id="spLockedMsgBtn" onclick="closeLockedPopup(); sessionStorage.setItem('openChatWith', JSON.stringify({userId:window._spUserId,name:window._spName})); location.href='chat.html'">
+                <button id="spLockedMsgBtn" onclick="closeLockedPopup(); sessionStorage.setItem('openChatWith', JSON.stringify({userId:window._spUserId,name:window._spName})); rmGoChat()">
                     <i class="fas fa-comment-dots"></i> Message Instead
                 </button>
                 <button id="spLockedCancelBtn" onclick="closeLockedPopup()">Cancel</button>
@@ -4443,6 +4443,24 @@ function closeSelfPopup() {
     if (typeof closeAccountMenu === 'function') closeAccountMenu();
 }
 
+// Open the chat with a specific member. In the app shell this switches to the
+// REAL Chat tab (bottom-nav highlight + shown page stay in sync — not Portal with
+// chat merely opened underneath); standalone falls back to a full navigation.
+// The conversation to open is passed via sessionStorage (chat.html reads it).
+function rmGoChat() {
+    try {
+        if (window.self !== window.top && window.parent && typeof window.parent.rmOpen === 'function') {
+            window.parent.rmOpen('chat', 'chat.html');
+            return;
+        }
+    } catch (e) {}
+    rmGoChat();
+}
+function rmNavToChat(userId, name) {
+    try { sessionStorage.setItem('openChatWith', JSON.stringify({ userId: userId, name: name })); } catch (e) {}
+    rmGoChat();
+}
+
 function showSellerPopup(userId, name, img, job) {
     window._spUserId = userId;
     window._spName   = name;
@@ -4455,13 +4473,28 @@ function showSellerPopup(userId, name, img, job) {
                 icon: 'fa-user-tie',
                 title: 'View Profile',
                 sub: 'See this member’s Realmate profile.',
-                onClick: () => { if (userId) location.href = 'dashboard.html?user_id=' + userId; }
+                onClick: () => {
+                    if (!userId) return;
+                    // Blocked members' profiles can't be viewed (App Store 1.2) —
+                    // say so plainly instead of silently bouncing to the feed.
+                    if (window.RMBR && RMBR.isBlocked(userId, name)) {
+                        if (typeof showToast === 'function') showToast('You blocked this user. Unblock in Settings to view their profile.');
+                        return;
+                    }
+                    location.href = 'dashboard.html?user_id=' + userId;
+                }
             },
             {
                 icon: 'fa-store',
                 title: 'View Listings',
                 sub: 'Browse this member’s active listings.',
                 onClick: () => { if (typeof handleViewListings === 'function') handleViewListings(); }
+            },
+            {
+                icon: 'fa-comment-dots',
+                title: 'Send Message',
+                sub: 'Message this member directly.',
+                onClick: () => { if (userId) rmNavToChat(userId, name); }
             }
         ]
     });

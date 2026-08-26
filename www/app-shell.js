@@ -122,9 +122,21 @@
     var f = document.createElement('iframe');
     f.className = 'rm-frame';
     f.setAttribute('title', tab);
+    // The page the shell loaded as this tab's ROOT (filename only). When the
+    // iframe later navigates internally (Portal → a listing detail or a user's
+    // profile), its filename differs from this — that's how rmBack knows whether
+    // "back" means "return within the iframe" vs "go to the previous tab".
+    f.__root = (forceSrc || TABS[tab]).split('?')[0].split('/').pop();
     // Every load (incl. internal navigation + pull-to-refresh reloads): re-hide
-    // the embedded nav + re-arm the menu-close listeners.
-    f.addEventListener('load', function () { injectEmbedCss(f); });
+    // the embedded nav, re-arm the menu-close listeners, and note whether the
+    // iframe is now on a sub-page (navigated away from its root).
+    f.addEventListener('load', function () {
+      injectEmbedCss(f);
+      try {
+        var cur = f.contentWindow.location.pathname.split('/').pop();
+        f.__subpage = !!(f.__root && cur && cur !== f.__root);
+      } catch (e) {}
+    });
     // Once: reveal the frame after its first paint.
     f.addEventListener('load', function () {
       if (loading) loading.classList.add('rm-hide');
@@ -137,10 +149,24 @@
 
   // Public API used by the nav bar in app.html
   window.rmTab = function (tab) { if (TABS[tab]) go(tab); };
+  // Open a tab AND switch the shell to it, loading a specific URL — used by
+  // embedded pages to jump to another tab with context (e.g. Portal "Send
+  // Message" → the real Chat tab). This keeps the bottom-nav highlight and the
+  // shown page in sync (the requested tab is activated, not left underneath).
+  window.rmOpen = function (tab, url) { if (TABS[tab]) go(tab, url || TABS[tab]); };
   // In-shell "Back": return to the tab we came from (Profile → Portal, etc.).
   // Called by goBack() in embedded pages instead of history.back(), which in the
   // shared session history could jump to the marketing page.
-  window.rmBack = function () { go(prevTab && TABS[prevTab] ? prevTab : 'home'); };
+  window.rmBack = function () {
+    // If the current tab's iframe navigated to a sub-page (Portal → listing
+    // detail / a user's profile), "back" returns within that iframe to its
+    // previous page. Only when it's on the tab ROOT do we fall back to the
+    // previous TAB (Me → Profile → Portal) — never the shared browser history,
+    // which can walk back to the marketing page.
+    var f = frames[current];
+    if (f && f.__subpage) { try { f.contentWindow.history.back(); return; } catch (e) {} }
+    go(prevTab && TABS[prevTab] ? prevTab : 'home');
+  };
   window.rmMe = function (url) {
     var menu = document.getElementById('navMenu');
     if (menu) menu.classList.remove('open');

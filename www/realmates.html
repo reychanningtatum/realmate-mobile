@@ -206,6 +206,10 @@
 <script src="search-overlay.js?v=20260812k"></script>
 <script src="auth-guard.js?v=20260826a"></script>
 <script src="mates.js?v=20260814c"></script>
+<!-- RMBR (block list) so clicking a blocked Realmate can say "You blocked this
+     user" instead of the dashboard bouncing the view to the Feed. -->
+<link rel="stylesheet" href="block-report.css?v=20260823bp">
+<script src="block-report.js?v=20260823bp"></script>
 <script src="nav-menu.js?v=20260826a"></script>
 <script src="location-engine.js?v=20260809b"></script>
 <script src="match-engine.js?v=20260821p1"></script>
@@ -217,7 +221,15 @@ function avatarFallback(name) {
 }
 
 function goToProfile(userId) {
-  if (userId) location.href = `dashboard.html?user_id=${userId}`;
+  if (!userId) return;
+  // A blocked Realmate's profile can't be viewed (App Store 1.2). Say so here
+  // instead of navigating — the dashboard would otherwise bounce to the Feed,
+  // which looks like the click "went to Feed".
+  if (window.RMBR && RMBR.isBlocked(userId)) {
+    if (typeof showToast === 'function') showToast('You blocked this user. Unblock in Settings to view their profile.');
+    return;
+  }
+  location.href = `dashboard.html?user_id=${userId}`;
 }
 
 let _rmActiveTab = 'accepted';
