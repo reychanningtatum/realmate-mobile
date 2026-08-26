@@ -2473,6 +2473,18 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!wrap) return;
     const mc = document.querySelector('.main-content');
     const input = document.getElementById('homeSearchInput');
+
+    // Floating Search FAB — mirrors the Portal Search FAB. When the search bar
+    // minimizes on scroll-down (and the write-a-post box has scrolled away), this
+    // takes over so search stays one tap away. Tapping it restores the bar in
+    // place; it can be dragged anywhere (position kept in memory this session).
+    const fab = document.createElement('button');
+    fab.className = 'feed-search-fab';
+    fab.type = 'button';
+    fab.setAttribute('aria-label', 'Search');
+    fab.innerHTML = '<i class="fas fa-search"></i>';
+    document.body.appendChild(fab);
+
     const getY = () => Math.max(
         window.pageYOffset || 0,
         document.documentElement.scrollTop || 0,
@@ -2482,24 +2494,66 @@ document.addEventListener('DOMContentLoaded', () => {
     const HIDE_AFTER  = 80;  // only start hiding past this scroll depth
     const DOWN_DELTA  = 6;   // downward movement needed to hide (ignore jitter)
     const UP_DELTA    = 6;   // upward movement needed to reveal (ignore jitter)
+
+    let hidden = false;
+    function setHidden(next) {
+        if (next === hidden) return;
+        hidden = next;
+        wrap.classList.toggle('search-hidden', next); // slide the sticky search bar up
+        fab.classList.toggle('show', next);           // FAB takes over while minimized
+    }
+
     let lastY = getY();
     let ticking = false;
     function evaluate() {
         const y = getY();
         const dy = y - lastY;
-        if (input && input.value) {
-            wrap.classList.remove('search-hidden');       // never hide mid-search
-        } else if (y <= REVEAL_ZONE) {
-            wrap.classList.remove('search-hidden');        // near the top → shown
-        } else if (dy <= -UP_DELTA) {
-            wrap.classList.remove('search-hidden');        // any upward scroll → reveal
-        } else if (dy >= DOWN_DELTA && y > HIDE_AFTER) {
-            wrap.classList.add('search-hidden');           // downward past depth → hide
-        }
+        if (input && input.value)                    setHidden(false); // never hide mid-search
+        else if (y <= REVEAL_ZONE)                   setHidden(false); // near the top → shown
+        else if (dy <= -UP_DELTA)                    setHidden(false); // any upward scroll → reveal + hide FAB
+        else if (dy >= DOWN_DELTA && y > HIDE_AFTER)  setHidden(true);  // downward past depth → minimize
         lastY = y;
         ticking = false;
     }
     function onScroll() { if (!ticking) { ticking = true; requestAnimationFrame(evaluate); } }
     window.addEventListener('scroll', onScroll, { passive: true });
     if (mc) mc.addEventListener('scroll', onScroll, { passive: true });
+
+    // ── Drag + tap — identical model to the Portal FAB. A small movement is a
+    // tap (restore the search bar, scroll unchanged); a larger one drags the
+    // button and it stays where it's dropped (in-memory only, resets on reload). ──
+    let dragging = false, moved = false, dragStartX = 0, dragStartY = 0, baseX = 0, baseY = 0;
+    let posX = null, posY = null;
+    function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+    fab.addEventListener('pointerdown', e => {
+        dragging = true; moved = false; dragStartX = e.clientX; dragStartY = e.clientY;
+        const r = fab.getBoundingClientRect(); baseX = r.left; baseY = r.top;
+        fab.classList.add('dragging');
+        try { fab.setPointerCapture(e.pointerId); } catch (_) {}
+    });
+    fab.addEventListener('pointermove', e => {
+        if (!dragging) return;
+        const dx = e.clientX - dragStartX, dy = e.clientY - dragStartY;
+        if (!moved && (Math.abs(dx) > 4 || Math.abs(dy) > 4)) moved = true;
+        if (!moved) return;
+        const size = fab.offsetWidth || 48;
+        posX = clamp(baseX + dx, 6, window.innerWidth  - size - 6);
+        posY = clamp(baseY + dy, 6, window.innerHeight - size - 6);
+        fab.style.left = posX + 'px'; fab.style.top = posY + 'px'; fab.style.right = 'auto';
+    });
+    function endDrag(e) {
+        if (!dragging) return; dragging = false;
+        fab.classList.remove('dragging');
+        try { fab.releasePointerCapture(e.pointerId); } catch (_) {}
+        if (!moved) setHidden(false); // tap → restore the search bar (scroll unchanged)
+    }
+    fab.addEventListener('pointerup', endDrag);
+    fab.addEventListener('pointercancel', endDrag);
+    window.addEventListener('resize', () => {
+        if (posX == null) return;
+        const size = fab.offsetWidth || 48;
+        posX = clamp(posX, 6, window.innerWidth  - size - 6);
+        posY = clamp(posY, 6, window.innerHeight - size - 6);
+        fab.style.left = posX + 'px'; fab.style.top = posY + 'px';
+    }, { passive: true });
 })();

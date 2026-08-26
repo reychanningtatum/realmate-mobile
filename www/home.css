@@ -1301,6 +1301,7 @@ html[data-theme="dark"] .emoji-grid button:hover,
 html[data-theme="dark"] .hf-comment-tool:hover { background: #243044; }
 
 /* Bug 3: Feed search bar hide-on-scroll-down / reveal-on-scroll-up (mobile only; desktop Feed unchanged) */
+.feed-search-fab { display: none; } /* base: hidden on desktop; the mobile block below re-enables it */
 @media (max-width: 768px) {
   .home-search-wrap {
     position: sticky; top: 0; z-index: 50;
@@ -1308,4 +1309,26 @@ html[data-theme="dark"] .hf-comment-tool:hover { background: #243044; }
     transition: transform 0.25s ease, opacity 0.25s ease;
   }
   .home-search-wrap.search-hidden { transform: translateY(-140%); opacity: 0; pointer-events: none; }
+
+  /* Floating Search FAB — takes over when the search bar + write-a-post scroll
+     away; same look & behaviour (position, drag, tap-to-restore) as the Portal
+     Search FAB. Shown only while minimized (.show); draggable anywhere. */
+  .feed-search-fab {
+    display: flex; align-items: center; justify-content: center;
+    position: fixed; top: calc(14px + env(safe-area-inset-top)); right: 14px;
+    width: 48px; height: 48px; border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.16);
+    background: rgba(15,23,42,0.72);
+    -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+    color: #fff; font-size: 18px;
+    box-shadow: 0 10px 26px -6px rgba(15,23,42,0.5), 0 2px 6px rgba(0,0,0,0.22);
+    cursor: pointer; z-index: 500; touch-action: none;
+    -webkit-user-select: none; user-select: none;
+    opacity: 0; transform: scale(0.6); pointer-events: none;
+    transition: opacity 0.24s ease, transform 0.3s cubic-bezier(0.22,1,0.36,1), box-shadow 0.2s ease;
+  }
+  .feed-search-fab.show { opacity: 1; transform: scale(1); pointer-events: auto; }
+  .feed-search-fab:active { transform: scale(0.92); }
+  .feed-search-fab.dragging { transition: box-shadow 0.2s ease; transform: scale(1.06); cursor: grabbing; }
+  html[data-theme="dark"] .feed-search-fab { background: rgba(30,41,59,0.82); border-color: #334155; }
 }

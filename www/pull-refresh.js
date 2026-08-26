@@ -1,17 +1,23 @@
 /* pull-refresh.js — Facebook-style pull-to-refresh.
  *
- *   rmPullRefresh({ scroller: '.main-content', onRefresh: fn })                       // element scrolls
- *   rmPullRefresh({ content: '.main-content', windowScroll: true, onRefresh: fn,      // page scrolls
- *                   label: 'Loading Portal' })
+ *   rmPullRefresh({ content: '.main-content', windowScroll: true,
+ *                   pullTarget: '#homeFeed', label: 'Loading Feed', onRefresh: fn })
  *
- * At the very top of the scroll, dragging DOWN makes the content follow the
- * finger (rubber-band) with an indicator above it. Past the threshold it holds a
- * loading position, shows a spinner (+ optional label text) and runs onRefresh;
- * when that resolves it snaps back with the fresh data. onRefresh should REFRESH
- * DATA IN PLACE (not reload the page) so there is no empty-state / re-render
- * flash. The gesture only arms when the scroll is genuinely at the top — pass
- * windowScroll:true for pages whose BODY scrolls (Feed, Portal) so a drag while
- * scrolled down never triggers it. Touch-only.
+ * At the very top of the scroll, dragging DOWN slides `pullTarget` (the posts /
+ * listings container) downward, opening a SPACE between whatever sits above it
+ * (search bar / top nav / write-a-post) and its first item. The loading
+ * indicator rides in the MIDDLE of that opening space. Past the threshold it
+ * holds a loading position, shows a spinner (+ optional label) and runs
+ * onRefresh; when that resolves it snaps back with the fresh data. onRefresh
+ * should REFRESH DATA IN PLACE (not reload) so there is no empty-state flash.
+ * The gesture only arms when the scroll is genuinely at the top — pass
+ * windowScroll:true for pages whose BODY scrolls (Feed, Portal). Touch-only.
+ *
+ *   content     — element the touch listeners attach to (the visible area)
+ *   pullTarget  — element that slides down to open the space (default: content)
+ *   windowScroll— read window scroll instead of an element's scrollTop
+ *   label       — text shown beside the spinner while refreshing
+ *   onRefresh   — () => Promise | void ; refresh data in place
  */
 (function () {
   'use strict';
@@ -27,24 +33,20 @@
     var scrollEl = winScroll ? null : (el(opts.scroller) || content);
     var onRefresh = opts.onRefresh || function () { location.reload(); };
     var label = opts.label || '';
-    // Rest the indicator just BELOW this element (the page's top bar) so it lands
-    // in the clear space between the bar and the first post instead of tucking
-    // under the status bar / navbar. Measured live at the start of each pull, so
-    // it tracks the safe-area inset and the real bar height on any device.
-    var anchorSel = opts.anchor || null;
-    var indTop = 0;
-    function computeIndTop() {
-      var a = anchorSel ? el(anchorSel) : null;
-      var b = a ? a.getBoundingClientRect().bottom : 0;
-      indTop = b > 0 ? Math.round(b) + 6 : 0;
-    }
+    var pullEl = el(opts.pullTarget) || content;
 
-    var THRESHOLD = 72, MAX = 110, DAMP = 0.55, REST = 52, IND_BASE = 50;
+    var THRESHOLD = 72, MAX = 120, DAMP = 0.55, REST = 66, HALF_IND = 19;
 
     function scrollTop() {
       return winScroll ? (window.pageYOffset || document.documentElement.scrollTop || 0)
                        : (scrollEl.scrollTop || 0);
     }
+
+    // gapTop = viewport y where the space opens (the pull element's resting top),
+    // measured at the start of each pull so it tracks the safe-area inset and the
+    // real header height. The indicator is centered in the gap [gapTop, gapTop+y].
+    var gapTop = 0;
+    function computeGapTop() { gapTop = Math.max(0, Math.round(pullEl.getBoundingClientRect().top)); }
 
     if (!document.getElementById('rm-ptr-style')) {
       var st = document.createElement('style');
@@ -72,32 +74,33 @@
     var startY = 0, active = false, dist = 0, busy = false;
 
     function atTop() { return scrollTop() <= 0; }
-    function noEase() { content.style.transition = 'none'; ind.style.transition = 'none'; }
+    function noEase() { pullEl.style.transition = 'none'; ind.style.transition = 'none'; }
     function ease() {
-      content.style.transition = 'transform .28s cubic-bezier(.2,.8,.2,1)';
+      pullEl.style.transition = 'transform .28s cubic-bezier(.2,.8,.2,1)';
       ind.style.transition = 'transform .28s cubic-bezier(.2,.8,.2,1), opacity .2s';
     }
-    function moveInd(y) { ind.style.transform = 'translate(-50%,' + (indTop + y) + 'px)'; }
+    // Center the indicator vertically in the opening gap [gapTop, gapTop+y].
+    function moveInd(y) { ind.style.transform = 'translate(-50%,' + (gapTop + y / 2 - HALF_IND) + 'px)'; }
     function drag(pull) {
       var y = Math.min(pull, MAX);
-      content.style.transform = 'translateY(' + y + 'px)';
+      pullEl.style.transform = 'translateY(' + y + 'px)';
       ind.style.opacity = y > 6 ? '1' : '0';
-      moveInd(y - IND_BASE);
+      moveInd(y);
       if (arrow) arrow.style.transform = 'rotate(' + (pull >= THRESHOLD ? 180 : 0) + 'deg)';
     }
     function reset() {
       ease();
-      content.style.transform = 'translateY(0)';
+      pullEl.style.transform = 'translateY(0)';
       ind.classList.remove('rm-busy', 'rm-has-label');
       ind.style.opacity = '0';
-      moveInd(-52);
+      moveInd(0);
     }
-    function done() { busy = false; reset(); }
+    function finish() { if (arrow) arrow.className = 'fas fa-arrow-down'; busy = false; reset(); }
 
     content.addEventListener('touchstart', function (e) {
       // Only arm the gesture when the scroll is genuinely at the very top.
       if (busy || !atTop()) { active = false; return; }
-      computeIndTop(); // where the indicator should land, below the top bar
+      computeGapTop();
       startY = e.touches[0].clientY; active = true; dist = 0; noEase();
     }, { passive: true });
 
@@ -115,13 +118,12 @@
       active = false;
       if (dist >= THRESHOLD) {
         busy = true;
-        // Enter the loading state: spinner (+ optional label like "Loading Portal").
         if (arrow) arrow.className = 'fas fa-spinner';
         if (label) { labelEl.textContent = label; ind.classList.add('rm-has-label'); }
         ind.classList.add('rm-busy');
         ease();
-        content.style.transform = 'translateY(' + REST + 'px)';
-        moveInd(REST - IND_BASE);
+        pullEl.style.transform = 'translateY(' + REST + 'px)';
+        moveInd(REST);
         ind.style.opacity = '1';
         setTimeout(function () {
           var r;
@@ -133,11 +135,6 @@
         reset();
       }
     }, { passive: true });
-
-    function finish() {
-      if (arrow) arrow.className = 'fas fa-arrow-down';
-      done();
-    }
   }
 
   window.rmPullRefresh = init;
