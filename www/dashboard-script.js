@@ -1220,7 +1220,16 @@ async function loadProfile() {
     }
 
     await renderRealMatesCard();
-    await renderRecentListings(targetId, viewerIsRealmate);
+    // Account-privacy + relationship access. A Public account shows everything;
+    // otherwise listings need a Realmate and posts/About need a Follower OR
+    // Realmate. Resolved once and reused for listings + posts + About below.
+    // (Falls back to the old Realmate-only rule if privacy.js isn't present.)
+    const _acc = (effectivelyViewingOther && window.RMPriv)
+        ? await RMPriv.resolve(targetId)
+        : { isSelf: true, ownerPublic: true, isFollower: true, isMate: true };
+    const _canListings = window.RMPriv ? RMPriv.can('listings', _acc) : viewerIsRealmate;
+    const _canPosts    = window.RMPriv ? RMPriv.can('posts', _acc)    : viewerIsRealmate;
+    await renderRecentListings(targetId, _canListings);
 
     // Portal "View Listings" deep-link: land directly on the Listings section
     // (activate its tab on mobile, then scroll it to the top of the viewport).
@@ -1231,7 +1240,7 @@ async function loadProfile() {
     // Realmates-only when viewing someone else's profile — same rule as Listings.
     const wallEl = document.getElementById('profileWall');
     if (wallEl && targetId) {
-        if (effectivelyViewingOther && !viewerIsRealmate) {
+        if (effectivelyViewingOther && !_canPosts) {
             wallEl.innerHTML = _realmateGateHtml(user.name, 'posts-listings');
         } else if (typeof loadHomeFeed === 'function') {
             loadHomeFeed(wallEl, { type: 'userId', value: targetId });

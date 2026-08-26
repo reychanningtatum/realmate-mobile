@@ -134,35 +134,79 @@ async function followUser(targetUserId, targetName) {
         const myId = auth?.user?.id;
         if (!myId) return { error: 'Not authenticated' };
 
+        // Approval: if the target allows public following, the follow is accepted
+        // immediately; otherwise it's PENDING until the target accepts (their
+        // posts/About stay hidden to me meanwhile). Default (no column / Private)
+        // is approval-required.
+        let autoAccept = false;
+        try {
+            const { data: tp } = await _followsDb.from('profiles')
+                .select('public_follow').eq('id', targetUserId).maybeSingle();
+            autoAccept = !!(tp && tp.public_follow);
+        } catch (e) {}
+        const status = autoAccept ? 'accepted' : 'pending';
+
         const { error } = await _followsDb.from('follows').insert({
             follower_id:   myId,
             follower_name: me?.name || '',
             following_id:  targetUserId,
-            following_name: targetName
+            following_name: targetName,
+            status:        status
         });
         if (error) throw error;
 
-        // Notify the followed user. sender_id/recipient_id (in addition to
-        // the existing name/picture snapshot) let this notification's avatar
-        // resolve live later even after a rename — see
-        // notifications-sender-id-migration.sql.
         await _followsInsertNotification({
-            type:                   'follow',
+            type:                   autoAccept ? 'follow' : 'follow_request',
             sender_id:              myId,
             sender_user_name:       me?.name || '',
             sender_profile_picture: me?.image || '',
             recipient_id:           targetUserId,
             recipient_user_name:    targetName,
-            message:                'started following you.',
+            message:                autoAccept ? 'started following you.' : 'requested to follow you.',
             is_read:                false,
             created_at:             new Date().toISOString()
         });
 
-        return { success: true };
+        return { success: true, status: status };
     } catch (e) {
         console.error('followUser:', e);
         return { error: e.message };
     }
+}
+
+// Owner-side: accept / reject a pending follow request (followerId → me).
+async function acceptFollowRequest(followerId) {
+    try {
+        const { data: auth } = await _followsDb.auth.getUser();
+        const myId = auth?.user?.id; if (!myId) return { error: 'Not authenticated' };
+        const { error } = await _followsDb.from('follows')
+            .update({ status: 'accepted' })
+            .eq('follower_id', followerId).eq('following_id', myId);
+        if (error) throw error;
+        return { success: true };
+    } catch (e) { return { error: e.message }; }
+}
+async function rejectFollowRequest(followerId) {
+    try {
+        const { data: auth } = await _followsDb.auth.getUser();
+        const myId = auth?.user?.id; if (!myId) return { error: 'Not authenticated' };
+        const { error } = await _followsDb.from('follows')
+            .delete().eq('follower_id', followerId).eq('following_id', myId);
+        if (error) throw error;
+        return { success: true };
+    } catch (e) { return { error: e.message }; }
+}
+// Pending follow requests addressed to me (for the requests inbox).
+async function listFollowRequests() {
+    try {
+        const { data: auth } = await _followsDb.auth.getUser();
+        const myId = auth?.user?.id; if (!myId) return [];
+        const { data } = await _followsDb.from('follows')
+            .select('follower_id, follower_name, created_at')
+            .eq('following_id', myId).eq('status', 'pending')
+            .order('created_at', { ascending: false });
+        return data || [];
+    } catch (e) { return []; }
 }
 
 async function unfollowUser(targetUserId) {

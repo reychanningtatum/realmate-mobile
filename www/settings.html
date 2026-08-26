@@ -71,6 +71,34 @@
             </div>
         </div>
 
+        <!-- ── Privacy ───────────────────────────────────────────────── -->
+        <div class="settings-card">
+            <div class="settings-card-title"><i class="fas fa-shield-halved" style="color: var(--primary);"></i> Privacy</div>
+            <p class="settings-card-sub">Control who can see your posts, listings, and About information.</p>
+
+            <div class="settings-row">
+                <div>
+                    <div class="settings-row-label">Public Account</div>
+                    <div class="settings-row-desc">On: anyone can see your posts, listings &amp; About. Off (default): only Realmates see your listings; accepted followers &amp; Realmates see your posts &amp; About.</div>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" id="togglePublicAccount" onchange="savePublicAccountPref(this.checked)">
+                    <span class="slider"></span>
+                </label>
+            </div>
+
+            <div class="settings-row" style="margin-top:12px;">
+                <div>
+                    <div class="settings-row-label">Public Following</div>
+                    <div class="settings-row-desc">On: anyone can follow you instantly. Off (default): you approve each follow request before they can see your posts &amp; About.</div>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" id="togglePublicFollow" onchange="savePublicFollowPref(this.checked)">
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </div>
+
         <!-- ── Account Settings ──────────────────────────────────────── -->
         <div class="settings-card">
             <div class="settings-card-title"><i class="fas fa-user-circle" style="color: var(--primary);"></i> Account Settings</div>
@@ -157,7 +185,7 @@
 <script src="vendor/supabase-js.min.js?v=2.112.3"></script>
 <script src="block-report.js?v=20260823bp"></script>
 <script src="auth-guard.js?v=20260826a"></script>
-<script src="settings.js?v=20260823bp"></script>
+<script src="settings.js?v=20260826a"></script>
 <script src="location-engine.js?v=20260809b"></script>
 <script src="match-engine.js?v=20260821p1"></script>
 <script src="match-alert.js?v=10"></script>

@@ -53,6 +53,47 @@ function savePortalNotifsPref(isOn) {
 }
 
 /* ============================================================
+   🔒 PRIVACY — Public Account + Public Following
+   Persisted to profiles (other users read these to decide access),
+   NOT localStorage. is_public / public_follow default false (Private +
+   approval-required). See privacy-following-migration.sql + RMPriv.
+   ============================================================ */
+async function loadPrivacyToggles() {
+    try {
+        const { data: { user: authUser } } = await _supabase.auth.getUser();
+        if (!authUser) return;
+        const { data } = await _supabase.from('profiles')
+            .select('is_public, public_follow').eq('id', authUser.id).maybeSingle();
+        const pub = document.getElementById('togglePublicAccount');
+        const pf  = document.getElementById('togglePublicFollow');
+        if (pub) pub.checked = !!(data && data.is_public);
+        if (pf)  pf.checked  = !!(data && data.public_follow);
+    } catch (e) { console.warn('[Settings] loadPrivacyToggles:', e.message); }
+}
+async function _savePrivacyField(field, val, msg, toggleId) {
+    try {
+        const { data: { user: authUser } } = await _supabase.auth.getUser();
+        if (!authUser) throw new Error('not authenticated');
+        const upd = { id: authUser.id }; upd[field] = !!val;
+        const { error } = await _supabase.from('profiles').upsert(upd, { onConflict: 'id' });
+        if (error) throw error;
+        showSettingsNotificationToast(msg, 'success');
+    } catch (e) {
+        // Roll the toggle back so it reflects the real (unsaved) state.
+        const t = document.getElementById(toggleId); if (t) t.checked = !val;
+        showSettingsNotificationToast('Could not save your privacy setting. Please try again.', 'error');
+    }
+}
+function savePublicAccountPref(isOn) {
+    _savePrivacyField('is_public', isOn,
+        isOn ? 'Your account is now Public.' : 'Your account is now Private.', 'togglePublicAccount');
+}
+function savePublicFollowPref(isOn) {
+    _savePrivacyField('public_follow', isOn,
+        isOn ? 'Anyone can now follow you without approval.' : 'Follow requests now require your approval.', 'togglePublicFollow');
+}
+
+/* ============================================================
    👤 ACCOUNT — Email & Password
    Backed by Supabase Auth on the active session.
    ============================================================ */
@@ -173,6 +214,7 @@ function logout() {
 window.onload = () => {
     initPortalNotifsToggle();
     loadAccountEmail();
+    loadPrivacyToggles();
 };
 
 
