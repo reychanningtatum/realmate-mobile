@@ -17,6 +17,16 @@ function logout() {
 // actually came from, falling back to the Feed only when there's no
 // history to go back to (e.g. the page was opened directly/in a new tab).
 function goBack() {
+    // Inside the app shell, "back" should return to the previous TAB (e.g.
+    // Portal → Profile → Back = Portal). Using the browser history here walks the
+    // shared session history and can land on the marketing page, so defer to the
+    // shell. Standalone / desktop keeps the normal history behaviour.
+    try {
+        if (window.self !== window.top && window.parent && typeof window.parent.rmBack === 'function') {
+            window.parent.rmBack();
+            return;
+        }
+    } catch (e) {}
     if (window.history.length > 1) {
         window.history.back();
     } else {

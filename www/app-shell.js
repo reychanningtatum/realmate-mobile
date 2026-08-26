@@ -19,6 +19,7 @@
 
   var frames = {};      // tab -> iframe (kept alive after first load)
   var current = null;
+  var prevTab = null;   // the tab we came from, for in-shell "back" (see rmBack)
   var host, loading;
 
   function setActive(tab) {
@@ -101,6 +102,10 @@
     // internal iframe navigation, so open-listing-then-back keeps its own scroll
     // position and is unaffected by this.
     if (tab === current && !forceSrc) { scrollFrameTop(tab); return; }
+    // Remember where we came from so an in-shell "Back" (rmBack) can return
+    // there — e.g. Portal → Profile → Back should land on Portal, not the
+    // browser history (which can walk back to the marketing page).
+    if (current && current !== tab) prevTab = current;
 
     var cached = frames[tab];
     if (cached && !forceSrc) { withTransition(function () { reveal(tab); }); return; }
@@ -132,6 +137,10 @@
 
   // Public API used by the nav bar in app.html
   window.rmTab = function (tab) { if (TABS[tab]) go(tab); };
+  // In-shell "Back": return to the tab we came from (Profile → Portal, etc.).
+  // Called by goBack() in embedded pages instead of history.back(), which in the
+  // shared session history could jump to the marketing page.
+  window.rmBack = function () { go(prevTab && TABS[prevTab] ? prevTab : 'home'); };
   window.rmMe = function (url) {
     var menu = document.getElementById('navMenu');
     if (menu) menu.classList.remove('open');

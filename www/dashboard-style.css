@@ -1333,7 +1333,17 @@ html[data-theme="dark"] .stats-list-avatar { border-color: #334155; }
        A fixed height (not the 16:5 upload ratio) is what gives the cover
        the tall, app-like presence in the mockup; object-fit:cover keeps
        uploaded photos filling it without distortion. */
-    .profile-cover { height: 200px; aspect-ratio: auto; border-radius: 0; }
+    /* Edge-to-edge cover (Facebook-style): extend UP behind the status bar
+       (time / Wi-Fi / battery stay visible over it) instead of starting below
+       the safe-area inset. margin-top pulls it up by the inset and the height
+       grows by the same amount, so the content BELOW the cover doesn't shift.
+       Inert on non-notched devices where the inset is 0. */
+    .profile-cover {
+        height: calc(200px + env(safe-area-inset-top));
+        margin-top: calc(-1 * env(safe-area-inset-top));
+        aspect-ratio: auto;
+        border-radius: 0;
+    }
     /* Mobile-only refinement: smaller (38px, within the 36-40px range) and
        a green icon instead of desktop's dark one, so it reads as a
        secondary action rather than the header's focal point. Position

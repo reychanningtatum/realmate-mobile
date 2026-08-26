@@ -369,8 +369,29 @@ function toggleLcMenu(id, e) {
     const menu = document.getElementById('lcmenu-' + id);
     if (!menu) return;
     const isOpen = menu.classList.contains('open');
-    document.querySelectorAll('.lc-menu.open').forEach(m => m.classList.remove('open'));
-    if (!isOpen) menu.classList.add('open');
+    document.querySelectorAll('.lc-menu.open').forEach(m => {
+        m.classList.remove('open');
+        m.style.position = ''; m.style.top = ''; m.style.left = ''; m.style.right = '';
+    });
+    if (!isOpen) {
+        menu.classList.add('open');
+        // The listing card has overflow:hidden (for its rounded corners + sash),
+        // which clips this dropdown when it extends past the card. Render it as a
+        // FIXED overlay positioned at the kebab button so it can never be cut off,
+        // flipping upward if it would run off the bottom of the screen.
+        const btn = menu.closest('.lc-menu-wrap') && menu.closest('.lc-menu-wrap').querySelector('.lc-menu-btn');
+        if (btn) {
+            const r = btn.getBoundingClientRect();
+            const mw = menu.offsetWidth || 160, mh = menu.offsetHeight || 220;
+            let left = Math.min(Math.max(8, r.right - mw), window.innerWidth - mw - 8);
+            let top = r.bottom + 4;
+            if (top + mh > window.innerHeight - 8) top = Math.max(8, r.top - mh - 4);
+            menu.style.position = 'fixed';
+            menu.style.left = left + 'px';
+            menu.style.top = top + 'px';
+            menu.style.right = 'auto';
+        }
+    }
 }
 function closeLcMenu(id) {
     document.getElementById('lcmenu-' + id)?.classList.remove('open');

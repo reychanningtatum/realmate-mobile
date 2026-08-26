@@ -1636,6 +1636,12 @@ async function saveProfile() {
         user.group = '';
     }
     user.relationship = document.getElementById("editRelationship").value;
+    // Relationship Status is REQUIRED (Division and Group remain optional).
+    if (!user.relationship || !user.relationship.trim()) {
+        if (btn) { btn.disabled = false; btn.innerHTML = 'Save Changes'; }
+        _editAlert('Please select your Relationship Status.', 'error');
+        return;
+    }
 
     // City must be empty or an exact match from the verified list — the
     // strict combobox (see initSearchableSelect above) already clears any
