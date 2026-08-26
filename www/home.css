@@ -863,7 +863,11 @@ html[data-theme="light"] .nav-item.active { background: rgba(50,205,50,0.10); co
 @media (max-width: 768px) {
   .sidebar { display: none !important; }
   body { height: auto; overflow: auto; }
-  .main-content { padding: 12px 12px 80px; }
+  /* overflow:visible (not the desktop's overflow-y:auto) so the page BODY scrolls
+     and position:sticky children (the search bar + write-a-post top bar) actually
+     pin to the viewport — an overflow:auto ancestor silently captures sticky and
+     it never pins. Mirrors the Portal mobile main-content. */
+  .main-content { padding: 12px 12px 80px; overflow: visible; }
   .mobile-bottom-nav { display: flex; }
   .home-layout { grid-template-columns: 1fr; gap: 0; }
   .home-feed-col { gap: 8px; }
@@ -1309,6 +1313,19 @@ html[data-theme="dark"] .hf-comment-tool:hover { background: #243044; }
     transition: transform 0.25s ease, opacity 0.25s ease;
   }
   .home-search-wrap.search-hidden { transform: translateY(-140%); opacity: 0; pointer-events: none; }
+
+  /* Write-a-post box joins the search bar as ONE sticky top bar (Portal-parity):
+     pinned just below the search when shown, and it slides up out of view (in
+     sync with the search) when minimized — the Search FAB then takes over. This
+     is what lets a FAB tap display BOTH search + write-a-post in place without
+     scrolling. Mobile only; the desktop feed layout is untouched. */
+  .create-post-card {
+    position: sticky;
+    top: 56px;
+    z-index: 49;
+    transition: transform 0.25s ease, opacity 0.25s ease;
+  }
+  .create-post-card.post-hidden { transform: translateY(-260%); opacity: 0; pointer-events: none; }
 
   /* Floating Search FAB — takes over when the search bar + write-a-post scroll
      away; same look & behaviour (position, drag, tap-to-restore) as the Portal

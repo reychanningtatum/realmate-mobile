@@ -2673,9 +2673,37 @@ function exitMatchView() {
     loadLedger();
 }
 
+// Subtle "AI Matches activated" chime — a short two-note ascending blip
+// synthesized via Web Audio (no asset). Played when the user opens the AI
+// Matches counter or the AI Match Engine (a genuine click/tap), giving quiet
+// feedback that the interaction fired. Never during scrolling or mere display.
+// One shared AudioContext, resumed lazily; entirely best-effort.
+var _aimActx = null;
+function playMatchSound() {
+    try {
+        var AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return;
+        if (!_aimActx) _aimActx = new AC();
+        if (_aimActx.state === 'suspended') _aimActx.resume();
+        var t = _aimActx.currentTime;
+        var g = _aimActx.createGain();
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(0.06, t + 0.02); // gentle
+        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.28);
+        g.connect(_aimActx.destination);
+        var o = _aimActx.createOscillator();
+        o.type = 'sine';
+        o.frequency.setValueAtTime(523, t);         // C5
+        o.frequency.setValueAtTime(784, t + 0.09);  // → G5, a small ascending "activated" lift
+        o.connect(g);
+        o.start(t); o.stop(t + 0.3);
+    } catch (e) { /* audio is best-effort; never disrupt the interaction */ }
+}
+
 function openMatchForListing(otherListingId) {
     const other = allListings.find(l => String(l.id) === String(otherListingId));
     if (!other) return;
+    playMatchSound();   // AI Match Engine opened on a matching post
     if (isCompletedListing(other)) return;   // completed → not matchable
     const parsedOther = parseListing(other);
     // Find the specific (still-active) myListing that actually scores against this card
@@ -2768,6 +2796,7 @@ function showAllMatches(listingId, scrollToId) {
     if (!myListing) { sessionStorage.removeItem('rm_matchCtx'); return; }
     // A completed listing can no longer be matched — never open its match view.
     if (isCompletedListing(myListing)) { sessionStorage.removeItem('rm_matchCtx'); return; }
+    playMatchSound();   // AI Matches counter opened on the user's own post
     // Remember the match context so returning to this page (e.g. after opening a
     // listing's detail and pressing Back) restores the match view, not the ledger.
     sessionStorage.setItem('rm_matchCtx', JSON.stringify({

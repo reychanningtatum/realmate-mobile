@@ -222,12 +222,34 @@
     }
 
     .settings-card {
-        padding: 22px 18px;
+        padding: 20px 16px;
     }
 
     .settings-card-title {
         font-size: 16px;
     }
+
+    /* Comfortable, full-width primary buttons — far easier to tap on a phone
+       than the desktop's small left-aligned pills. align-self:stretch fills the
+       card's column; button ROWS (Terms/Privacy, the delete-modal actions) are
+       flex rows, so their items keep sharing the row instead of going full width. */
+    .settings-btn {
+        align-self: stretch;
+        width: 100%;
+        text-align: center;
+        padding: 14px 20px;
+        min-height: 48px;
+        box-sizing: border-box;
+        font-size: 14px;
+    }
+    /* Buttons that intentionally share a row keep their auto width: the
+       Terms/Privacy pair (inline flex:1) and the delete-modal Cancel/Delete. */
+    .settings-btn[style*="flex"], .da-actions .settings-btn { width: auto; }
+    .da-actions .settings-btn { min-height: 44px; }
+
+    /* Slightly tighter rhythm so more fits comfortably above the fold. */
+    .settings-simple { gap: 18px; }
+    .settings-card-sub { margin-bottom: 18px; }
 }
 
 /* 6-item bottom nav — icon only to save space */

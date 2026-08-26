@@ -2495,31 +2495,34 @@ document.addEventListener('DOMContentLoaded', () => {
     const DOWN_DELTA  = 6;   // downward movement needed to hide (ignore jitter)
     const UP_DELTA    = 6;   // upward movement needed to reveal (ignore jitter)
 
+    // The write-a-post box is pinned into the SAME sticky top bar as the search
+    // (CSS makes it sticky on mobile), so both show/hide together as one unit —
+    // exactly like Portal's top bar. That's what lets a FAB tap display the
+    // search bar AND write-a-post in place, without scrolling anywhere.
+    const postCard = document.getElementById('createPostCard');
     let hidden = false;
     function setHidden(next) {
         if (next === hidden) return;
         hidden = next;
-        wrap.classList.toggle('search-hidden', next); // slide the sticky search bar up
-        fab.classList.toggle('show', next);           // FAB takes over while minimized
+        wrap.classList.toggle('search-hidden', next);            // slide the sticky search bar up
+        if (postCard) postCard.classList.toggle('post-hidden', next); // and the write-a-post box (same top bar)
+        fab.classList.toggle('show', next);                     // FAB takes over while minimized
     }
 
     let lastY = getY();
     let ticking = false;
+    // Mirror the Portal top-bar behaviour exactly: the top bar (search +
+    // write-a-post) shows ONLY at the actual top of the feed; any scroll away
+    // from the top — up OR down — minimizes it into the floating Search FAB. So
+    // the FAB stays available while scrolling in either direction and at the
+    // bottom-most post; tapping it peeks the bar back in place (see endDrag), and
+    // the next scroll re-minimizes it. Reaching the true top shows it normally.
     function evaluate() {
         const y = getY();
         const dy = y - lastY;
-        const vh = window.innerHeight || 0;
-        const docH = document.documentElement.scrollHeight || 0;
-        const scrollable = docH > vh + 20;
-        // At the very bottom, the momentum settle / rubber-band bounce fires a
-        // small upward dy that used to reveal the bar and hide the FAB. Keep the
-        // FAB visible there instead (Bug 6): reaching the bottom must not drop it.
-        const nearBottom = scrollable && y > REVEAL_ZONE && (y + vh) >= (docH - 4);
-        if (input && input.value)                    setHidden(false); // never hide mid-search
-        else if (nearBottom)                         setHidden(true);  // bottom of feed → FAB stays visible
-        else if (y <= REVEAL_ZONE)                   setHidden(false); // near the top → shown
-        else if (dy <= -UP_DELTA)                    setHidden(false); // any upward scroll → reveal + hide FAB
-        else if (dy >= DOWN_DELTA && y > HIDE_AFTER)  setHidden(true);  // downward past depth → minimize
+        if (input && input.value)             setHidden(false); // never hide mid-search
+        else if (y <= REVEAL_ZONE)            setHidden(false); // at the actual top → top bar shown normally
+        else if (Math.abs(dy) >= DOWN_DELTA)  setHidden(true);  // any scroll away from top → minimize into the FAB
         lastY = y;
         ticking = false;
     }
@@ -2554,12 +2557,11 @@ document.addEventListener('DOMContentLoaded', () => {
         fab.classList.remove('dragging');
         try { fab.releasePointerCapture(e.pointerId); } catch (_) {}
         if (!moved) {
-            // Tap → bring back BOTH the search bar and the write-a-post box.
-            // Unlike Portal (whole bar is sticky), the Feed's write-a-post lives
-            // in the scroll flow, so restoring both means scrolling to the top;
-            // the scroll handler then reveals the bar and hides the FAB (Bug 5).
-            try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (_) { window.scrollTo(0, 0); }
-            if (mc) { try { mc.scrollTo({ top: 0, behavior: 'smooth' }); } catch (_) { mc.scrollTop = 0; } }
+            // Tap → show the top bar (search + write-a-post) IN PLACE, wherever
+            // the user is (including the bottom-most post). No scrolling — both
+            // are sticky, so they simply slide down into view. The next scroll
+            // re-minimizes them into the FAB (see evaluate). This mirrors Portal
+            // and is NOT a jump-to-top like tapping the Feed tab.
             setHidden(false);
         }
     }
