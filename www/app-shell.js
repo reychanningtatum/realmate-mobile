@@ -56,8 +56,16 @@
 
   // tab: key in TABS. forceSrc: load a specific URL into that tab's frame
   // (used by the Me menu for Profile / Realmates / Settings).
+  // Close the account/profile dropdown BEFORE the transition snapshot so it can
+  // never linger over the newly selected tab.
+  function closeNavMenu() {
+    var m = document.getElementById('navMenu');
+    if (m) m.classList.remove('open');
+  }
+
   function go(tab, forceSrc) {
     if (!TABS[tab] && !forceSrc) return;
+    closeNavMenu();
     if (tab === current && !forceSrc) return;
 
     var cached = frames[tab];

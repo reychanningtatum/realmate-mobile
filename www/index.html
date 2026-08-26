@@ -114,6 +114,12 @@
           <input type="password" id="password" placeholder="Enter password" onkeydown="if(event.key==='Enter') handleLoginEnterKey()">
           <i class="fas fa-eye right" onclick="togglePassword('password', this)"></i>
         </div>
+        <div style="display:flex; align-items:center; margin:-4px 0 14px;">
+          <label style="display:flex; align-items:center; gap:8px; font-size:13px; font-weight:600; color:var(--gray); cursor:pointer; user-select:none;">
+            <input type="checkbox" id="rememberMe" checked style="width:16px; height:16px; accent-color:var(--primary); cursor:pointer;">
+            Remember me
+          </label>
+        </div>
         <div id="loginError" style="display:none; align-items:center; gap:10px; background:#fef2f2; border:1px solid #fecaca; border-left:4px solid #ef4444; border-radius:12px; padding:12px 16px; font-size:13px; font-weight:600; color:#dc2626; margin-bottom:4px; text-align:left;">
           <i class="fas fa-circle-exclamation"></i>
           <span></span>

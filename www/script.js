@@ -611,6 +611,16 @@ async function login(){
       successSpan.textContent = "Login successful. Redirecting you now…";
     }
     successEl.style.display = "flex";
+    // Remember Me — record the choice. Checked (default) keeps the Supabase
+    // session persisted (the app stays signed in); unchecked drops it on the
+    // next fresh app launch (see auth-guard.js). Only the session token is
+    // stored — never the password.
+    try {
+      var _remember = !document.getElementById("rememberMe") || document.getElementById("rememberMe").checked;
+      localStorage.setItem("rm_remember", _remember ? "1" : "0");
+      sessionStorage.setItem("rm_session", "1");
+    } catch (e) {}
+
     // Mobile / native app lands in the persistent tab shell (app.html); desktop
     // web keeps its sidebar layout. Opens on Portal, matching the old target.
     var _rmDest = (window.Capacitor || window.matchMedia("(max-width: 900px)").matches) ? "app.html?tab=portal" : "livemarket.html";

@@ -42,6 +42,19 @@ function goBack() {
 
     if (!session) return; // guest, allow through
 
+    // Remember Me — if the user chose NOT to stay signed in, drop the session
+    // on a FRESH app launch (no per-session marker yet). Existing sessions with
+    // no preference recorded default to "remembered", so nobody already signed
+    // in is logged out. The marker is per-browsing-session (cleared when the app
+    // is fully closed), so in-app navigation between tabs never re-triggers it.
+    if (localStorage.getItem('rm_remember') === '0' && !sessionStorage.getItem('rm_session')) {
+        await _sb.auth.signOut();
+        localStorage.clear();
+        location.href = "index.html";
+        return;
+    }
+    try { sessionStorage.setItem('rm_session', '1'); } catch (e) {}
+
     // Registration approval gate — covers the case where an admin
     // rejects/un-approves an account that already has a live session
     // (login() only checks this at sign-in time). No row means the
