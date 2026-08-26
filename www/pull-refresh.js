@@ -27,6 +27,17 @@
     var scrollEl = winScroll ? null : (el(opts.scroller) || content);
     var onRefresh = opts.onRefresh || function () { location.reload(); };
     var label = opts.label || '';
+    // Rest the indicator just BELOW this element (the page's top bar) so it lands
+    // in the clear space between the bar and the first post instead of tucking
+    // under the status bar / navbar. Measured live at the start of each pull, so
+    // it tracks the safe-area inset and the real bar height on any device.
+    var anchorSel = opts.anchor || null;
+    var indTop = 0;
+    function computeIndTop() {
+      var a = anchorSel ? el(anchorSel) : null;
+      var b = a ? a.getBoundingClientRect().bottom : 0;
+      indTop = b > 0 ? Math.round(b) + 6 : 0;
+    }
 
     var THRESHOLD = 72, MAX = 110, DAMP = 0.55, REST = 52, IND_BASE = 50;
 
@@ -66,7 +77,7 @@
       content.style.transition = 'transform .28s cubic-bezier(.2,.8,.2,1)';
       ind.style.transition = 'transform .28s cubic-bezier(.2,.8,.2,1), opacity .2s';
     }
-    function moveInd(y) { ind.style.transform = 'translate(-50%,' + y + 'px)'; }
+    function moveInd(y) { ind.style.transform = 'translate(-50%,' + (indTop + y) + 'px)'; }
     function drag(pull) {
       var y = Math.min(pull, MAX);
       content.style.transform = 'translateY(' + y + 'px)';
@@ -86,6 +97,7 @@
     content.addEventListener('touchstart', function (e) {
       // Only arm the gesture when the scroll is genuinely at the very top.
       if (busy || !atTop()) { active = false; return; }
+      computeIndTop(); // where the indicator should land, below the top bar
       startY = e.touches[0].clientY; active = true; dist = 0; noEase();
     }, { passive: true });
 

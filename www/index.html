@@ -20,6 +20,27 @@
       } catch (e) {}
     })();
   </script>
+  <script>
+    // ── Returning-member pre-hide ─────────────────────────────────────
+    // When a Supabase session is already stored, a returning member is about to
+    // be auto-forwarded into the app (attemptAutoLogin in script.js). Hide the
+    // page synchronously NOW so the login form never flashes before that
+    // redirect. Skips the password-recovery / magic-link flow and an explicit
+    // "Remember me = off". Safety timeout reveals the form if the async session
+    // check stalls (e.g. an offline token refresh) so the page can never get
+    // stuck blank.
+    (function(){
+      try {
+        var h = location.hash || "", q = location.search || "";
+        if (h.indexOf("type=recovery")>=0 || h.indexOf("error=")>=0 || q.indexOf("token_hash")>=0) return;
+        if (localStorage.getItem("rm_remember") === "0") return;
+        if (!localStorage.getItem("sb-wmegpgrfrtprhuzmgjma-auth-token")) return;
+        document.documentElement.classList.add("rm-autologin");
+        setTimeout(function(){ document.documentElement.classList.remove("rm-autologin"); }, 4000);
+      } catch (e) {}
+    })();
+  </script>
+  <style>html.rm-autologin body{opacity:0!important}</style>
   <link rel="stylesheet" href="vendor/fontawesome/css/all.min.css?v=6.5.0">
   <link rel="stylesheet" href="vendor/googlefonts/fonts.css?v=1">
   <link rel="stylesheet" href="style.css?v=20260824e">
@@ -269,6 +290,6 @@
 </div>
 
 <script src="vendor/supabase-js.min.js?v=2.112.3"></script>
-<script src="script.js?v=20260813a"></script>
+<script src="script.js?v=20260826a"></script>
 </body>
 </html>

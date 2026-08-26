@@ -25,6 +25,37 @@ window.supabaseClient.auth.onAuthStateChange((event) => {
     if (event === "PASSWORD_RECOVERY") openResetPasswordModal();
 });
 
+// ── Auto-login: skip the login screen when a valid session already exists ─────
+// Supabase persists the session (its refresh token) in the app's sandboxed
+// storage by default — no password is ever stored. But nothing was USING that
+// on the login page, so every cold start showed the login form even though the
+// session was still valid. iOS evicts a backgrounded app after a while, so
+// reopening "several hours later" cold-starts here — which is exactly when the
+// user hit the login screen again. This forwards a returning, still-signed-in
+// user straight into the app. getSession() returns the stored session and
+// transparently refreshes an expired access token, so a truthy result means the
+// session is genuinely valid; a null result (real expiry / logout) falls through
+// to the login form. Honors an explicit "Remember me = off" and never hijacks
+// the password-recovery / magic-link flow.
+(async function attemptAutoLogin() {
+    if (!document.getElementById("loginBtn")) return;         // login page only
+    var h = location.hash || "", q = location.search || "";
+    if (h.includes("type=recovery") || h.includes("error=") || q.includes("token_hash")) return;
+    if (localStorage.getItem("rm_remember") === "0") return;  // user opted out
+    function reveal() { document.documentElement.classList.remove("rm-autologin"); }
+    try {
+        var res = await window.supabaseClient.auth.getSession();
+        var session = res && res.data && res.data.session;
+        if (session) {
+            var dest = (window.Capacitor || window.matchMedia("(max-width: 900px)").matches)
+                ? "app.html?tab=portal" : "livemarket.html";
+            location.replace(dest);
+        } else {
+            reveal(); // no valid session → show the login form
+        }
+    } catch (e) { reveal(); /* stay on the login form */ }
+})();
+
 window.addEventListener('load', () => {
     const hash = window.location.hash || "";
     // An expired/invalid link redirects back with an error in the hash
