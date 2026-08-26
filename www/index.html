@@ -210,10 +210,10 @@
     <div class="input-group"><label class="label">Username</label><input id="regUsername" placeholder="Username" oninput="onUsernameInput()" onblur="checkUsernameAvailability()"><div class="error-text">Required</div><div id="usernameStatus" style="font-size:12px;font-weight:600;margin-top:4px;"></div></div>
     <div class="input-group"><label class="label">First Name</label><input id="firstName" onblur="validateName(this)" placeholder="First Name"><div class="error-text">Invalid name</div></div>
     <div class="input-group"><label class="label">Last Name</label><input id="lastName" onblur="validateName(this)" placeholder="Last Name"><div class="error-text">Invalid name</div></div>
-    <div class="input-group"><label class="label">Phone Number</label><input id="phone" onblur="validatePhone(this)" placeholder="Phone Number"><div class="error-text">Invalid phone</div></div>
-    <div class="input-group"><label class="label">Email Address</label><input id="regEmail" onblur="validateEmail(this)" placeholder="you@example.com"><div class="error-text">Please enter a valid email address</div><div class="alveo-upload-helper">Having an Alveo email makes approval easier. Other email addresses are accepted, but you must upload your Alveo ID for verification.</div></div>
+    <div class="input-group"><label class="label">Phone Number (optional)</label><input id="phone" onblur="validatePhone(this)" placeholder="Phone Number"><div class="error-text">Invalid phone</div></div>
+    <div class="input-group"><label class="label">Email Address</label><input id="regEmail" onblur="validateEmail(this)" placeholder="you@example.com"><div class="error-text">Please enter a valid email address</div><div class="alveo-upload-helper">Any email works — an Alveo email makes approval easier. Other email addresses are accepted, but approval takes longer and is harder if you don’t upload your Alveo ID below.</div></div>
     <div class="input-group">
-      <label class="label">Birthday</label>
+      <label class="label">Birthday (optional)</label>
       <input type="hidden" id="birthday">
       <div class="rm-datepicker" id="birthdayPicker">
         <button type="button" class="rm-date-trigger" id="birthdayTrigger" aria-haspopup="dialog" aria-expanded="false" aria-label="Birthday">
@@ -239,15 +239,15 @@
       </div>
       <div class="error-text">Invalid birthday</div>
     </div>
-    <div class="input-group"><label class="label">Gender</label><select id="gender" required><option value="" disabled selected>Select Gender</option><option>Male</option><option>Female</option><option>Other</option></select></div>
+    <div class="input-group"><label class="label">Gender (optional)</label><select id="gender"><option value="" disabled selected>Select Gender</option><option>Male</option><option>Female</option><option>Other</option></select></div>
     <div class="input-group">
-      <label class="label">Upload Alveo ID</label>
+      <label class="label">Upload Alveo ID (optional)</label>
       <div class="alveo-upload-box" id="alveoUploadWrap" onclick="document.getElementById('alveoFile').click()">
         <i class="fas fa-upload"></i>
         <span id="alveoFileName" class="alveo-upload-text">Upload Alveo ID</span>
         <input type="file" id="alveoFile" accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf" onchange="handleAlveoFileSelect(this)" hidden>
       </div>
-      <div class="alveo-upload-helper">Upload a clear photo or PDF of your Alveo ID.</div>
+      <div class="alveo-upload-helper">Optional, but recommended — providing your Alveo ID makes account approval much easier and faster. Upload a clear photo or PDF.</div>
       <div class="error-text" id="alveoFileError" style="display:none;"></div>
     </div>
     <div class="input-group">
@@ -290,6 +290,6 @@
 </div>
 
 <script src="vendor/supabase-js.min.js?v=2.112.3"></script>
-<script src="script.js?v=20260826a"></script>
+<script src="script.js?v=20260827a"></script>
 </body>
 </html>

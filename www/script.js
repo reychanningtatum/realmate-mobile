@@ -221,14 +221,14 @@ function closeTerms() {
 }
 
 // Single gate for the Create Account button — it must stay disabled unless
-// ALL of: terms accepted, username confirmed available (not taken, not still
-// pending a check), and an Alveo ID file is attached.
+// BOTH: terms accepted and username confirmed available (not taken, not still
+// pending a check). The Alveo ID is OPTIONAL (Guideline 5.1.1) so it is NOT
+// part of this gate.
 function toggleRegButton() {
     const checkbox = document.getElementById("termsCheckbox");
     const regBtn = document.getElementById("regBtn");
     const usernameOk = _usernameAvailable === true;
-    const fileOk = !!_selectedAlveoFile;
-    regBtn.disabled = !(checkbox.checked && usernameOk && fileOk);
+    regBtn.disabled = !(checkbox.checked && usernameOk);
 }
 
 // ── Alveo ID upload ──────────────────────────────────────────
@@ -300,7 +300,7 @@ function showError(input, show){
 }
 
 function validateName(i){ showError(i,i.value.trim().length<2) }
-function validatePhone(i){ showError(i,!/^[0-9]{10,13}$/.test(i.value.trim())) }
+function validatePhone(i){ const v=i.value.trim(); showError(i, v!=="" && !/^[0-9]{10,13}$/.test(v)) }
 // Any valid email may register. Alveo business emails (exactly @alveoland.com,
 // case-insensitive) make admin approval easier, but ALL registrations still
 // upload an Alveo ID for verification (see registerUser + the NOT NULL
@@ -317,7 +317,7 @@ function validateBirthday(){
   const input = document.getElementById("birthday");
   const wrapper = document.getElementById("birthdayPicker");
   if (!input || !wrapper) return;
-  if (!input.value) { showError(wrapper, true); return; }
+  if (!input.value) { showError(wrapper, false); return; } // birthday optional — blank is valid
   let year = input.value.split("-")[0];
   let currentYear = new Date().getFullYear();
   showError(wrapper, year.length !== 4 || year > currentYear - 18 || year < currentYear - 100);
@@ -939,7 +939,7 @@ async function registerUser(){
   let birthday = document.getElementById("birthday").value;
   let gender = document.getElementById("gender").value;
 
-  if (!username || !firstName || !email || !password || !birthday) {
+  if (!username || !firstName || !email || !password) {
     showRegToast("Please fill in all required fields.", "error");
     return;
   }
@@ -951,14 +951,13 @@ async function registerUser(){
     showRegToast("Please enter a valid email address.", "error");
     return;
   }
-  if (!_selectedAlveoFile) {
-    showAlveoFileError("Please upload your Alveo ID before creating an account.");
-    return;
-  }
-  const fileCheck = _validateAlveoFile(_selectedAlveoFile);
-  if (!fileCheck.ok) {
-    showAlveoFileError(fileCheck.message);
-    return;
+  // Alveo ID is OPTIONAL (Guideline 5.1.1) — only validate it if one was attached.
+  if (_selectedAlveoFile) {
+    const fileCheck = _validateAlveoFile(_selectedAlveoFile);
+    if (!fileCheck.ok) {
+      showAlveoFileError(fileCheck.message);
+      return;
+    }
   }
 
   // Re-verify the username server-side right before submitting — the
@@ -982,14 +981,19 @@ async function registerUser(){
     // rather than a user id — ownership for read access is established
     // afterwards via the profiles.alveo_id_file row, not the storage path
     // itself (see the storage RLS policy in alveo-id-storage-setup.sql).
-    const tempFolder = (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}_${Math.random().toString(36).slice(2)}`);
-    const path = `${tempFolder}/${Date.now()}_${_selectedAlveoFile.name.replace(/\s/g, '_')}`;
-    const { error: uploadError } = await window.supabaseClient.storage
-      .from('verification-docs')
-      .upload(path, _selectedAlveoFile, { contentType: _selectedAlveoFile.type });
-    if (uploadError) {
-      showAlveoFileError("Couldn't upload your Alveo ID. Please try again.");
-      return;
+    // Alveo ID is optional — only upload when the applicant attached one.
+    // path stays null otherwise (the alveo_id_file columns are nullable).
+    let path = null;
+    if (_selectedAlveoFile) {
+      const tempFolder = (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}_${Math.random().toString(36).slice(2)}`);
+      path = `${tempFolder}/${Date.now()}_${_selectedAlveoFile.name.replace(/\s/g, '_')}`;
+      const { error: uploadError } = await window.supabaseClient.storage
+        .from('verification-docs')
+        .upload(path, _selectedAlveoFile, { contentType: _selectedAlveoFile.type });
+      if (uploadError) {
+        showAlveoFileError("Couldn't upload your Alveo ID. Please try again.");
+        return;
+      }
     }
 
     const { data: signUpData, error } = await window.supabaseClient.auth.signUp({
@@ -998,7 +1002,7 @@ async function registerUser(){
     });
     if (error) {
       showRegToast("Registration failed: " + error.message, "error");
-      await window.supabaseClient.storage.from('verification-docs').remove([path]);
+      if (path) await window.supabaseClient.storage.from('verification-docs').remove([path]);
       return;
     }
 
