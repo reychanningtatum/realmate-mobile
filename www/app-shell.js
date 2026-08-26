@@ -76,10 +76,31 @@
     if (m) m.classList.remove('open');
   }
 
+  // Scroll a tab's already-loaded content back to the very top, without
+  // reloading or changing anything. Covers both window-scrolled pages (Portal)
+  // and inner-scroller pages (Feed's .main-content). For Portal this lands on
+  // the topmost item of whatever sub-tab (Live Market / My Listings / AI
+  // Matches) is currently active — the sub-tab is never changed.
+  function scrollFrameTop(tab) {
+    var f = frames[tab];
+    if (!f) return;
+    try {
+      if (f.contentWindow) f.contentWindow.scrollTo({ top: 0, behavior: 'smooth' });
+      var d = f.contentDocument;
+      if (d) d.querySelectorAll('.main-content, .feed, .chat-messages').forEach(function (el) {
+        if (el.scrollTop > 0) el.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+    } catch (e) {}
+  }
+
   function go(tab, forceSrc) {
     if (!TABS[tab] && !forceSrc) return;
     closeNavMenu();
-    if (tab === current && !forceSrc) return;
+    // Re-tapping the tab you're already on returns it to the top (Portal: the
+    // top of the active sub-tab) rather than doing nothing. Listing Detail is
+    // internal iframe navigation, so open-listing-then-back keeps its own scroll
+    // position and is unaffected by this.
+    if (tab === current && !forceSrc) { scrollFrameTop(tab); return; }
 
     var cached = frames[tab];
     if (cached && !forceSrc) { withTransition(function () { reveal(tab); }); return; }
@@ -117,31 +138,9 @@
     go('me', url || TABS.me);
   };
 
-  // Auto-dismiss the account/profile dropdown: once it opens it closes itself
-  // after a short idle window, so it never lingers over a tab (e.g. sitting on
-  // the profile with the menu still up). Any tap inside the shell or a tab still
-  // closes it instantly via the existing listeners; this only handles the
-  // "opened it, did nothing" case. Watching the class avoids coupling to the
-  // toggle code in nav-menu.js.
-  function watchNavMenu() {
-    var m = document.getElementById('navMenu');
-    if (!m || m.__rmAutoClose) return;
-    m.__rmAutoClose = true;
-    var timer = null;
-    new MutationObserver(function () {
-      if (m.classList.contains('open')) {
-        if (timer) clearTimeout(timer);
-        timer = setTimeout(function () { m.classList.remove('open'); }, 2600);
-      } else if (timer) {
-        clearTimeout(timer); timer = null;
-      }
-    }).observe(m, { attributes: true, attributeFilter: ['class'] });
-  }
-
   document.addEventListener('DOMContentLoaded', function () {
     host = document.getElementById('rmHost');
     loading = document.getElementById('rmLoading');
-    watchNavMenu();
     var t = new URLSearchParams(location.search).get('tab');
     go(TABS[t] ? t : 'home');
   });

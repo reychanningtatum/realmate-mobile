@@ -44,6 +44,26 @@ body {
   top: env(safe-area-inset-top);
 }
 
+/* Fill the strip ABOVE the sticky bar (y = 0 … safe-area-inset-top). Because the
+   bar sits at top:inset so its tabs clear the notch, once the page scrolls the
+   listings scroll through that strip, and restoring the bar (tapping the Search
+   FAB) left the page visible in the notch area above it. This opaque filler is
+   anchored to the bar (bottom:100% → directly above it) and spans exactly the
+   inset, so the notch strip + the bar read as ONE continuous header with no
+   exposed gap. It moves and hides WITH the bar (a minimized bar slides up and
+   takes it along), and collapses to zero height on devices without a top inset,
+   so it's completely inert on non-notched hardware and desktop. */
+.top-fixed-wrap::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  height: env(safe-area-inset-top);
+  background: var(--bg);
+  pointer-events: none;
+}
+
 /* ==========================================================================
    TAB SWITCHING — cross-document View Transitions
    --------------------------------------------------------------------------

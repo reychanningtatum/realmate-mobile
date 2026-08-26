@@ -839,11 +839,15 @@ let _sharedOriginals = {};
 let _savedSet = new Set();
 const FEED_COLS = 'id, user_id, user_name, user_img, subject, content, media_url, media_type, media_urls, post_type, privacy, poll, hashtags, shared_post_id, album_title, topic, created_at, is_anonymous';
 
-async function loadHomeFeed(feedEl, filterArg) {
+async function loadHomeFeed(feedEl, filterArg, silent) {
     const feed = feedEl || document.getElementById('homeFeed');
     if (!feed) return;
     const filter = filterArg || _feedFilter;
-    feed.innerHTML = `<div class="hf-loading"><i class="fas fa-spinner fa-spin"></i> Loading feed…</div>`;
+    // Silent refresh (pull-to-refresh): keep the current posts on screen while
+    // fetching, instead of collapsing the feed to a spinner. Collapsing shrank
+    // the page so the Trending / Suggested Realmates sidebar scrolled up into
+    // view for a moment before the new posts rendered — this avoids that flash.
+    if (!silent) feed.innerHTML = `<div class="hf-loading"><i class="fas fa-spinner fa-spin"></i> Loading feed…</div>`;
 
     const user = getUser();
 

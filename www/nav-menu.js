@@ -1,5 +1,12 @@
 // Shared nav avatar menu
 function toggleNavMenu(e) {
+    // The account menu (#navMenu) is a CHILD of the avatar wrap that owns this
+    // onclick. A tap on a menu item (Profile/Realmates/Settings/Logout) runs its
+    // own handler — which closes the menu — but the same click then bubbles up
+    // here and toggles it straight back OPEN, leaving the card stuck over the
+    // next page until you tapped elsewhere. Ignore clicks that originate inside
+    // the menu; only a tap on the avatar itself toggles it.
+    if (e && e.target && e.target.closest && e.target.closest('#navMenu')) return;
     if (e) e.stopPropagation();
     const menu = document.getElementById('navMenu');
     if (menu) menu.classList.toggle('open');

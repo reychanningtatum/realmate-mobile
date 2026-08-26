@@ -1,14 +1,17 @@
 /* pull-refresh.js — Facebook-style pull-to-refresh.
  *
- *   rmPullRefresh({ scroller: '.main-content', onRefresh: fn })          // element scrolls
- *   rmPullRefresh({ content: '.main-content', windowScroll: true, onRefresh: fn })  // page scrolls
+ *   rmPullRefresh({ scroller: '.main-content', onRefresh: fn })                       // element scrolls
+ *   rmPullRefresh({ content: '.main-content', windowScroll: true, onRefresh: fn,      // page scrolls
+ *                   label: 'Loading Portal' })
  *
  * At the very top of the scroll, dragging DOWN makes the content follow the
- * finger (rubber-band) with a spinner above it. Past the threshold it holds a
- * loading position and runs onRefresh; when that resolves it snaps back with the
- * fresh data. onRefresh should REFRESH DATA IN PLACE (not reload the page) so
- * there is no empty-state / re-render flash. Only engages when the scroll is
- * genuinely at the top, so scrolling elsewhere never triggers it. Touch-only.
+ * finger (rubber-band) with an indicator above it. Past the threshold it holds a
+ * loading position, shows a spinner (+ optional label text) and runs onRefresh;
+ * when that resolves it snaps back with the fresh data. onRefresh should REFRESH
+ * DATA IN PLACE (not reload the page) so there is no empty-state / re-render
+ * flash. The gesture only arms when the scroll is genuinely at the top — pass
+ * windowScroll:true for pages whose BODY scrolls (Feed, Portal) so a drag while
+ * scrolled down never triggers it. Touch-only.
  */
 (function () {
   'use strict';
@@ -23,8 +26,9 @@
     var winScroll = !!opts.windowScroll;
     var scrollEl = winScroll ? null : (el(opts.scroller) || content);
     var onRefresh = opts.onRefresh || function () { location.reload(); };
+    var label = opts.label || '';
 
-    var THRESHOLD = 72, MAX = 110, DAMP = 0.55, REST = 48, IND_BASE = 46;
+    var THRESHOLD = 72, MAX = 110, DAMP = 0.55, REST = 52, IND_BASE = 50;
 
     function scrollTop() {
       return winScroll ? (window.pageYOffset || document.documentElement.scrollTop || 0)
@@ -35,20 +39,24 @@
       var st = document.createElement('style');
       st.id = 'rm-ptr-style';
       st.textContent =
-        '.rm-ptr{position:fixed;left:50%;top:0;margin-left:-19px;z-index:9000;width:38px;height:38px;' +
-        'border-radius:50%;background:#fff;box-shadow:0 5px 18px rgba(15,23,42,.22);display:flex;' +
-        'align-items:center;justify-content:center;color:#32cd32;font-size:15px;opacity:0;' +
-        'transform:translateY(-52px);pointer-events:none;}' +
-        '.rm-ptr i{transition:transform .18s ease;}' +
-        '.rm-ptr.rm-spin i{animation:rm-ptr-spin .7s linear infinite;}' +
+        '.rm-ptr{position:fixed;left:50%;top:0;z-index:9000;height:38px;min-width:38px;' +
+        'box-sizing:border-box;border-radius:19px;background:#fff;box-shadow:0 5px 18px rgba(15,23,42,.22);' +
+        'display:flex;align-items:center;justify-content:center;gap:0;padding:0;color:#32cd32;font-size:15px;' +
+        'opacity:0;transform:translate(-50%,-52px);pointer-events:none;}' +
+        '.rm-ptr i{transition:transform .18s ease;flex:0 0 auto;}' +
+        '.rm-ptr .rm-ptr-label{display:none;font-size:12.5px;font-weight:600;color:#334155;white-space:nowrap;}' +
+        '.rm-ptr.rm-busy{gap:8px;padding:0 15px;}' +
+        '.rm-ptr.rm-busy.rm-has-label .rm-ptr-label{display:inline;}' +
+        '.rm-ptr.rm-busy i{animation:rm-ptr-spin .7s linear infinite;}' +
         '@keyframes rm-ptr-spin{to{transform:rotate(360deg)}}';
       document.head.appendChild(st);
     }
     var ind = document.createElement('div');
     ind.className = 'rm-ptr';
-    ind.innerHTML = '<i class="fas fa-arrow-down"></i>';
+    ind.innerHTML = '<i class="fas fa-arrow-down"></i><span class="rm-ptr-label"></span>';
     document.body.appendChild(ind);
     var arrow = ind.querySelector('i');
+    var labelEl = ind.querySelector('.rm-ptr-label');
 
     var startY = 0, active = false, dist = 0, busy = false;
 
@@ -58,19 +66,20 @@
       content.style.transition = 'transform .28s cubic-bezier(.2,.8,.2,1)';
       ind.style.transition = 'transform .28s cubic-bezier(.2,.8,.2,1), opacity .2s';
     }
+    function moveInd(y) { ind.style.transform = 'translate(-50%,' + y + 'px)'; }
     function drag(pull) {
       var y = Math.min(pull, MAX);
       content.style.transform = 'translateY(' + y + 'px)';
       ind.style.opacity = y > 6 ? '1' : '0';
-      ind.style.transform = 'translateY(' + (y - IND_BASE) + 'px)';
+      moveInd(y - IND_BASE);
       if (arrow) arrow.style.transform = 'rotate(' + (pull >= THRESHOLD ? 180 : 0) + 'deg)';
     }
     function reset() {
       ease();
       content.style.transform = 'translateY(0)';
-      ind.classList.remove('rm-spin');
+      ind.classList.remove('rm-busy', 'rm-has-label');
       ind.style.opacity = '0';
-      ind.style.transform = 'translateY(-52px)';
+      moveInd(-52);
     }
     function done() { busy = false; reset(); }
 
@@ -94,21 +103,29 @@
       active = false;
       if (dist >= THRESHOLD) {
         busy = true;
+        // Enter the loading state: spinner (+ optional label like "Loading Portal").
+        if (arrow) arrow.className = 'fas fa-spinner';
+        if (label) { labelEl.textContent = label; ind.classList.add('rm-has-label'); }
+        ind.classList.add('rm-busy');
         ease();
         content.style.transform = 'translateY(' + REST + 'px)';
-        ind.style.transform = 'translateY(' + (REST - IND_BASE) + 'px)';
+        moveInd(REST - IND_BASE);
         ind.style.opacity = '1';
-        ind.classList.add('rm-spin');
         setTimeout(function () {
           var r;
           try { r = onRefresh(); } catch (e) { r = null; }
-          if (r && typeof r.then === 'function') { r.then(done, done); }
-          else { setTimeout(done, 500); }
+          if (r && typeof r.then === 'function') { r.then(finish, finish); }
+          else { setTimeout(finish, 500); }
         }, 260);
       } else {
         reset();
       }
     }, { passive: true });
+
+    function finish() {
+      if (arrow) arrow.className = 'fas fa-arrow-down';
+      done();
+    }
   }
 
   window.rmPullRefresh = init;

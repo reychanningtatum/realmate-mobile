@@ -12,7 +12,7 @@
   <script src="theme.js?v=20260812a"></script>
   <script src="toast.js?v=20260819a"></script>
   <script src="featureFlags.js?v=20260822off"></script>
-<link rel="stylesheet" href="safe-area.css?v=vt2">
+<link rel="stylesheet" href="safe-area.css?v=vt3">
 <script>if(window.self!==window.top)document.documentElement.classList.add("rm-embedded");</script>
 </head>
 <body>
@@ -321,7 +321,7 @@
 <script src="auth-guard.js?v=20260815a"></script>
 <script src="top-producers.js"></script>
 <script src="follows.js?v=20260812l"></script>
-<script src="home.js?v=20260823bp"></script>
+<script src="home.js?v=20260826a"></script>
 <script src="block-report.js?v=20260823bp"></script>
 <script src="congrats.js?v=20260810b"></script>
 <script src="location-engine.js?v=20260809b"></script>
@@ -351,8 +351,8 @@
     </div>
   </div>
 </nav>
-<script src="pull-refresh.js?v=2"></script>
-<script src="nav-menu.js?v=20260809a"></script>
-<script>document.addEventListener("DOMContentLoaded",function(){if(window.rmPullRefresh)rmPullRefresh({scroller:".main-content",onRefresh:function(){return window.loadHomeFeed?loadHomeFeed():location.reload();}});});</script>
+<script src="pull-refresh.js?v=3"></script>
+<script src="nav-menu.js?v=20260826a"></script>
+<script>document.addEventListener("DOMContentLoaded",function(){if(window.rmPullRefresh)rmPullRefresh({content:".main-content",windowScroll:true,label:"Loading Feed",onRefresh:function(){return window.loadHomeFeed?loadHomeFeed(null,null,true):location.reload();}});});</script>
 </body>
 </html>
