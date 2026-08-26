@@ -71,9 +71,13 @@
     var cached = frames[tab];
     if (cached && !forceSrc) { withTransition(function () { reveal(tab); }); return; }
 
-    // (Re)create the frame and wait for first paint before revealing, so the
-    // pan never animates in a blank/loading frame.
+    // Uncached (or forced reload): hide the CURRENT tab immediately so its
+    // content (e.g. the profile view) can never linger over the loading state
+    // or the newly selected tab. Then pan the new frame in once it has painted.
     if (cached) { try { host.removeChild(cached); } catch (e) {} delete frames[tab]; }
+    if (current && frames[current]) frames[current].classList.remove('rm-active');
+    current = null;
+    setActive(tab);
     if (loading) loading.classList.remove('rm-hide');
 
     var f = document.createElement('iframe');
