@@ -82,3 +82,15 @@ body {
 @media (prefers-reduced-motion: reduce) {
   ::view-transition-old(root), ::view-transition-new(root) { animation: none; }
 }
+
+/* ==========================================================================
+   EMBEDDED IN THE APP SHELL (app.html iframe)
+   --------------------------------------------------------------------------
+   When a page runs inside the persistent shell it must NOT show its own bottom
+   nav (the shell provides the single persistent one) — otherwise the bar
+   doubles. The <html class="rm-embedded"> flag is set by a tiny inline script
+   in each page head (see index/home/etc.), so it holds across pull-to-refresh
+   reloads too. Drop the bottom padding since the shell owns that space.
+   ========================================================================== */
+html.rm-embedded .mobile-bottom-nav { display: none !important; }
+html.rm-embedded body { padding-bottom: 0 !important; }

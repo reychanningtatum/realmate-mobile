@@ -2,10 +2,11 @@
  *
  *   rmPullRefresh({ scroller: '.main-content', onRefresh: fn })
  *
- * A spinner tracks the finger while the user pulls DOWN from the very top of
- * the scroller; past the threshold it runs onRefresh (default: reload the page,
- * which re-fetches the latest posts). It only engages when the scroller is
- * already at scrollTop 0, so normal scrolling anywhere else is untouched.
+ * When the scroller is at the very top and the user drags DOWN, the content
+ * itself follows the finger (rubber-band) with a spinner above it. Past the
+ * threshold it snaps to a loading position and runs onRefresh (default: reload,
+ * which re-fetches the latest posts). Only engages at scrollTop 0, so normal
+ * scrolling is untouched. Touch-only, so it is inert on desktop.
  */
 (function () {
   'use strict';
@@ -18,14 +19,14 @@
     scroller.__rmPtr = true;
     var onRefresh = opts.onRefresh || function () { location.reload(); };
 
-    var THRESHOLD = 66, MAX = 92, DAMP = 0.5;
+    var THRESHOLD = 70, MAX = 110, DAMP = 0.55, REST = 48, IND_BASE = 46;
 
     if (!document.getElementById('rm-ptr-style')) {
       var st = document.createElement('style');
       st.id = 'rm-ptr-style';
       st.textContent =
         '.rm-ptr{position:fixed;left:50%;top:0;margin-left:-19px;z-index:9000;width:38px;height:38px;' +
-        'border-radius:50%;background:#fff;box-shadow:0 4px 16px rgba(15,23,42,.20);display:flex;' +
+        'border-radius:50%;background:#fff;box-shadow:0 5px 18px rgba(15,23,42,.22);display:flex;' +
         'align-items:center;justify-content:center;color:#32cd32;font-size:15px;opacity:0;' +
         'transform:translateY(-52px);pointer-events:none;}' +
         '.rm-ptr i{transition:transform .18s ease;}' +
@@ -37,37 +38,43 @@
     ind.className = 'rm-ptr';
     ind.innerHTML = '<i class="fas fa-arrow-down"></i>';
     document.body.appendChild(ind);
-
-    var startY = 0, active = false, dist = 0, busy = false;
     var arrow = ind.querySelector('i');
 
+    var startY = 0, active = false, dist = 0, busy = false;
+
     function atTop() { return scroller.scrollTop <= 0; }
-    function draw(d) {
-      var y = Math.min(d, MAX);
-      ind.style.transition = 'none';
-      ind.style.opacity = y > 4 ? '1' : '0';
-      ind.style.transform = 'translateY(' + (y - 52) + 'px)';
-      if (arrow) arrow.style.transform = 'rotate(' + (d >= THRESHOLD ? 180 : 0) + 'deg)';
+    function noEase() { scroller.style.transition = 'none'; ind.style.transition = 'none'; }
+    function ease() {
+      scroller.style.transition = 'transform .28s cubic-bezier(.2,.8,.2,1)';
+      ind.style.transition = 'transform .28s cubic-bezier(.2,.8,.2,1), opacity .2s';
     }
-    function snapBack() {
+    function drag(pull) {
+      var y = Math.min(pull, MAX);
+      scroller.style.transform = 'translateY(' + y + 'px)';   // content follows finger
+      ind.style.opacity = y > 6 ? '1' : '0';
+      ind.style.transform = 'translateY(' + (y - IND_BASE) + 'px)';
+      if (arrow) arrow.style.transform = 'rotate(' + (pull >= THRESHOLD ? 180 : 0) + 'deg)';
+    }
+    function reset() {
+      ease();
+      scroller.style.transform = 'translateY(0)';
       ind.classList.remove('rm-spin');
-      ind.style.transition = 'transform .24s ease, opacity .24s ease';
       ind.style.opacity = '0';
       ind.style.transform = 'translateY(-52px)';
     }
 
     scroller.addEventListener('touchstart', function (e) {
       if (busy || !atTop()) { active = false; return; }
-      startY = e.touches[0].clientY; active = true; dist = 0;
+      startY = e.touches[0].clientY; active = true; dist = 0; noEase();
     }, { passive: true });
 
     scroller.addEventListener('touchmove', function (e) {
       if (!active) return;
       var raw = e.touches[0].clientY - startY;
-      if (raw <= 0 || !atTop()) { active = false; draw(0); return; }
+      if (raw <= 0 || !atTop()) { active = false; reset(); return; }
       dist = raw * DAMP;
-      draw(dist);
-      if (raw > 6 && e.cancelable) e.preventDefault(); // suppress native overscroll while pulling
+      drag(dist);
+      if (raw > 6 && e.cancelable) e.preventDefault();   // suppress native overscroll while pulling
     }, { passive: false });
 
     scroller.addEventListener('touchend', function () {
@@ -75,12 +82,14 @@
       active = false;
       if (dist >= THRESHOLD) {
         busy = true;
-        ind.style.transition = 'transform .18s ease';
-        ind.style.transform = 'translateY(' + (THRESHOLD - 18) + 'px)';
+        ease();
+        scroller.style.transform = 'translateY(' + REST + 'px)';   // hold while refreshing
+        ind.style.transform = 'translateY(' + (REST - IND_BASE) + 'px)';
+        ind.style.opacity = '1';
         ind.classList.add('rm-spin');
-        setTimeout(function () { onRefresh(); }, 200);
+        setTimeout(onRefresh, 320);
       } else {
-        snapBack();
+        reset();
       }
     }, { passive: true });
   }

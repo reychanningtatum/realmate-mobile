@@ -31,12 +31,25 @@
   // the persistent one) and drop its bottom padding. Injected before the frame
   // is revealed, so its nav never flashes.
   function injectEmbedCss(frame) {
+    var d;
+    try { d = frame.contentDocument; } catch (e) { return; }
+    if (!d) return;
     try {
-      var d = frame.contentDocument;
-      if (d && d.head && !d.getElementById('rm-embed-hide')) {
+      if (d.head && !d.getElementById('rm-embed-hide')) {
         d.head.insertAdjacentHTML('beforeend',
           '<style id="rm-embed-hide">.mobile-bottom-nav{display:none!important}' +
           'html,body{padding-bottom:0!important}</style>');
+      }
+    } catch (e) {}
+    // A tap INSIDE the tab content can't reach the shell document, so the
+    // account dropdown never closes on outside-tap. Wire it from here so any
+    // interaction with the page also closes the shell menu. Re-armed on every
+    // load (the doc is new after a pull-to-refresh reload).
+    try {
+      if (!d.__rmMenuClose) {
+        d.__rmMenuClose = true;
+        d.addEventListener('touchstart', closeNavMenu, { capture: true, passive: true });
+        d.addEventListener('click', closeNavMenu, true);
       }
     } catch (e) {}
   }
@@ -83,8 +96,11 @@
     var f = document.createElement('iframe');
     f.className = 'rm-frame';
     f.setAttribute('title', tab);
+    // Every load (incl. internal navigation + pull-to-refresh reloads): re-hide
+    // the embedded nav + re-arm the menu-close listeners.
+    f.addEventListener('load', function () { injectEmbedCss(f); });
+    // Once: reveal the frame after its first paint.
     f.addEventListener('load', function () {
-      injectEmbedCss(f);
       if (loading) loading.classList.add('rm-hide');
       withTransition(function () { reveal(tab); });
     }, { once: true });
