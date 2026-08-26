@@ -1259,9 +1259,31 @@ function togglePostMenu(postId) {
 
 let _pendingDeletePostId = null;
 
+// The confirm modal lives in home.html, but home.js also renders posts on the
+// Profile (dashboard.html), which doesn't include it — so deleting a post there
+// used to throw on a null modal and silently do nothing. Inject it on demand.
+function _ensureHomeDeleteModal() {
+    let modal = document.getElementById('homeDeleteModal');
+    if (modal) return modal;
+    modal = document.createElement('div');
+    modal.id = 'homeDeleteModal';
+    modal.style.cssText = 'display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.45); align-items:center; justify-content:center;';
+    modal.innerHTML =
+        '<div style="background:#fff; border-radius:20px; padding:32px 28px; max-width:340px; width:90%; text-align:center; box-shadow:0 20px 60px rgba(0,0,0,0.2);">' +
+        '<i class="fas fa-exclamation-triangle" style="font-size:40px; color:#ef4444; margin-bottom:16px;"></i>' +
+        '<h3 style="font-size:18px; font-weight:800; color:#0f172a; margin:0 0 8px;">Delete this post?</h3>' +
+        '<p style="color:#64748b; font-size:13px; margin:0 0 24px;">This action cannot be undone.</p>' +
+        '<div style="display:flex; gap:10px;">' +
+        '<button onclick="closeHomeDeleteModal()" style="flex:1; padding:12px; border-radius:10px; border:1px solid #e2e8f0; background:#fff; font-size:14px; font-weight:600; cursor:pointer;">Cancel</button>' +
+        '<button id="homeDeleteConfirmBtn" style="flex:1; padding:12px; border-radius:10px; border:none; background:#ef4444; color:#fff; font-size:14px; font-weight:700; cursor:pointer;">Delete</button>' +
+        '</div></div>';
+    document.body.appendChild(modal);
+    return modal;
+}
+
 function deleteHomePost(postId) {
     _pendingDeletePostId = postId;
-    const modal = document.getElementById('homeDeleteModal');
+    const modal = _ensureHomeDeleteModal();
     modal.style.display = 'flex';
     document.getElementById('homeDeleteConfirmBtn').onclick = confirmHomeDelete;
 }
@@ -1277,7 +1299,17 @@ async function confirmHomeDelete() {
     closeHomeDeleteModal();
     await _supaHome.from('forum_posts').delete().eq('id', postId);
     document.getElementById(`hfpost-${postId}`)?.remove();
+    // Broadcast so the SAME post disappears from the other view too (Feed ↔
+    // Profile) in real time, without a manual refresh. Same-origin storage
+    // events fire in the other iframe/tab (the Feed and Profile run in separate
+    // shell iframes), and the listener below removes the card there.
+    try { localStorage.setItem('rm_post_deleted', JSON.stringify({ id: String(postId), t: Date.now() })); } catch (e) {}
 }
+window.addEventListener('storage', function (e) {
+    if (e.key === 'rm_post_deleted' && e.newValue) {
+        try { var d = JSON.parse(e.newValue); if (d && d.id) document.getElementById('hfpost-' + d.id)?.remove(); } catch (_) {}
+    }
+});
 
 // ── Reactions (Like / Love / Celebrate / Insightful / Helpful) ──
 const _reactHideTimers = {};

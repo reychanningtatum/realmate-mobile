@@ -716,8 +716,28 @@ function deleteListing(listingId) {
         overlay.remove();
         applyFilters();
         lmToast('Listing deleted', 'fa-circle-check');
+        // Broadcast so the SAME listing drops from the other view live (Portal ↔
+        // Profile), no manual refresh. livemarket.js runs in both, and the
+        // listener below removes it + re-renders whichever view is showing.
+        try { localStorage.setItem('rm_listing_deleted', JSON.stringify({ id: String(listingId), t: Date.now() })); } catch (e) {}
     };
 }
+
+// Live Portal ↔ Profile listing-deletion sync (same-origin storage event fires
+// in the OTHER shell iframe/tab). Drops the listing from the in-memory pools,
+// removes its card, and re-renders whichever listing view this page shows.
+window.addEventListener('storage', function (e) {
+    if (e.key !== 'rm_listing_deleted' || !e.newValue) return;
+    try {
+        var d = JSON.parse(e.newValue); if (!d || !d.id) return;
+        var id = String(d.id);
+        if (typeof allListings !== 'undefined' && Array.isArray(allListings)) allListings = allListings.filter(function (l) { return String(l.id) !== id; });
+        if (typeof myListings !== 'undefined' && Array.isArray(myListings)) myListings = myListings.filter(function (l) { return String(l.id) !== id; });
+        document.querySelectorAll('[id="lc-' + id + '"]').forEach(function (card) { card.remove(); });
+        if (typeof applyFilters === 'function' && document.getElementById('listingsGrid')) applyFilters();
+        if (typeof reloadDashboardListings === 'function') { try { reloadDashboardListings(); } catch (_) {} }
+    } catch (_) {}
+});
 
 // (Removed buildStatusBadge / buildStatusButtons — the "In Negotiation" pill and
 //  the old post-status button row are no longer shown on Portal posts. Completion
