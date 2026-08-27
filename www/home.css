@@ -1063,6 +1063,18 @@ html[data-theme="dark"] .fp-row:hover { background: #243044; }
   opacity: 0; pointer-events: none; transition: opacity 0.12s; z-index: 30;
 }
 .hf-react-opt:hover .hf-react-optlabel { opacity: 1; }
+/* The reaction button + picker are pure gesture targets — never selectable, and
+   no iOS long-press callout. */
+.hf-react-btn, .hf-react-picker, .hf-react-picker * {
+  -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+}
+/* While the user is holding Like / swiping the emoji picker, suppress ALL text
+   selection + the callout so the post body can't get selected mid-gesture (#3).
+   Toggled by reactTouchStart/reactTouchEnd in home.js. */
+body.rm-reacting, body.rm-reacting * {
+  -webkit-user-select: none !important; user-select: none !important;
+  -webkit-touch-callout: none !important;
+}
 
 /* Poll rendering on a post */
 .hf-poll { margin: 10px 0 2px; display: flex; flex-direction: column; gap: 8px; }

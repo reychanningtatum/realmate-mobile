@@ -144,25 +144,36 @@ async function followUser(targetUserId, targetName) {
                 .select('public_follow').eq('id', targetUserId).maybeSingle();
             autoAccept = !!(tp && tp.public_follow);
         } catch (e) {}
-        const status = autoAccept ? 'accepted' : 'pending';
+        let status = autoAccept ? 'accepted' : 'pending';
+        const baseRow = {
+            follower_id:    myId,
+            follower_name:  me?.name || '',
+            following_id:   targetUserId,
+            following_name: targetName
+        };
 
-        const { error } = await _followsDb.from('follows').insert({
-            follower_id:   myId,
-            follower_name: me?.name || '',
-            following_id:  targetUserId,
-            following_name: targetName,
-            status:        status
-        });
+        let { error } = await _followsDb.from('follows').insert({ ...baseRow, status });
+        // Graceful degradation: if follows.status hasn't been migrated yet
+        // (privacy-following-migration.sql not run in Supabase), the insert fails
+        // with "could not find the 'status' column ... in the schema cache". Retry
+        // WITHOUT the column so following still works — treated as immediately
+        // accepted until the migration enables the pending/approval flow.
+        if (error && /status/i.test(error.message || '') &&
+            /column|schema cache|does not exist|could not find/i.test(error.message || '')) {
+            status = 'accepted';
+            ({ error } = await _followsDb.from('follows').insert(baseRow));
+        }
         if (error) throw error;
 
+        const accepted = status === 'accepted';
         await _followsInsertNotification({
-            type:                   autoAccept ? 'follow' : 'follow_request',
+            type:                   accepted ? 'follow' : 'follow_request',
             sender_id:              myId,
             sender_user_name:       me?.name || '',
             sender_profile_picture: me?.image || '',
             recipient_id:           targetUserId,
             recipient_user_name:    targetName,
-            message:                autoAccept ? 'started following you.' : 'requested to follow you.',
+            message:                accepted ? 'started following you.' : 'requested to follow you.',
             is_read:                false,
             created_at:             new Date().toISOString()
         });

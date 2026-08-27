@@ -19,7 +19,7 @@
 
     /* Section headers */
     .rm-section-label {
-      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      font-size: 11px; font-weight: 700; text-transform: none;
       letter-spacing: 1.2px; color: #94a3b8; margin: 0 0 14px;
       display: flex; align-items: center; gap: 8px;
     }
@@ -91,7 +91,7 @@
     }
     .rm-stat:hover { border-color: #cbd5e1; box-shadow: 0 4px 14px rgba(0,0,0,0.07); transform: translateY(-1px); }
     .rm-stat-num { font-size: 26px; font-weight: 800; color: var(--text-main); line-height: 1; }
-    .rm-stat-label { font-size: 11px; color: var(--text-sub); margin-top: 4px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; }
+    .rm-stat-label { font-size: 11px; color: var(--text-sub); margin-top: 4px; font-weight: 600; text-transform: none; letter-spacing: 0.8px; }
     .rm-stat[data-tab="accepted"].rm-stat-active { background: #f0fdf4; border-color: #32cd32; }
     .rm-stat[data-tab="pending"].rm-stat-active { background: #fffbeb; border-color: #f59e0b; }
     .rm-stat[data-tab="sent"].rm-stat-active { background: #eff6ff; border-color: #3b82f6; }
@@ -203,7 +203,7 @@
 </nav>
 
 <script src="vendor/supabase-js.min.js?v=2.112.3"></script>
-<script src="search-overlay.js?v=20260812k"></script>
+<script src="search-overlay.js?v=20260828a"></script>
 <script src="auth-guard.js?v=20260826a"></script>
 <script src="mates.js?v=20260826a"></script>
 <!-- RMBR (block list) so clicking a blocked Realmate can say "You blocked this

@@ -1013,6 +1013,9 @@ html[data-theme="dark"] .modal-close-btn:hover { background: #475569; color: #f1
 .searchable-dropdown-item { padding: 10px 14px; font-size: 13px; cursor: pointer; color: var(--text-main); }
 .searchable-dropdown-item:hover, .searchable-dropdown-item.highlighted { background: #f1f5f9; }
 .searchable-dropdown-empty { padding: 10px 14px; font-size: 13px; color: var(--text-sub); }
+.searchable-dropdown-clear { padding: 10px 14px; font-size: 13px; cursor: pointer; color: #ef4444; font-weight: 600; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border); }
+.searchable-dropdown-clear:hover { background: #fef2f2; }
+html[data-theme="dark"] .searchable-dropdown-clear:hover { background: rgba(239,68,68,0.12); }
 
 /* Division / Group (Division Settings) — styled to read as a native select:
    right-aligned chevron, generous padding, and the same rounded/focus-ring
@@ -1338,9 +1341,19 @@ html[data-theme="dark"] .stats-list-avatar { border-color: #334155; }
        the safe-area inset. margin-top pulls it up by the inset and the height
        grows by the same amount, so the content BELOW the cover doesn't shift.
        Inert on non-notched devices where the inset is 0. */
+    /* Full-bleed cover behind the status bar (Facebook-style). The body carries
+       a safe-area-inset-top padding (safe-area.css); pull the WHOLE profile card
+       up by that inset so the card — and therefore the cover as its first child —
+       reaches the very top of the screen (behind the status bar) with no gap,
+       then grow the cover by the same inset so its visible height below the
+       status bar is unchanged. Pulling the card (not just the cover) avoids the
+       negative-margin-inside-the-card edge case that left a strip above it. */
+    .profile-card {
+        margin-top: calc(-1 * env(safe-area-inset-top));
+    }
     .profile-cover {
         height: calc(200px + env(safe-area-inset-top));
-        margin-top: calc(-1 * env(safe-area-inset-top));
+        margin-top: 0;
         aspect-ratio: auto;
         border-radius: 0;
     }

@@ -372,6 +372,7 @@ function toggleLcMenu(id, e) {
     document.querySelectorAll('.lc-menu.open').forEach(m => {
         m.classList.remove('open');
         m.style.position = ''; m.style.top = ''; m.style.left = ''; m.style.right = '';
+        m.style.zIndex = ''; m.style.pointerEvents = '';
     });
     if (!isOpen) {
         menu.classList.add('open');
@@ -390,6 +391,11 @@ function toggleLcMenu(id, e) {
             menu.style.left = left + 'px';
             menu.style.top = top + 'px';
             menu.style.right = 'auto';
+            // Float above sticky headers / the cover photo (Dashboard) and any
+            // app-shell chrome so the menu is never rendered behind them and its
+            // items always stay tappable.
+            menu.style.zIndex = '3000';
+            menu.style.pointerEvents = 'auto';
         }
     }
 }
@@ -2711,7 +2717,10 @@ function exitMatchView() {
     const topWrap = document.querySelector('.top-fixed-wrap');
     if (topWrap) topWrap.style.display = '';
     syncTopPadding();
-    loadLedger();
+    // Refresh the ledger data in place (silent — the cards are still mounted
+    // underneath), then restore the exact scroll/post saved when the AI Match
+    // Engine was opened, so Back lands on the originating post (#2).
+    loadLedger(true).then(() => { try { restorePortalScroll(); } catch (e) {} });
 }
 
 // Subtle "AI Matches activated" chime — a short two-note ascending blip
@@ -2867,6 +2876,11 @@ function showAllMatches(listingId, scrollToId) {
             .map(o => String(o.id));
         if (seenIds.length) window.RMMatchAlert?.markSeen(seenIds);
     } catch (e) {}
+    // Snapshot the ledger's exact scroll/top-post NOW (while it's still visible)
+    // so Back from the AI Match Engine returns to the exact post the user opened
+    // it from, not the top of Live Market (#2). restorePortalScroll() in
+    // exitMatchView() consumes it.
+    try { savePortalScroll(); } catch (e) {}
     showMatchView(myListing, matches);
     if (scrollToId) {
         setTimeout(() => {
@@ -4474,7 +4488,8 @@ function rmGoChat() {
             return;
         }
     } catch (e) {}
-    rmGoChat();
+    // Standalone (not in the app shell): fall back to a full navigation.
+    location.href = 'chat.html';
 }
 function rmNavToChat(userId, name) {
     try { sessionStorage.setItem('openChatWith', JSON.stringify({ userId: userId, name: name })); } catch (e) {}

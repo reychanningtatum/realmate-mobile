@@ -1052,9 +1052,9 @@ function buildHomePostCard(post, stats) {
     card.id = `hfpost-${post.id}`;
     card.innerHTML = `
         <div class="hf-post-header">
-            <img class="hf-post-avatar" src="${img}" onerror="this.src='${avatarUrl(name)}'"${!isAnon && post.user_id ? ` style="cursor:pointer;" onclick="location.href='dashboard.html?user_id=${post.user_id}'"` : ''}>
+            <img class="hf-post-avatar" src="${img}" onerror="this.src='${avatarUrl(name)}'"${!isAnon && post.user_id ? ` style="cursor:pointer;" onclick="rmGoProfile('${post.user_id}')"` : ''}>
             <div class="hf-post-meta">
-                <div class="hf-post-name"${!isAnon && post.user_id ? ` style="cursor:pointer;" onclick="location.href='dashboard.html?user_id=${post.user_id}'"` : ''}>${safeText(name)}${post.shared_post_id ? ' <span class="hf-shared-tag"><i class="fas fa-share"></i> shared a post</span>' : ''}</div>
+                <div class="hf-post-name"${!isAnon && post.user_id ? ` style="cursor:pointer;" onclick="rmGoProfile('${post.user_id}')"` : ''}>${safeText(name)}${post.shared_post_id ? ' <span class="hf-shared-tag"><i class="fas fa-share"></i> shared a post</span>' : ''}</div>
                 <div class="hf-post-time">${timeAgo(post.created_at)} ${privacyBadge(post.privacy)}</div>
             </div>
             <button class="hf-post-menu-btn" onclick="togglePostMenu('${post.id}')"><i class="fas fa-ellipsis-h"></i></button>
@@ -1145,7 +1145,7 @@ function buildSharedEmbed(orig) {
     const name = orig.is_anonymous ? 'Anonymous' : (orig.user_name || 'realmate Member');
     const img  = orig.is_anonymous ? avatarUrl('Anon') : (orig.user_img || avatarUrl(name));
     const profileClick = !orig.is_anonymous && orig.user_id
-        ? ` style="cursor:pointer;" onclick="event.stopPropagation();location.href='dashboard.html?user_id=${orig.user_id}'"` : '';
+        ? ` style="cursor:pointer;" onclick="event.stopPropagation();rmGoProfile('${orig.user_id}')"` : '';
     return `<div class="hf-shared-embed" onclick="scrollToPost('${orig.id}')">
         <div class="hf-shared-head">
             <img src="${img}" onerror="this.src='${avatarUrl(name)}'"${profileClick}>
@@ -1257,13 +1257,70 @@ function rmbrReportPost(id){ const p=_rmbrFindPost(id); if(window.RMBR) RMBR.ope
 // Block POST — hides only this post; the author's other posts stay visible.
 async function rmbrHidePost(id){ const p=_rmbrFindPost(id); if(!window.RMBR) return; const m=document.getElementById('hfmenu-'+id); if(m) m.style.display='none'; const label=(p&&p.user_name?p.user_name+' — ':'')+String((p&&p.content)||'').slice(0,60); const ok=await RMBR.blockPost('post', id, label||null); if(ok){ const el=document.getElementById('hfpost-'+id); if(el&&el.remove) el.remove(); else location.reload(); } }
 // Block USER — blocks the whole account (all their content disappears everywhere).
-async function rmbrBlockUserFromPost(id){ const p=_rmbrFindPost(id); if(!p||!window.RMBR) return; const ok=await RMBR.blockUser(p.user_id||null, p.user_name||null); if(ok) location.reload(); }
+async function rmbrBlockUserFromPost(id){ const p=_rmbrFindPost(id); if(!p||!window.RMBR) return; const m=document.getElementById('hfmenu-'+id); if(m) m.style.display='none'; const ok=await RMBR.blockUser(p.user_id||null, p.user_name||null); if(ok){ if(typeof _homeApplyBlockFilter==='function') _homeApplyBlockFilter(); else location.reload(); } }
+// Block-aware profile navigation from the Feed: never route into a blocked
+// user's profile (dashboard.html would just bounce back to the Feed) — show a
+// clear message instead (#5).
+function _homeNameFor(userId) {
+    try { const p = (_homePosts || []).find(p => String(p.user_id) === String(userId)); return p ? p.user_name : null; }
+    catch (e) { return null; }
+}
+function rmGoProfile(userId) {
+    if (!userId) return;
+    if (window.RMBR && RMBR.isBlocked(userId, _homeNameFor(userId))) {
+        (window.showToast || alert)("You blocked this user. You can't see the profile of this user.");
+        return;
+    }
+    location.href = 'dashboard.html?user_id=' + userId;
+}
+
+// Re-hide blocked authors/posts whenever the block list finishes loading or
+// changes. RMBR initialises asynchronously, so on a fresh load the feed can
+// paint a blocked user's post before the block list arrives; and a block made
+// here (or in another tab) must drop their posts with no manual refresh (#5).
+function _homeApplyBlockFilter() {
+    if (!window.RMBR || !Array.isArray(_homePosts)) return;
+    _homePosts = _homePosts.filter(p => !(RMBR.isBlocked(p.user_id, p.user_name) || RMBR.isPostBlocked('post', p.id)));
+    const keep = new Set(_homePosts.map(p => String(p.id)));
+    document.querySelectorAll('[id^="hfpost-"]').forEach(el => {
+        if (!keep.has(el.id.replace('hfpost-', ''))) el.remove();
+    });
+}
+document.addEventListener('rmbr:ready', _homeApplyBlockFilter);
+document.addEventListener('rmbr:changed', _homeApplyBlockFilter);
+
 function togglePostMenu(postId) {
     const menu = document.getElementById(`hfmenu-${postId}`);
     if (!menu) return;
-    menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
-    const close = e => { menu.style.display = 'none'; document.removeEventListener('click', close); };
-    setTimeout(() => document.addEventListener('click', close), 10);
+    const opening = menu.style.display === 'none';
+    if (opening) {
+        // The post card clips content (rounded corners); render the menu as a
+        // FIXED overlay pinned to the kebab button so it can extend BEYOND the
+        // card instead of being cut off, and never sit behind other cards (#4).
+        menu.style.display = 'block';
+        const btn = menu.parentElement && menu.parentElement.querySelector('.hf-post-menu-btn');
+        if (btn) {
+            const r = btn.getBoundingClientRect();
+            const mw = menu.offsetWidth || 180, mh = menu.offsetHeight || 200;
+            let left = Math.min(Math.max(8, r.right - mw), window.innerWidth - mw - 8);
+            let top = r.bottom + 4;
+            if (top + mh > window.innerHeight - 8) top = Math.max(8, r.top - mh - 4);
+            menu.style.position = 'fixed';
+            menu.style.left = left + 'px';
+            menu.style.top = top + 'px';
+            menu.style.right = 'auto';
+            menu.style.zIndex = '3000';
+        }
+    } else {
+        menu.style.display = 'none';
+        menu.style.position = ''; menu.style.top = ''; menu.style.left = ''; menu.style.right = ''; menu.style.zIndex = '';
+    }
+    const close = () => {
+        menu.style.display = 'none';
+        menu.style.position = ''; menu.style.top = ''; menu.style.left = ''; menu.style.right = ''; menu.style.zIndex = '';
+        document.removeEventListener('click', close);
+    };
+    if (opening) setTimeout(() => document.addEventListener('click', close), 10);
 }
 
 let _pendingDeletePostId = null;
@@ -1353,11 +1410,19 @@ function scheduleHideReactPicker(postId) {
 // Long-press opens the picker on touch devices
 let _reactTouchTimer = null;
 function reactTouchStart(postId) {
+    // Disable text selection / the iOS callout for the whole hold-and-swipe
+    // reaction gesture, so dragging across the emoji picker never selects the
+    // post's body text (#3). Cleared on release.
+    document.body.classList.add('rm-reacting');
     _reactTouchTimer = setTimeout(() => { _reactTouchTimer = 'held'; showReactPicker(postId); }, 380);
 }
 function reactTouchEnd(postId) {
     if (_reactTouchTimer && _reactTouchTimer !== 'held') clearTimeout(_reactTouchTimer);
     _reactTouchTimer = null;
+    // Drop any stray selection the release may have started, then re-enable
+    // normal text selection a tick later.
+    try { const s = window.getSelection && window.getSelection(); if (s) s.removeAllRanges(); } catch (e) {}
+    setTimeout(() => document.body.classList.remove('rm-reacting'), 60);
 }
 
 // Tapping the main button toggles the current reaction (default: Like)
@@ -2192,8 +2257,8 @@ async function loadSuggestedRealmates() {
     list.innerHTML = suggestions.map((p, i) => `
         <div class="suggested-row">
             <img src="${p.avatar_url || avatarUrl(p.full_name)}" onerror="this.src='${avatarUrl(p.full_name)}'"
-                 onclick="location.href='dashboard.html?user_id=${p.id}'">
-            <div class="suggested-info" onclick="location.href='dashboard.html?user_id=${p.id}'">
+                 onclick="rmGoProfile('${p.id}')">
+            <div class="suggested-info" onclick="rmGoProfile('${p.id}')">
                 <div class="suggested-name">${safeText(p.full_name || 'realmate Member')}</div>
                 ${_homeValidPosition(p.job_title) ? `<div class="suggested-job">${safeText(_homeValidPosition(p.job_title))}</div>` : ''}
             </div>
@@ -2272,7 +2337,7 @@ function renderActiveMembers(members, list, showOnline) {
         const avatar = m.avatar_url || avatarUrl(name);
         const job    = _homeValidPosition(m.job_title);
         return `
-            <div class="active-member-row" onclick="location.href='dashboard.html?user_id=${m.id}'">
+            <div class="active-member-row" onclick="rmGoProfile('${m.id}')">
                 <div class="active-member-avatar-wrap">
                     <img src="${avatar}" onerror="this.src='${avatarUrl(name)}'">
                     ${showOnline ? '<div class="online-dot"></div>' : ''}

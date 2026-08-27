@@ -101,7 +101,7 @@ function _realmateGateHtml(userName, kind) {
     // successful send flips every gate on the page into the pending state.
     const copy = kind === 'listing'
         ? { title: 'Become realmates to view this listing.', sub: 'Add this user as a realmate to access their property listings.' }
-        : { title: 'Become realmates to view posts and listings.', sub: 'Add this user as a realmate to access their posts and property listings.' };
+        : { title: 'Become realmates to view post, listings and about.', sub: 'Add this user as a realmate to access their posts, listings and about.' };
     return `
         <div class="profile-gate-card" data-gate-kind="${kind}">
             <div class="profile-gate-icon"><i class="fas fa-lock"></i></div>
@@ -339,7 +339,7 @@ function initSearchableSelect(inputId, dropdownId, options, opts) {
     const input = document.getElementById(inputId);
     const dropdown = document.getElementById(dropdownId);
     if (!input || !dropdown) return;
-    const { onSelect, strict } = opts || {};
+    const { onSelect, strict, clearable } = opts || {};
     const getOptions = typeof options === 'function' ? options : () => options;
     let highlighted = -1;
     // The list actually on screen right now — click/Enter read from this
@@ -355,9 +355,13 @@ function initSearchableSelect(inputId, dropdownId, options, opts) {
     }
     function render(list) {
         shownList = list;
-        dropdown.innerHTML = list.length
+        // Optional "Clear selection" row (Division/Group are optional and must be
+        // returnable to an empty state, #13). Shown only when a value is set.
+        const clearRow = (clearable && input.value.trim())
+            ? '<div class="searchable-dropdown-clear" data-clear="1"><i class="fas fa-xmark"></i> Clear selection</div>' : '';
+        dropdown.innerHTML = clearRow + (list.length
             ? list.map((item, i) => `<div class="searchable-dropdown-item" data-idx="${i}">${item}</div>`).join('')
-            : '<div class="searchable-dropdown-empty">No matches found</div>';
+            : '<div class="searchable-dropdown-empty">No matches found</div>');
         highlighted = -1;
     }
     function open() { render(filtered()); dropdown.classList.add('open'); }
@@ -397,6 +401,7 @@ function initSearchableSelect(inputId, dropdownId, options, opts) {
         } else if (e.key === 'Escape') { close(); }
     });
     dropdown.addEventListener('mousedown', (e) => {
+        if (e.target.closest('.searchable-dropdown-clear')) { e.preventDefault(); commit(''); return; }
         const item = e.target.closest('.searchable-dropdown-item');
         if (!item) return;
         commit(shownList[parseInt(item.dataset.idx, 10)]);
@@ -494,12 +499,12 @@ initSearchableSelect('editAddress', 'addressDropdown', PH_CITIES, { strict: true
 // Wrapped (not passed directly) so the newly-committed Division value isn't
 // forwarded as syncGroupField's desiredValue argument — that was silently
 // re-selecting any group whose name matched the division (e.g. Dominators).
-initSearchableSelect('editDivision', 'divisionDropdown', DIVISIONS_LIST, { onSelect: () => syncGroupField(), strict: true });
+initSearchableSelect('editDivision', 'divisionDropdown', DIVISIONS_LIST, { onSelect: () => syncGroupField(), strict: true, clearable: true });
 // Group's valid list changes with the selected Division, so its options are
 // read lazily from _currentGroupOptions (kept in sync by syncGroupField())
 // rather than passed in once at init time.
 let _currentGroupOptions = [];
-initSearchableSelect('editGroup', 'groupDropdown', () => _currentGroupOptions, { strict: true });
+initSearchableSelect('editGroup', 'groupDropdown', () => _currentGroupOptions, { strict: true, clearable: true });
 initLanguagesSelect();
 
 // Single function driving the Group field's state — called whenever Division
@@ -607,10 +612,15 @@ function _deepLinkToListings() {
 
     switchProfileTab('listings');
 
-    // Wait for the tab switch / listing cards to lay out before measuring.
-    requestAnimationFrame(() => {
-        card.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    });
+    // Land on the user's TOPMOST (latest) listing, not a generic position (#10).
+    // Wait for the tab switch / listing cards to lay out before measuring, and
+    // re-run once more after layout settles (images/cards can reflow late).
+    const scrollToTop = () => {
+        const target = card.querySelector('.listing-card') || card;
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+    requestAnimationFrame(scrollToTop);
+    setTimeout(scrollToTop, 250);
 
     // Drop the flag so a later refresh or back-navigation stays put.
     params.delete('view');
@@ -1263,12 +1273,14 @@ async function loadProfile() {
         }
     }
 
-    // About (#8): the bio card + the private sublines follow the same access rule
-    // as posts — hide them for a viewer who isn't allowed in. Runs AFTER
-    // updateUI() (line ~1140) populated them, so this hide is the final word.
+    // About: show the SAME locked-state gate as Posts/Listings (not just a hidden
+    // card) so a non-realmate consistently sees "Become realmates to view post,
+    // listings and about" across all three sections (#12). The private sublines
+    // are hidden regardless. Runs AFTER updateUI() populated them, so this is the
+    // final word.
     if (effectivelyViewingOther && !_canPosts) {
         const _aboutCard = document.querySelector('.about-card');
-        if (_aboutCard) _aboutCard.style.display = 'none';
+        if (_aboutCard) _aboutCard.innerHTML = _realmateGateHtml(user.name, 'about');
         ['locationLine', 'relationshipLine', 'yearsLine', 'languagesLine'].forEach(function (id) {
             var el = document.getElementById(id); if (el) el.style.display = 'none';
         });

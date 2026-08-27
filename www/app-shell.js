@@ -94,6 +94,19 @@
     } catch (e) {}
   }
 
+  // Is this frame's iframe currently on a SUB-PAGE (navigated away from the tab
+  // root — e.g. Portal → a listing detail)? Read the LIVE pathname rather than
+  // the cached f.__subpage flag: a bfcache "back" restores the root without
+  // firing 'load', so the flag can go stale. Reading it fresh keeps both the
+  // tab-reveal pop (#6) and rmBack from over-popping.
+  function onSubpage(f) {
+    if (!f) return false;
+    try {
+      var cur = f.contentWindow.location.pathname.split('/').pop();
+      return !!(f.__root && cur && cur !== f.__root);
+    } catch (e) { return !!(f && f.__subpage); }
+  }
+
   function go(tab, forceSrc) {
     if (!TABS[tab] && !forceSrc) return;
     closeNavMenu();
@@ -108,7 +121,16 @@
     if (current && current !== tab) prevTab = current;
 
     var cached = frames[tab];
-    if (cached && !forceSrc) { withTransition(function () { reveal(tab); }); return; }
+    if (cached && !forceSrc) {
+      // Re-entering a tab whose iframe wandered onto a sub-page (e.g. Portal →
+      // a listing detail, then off to Feed and back): pop it back to its root
+      // view first so the tab never reappears showing a stale sub-page (#6).
+      // The iframe's own history + bfcache restore the root at the exact
+      // scroll/post the user left — no reload flash.
+      if (onSubpage(cached)) { try { cached.contentWindow.history.back(); } catch (e) {} }
+      withTransition(function () { reveal(tab); });
+      return;
+    }
 
     // Uncached (or forced reload): hide the CURRENT tab immediately so its
     // content (e.g. the profile view) can never linger over the loading state
@@ -164,7 +186,7 @@
     // previous TAB (Me → Profile → Portal) — never the shared browser history,
     // which can walk back to the marketing page.
     var f = frames[current];
-    if (f && f.__subpage) { try { f.contentWindow.history.back(); return; } catch (e) {} }
+    if (onSubpage(f)) { try { f.contentWindow.history.back(); return; } catch (e) {} }
     go(prevTab && TABS[prevTab] ? prevTab : 'home');
   };
   window.rmMe = function (url) {

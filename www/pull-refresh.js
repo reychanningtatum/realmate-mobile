@@ -125,6 +125,16 @@
     content.addEventListener('touchstart', function (e) {
       // Only arm the gesture when the scroll is genuinely at the very top.
       if (busy || !atTop()) { active = false; return; }
+      // Never hijack a tap that lands on an interactive control (a post's kebab
+      // menu, an open menu, buttons, links, the swipe row, form fields). Arming
+      // the pull there would preventDefault the move and swallow the tap — which
+      // made the Portal/Feed post menus feel dead and could kick off a refresh.
+      var t = e.target;
+      if (t && t.closest && t.closest(
+        'button, a, input, textarea, select,' +
+        '.lc-menu-wrap, .lc-menu, .lc-swipe-actions, .hf-post-menu, .hf-post-menu-btn')) {
+        active = false; return;
+      }
       computeGapTop();
       startY = e.touches[0].clientY; active = true; dist = 0; noEase();
     }, { passive: true });
@@ -169,6 +179,16 @@
       } else {
         reset();
       }
+    }, { passive: true });
+
+    // iOS/WKWebView can fire touchcancel when the system takes over the gesture
+    // (e.g. a fast tab re-tap then pull). Without handling it, the drag state was
+    // left armed and the indicator hung showing only the arrow, never resetting
+    // (#9). Treat a cancel like an under-threshold release: snap everything back.
+    content.addEventListener('touchcancel', function () {
+      if (!active) return;
+      active = false;
+      reset();
     }, { passive: true });
   }
 
