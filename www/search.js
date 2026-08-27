@@ -49,7 +49,7 @@ function clearSearch() {
     document.getElementById('searchResults').innerHTML = `
         <div class="search-empty-state">
             <i class="fas fa-magnifying-glass"></i>
-            <p>Start typing to search across the entire Realmate network.</p>
+            <p>Start typing to search across the entire realmate network.</p>
         </div>`;
 }
 
@@ -137,7 +137,7 @@ function renderResults(people, listings) {
         html += `<div class="search-section-label"><i class="fas fa-users"></i> People <span class="s-count">${filteredPeople.length}</span></div>`;
         html += `<div class="people-grid">`;
         filteredPeople.forEach(p => {
-            const name   = esc(p.full_name || 'Realmate Member');
+            const name   = esc(p.full_name || 'realmate Member');
             const job    = esc(_searchValidPosition(p.job_title));
             const div    = esc(p.division  || '');
             const bio    = esc((p.bio || '').slice(0, 80));

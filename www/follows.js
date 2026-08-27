@@ -96,7 +96,7 @@ async function _getFollowRelationList(userId, direction) {
             const p = profileMap[id] || {};
             return {
                 id,
-                name: p.full_name || r[otherNameCol] || 'Realmate Member',
+                name: p.full_name || r[otherNameCol] || 'realmate Member',
                 img: _followsAvatarFor(p.full_name || r[otherNameCol], p.avatar_url),
                 job: _followsValidPosition(p.job_title),
                 division: p.division || '',

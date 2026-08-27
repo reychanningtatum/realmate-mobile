@@ -216,7 +216,7 @@ function closeTerms() {
     if (checkbox) {
         checkbox.disabled = false;
         checkboxArea.classList.remove("locked");
-        checkboxLabel.innerHTML = 'I have read and agree to the <b>Full Legal Terms & Conditions</b> and consent to the professional sharing of listing data within the Realmate AI network.';
+        checkboxLabel.innerHTML = 'I have read and agree to the <b>Full Legal Terms & Conditions</b> and consent to the professional sharing of listing data within the realmate AI network.';
     }
 }
 
@@ -636,7 +636,7 @@ async function login(){
       const strong = document.createElement("strong");
       strong.textContent = "Account Approved. ";
       successSpan.appendChild(strong);
-      successSpan.appendChild(document.createTextNode("Your account has been approved. Please check your email for confirmation. You can now log in to Realmate."));
+      successSpan.appendChild(document.createTextNode("Your account has been approved. Please check your email for confirmation. You can now log in to realmate."));
       localStorage.setItem(approvedNoticeKey, "1");
     } else {
       successSpan.textContent = "Login successful. Redirecting you now…";

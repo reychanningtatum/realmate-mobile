@@ -76,7 +76,7 @@ function _realmateGateHtml(userName, kind) {
         <div class="profile-gate-card" data-gate-kind="${kind}">
             <div class="profile-gate-icon"><i class="fas fa-clock"></i></div>
             <div class="profile-gate-title">Request already sent</div>
-            <div class="profile-gate-sub">You've already sent a Realmate request to this user. You'll be notified once they accept.</div>
+            <div class="profile-gate-sub">You've already sent a realmate request to this user. You'll be notified once they accept.</div>
             <button class="btn-mate-profile mate-status-pending" disabled>
                 <i class="fas fa-clock"></i> Request Sent
             </button>
@@ -89,7 +89,7 @@ function _realmateGateHtml(userName, kind) {
         return `
         <div class="profile-gate-card" data-gate-kind="${kind}">
             <div class="profile-gate-icon"><i class="fas fa-user-clock"></i></div>
-            <div class="profile-gate-title">${safeName} wants to be your Realmate</div>
+            <div class="profile-gate-title">${safeName} wants to be your realmate</div>
             <div class="profile-gate-sub">Accept their request to connect and unlock their posts and listings.</div>
             <button class="btn-mate-profile mate-status-received" onclick="handleGateAcceptMate(this, '${safeName}')">
                 <i class="fas fa-check"></i> Accept Request
@@ -100,15 +100,15 @@ function _realmateGateHtml(userName, kind) {
     // No request yet (or unresolved) → the standard Add action, wired so a
     // successful send flips every gate on the page into the pending state.
     const copy = kind === 'listing'
-        ? { title: 'Become Realmates to view this listing.', sub: 'Add this user as a Realmate to access their property listings.' }
-        : { title: 'Become Realmates to view posts and listings.', sub: 'Add this user as a Realmate to access their posts and property listings.' };
+        ? { title: 'Become realmates to view this listing.', sub: 'Add this user as a realmate to access their property listings.' }
+        : { title: 'Become realmates to view posts and listings.', sub: 'Add this user as a realmate to access their posts and property listings.' };
     return `
         <div class="profile-gate-card" data-gate-kind="${kind}">
             <div class="profile-gate-icon"><i class="fas fa-lock"></i></div>
             <div class="profile-gate-title">${copy.title}</div>
             <div class="profile-gate-sub">${copy.sub}</div>
             <button class="btn-mate-profile" onclick="handleGateAddMate(this, '${safeName}')">
-                <i class="fas fa-user-plus"></i> Add as Realmate
+                <i class="fas fa-user-plus"></i> Add as realmate
             </button>
         </div>`;
 }
@@ -149,9 +149,9 @@ async function handleGateAddMate(btn, userName) {
     }
     // Failed — restore the Add button so the user can retry.
     btn.disabled = false;
-    btn.innerHTML = '<i class="fas fa-user-plus"></i> Add as Realmate';
+    btn.innerHTML = '<i class="fas fa-user-plus"></i> Add as realmate';
     console.error('Realmate request failed:', result.error);
-    if (card) (window.showToast || alert)('Could not send Realmate request: ' + (result.error || 'Unknown error'), 'error');
+    if (card) (window.showToast || alert)('Could not send realmate request: ' + (result.error || 'Unknown error'), 'error');
 }
 
 // Gate "Accept Request": accept the incoming request, then reload so the now-
@@ -179,13 +179,13 @@ function _syncTopMateButton() {
     const safeName = (user.name || 'this user').replace(/'/g, "\\'");
     const s = _viewMateState?.status, d = _viewMateState?.dir;
     if (s === 'accepted') {
-        el.innerHTML = `<button class="btn-mate-profile mate-status-mates" onclick="handleRemoveMate(this,'${safeName}')"><i class="fas fa-user-group"></i> Realmates</button>`;
+        el.innerHTML = `<button class="btn-mate-profile mate-status-mates" onclick="handleRemoveMate(this,'${safeName}')"><i class="fas fa-user-group"></i> realmates</button>`;
     } else if (s === 'pending' && d === 'sent') {
         el.innerHTML = `<button class="btn-mate-profile mate-status-pending" disabled><i class="fas fa-clock"></i> Request Sent</button>`;
     } else if (s === 'pending' && d === 'incoming') {
         el.innerHTML = `<button class="btn-mate-profile mate-status-received" onclick="handleGateAcceptMate(this, '${safeName}')"><i class="fas fa-check"></i> Accept Request</button>`;
     } else {
-        el.innerHTML = `<button class="btn-mate-profile" onclick="handleGateAddMate(this, '${safeName}')"><i class="fas fa-user-plus"></i> Add as Realmate</button>`;
+        el.innerHTML = `<button class="btn-mate-profile" onclick="handleGateAddMate(this, '${safeName}')"><i class="fas fa-user-plus"></i> Add as realmate</button>`;
     }
 }
 
@@ -1077,7 +1077,7 @@ async function loadProfile() {
                     if (effectivelyViewingOther) {
                         user = {
                             id: targetId,
-                            name: profile.full_name || 'Realmate Member',
+                            name: profile.full_name || 'realmate Member',
                             username: profile.username || '',
                             nickname: profile.nickname || '',
                             image: _avatarUrlFor(profile.full_name, profile.avatar_url),
@@ -1129,7 +1129,7 @@ async function loadProfile() {
                     // Profile row missing — show blank rather than current user's data
                     user = {
                         id: targetId,
-                        name: 'Realmate Member',
+                        name: 'realmate Member',
                         nickname: '',
                         image: `https://ui-avatars.com/api/?name=R&background=0f172a&color=32cd32`,
                         job: '', division: '', group: '', team: '', bio: '', relationship: '',
@@ -1276,11 +1276,11 @@ async function loadProfile() {
 }
 
 // ── Stats List Modal (Followers / Following / Realmates) ──
-const _statsListTitles = { followers: 'Followers', following: 'Following', realmates: 'Realmates' };
+const _statsListTitles = { followers: 'Followers', following: 'Following', realmates: 'realmates' };
 const _statsListEmptyTexts = {
     followers: 'No followers yet.',
     following: 'Not following anyone yet.',
-    realmates: 'No Realmates yet.'
+    realmates: 'No realmates yet.'
 };
 let _statsListData = [];
 
@@ -2146,7 +2146,7 @@ function _profileShowSellerMenu(userId, name, img, job) {
             {
                 icon: 'fa-user-tie',
                 title: 'View Profile',
-                sub: 'See full Realmate profile',
+                sub: 'See full realmate profile',
                 onClick: () => { if (window._spUserId) location.href = 'dashboard.html?user_id=' + window._spUserId; }
             }
         ]

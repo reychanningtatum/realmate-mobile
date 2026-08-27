@@ -142,6 +142,14 @@ async function fetchNotificationsList() {
 
         localNotificationsCache = data || [];
         await _resolveLiveSenders(localNotificationsCache);
+        // Which follow requests are still pending? Used to show Accept/Reject on
+        // follow_request cards (vs "handled") — the mates table drives Realmate
+        // requests, this drives follow requests.
+        try {
+            window._pendingFollowerIds = new Set(
+                (typeof listFollowRequests === 'function' ? await listFollowRequests() : [])
+                    .map(r => String(r.follower_id)));
+        } catch (e) { window._pendingFollowerIds = new Set(); }
         renderNotificationsInterface();
     } catch (err) {
         console.error("Notifications Sync Failure:", err);
@@ -192,6 +200,9 @@ function _buildNotificationCard(notif) {
     } else if (type === 'follow') {
         typeIcon = "fa-user-check";
         contextClass = "badge-mate";
+    } else if (type === 'follow_request') {
+        typeIcon = "fa-user-plus";
+        contextClass = "badge-mate";
     } else if (type === 'match') {
         typeIcon = "fa-bolt";
         contextClass = "badge-offer";
@@ -238,9 +249,25 @@ function _buildNotificationCard(notif) {
             </button>
         </div>` : (type === 'mate_request' && !isStillPending
             ? (mateStatus === 'accepted'
-                ? `<p class="mate-confirmed-msg"><i class="fas fa-user-group"></i> You are now Realmates!</p>`
+                ? `<p class="mate-confirmed-msg"><i class="fas fa-user-group"></i> You are now realmates!</p>`
                 : `<p class="mate-declined-msg">Request declined.</p>`)
             : '');
+
+    // Follow requests (Private account, approval-required). Show Accept/Reject
+    // while the request is still pending (in the pre-fetched set); once handled,
+    // show a confirmation. Accepting lets the follower see my posts + About.
+    const _isPendingFollow = type === 'follow_request' && window._pendingFollowerIds
+        && notif.sender_id && window._pendingFollowerIds.has(String(notif.sender_id));
+    const followActions = _isPendingFollow ? `
+        <div class="mate-request-actions">
+            <button class="mate-accept-btn" onclick="event.stopPropagation(); handleNotifAcceptFollow(this, '${notif.sender_id}', '${notif.id}')">
+                <i class="fas fa-check"></i> Accept
+            </button>
+            <button class="mate-decline-btn" onclick="event.stopPropagation(); handleNotifRejectFollow(this, '${notif.sender_id}', '${notif.id}')">
+                <i class="fas fa-times"></i> Reject
+            </button>
+        </div>` : (type === 'follow_request' && !_isPendingFollow
+            ? `<p class="mate-confirmed-msg"><i class="fas fa-user-check"></i> Follow request handled.</p>` : '');
 
     row.innerHTML = `
         <div class="hub-avatar-block">
@@ -257,6 +284,7 @@ function _buildNotificationCard(notif) {
                 <i class="far fa-clock"></i> ${formatRelativeTime(notif.created_at || notif.timestamp)}
             </span>
             ${mateActions}
+            ${followActions}
         </div>
         ${!notif.is_read ? '<div class="hub-unread-marker-dot"></div>' : ''}
     `;
@@ -306,7 +334,7 @@ function renderNotificationsInterface() {
         const emptyText = _notifFilter === 'unread'
             ? "You're all caught up — no unread notifications."
             : _notifFilter === 'requests'
-                ? 'No Realmate requests yet.'
+                ? 'No realmate requests yet.'
                 : 'Your timeline is clean. No notification payloads logged.';
         container.innerHTML = `
             <div class="hub-empty-state-card">
@@ -519,6 +547,30 @@ function setupRealtimeNotificationListener() {
             }
         })
         .subscribe();
+}
+
+async function handleNotifAcceptFollow(btn, followerId, notifId) {
+    btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    const result = (typeof acceptFollowRequest === 'function') ? await acceptFollowRequest(followerId) : { error: 'unavailable' };
+    if (!result || result.error) {
+        btn.disabled = false; btn.innerHTML = '<i class="fas fa-check"></i> Accept';
+        (window.showToast || alert)('Could not accept: ' + ((result && result.error) || 'error'), 'error'); return;
+    }
+    if (window._pendingFollowerIds) window._pendingFollowerIds.delete(String(followerId));
+    try { await markSingleNotificationAsRead(notifId); } catch (e) {}
+    renderNotificationsInterface();
+    (window.showToast || function () {})('Follow request accepted. They can now see your posts & About.', 'success');
+}
+async function handleNotifRejectFollow(btn, followerId, notifId) {
+    btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    const result = (typeof rejectFollowRequest === 'function') ? await rejectFollowRequest(followerId) : { error: 'unavailable' };
+    if (!result || result.error) {
+        btn.disabled = false; btn.innerHTML = '<i class="fas fa-times"></i> Reject'; return;
+    }
+    if (window._pendingFollowerIds) window._pendingFollowerIds.delete(String(followerId));
+    try { await markSingleNotificationAsRead(notifId); } catch (e) {}
+    renderNotificationsInterface();
+    (window.showToast || function () {})('Follow request declined.', 'success');
 }
 
 async function handleNotifAcceptMate(btn, senderName, notifId) {

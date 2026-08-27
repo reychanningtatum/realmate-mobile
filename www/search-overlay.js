@@ -390,7 +390,7 @@
             <div class="so-box">
                 <div class="so-input-row">
                     <i class="fas fa-magnifying-glass"></i>
-                    <input id="soInput" type="text" enterkeyhint="search" placeholder="${IS_REALMATES_PAGE ? 'Search Realmates…' : 'Search people, listings, forum…'}" autocomplete="off">
+                    <input id="soInput" type="text" enterkeyhint="search" placeholder="${IS_REALMATES_PAGE ? 'Search realmates…' : 'Search people, listings, forum…'}" autocomplete="off">
                     ${_hideChips ? '' : `
                     <span class="so-enter" onclick="window.__searchEnter()">↵ Enter</span>
                     <span class="so-esc" onclick="window.__closeSearchOverlay()">ESC</span>
@@ -609,7 +609,7 @@
             // Cache people so the click handler can pass full details to the seller popup.
             window.__soPeople = people.map(p => ({
                 id: p.id,
-                name: p.full_name || 'Realmate Member',
+                name: p.full_name || 'realmate Member',
                 job: soValidPosition(p.job_title),
                 img: soAvatarFor(p.full_name, p.avatar_url)
             }));

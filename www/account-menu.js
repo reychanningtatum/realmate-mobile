@@ -69,7 +69,7 @@
             textWrap.className = 'account-menu-identity-text';
             const nameEl = document.createElement('div');
             nameEl.className = 'account-menu-identity-name';
-            nameEl.textContent = header.name || 'Realmate Member';
+            nameEl.textContent = header.name || 'realmate Member';
             const jobEl = document.createElement('div');
             jobEl.className = 'account-menu-identity-job';
             jobEl.textContent = header.job || '';

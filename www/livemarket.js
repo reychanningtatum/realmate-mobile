@@ -444,7 +444,7 @@ function confirmMarkSold(listingId, btn) {
     }
     // The sheet is cached and reused, so refresh the category-aware copy each open.
     document.getElementById('markSoldTitle').textContent = `Mark this listing as ${word}?`;
-    document.getElementById('markSoldDesc').innerHTML = `This action is <strong>permanent and cannot be undone.</strong><br>A <strong>${word}</strong> ribbon will appear on the listing for the next 24 hours. After 24 hours, the listing will be automatically deleted from Realmate.`;
+    document.getElementById('markSoldDesc').innerHTML = `This action is <strong>permanent and cannot be undone.</strong><br>A <strong>${word}</strong> ribbon will appear on the listing for the next 24 hours. After 24 hours, the listing will be automatically deleted from realmate.`;
     const confirmBtn = document.getElementById('markSoldConfirmBtn');
     confirmBtn.disabled = false;
     confirmBtn.innerHTML = `Confirm ${word}`;
@@ -1044,7 +1044,7 @@ function closeOffersReceived() {
 // an offer that's already on screen.
 function _offerCardHtml(o, p) {
     p = p || {};
-    const name = p.full_name || 'Realmate User';
+    const name = p.full_name || 'realmate User';
     const img = p.avatar_url || avatarFallback(name);
     const pos = lmValidPosition(p.job_title);
     const company = p.division || '';
@@ -4370,7 +4370,7 @@ function _ensureSellerPopup() {
                     <span class="sp-opt-icon sp-opt-icon-profile"><i class="fas fa-user-tie"></i></span>
                     <span class="sp-opt-text">
                         <span class="sp-opt-title">View Profile</span>
-                        <span class="sp-opt-sub">See full Realmate profile</span>
+                        <span class="sp-opt-sub">See full realmate profile</span>
                     </span>
                     <i class="fas fa-chevron-right sp-opt-arrow"></i>
                 </button>
@@ -4391,10 +4391,10 @@ function _ensureLockedPopup() {
             <div id="spLockedHandle"></div>
             <div id="spLockedIcon"><i class="fas fa-lock"></i></div>
             <div id="spLockedTitle">Seller Listings Locked</div>
-            <div id="spLockedMsg">To view this seller's active listings, you must first become Realmates. Connect with this user to unlock their Live Market listings and build your trusted real estate network.</div>
+            <div id="spLockedMsg">To view this seller's active listings, you must first become realmates. Connect with this user to unlock their Live Market listings and build your trusted real estate network.</div>
             <div id="spLockedActions">
                 <button id="spLockedAddBtn" onclick="handleAddMateFromLocked()">
-                    <i class="fas fa-user-plus"></i> Add as Realmate
+                    <i class="fas fa-user-plus"></i> Add as realmate
                 </button>
                 <button id="spLockedMsgBtn" onclick="closeLockedPopup(); sessionStorage.setItem('openChatWith', JSON.stringify({userId:window._spUserId,name:window._spName})); rmGoChat()">
                     <i class="fas fa-comment-dots"></i> Message Instead
@@ -4492,7 +4492,7 @@ function showSellerPopup(userId, name, img, job) {
             {
                 icon: 'fa-user-tie',
                 title: 'View Profile',
-                sub: 'See this member’s Realmate profile.',
+                sub: 'See this member’s realmate profile.',
                 onClick: () => {
                     if (!userId) return;
                     // Blocked members' profiles can't be viewed (App Store 1.2) —
@@ -4588,13 +4588,13 @@ async function handleAddMateFromLocked() {
             btn.style.background = '#dc2626';
             btn.disabled = false;
             setTimeout(() => {
-                btn.innerHTML = '<i class="fas fa-user-plus"></i> Add as Realmate';
+                btn.innerHTML = '<i class="fas fa-user-plus"></i> Add as realmate';
                 btn.style.background = '';
                 btn.disabled = false;
             }, 2500);
         }
     } catch {
-        btn.innerHTML = '<i class="fas fa-user-plus"></i> Add as Realmate';
+        btn.innerHTML = '<i class="fas fa-user-plus"></i> Add as realmate';
         btn.disabled = false;
     }
 }

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <style id="rm-flash-guard">html{background-color:#f4f7fa}</style>
-  <title>Realmate | My Realmates</title>
+  <title>realmate | My realmates</title>
   <link rel="stylesheet" href="vendor/fontawesome/css/all.min.css?v=6.5.0">
   <link rel="stylesheet" href="vendor/googlefonts/fonts.css?v=1">
   <link rel="stylesheet" href="forum.css?v=20260716a">
@@ -124,7 +124,7 @@
   <div class="nav-item" onclick="location.href='forum.html'" style="display:none"><i class="fas fa-bullhorn"></i> <span>Forum</span></div>
   <div class="nav-item" onclick="location.href='chat.html'"><i class="fas fa-comment-dots"></i> <span>Chat</span></div>
   <div class="nav-item" onclick="location.href='notifications.html'"><i class="fas fa-bell"></i> <span>Notifications</span></div>
-  <div class="nav-item active"><i class="fas fa-user-group"></i> <span>Realmates</span></div>
+  <div class="nav-item active"><i class="fas fa-user-group"></i> <span>realmates</span></div>
   <div class="nav-item" onclick="location.href='settings.html'"><i class="fas fa-cog"></i> <span>Settings</span></div>
   <div style="margin-top:auto">
     <div class="nav-item" onclick="logout()"><i class="fas fa-sign-out-alt"></i> <span>Sign Out</span></div>
@@ -139,7 +139,7 @@
         <i class="fas fa-user-group" style="color:#fff;font-size:18px;"></i>
       </div>
       <div>
-        <div class="rm-page-title">My Realmates</div>
+        <div class="rm-page-title">My realmates</div>
         <div class="rm-page-sub">Your network of trusted real estate professionals</div>
       </div>
     </div>
@@ -156,7 +156,7 @@
       <!-- Realmates tab (default) -->
       <div class="rm-section rm-tab-panel" data-tab-panel="accepted">
         <div class="rm-section-label" style="color:#16a34a;">
-          <i class="fas fa-user-group"></i> Realmates
+          <i class="fas fa-user-group"></i> realmates
         </div>
         <div id="rmAcceptedList"></div>
       </div>
@@ -185,7 +185,7 @@
 <nav class="mobile-bottom-nav">
   <a class="mob-nav-item" href="home.html"><i class="fas fa-border-all"></i><span>Feed</span></a>
   <a class="mob-nav-item" href="forum.html" style="display:none"><i class="fas fa-bullhorn"></i><span>Forum</span></a>
-  <a class="mob-nav-item active" href="realmates.html" style="display:none"><i class="fas fa-user-group"></i><span>Realmates</span></a>
+  <a class="mob-nav-item active" href="realmates.html" style="display:none"><i class="fas fa-user-group"></i><span>realmates</span></a>
   <a class="mob-nav-item" href="chat.html"><i class="fas fa-comment-dots"></i><span>Chat</span></a>
   <a class="mob-nav-item mob-nav-center" href="livemarket.html"><i class="fas fa-globe"></i><span>Portal</span></a>
   <a class="mob-nav-item" href="notifications.html"><i class="fas fa-bell"></i><span>Notifications</span></a>
@@ -194,7 +194,7 @@
     <span>Me</span>
     <div class="mob-nav-menu" id="navMenu">
       <a href="dashboard.html"><i class="fas fa-user-tie"></i> Profile</a>
-      <a href="realmates.html"><i class="fas fa-user-group"></i> Realmates</a>
+      <a href="realmates.html"><i class="fas fa-user-group"></i> realmates</a>
       <a href="analytics.html" style="display:none"><i class="fas fa-chart-area"></i> Analytics</a>
       <a href="settings.html"><i class="fas fa-cog"></i> Settings</a>
       <a href="#" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</a>
@@ -254,7 +254,7 @@ async function loadRealmates() {
   document.getElementById('rmStats').innerHTML = `
     <button type="button" class="rm-stat" data-tab="accepted" onclick="setRmTab('accepted')">
       <div class="rm-stat-num">${accepted.length}</div>
-      <div class="rm-stat-label"><i class="fas fa-user-group" style="color:#32cd32;margin-right:4px;"></i>Realmates</div>
+      <div class="rm-stat-label"><i class="fas fa-user-group" style="color:#32cd32;margin-right:4px;"></i>realmates</div>
     </button>
     <button type="button" class="rm-stat" data-tab="pending" onclick="setRmTab('pending')">
       <div class="rm-stat-num">${pendingReceived.length}</div>
@@ -272,7 +272,7 @@ async function loadRealmates() {
     acceptedList.innerHTML = `
       <div class="rm-empty">
         <i class="fas fa-user-group"></i>
-        <strong>No Realmates yet</strong>
+        <strong>No realmates yet</strong>
         Browse the Live Market and connect with fellow agents.
       </div>`;
   } else {
@@ -281,9 +281,9 @@ async function loadRealmates() {
         <img class="rm-card-avatar" src="${m.img || avatarFallback(m.name)}" onerror="this.src='${avatarFallback(m.name)}'">
         <div class="rm-card-info">
           <div class="rm-card-name">${m.name}</div>
-          <div class="rm-card-job">Realmate</div>
+          <div class="rm-card-job">realmate</div>
         </div>
-        <span class="rm-card-badge rm-badge-mates rm-badge-removable" style="cursor:pointer;" title="Remove Realmate" onclick="event.stopPropagation(); removeFromPage('${m.name.replace(/'/g, "\\'")}')"><i class="fas fa-user-group" style="margin-right:4px;"></i>Realmates</span>
+        <span class="rm-card-badge rm-badge-mates rm-badge-removable" style="cursor:pointer;" title="Remove realmate" onclick="event.stopPropagation(); removeFromPage('${m.name.replace(/'/g, "\\'")}')"><i class="fas fa-user-group" style="margin-right:4px;"></i>realmates</span>
       </div>
     `).join('');
   }
@@ -303,7 +303,7 @@ async function loadRealmates() {
         <img class="rm-card-avatar" src="${m.img || avatarFallback(m.name)}" onerror="this.src='${avatarFallback(m.name)}'">
         <div class="rm-card-info">
           <div class="rm-card-name">${m.name}</div>
-          <div class="rm-card-job">Sent you a Realmate request</div>
+          <div class="rm-card-job">Sent you a realmate request</div>
         </div>
         <div class="rm-card-actions" onclick="event.stopPropagation();">
           <button type="button" class="rm-btn-accept" onclick="acceptFromPage('${m.name.replace(/'/g, "\\'")}')">Accept</button>
@@ -360,8 +360,8 @@ async function declineFromPage(requesterName) {
 
 async function removeFromPage(mateName) {
   const ok = await showConfirmDialog({
-    title: 'Remove Realmate?',
-    message: `Are you sure you want to remove ${mateName} from your Realmates? You'll need to send a new request to reconnect.`,
+    title: 'Remove realmate?',
+    message: `Are you sure you want to remove ${mateName} from your realmates? You'll need to send a new request to reconnect.`,
     confirmText: 'Remove',
     cancelText: 'Cancel'
   });

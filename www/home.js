@@ -125,7 +125,7 @@ const REACTIONS = {
 };
 const REACTION_ORDER = ['like', 'love', 'celebrate', 'insightful', 'helpful', 'sad'];
 
-const PRIVACY_LABELS = { public: 'Public', realmates: 'Realmates Only', private: 'Private' };
+const PRIVACY_LABELS = { public: 'Public', realmates: 'realmates Only', private: 'Private' };
 
 function updatePrivacyIcon() {
     const val = document.getElementById('homePostPrivacy')?.value || 'public';
@@ -165,7 +165,7 @@ function privacyBadge(privacy) {
     if (!privacy || privacy === 'public') return '';
     const cfg = privacy === 'private'
         ? { icon: 'fa-lock', label: 'Private' }
-        : { icon: 'fa-user-group', label: 'Realmates' };
+        : { icon: 'fa-user-group', label: 'realmates' };
     return `<span class="hf-privacy-tag" title="${cfg.label}"><i class="fas ${cfg.icon}"></i></span>`;
 }
 
@@ -1035,7 +1035,7 @@ function buildHomePostCard(post, stats) {
 
     const user    = getUser();
     const isAnon  = post.is_anonymous;
-    const name    = isAnon ? 'Anonymous' : (post.user_name || 'Realmate Member');
+    const name    = isAnon ? 'Anonymous' : (post.user_name || 'realmate Member');
     const img     = isAnon ? avatarUrl('Anon') : (post.user_img || avatarUrl(name));
     const isOwn   = user && (post.user_name === user.name || post.user_id === user.supabaseId);
 
@@ -1142,7 +1142,7 @@ function subjectBadge(subject) {
 
 // Embedded original post inside a share
 function buildSharedEmbed(orig) {
-    const name = orig.is_anonymous ? 'Anonymous' : (orig.user_name || 'Realmate Member');
+    const name = orig.is_anonymous ? 'Anonymous' : (orig.user_name || 'realmate Member');
     const img  = orig.is_anonymous ? avatarUrl('Anon') : (orig.user_img || avatarUrl(name));
     const profileClick = !orig.is_anonymous && orig.user_id
         ? ` style="cursor:pointer;" onclick="event.stopPropagation();location.href='dashboard.html?user_id=${orig.user_id}'"` : '';
@@ -2194,7 +2194,7 @@ async function loadSuggestedRealmates() {
             <img src="${p.avatar_url || avatarUrl(p.full_name)}" onerror="this.src='${avatarUrl(p.full_name)}'"
                  onclick="location.href='dashboard.html?user_id=${p.id}'">
             <div class="suggested-info" onclick="location.href='dashboard.html?user_id=${p.id}'">
-                <div class="suggested-name">${safeText(p.full_name || 'Realmate Member')}</div>
+                <div class="suggested-name">${safeText(p.full_name || 'realmate Member')}</div>
                 ${_homeValidPosition(p.job_title) ? `<div class="suggested-job">${safeText(_homeValidPosition(p.job_title))}</div>` : ''}
             </div>
             <span id="suggFollow-${i}"></span>
@@ -2406,7 +2406,7 @@ async function runHomeSearch(q) {
     if (people.length) {
         html += `<div class="hs-section-label">People</div>`;
         people.forEach(p => {
-            const name   = safeText(p.full_name || 'Realmate Member');
+            const name   = safeText(p.full_name || 'realmate Member');
             const job    = safeText(_homeValidPosition(p.job_title));
             const avatar = p.avatar_url || avatarUrl(p.full_name || '?');
             html += `<a href="dashboard.html?user_id=${p.id}" class="hs-people-row">

@@ -423,7 +423,7 @@ async function sendMateRequest(recipientName, recipientImg) {
         // the DB check constraint (see mates_no_self_request.sql); this is
         // just a friendlier error than a raw constraint-violation message.
         if (recipientId && recipientId === myId) {
-            return { error: "You can't add yourself as a Realmate." };
+            return { error: "You can't add yourself as a realmate." };
         }
 
         // Check DB for an existing connection (cache may be stale). Matched by
@@ -443,7 +443,7 @@ async function sendMateRequest(recipientName, recipientImg) {
             .limit(1);
         if (existingRows?.length > 0) {
             const row = existingRows[0];
-            if (row.status === 'accepted') return { error: 'Already Realmates' };
+            if (row.status === 'accepted') return { error: 'Already realmates' };
             // A pending row already exists for this pair. Figure out its
             // direction: if THEY sent ME the request, don't dead-end with
             // "Request already pending" — both of us clearly want to connect,
@@ -696,7 +696,7 @@ async function acceptMateRequest(requesterName) {
             sender_profile_picture: me.image || '',
             recipient_id:           requesterId,
             recipient_user_name:   requesterName,
-            message:               'accepted your mate request. You are now Realmates!',
+            message:               'accepted your mate request. You are now realmates!',
             is_read:               false,
             created_at:            new Date().toISOString()
         });
@@ -784,7 +784,7 @@ async function removeMate(userName) {
             .or(orFilter)
             .limit(1);
         if (remaining && remaining.length > 0) {
-            return { error: 'Could not remove Realmate. Please try again.' };
+            return { error: 'Could not remove realmate. Please try again.' };
         }
 
         return { success: true, removed: !!(deletedRows && deletedRows.length) };
@@ -873,7 +873,7 @@ function mateButtonHtml(userName, btnClass = 'btn-mate') {
     if (status === 'accepted') {
         const safe = userName.replace(/'/g, "\\'");
         return `<button class="${btnClass} mate-status-mates" onclick="handleRemoveMate(this,'${safe}')">
-                    <i class="fas fa-user-group"></i> Realmates
+                    <i class="fas fa-user-group"></i> realmates
                 </button>`;
     }
     if (status === 'pending_sent') {
@@ -916,7 +916,7 @@ async function handleAddMate(btn, userName) {
         // They had already sent us a request, so this became an accept, not a
         // send — reflect the real end state (Realmates), not a pending one.
         btn.outerHTML = `<button class="${originalClass} mate-status-mates" onclick="handleRemoveMate(this,'${userName.replace(/'/g, "\\'")}')">
-                              <i class="fas fa-user-group"></i> You are now Realmates!
+                              <i class="fas fa-user-group"></i> You are now realmates!
                          </button>`;
     } else if (result.success) {
         btn.className = originalClass.replace('btn-mate-profile', 'btn-mate-profile mate-status-pending')
@@ -934,8 +934,8 @@ async function handleAddMate(btn, userName) {
 
 async function handleRemoveMate(btn, userName) {
     const confirmed = await showConfirmDialog({
-        title: 'Remove Realmate?',
-        message: 'Are you sure you want to remove this Realmate connection?',
+        title: 'Remove realmate?',
+        message: 'Are you sure you want to remove this realmate connection?',
         confirmText: 'Remove',
         cancelText: 'Cancel'
     });
@@ -957,15 +957,15 @@ async function handleRemoveMate(btn, userName) {
         try { window.dispatchEvent(new CustomEvent('rm:mate_removed', { detail: { name: userName } })); } catch (e) {}
     } else {
         btn.disabled = false;
-        btn.innerHTML = '<i class="fas fa-user-group"></i> Realmates';
-        (window.showToast || alert)('Could not remove Realmate: ' + (result.error || 'Unknown error'), 'error');
+        btn.innerHTML = '<i class="fas fa-user-group"></i> realmates';
+        (window.showToast || alert)('Could not remove realmate: ' + (result.error || 'Unknown error'), 'error');
     }
 }
 
 async function handleCancelMate(btn, userName) {
     const confirmed = await showConfirmDialog({
-        title: 'Cancel Realmate request?',
-        message: `Withdraw your pending Realmate request to ${userName}? It will be removed from their notifications.`,
+        title: 'Cancel realmate request?',
+        message: `Withdraw your pending realmate request to ${userName}? It will be removed from their notifications.`,
         confirmText: 'Cancel Request',
         cancelText: 'Keep'
     });
@@ -993,7 +993,7 @@ async function handleAcceptMate(btn, userName) {
     if (result.success) {
         const container = btn.closest('div[style]') || btn.parentElement;
         container.outerHTML = `<button class="btn-mate-profile mate-status-mates" onclick="handleRemoveMate(this,'${userName.replace(/'/g, "\\'")}')">
-                                    <i class="fas fa-user-group"></i> You are now Realmates!
+                                    <i class="fas fa-user-group"></i> You are now realmates!
                                </button>`;
     } else {
         btn.disabled = false;
