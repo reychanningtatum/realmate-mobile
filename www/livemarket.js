@@ -914,25 +914,22 @@ function handleListingRealtimeUpdate(row) {
     patch(myListings);
     if (!changed) return; // a listing we aren't currently showing — nothing to do
 
-    // Re-render the market grid (if it's the visible view) so a completed listing
-    // leaves the AI Matches tab and every card's "AI Matches Found" count refreshes.
-    const ledgerVisible = document.getElementById('listingsGrid') &&
-                          document.getElementById('ledgerView')?.style.display !== 'none';
-    if (ledgerVisible) applyFilters();
-
-    // If a listing's dedicated AI Match Engine view is open, rebuild it too so a
-    // just-completed partner disappears from it live.
-    const matchView = document.getElementById('matchView');
-    if (matchView && matchView.style.display !== 'none') {
-        try {
-            const ctx = JSON.parse(sessionStorage.getItem('rm_matchCtx') || 'null');
-            if (ctx && ctx.listingId != null) showAllMatches(ctx.listingId, null);
-        } catch (e) {}
+    // #1 (Portal randomly refreshing): do NOT auto-re-render the Portal on a
+    // realtime echo. A full applyFilters() (grid) or showAllMatches() (engine)
+    // rebuild fired whenever ANY listing changed ANYWHERE — another user editing a
+    // listing, or the 24h Sold sweep archiving one — which is exactly the "Portal
+    // refreshing on its own while I'm just browsing/scrolling" the user hit. The
+    // in-memory merge above already keeps the data correct for the next
+    // pull-to-refresh, and the owner's OWN Sold action still updates locally via
+    // markListingSold(). Only two NON-disruptive things happen here now:
+    //   • a now-archived (deleted / expired-sold) card is surgically dropped so it
+    //     doesn't linger, and
+    //   • the red match-badge counts are re-recorded (no visible grid rebuild).
+    if (row.archived) {
+        const ledgerVisible = document.getElementById('listingsGrid') &&
+                              document.getElementById('ledgerView')?.style.display !== 'none';
+        if (ledgerVisible) document.getElementById('lc-' + row.id)?.remove();
     }
-
-    // Re-record the authoritative current match set so the Portal/Matches badges
-    // reflect the removal on this page immediately (match-alert.js handles it on
-    // every other page via its own listings subscription).
     try { window.RMMatchAlert?.recordMatches([...buildMatchMap().keys()].map(String)); } catch (e) {}
 }
 
@@ -2915,12 +2912,21 @@ function showAllMatches(listingId, scrollToId) {
     if (scrollToId != null) {
         // Match cards render with id="lc-<id>" (buildListingCard) — NOT the
         // data-listing-id the old selector queried, so the engine never scrolled to
-        // the post the user opened it from. Scroll to the REAL card, retrying a few
-        // times while layout/images settle.
+        // the post the user opened it from. Scroll to the REAL card, and GREEN-FLASH
+        // it (reusing the .match-flash ring) so the user clearly sees which listing
+        // the engine is referring to (#2). Retry while layout/images settle.
+        let _flashed = false;
         const _toMatch = () => {
             const el = document.getElementById('lc-' + scrollToId);
-            if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); return true; }
-            return false;
+            if (!el) return false;
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            if (!_flashed) {
+                el.classList.remove('match-flash');
+                void el.offsetWidth;               // restart the animation if re-applied
+                el.classList.add('match-flash');
+                _flashed = true;
+            }
+            return true;
         };
         setTimeout(_toMatch, 60);
         setTimeout(_toMatch, 300);
