@@ -2730,13 +2730,26 @@ function exitMatchView() {
     if (topWrap) topWrap.style.display = '';
     syncTopPadding();
     // The ledger's cards were only HIDDEN while the match view was up (not
-    // destroyed), so restore the exact scroll/post the AI Match Engine was opened
-    // from WITHOUT re-fetching. A silent loadLedger() here re-rendered the whole
-    // grid and, if the listing set shifted at all between open and Back, dropped
-    // the user on a different ("random") post (#2). Restore against the existing
-    // cards; the data is already current from when they entered. restorePortalScroll
-    // re-applies across several rAF/timeout ticks, so slower devices settle too.
-    try { restorePortalScroll(); } catch (e) {}
+    // destroyed), so return to the EXACT post the engine was opened from WITHOUT
+    // re-fetching (a silent loadLedger re-rendered the grid and, on any data shift,
+    // dropped the user on a different post). Scroll to the saved return card
+    // (the opened post) directly — more reliable than the top-visible-card snapshot,
+    // which returned "near" but not the actual post. Retry while layout settles.
+    var _rid = window._matchReturnCardId;
+    var _backOK = false;
+    if (_rid) {
+        var _back = function () {
+            var el = document.getElementById(_rid);
+            if (el) { el.scrollIntoView({ behavior: 'auto', block: 'center' }); return true; }
+            return false;
+        };
+        _backOK = _back();
+        requestAnimationFrame(_back);
+        setTimeout(_back, 120); setTimeout(_back, 350); setTimeout(_back, 700);
+    }
+    if (!_backOK) { try { restorePortalScroll(); } catch (e) {} }
+    else { try { sessionStorage.removeItem(RM_SCROLL_KEY); } catch (e) {} }
+    window._matchReturnCardId = null;
 }
 
 // Subtle "AI Matches activated" chime — a short two-note ascending blip
@@ -2892,17 +2905,26 @@ function showAllMatches(listingId, scrollToId) {
             .map(o => String(o.id));
         if (seenIds.length) window.RMMatchAlert?.markSeen(seenIds);
     } catch (e) {}
-    // Snapshot the ledger's exact scroll/top-post NOW (while it's still visible)
-    // so Back from the AI Match Engine returns to the exact post the user opened
-    // it from, not the top of Live Market (#2). restorePortalScroll() in
-    // exitMatchView() consumes it.
+    // Remember the EXACT ledger card to return to on Back: the post the engine was
+    // opened from — the matched other-post (scrollToId), or the user's own listing
+    // when opened from the "AI Matches Found" button. Snapshot scroll too, as a
+    // fallback. Both consumed by exitMatchView() (#2).
+    window._matchReturnCardId = 'lc-' + (scrollToId != null ? scrollToId : listingId);
     try { savePortalScroll(); } catch (e) {}
     showMatchView(myListing, matches);
-    if (scrollToId) {
-        setTimeout(() => {
-            const el = document.querySelector(`[data-listing-id="${scrollToId}"]`);
-            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }, 300);
+    if (scrollToId != null) {
+        // Match cards render with id="lc-<id>" (buildListingCard) — NOT the
+        // data-listing-id the old selector queried, so the engine never scrolled to
+        // the post the user opened it from. Scroll to the REAL card, retrying a few
+        // times while layout/images settle.
+        const _toMatch = () => {
+            const el = document.getElementById('lc-' + scrollToId);
+            if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); return true; }
+            return false;
+        };
+        setTimeout(_toMatch, 60);
+        setTimeout(_toMatch, 300);
+        setTimeout(_toMatch, 700);
     }
 }
 
