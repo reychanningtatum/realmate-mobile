@@ -1325,14 +1325,14 @@ html[data-theme="dark"] .hf-comment-tool:hover { background: #243044; }
        the padding-bottom give the pinned top bar an opaque backing down to the
        write-a-post box, and the ::before fills the status-bar strip above it —
        so the feed never shows through the header. */
-    position: sticky; top: env(safe-area-inset-top); z-index: 50;
+    position: sticky; top: var(--rm-safe-top, env(safe-area-inset-top)); z-index: 50;
     background: var(--bg);
     padding-bottom: 12px; margin-bottom: 0;
     transition: transform 0.25s ease, opacity 0.25s ease;
   }
   .home-search-wrap::before {
     content: ""; position: absolute; left: 0; right: 0; bottom: 100%;
-    height: env(safe-area-inset-top); background: var(--bg);
+    height: var(--rm-safe-top, env(safe-area-inset-top)); background: var(--bg);
   }
   .home-search-wrap.search-hidden { transform: translateY(-140%); opacity: 0; pointer-events: none; }
 
@@ -1347,7 +1347,7 @@ html[data-theme="dark"] .hf-comment-tool:hover { background: #243044; }
        (higher z-index), so there's no transparent seam for the feed to show
        through between the two — one continuous solid header. */
     position: sticky;
-    top: calc(env(safe-area-inset-top) + 48px);
+    top: calc(var(--rm-safe-top, env(safe-area-inset-top)) + 48px);
     z-index: 49;
     transition: transform 0.25s ease, opacity 0.25s ease;
   }
@@ -1358,7 +1358,7 @@ html[data-theme="dark"] .hf-comment-tool:hover { background: #243044; }
      Search FAB. Shown only while minimized (.show); draggable anywhere. */
   .feed-search-fab {
     display: flex; align-items: center; justify-content: center;
-    position: fixed; top: calc(14px + env(safe-area-inset-top)); right: 14px;
+    position: fixed; top: calc(14px + var(--rm-safe-top, env(safe-area-inset-top))); right: 14px;
     width: 48px; height: 48px; border-radius: 50%;
     border: 1px solid rgba(255,255,255,0.16);
     background: rgba(15,23,42,0.72);

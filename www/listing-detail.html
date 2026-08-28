@@ -26,7 +26,7 @@
       position:fixed; top:0; left:0; right:0; z-index:200;
       background:rgba(255,255,255,0.9);
       -webkit-backdrop-filter:saturate(180%) blur(14px); backdrop-filter:saturate(180%) blur(14px);
-      display:flex; align-items:center; gap:10px; padding:calc(11px + env(safe-area-inset-top)) 16px 11px;
+      display:flex; align-items:center; gap:10px; padding:calc(11px + var(--rm-safe-top, env(safe-area-inset-top))) 16px 11px;
       border-bottom:1px solid var(--ld-border);
     }
     .ld-back{
@@ -267,7 +267,7 @@
     html[data-theme="dark"] .ld-actionbar{ background:rgba(11,18,32,0.94); }
 
     @media (max-width:768px){
-      .ld-header{ padding:calc(10px + env(safe-area-inset-top)) 12px 10px; }
+      .ld-header{ padding:calc(10px + var(--rm-safe-top, env(safe-area-inset-top))) 12px 10px; }
       .ld-header-title{ font-size:16px; }
       .ld-price{ font-size:23px; }
       .ld-title{ font-size:20px; }
@@ -278,7 +278,7 @@
     }
   </style>
   <script src="featureFlags.js?v=20260822off"></script>
-<link rel="stylesheet" href="safe-area.css?v=vt3">
+<link rel="stylesheet" href="safe-area.css?v=20260828b">
 <script>if(window.self!==window.top)document.documentElement.classList.add("rm-embedded");</script>
 </head>
 <body>
@@ -354,7 +354,7 @@
 <script src="match-engine.js?v=20260821p1"></script>
 <script src="developers.js?v=36"></script>
 <script src="rm-track.js?v=2"></script>
-<script src="match-alert.js?v=10"></script>
+<script src="match-alert.js?v=20260828b"></script>
 <script src="notif-badge.js?v=12"></script>
 <script>
 const _sb = supabase.createClient('https://wmegpgrfrtprhuzmgjma.supabase.co', 'sb_publishable_Rm_fIBDUfu3DEyLj0_bWZw_qEqo8cd4');

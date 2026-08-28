@@ -22,6 +22,35 @@
   var prevTab = null;   // the tab we came from, for in-shell "back" (see rmBack)
   var host, loading;
 
+  // ── Safe-area threading ─────────────────────────────────────────────────
+  // The status bar overlays the webview (see native-statusbar.js), so this
+  // SHELL — the top-level document — sees the true env(safe-area-inset-top).
+  // iOS does NOT propagate that inset into nested iframes, so each tab reads
+  // var(--rm-safe-top, env(...)) and would otherwise fall back to 0 and tuck its
+  // header under the status bar. Measure the real inset here and push it into
+  // every frame. Entirely inert (0px) on devices/web without a top inset.
+  var _insetProbe = null;
+  function topInset() {
+    try {
+      if (!_insetProbe) {
+        _insetProbe = document.createElement('div');
+        _insetProbe.style.cssText = 'position:fixed;top:0;left:0;width:0;height:0;visibility:hidden;pointer-events:none;box-sizing:content-box;padding-top:env(safe-area-inset-top);';
+        document.body.appendChild(_insetProbe);
+      }
+      return _insetProbe.offsetHeight || 0;
+    } catch (e) { return 0; }
+  }
+  function threadSafeArea(f) {
+    try {
+      var root = f && f.contentDocument && f.contentDocument.documentElement;
+      if (root) root.style.setProperty('--rm-safe-top', topInset() + 'px');
+    } catch (e) {}
+  }
+  window.addEventListener('resize', function () {
+    _insetProbe = null;                       // remeasure after orientation change
+    for (var t in frames) if (frames[t]) threadSafeArea(frames[t]);
+  });
+
   function setActive(tab) {
     document.querySelectorAll('.mob-nav-item[data-tab]').forEach(function (a) {
       a.classList.toggle('active', a.getAttribute('data-tab') === tab);
@@ -154,6 +183,7 @@
     // iframe is now on a sub-page (navigated away from its root).
     f.addEventListener('load', function () {
       injectEmbedCss(f);
+      threadSafeArea(f);   // pass the device's real top inset into the iframe
       try {
         var cur = f.contentWindow.location.pathname.split('/').pop();
         f.__subpage = !!(f.__root && cur && cur !== f.__root);

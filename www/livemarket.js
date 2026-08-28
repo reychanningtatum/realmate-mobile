@@ -364,43 +364,52 @@ function togglePin(listingId, btn) {
 }
 
 // ── Listing card kebab menu (pin / dismiss / delete) ──
+// Close a listing-card menu and return it to its card (see toggleLcMenu for why
+// it's moved to <body>). Also used by closeLcMenu and the outside-click handler.
+function _lcCloseMenu(menu) {
+    if (!menu) return;
+    menu.classList.remove('open');
+    menu.style.position = ''; menu.style.top = ''; menu.style.left = ''; menu.style.right = '';
+    menu.style.zIndex = ''; menu.style.pointerEvents = '';
+    if (menu.__lcHome && menu.__lcHome.isConnected) menu.__lcHome.appendChild(menu);
+    else if (menu.parentNode === document.body) menu.remove();   // card re-rendered → drop orphan
+    menu.__lcHome = null;
+}
+
 function toggleLcMenu(id, e) {
     if (e) e.stopPropagation();
     const menu = document.getElementById('lcmenu-' + id);
     if (!menu) return;
     const isOpen = menu.classList.contains('open');
-    document.querySelectorAll('.lc-menu.open').forEach(m => {
-        m.classList.remove('open');
-        m.style.position = ''; m.style.top = ''; m.style.left = ''; m.style.right = '';
-        m.style.zIndex = ''; m.style.pointerEvents = '';
-    });
+    document.querySelectorAll('.lc-menu.open').forEach(_lcCloseMenu);
     if (!isOpen) {
+        const wrap = menu.closest('.lc-menu-wrap');
+        const btn = wrap && wrap.querySelector('.lc-menu-btn');
+        // The listing card lifts on hover (transform: translateY, and touch fires a
+        // sticky :hover on iOS) and its swipe layer uses will-change:transform —
+        // EITHER makes an ancestor the containing block for position:fixed, so a
+        // fixed menu inside the card resolves its coordinates against that ancestor
+        // and lands in the wrong place (looked like the menu "wasn't working").
+        // Portal the menu to <body> so its fixed coords are truly viewport-relative,
+        // then pin it to the kebab button (flipping up near the screen bottom).
+        menu.__lcHome = menu.parentNode;
         menu.classList.add('open');
-        // The listing card has overflow:hidden (for its rounded corners + sash),
-        // which clips this dropdown when it extends past the card. Render it as a
-        // FIXED overlay positioned at the kebab button so it can never be cut off,
-        // flipping upward if it would run off the bottom of the screen.
-        const btn = menu.closest('.lc-menu-wrap') && menu.closest('.lc-menu-wrap').querySelector('.lc-menu-btn');
-        if (btn) {
-            const r = btn.getBoundingClientRect();
-            const mw = menu.offsetWidth || 160, mh = menu.offsetHeight || 220;
-            let left = Math.min(Math.max(8, r.right - mw), window.innerWidth - mw - 8);
-            let top = r.bottom + 4;
-            if (top + mh > window.innerHeight - 8) top = Math.max(8, r.top - mh - 4);
-            menu.style.position = 'fixed';
-            menu.style.left = left + 'px';
-            menu.style.top = top + 'px';
-            menu.style.right = 'auto';
-            // Float above sticky headers / the cover photo (Dashboard) and any
-            // app-shell chrome so the menu is never rendered behind them and its
-            // items always stay tappable.
-            menu.style.zIndex = '3000';
-            menu.style.pointerEvents = 'auto';
-        }
+        document.body.appendChild(menu);
+        const r = (btn || menu).getBoundingClientRect();
+        const mw = menu.offsetWidth || 160, mh = menu.offsetHeight || 220;
+        let left = Math.min(Math.max(8, r.right - mw), window.innerWidth - mw - 8);
+        let top = r.bottom + 4;
+        if (top + mh > window.innerHeight - 8) top = Math.max(8, r.top - mh - 4);
+        menu.style.position = 'fixed';
+        menu.style.left = left + 'px';
+        menu.style.top = top + 'px';
+        menu.style.right = 'auto';
+        menu.style.zIndex = '3000';
+        menu.style.pointerEvents = 'auto';
     }
 }
 function closeLcMenu(id) {
-    document.getElementById('lcmenu-' + id)?.classList.remove('open');
+    _lcCloseMenu(document.getElementById('lcmenu-' + id));
 }
 function togglePinMenu(listingId, item) {
     togglePin(listingId, null);
@@ -612,7 +621,10 @@ function closeAllSwipes(except = null) {
 }
 document.addEventListener('click', (e) => {
     if (!e.target.closest('.lc-swipe-content') && !e.target.closest('.lc-swipe-actions')) closeAllSwipes();
-    if (!e.target.closest('.lc-menu-wrap')) document.querySelectorAll('.lc-menu.open').forEach(m => m.classList.remove('open'));
+    // The open menu now lives on <body> (portaled out of its card), so also treat
+    // clicks inside .lc-menu as "inside" — otherwise this would close it before a
+    // menu item's own handler runs.
+    if (!e.target.closest('.lc-menu-wrap') && !e.target.closest('.lc-menu')) document.querySelectorAll('.lc-menu.open').forEach(_lcCloseMenu);
 });
 
 function attachSwipeHandlers(card) {
@@ -2717,10 +2729,14 @@ function exitMatchView() {
     const topWrap = document.querySelector('.top-fixed-wrap');
     if (topWrap) topWrap.style.display = '';
     syncTopPadding();
-    // Refresh the ledger data in place (silent — the cards are still mounted
-    // underneath), then restore the exact scroll/post saved when the AI Match
-    // Engine was opened, so Back lands on the originating post (#2).
-    loadLedger(true).then(() => { try { restorePortalScroll(); } catch (e) {} });
+    // The ledger's cards were only HIDDEN while the match view was up (not
+    // destroyed), so restore the exact scroll/post the AI Match Engine was opened
+    // from WITHOUT re-fetching. A silent loadLedger() here re-rendered the whole
+    // grid and, if the listing set shifted at all between open and Back, dropped
+    // the user on a different ("random") post (#2). Restore against the existing
+    // cards; the data is already current from when they entered. restorePortalScroll
+    // re-applies across several rAF/timeout ticks, so slower devices settle too.
+    try { restorePortalScroll(); } catch (e) {}
 }
 
 // Subtle "AI Matches activated" chime — a short two-note ascending blip

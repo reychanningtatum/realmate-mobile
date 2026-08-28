@@ -1349,10 +1349,10 @@ html[data-theme="dark"] .stats-list-avatar { border-color: #334155; }
        status bar is unchanged. Pulling the card (not just the cover) avoids the
        negative-margin-inside-the-card edge case that left a strip above it. */
     .profile-card {
-        margin-top: calc(-1 * env(safe-area-inset-top));
+        margin-top: calc(-1 * var(--rm-safe-top, env(safe-area-inset-top)));
     }
     .profile-cover {
-        height: calc(200px + env(safe-area-inset-top));
+        height: calc(200px + var(--rm-safe-top, env(safe-area-inset-top)));
         margin-top: 0;
         aspect-ratio: auto;
         border-radius: 0;

@@ -138,7 +138,7 @@
     /* FAB */
     #searchFab {
         position: fixed;
-        top: calc(20px + env(safe-area-inset-top, 0px));
+        top: calc(20px + var(--rm-safe-top, env(safe-area-inset-top, 0px)));
         right: 24px;
         z-index: 900;
         width: 42px; height: 42px;
@@ -348,7 +348,7 @@
     .so-history-remove:hover { background: #fee2e2; color: #ef4444; }
 
     @media (max-width: 768px) {
-        #searchFab { top: calc(14px + env(safe-area-inset-top, 0px)); right: 14px; width: 38px; height: 38px; font-size: 14px; }
+        #searchFab { top: calc(14px + var(--rm-safe-top, env(safe-area-inset-top, 0px))); right: 14px; width: 38px; height: 38px; font-size: 14px; }
         #searchOverlay { padding: 60px 12px 24px; }
         .so-box { max-height: calc(100vh - 96px); }
         .so-input-row { padding: 0 12px; gap: 8px; }
