@@ -2910,14 +2910,17 @@ function showAllMatches(listingId, scrollToId) {
     try { savePortalScroll(); } catch (e) {}
     showMatchView(myListing, matches);
     if (scrollToId != null) {
-        // Match cards render with id="lc-<id>" (buildListingCard) — NOT the
-        // data-listing-id the old selector queried, so the engine never scrolled to
-        // the post the user opened it from. Scroll to the REAL card, and GREEN-FLASH
-        // it (reusing the .match-flash ring) so the user clearly sees which listing
-        // the engine is referring to (#2). Retry while layout/images settle.
+        // Scroll to + GREEN-FLASH the opened post INSIDE the engine. CRITICAL: the
+        // SAME listing exists twice with id="lc-<id>" — once in the Portal ledger
+        // (#listingsGrid, hidden while the engine is up) and once here in
+        // #matchesContainer. document.getElementById() returns the FIRST (the
+        // hidden ledger card), so the flash/scroll landed on the ledger and only
+        // showed when the user went Back to the Portal. Scope the lookup to the
+        // engine's container so it targets the match card the user is looking at.
         let _flashed = false;
         const _toMatch = () => {
-            const el = document.getElementById('lc-' + scrollToId);
+            const box = document.getElementById('matchesContainer');
+            const el = box && box.querySelector('[id="lc-' + scrollToId + '"]');
             if (!el) return false;
             el.scrollIntoView({ behavior: 'smooth', block: 'center' });
             if (!_flashed) {
