@@ -364,6 +364,31 @@ function togglePin(listingId, btn) {
 }
 
 // ── Listing card kebab menu (pin / dismiss / delete) ──
+// While a card menu is open, LOCK the page from scrolling so the menu (a fixed
+// overlay pinned to the kebab button) stays anchored and the post underneath
+// can't move out from under it. overflow:hidden stops wheel/programmatic scroll;
+// the non-passive touchmove blocker stops iOS touch/momentum scroll (except
+// inside the menu itself, in case it ever needs to scroll). Restored on close.
+let _lcScrollLocked = false;
+function _lcBlockTouch(ev) {
+    if (ev.target && ev.target.closest && ev.target.closest('.lc-menu')) return;
+    if (ev.cancelable) ev.preventDefault();
+}
+function _lcLockScroll() {
+    if (_lcScrollLocked) return;
+    _lcScrollLocked = true;
+    document.addEventListener('touchmove', _lcBlockTouch, { passive: false });
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
+}
+function _lcUnlockScroll() {
+    if (!_lcScrollLocked) return;
+    _lcScrollLocked = false;
+    document.removeEventListener('touchmove', _lcBlockTouch, { passive: false });
+    document.documentElement.style.overflow = '';
+    document.body.style.overflow = '';
+}
+
 // Close a listing-card menu and return it to its card (see toggleLcMenu for why
 // it's moved to <body>). Also used by closeLcMenu and the outside-click handler.
 function _lcCloseMenu(menu) {
@@ -374,6 +399,8 @@ function _lcCloseMenu(menu) {
     if (menu.__lcHome && menu.__lcHome.isConnected) menu.__lcHome.appendChild(menu);
     else if (menu.parentNode === document.body) menu.remove();   // card re-rendered → drop orphan
     menu.__lcHome = null;
+    // No card menu open anymore → let the page scroll again.
+    if (!document.querySelector('.lc-menu.open')) _lcUnlockScroll();
 }
 
 function toggleLcMenu(id, e) {
@@ -406,6 +433,7 @@ function toggleLcMenu(id, e) {
         menu.style.right = 'auto';
         menu.style.zIndex = '3000';
         menu.style.pointerEvents = 'auto';
+        _lcLockScroll();   // freeze the page so the menu stays pinned to its button
     }
 }
 function closeLcMenu(id) {
