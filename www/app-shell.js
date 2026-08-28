@@ -22,34 +22,15 @@
   var prevTab = null;   // the tab we came from, for in-shell "back" (see rmBack)
   var host, loading;
 
-  // ── Safe-area threading ─────────────────────────────────────────────────
-  // The status bar overlays the webview (see native-statusbar.js), so this
-  // SHELL — the top-level document — sees the true env(safe-area-inset-top).
-  // iOS does NOT propagate that inset into nested iframes, so each tab reads
-  // var(--rm-safe-top, env(...)) and would otherwise fall back to 0 and tuck its
-  // header under the status bar. Measure the real inset here and push it into
-  // every frame. Entirely inert (0px) on devices/web without a top inset.
-  var _insetProbe = null;
-  function topInset() {
-    try {
-      if (!_insetProbe) {
-        _insetProbe = document.createElement('div');
-        _insetProbe.style.cssText = 'position:fixed;top:0;left:0;width:0;height:0;visibility:hidden;pointer-events:none;box-sizing:content-box;padding-top:env(safe-area-inset-top);';
-        document.body.appendChild(_insetProbe);
-      }
-      return _insetProbe.offsetHeight || 0;
-    } catch (e) { return 0; }
-  }
-  function threadSafeArea(f) {
-    try {
-      var root = f && f.contentDocument && f.contentDocument.documentElement;
-      if (root) root.style.setProperty('--rm-safe-top', topInset() + 'px');
-    } catch (e) {}
-  }
-  window.addEventListener('resize', function () {
-    _insetProbe = null;                       // remeasure after orientation change
-    for (var t in frames) if (frames[t]) threadSafeArea(frames[t]);
-  });
+  // ── Safe-area threading (DISABLED 2026-08-28) ────────────────────────────
+  // This threaded the shell's real top inset into each tab iframe as
+  // --rm-safe-top, to pair with the status-bar overlay (native-statusbar.js).
+  // The overlay is turned OFF (it pushed the Portal header under the status bar
+  // on-device and needs Xcode/device verification), so this must NOT set the var
+  // either — with --rm-safe-top unset, every var(--rm-safe-top, env(...)) rule
+  // falls back to env() (0 in the iframes) = the original, pre-overlay layout.
+  // Kept as a no-op so the load/resize call sites don't need to change.
+  function threadSafeArea(f) { /* no-op — see comment above */ }
 
   function setActive(tab) {
     document.querySelectorAll('.mob-nav-item[data-tab]').forEach(function (a) {
