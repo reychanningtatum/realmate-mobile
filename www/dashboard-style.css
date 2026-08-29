@@ -1222,7 +1222,7 @@ html[data-theme="dark"] .stats-list-avatar { border-color: #334155; }
        cover; only the two buttons capture clicks. */
     .mobile-profile-topbar {
         display: flex; align-items: center; justify-content: space-between;
-        position: absolute; top: 12px; left: 0; right: 0; height: auto;   /* pushed a bit lower than the very top */
+        position: absolute; top: 44px; left: 0; right: 0; height: auto;   /* pushed lower so the buttons clear the status bar */
         padding: 14px 16px; background: transparent;
         border-bottom: none; z-index: 200; pointer-events: none;
     }
@@ -1358,7 +1358,7 @@ html[data-theme="dark"] .stats-list-avatar { border-color: #334155; }
         margin-top: 0;
     }
     .profile-cover {
-        height: 200px;
+        height: 232px;
         margin-top: 0;
         aspect-ratio: auto;
         border-radius: 0;
