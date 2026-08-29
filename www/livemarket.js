@@ -29,6 +29,60 @@ async function logout() {
     location.href = "index.html";
 }
 
+// ── Live Market ⇄ Listing Detail: preserve the EXACT scroll on Back ──────────
+// Opening a listing navigates THIS page to listing-detail.html. The Portal holds
+// an open realtime WebSocket, which stops iOS WKWebView from bfcache-restoring
+// this page — so "Back" (history.back) RELOADS Live Market and would otherwise
+// dump the user at the very top. We stash the scroll on the way out and restore
+// it once the grid has rendered tall enough to reach it, so Back returns to the
+// exact same post/scroll — even for a post near the bottom of the list. Works
+// whether the browser bfcaches (already restored) or reloads (we restore).
+function _lmScrollNow() {
+    var w = window.scrollY || window.pageYOffset || 0;
+    var mc = document.querySelector('.main-content');
+    return Math.max(w, mc ? mc.scrollTop : 0);
+}
+function _lmScrollTo(y) {
+    try { window.scrollTo(0, y); } catch (e) {}
+    var mc = document.querySelector('.main-content');
+    if (mc) { try { mc.scrollTop = y; } catch (e) {} }
+}
+function _lmMaxScrollable() {
+    var w = (document.documentElement.scrollHeight || 0) - (window.innerHeight || 0);
+    var mc = document.querySelector('.main-content');
+    var m = mc ? (mc.scrollHeight - mc.clientHeight) : 0;
+    return Math.max(w, m);
+}
+function lmOpenListing(id) {
+    try { sessionStorage.setItem('lmReturnScroll', JSON.stringify({ y: _lmScrollNow(), t: Date.now() })); } catch (e) {}
+    location.href = 'listing-detail.html?id=' + encodeURIComponent(id);
+}
+(function _lmRestoreScrollOnReturn() {
+    var raw = null;
+    try { raw = sessionStorage.getItem('lmReturnScroll'); sessionStorage.removeItem('lmReturnScroll'); } catch (e) { return; }
+    if (!raw) return;
+    var data; try { data = JSON.parse(raw); } catch (e) { return; }
+    if (!data || !data.y || (Date.now() - (data.t || 0)) > 300000) return;  // only a recent round-trip
+    var y = data.y, start = Date.now();
+    // livemarket runs SEVERAL applyFilters() re-renders while it loads (data
+    // arrives, realtime echoes, rmbr:ready…), any of which can reset the scroll
+    // AFTER we first land on y. So don't stop at the first success — keep
+    // re-asserting the saved position (only when we've drifted off it, so we
+    // never fight the user) for a short window until it stays put.
+    var timer = setInterval(function () {
+        if (_lmMaxScrollable() >= y - 4 && Math.abs(_lmScrollNow() - y) > 4) _lmScrollTo(y);
+        if (Date.now() - start > 2500) {
+            if (_lmMaxScrollable() >= y - 4) _lmScrollTo(y);   // final landing
+            clearInterval(timer);
+        }
+    }, 50);
+})();
+// If the page IS bfcache-restored (scroll already intact), drop the stash so it
+// can't wrongly reposition a later fresh reload (e.g. a pull-to-refresh).
+window.addEventListener('pageshow', function (e) {
+    if (e && e.persisted) { try { sessionStorage.removeItem('lmReturnScroll'); } catch (er) {} }
+});
+
 // ── Category helpers ──────────────────────────────
 const CAT_CLASS = {
     "FOR SALE": "cat-sale", "FOR RENT": "cat-rent", "FOR LEASE": "cat-lease",
@@ -827,7 +881,7 @@ function buildOfferRow(listing) {
     // read-only Sold indicator in place of the Send Offer button.
     if (listing.status === 'sold') {
         return `<div class="listing-offer-row" onclick="event.stopPropagation()">
-            <button class="listing-view-btn" onclick="location.href='listing-detail.html?id=${safeId}'">
+            <button class="listing-view-btn" onclick="lmOpenListing('${safeId}')">
                 <i class="fas fa-arrow-up-right-from-square"></i> View Listing
             </button>
             <div class="sold-indicator sold-indicator-static">
@@ -836,7 +890,7 @@ function buildOfferRow(listing) {
         </div>`;
     }
     return `<div class="listing-offer-row" onclick="event.stopPropagation()">
-        <button class="listing-view-btn" onclick="location.href='listing-detail.html?id=${safeId}'">
+        <button class="listing-view-btn" onclick="lmOpenListing('${safeId}')">
             <i class="fas fa-arrow-up-right-from-square"></i> View Listing
         </button>
         <button class="listing-offer-btn" onclick="showOfferPopup('${safeId}','${safeUid}','${safeN}','${safeI}','${safeCat}',this)">
@@ -1978,7 +2032,7 @@ document.addEventListener('rmbr:changed', () => { if (typeof applyFilters === 'f
 // the old "Mark as Sold" kebab item was removed (see buildCardMenu).
 function buildActionBar(listing, isOwner, isMatch = false) {
     const isSold = listing.status === 'sold';
-    const viewBtn = `<button class="lc-view-btn" onclick="location.href='listing-detail.html?id=${listing.id}'">
+    const viewBtn = `<button class="lc-view-btn" onclick="lmOpenListing('${listing.id}')">
             <i class="fas fa-arrow-up-right-from-square"></i> View Listing
         </button>`;
 
@@ -2372,7 +2426,7 @@ function portalSuggestPost(i) {
     const l = (window.__portalSuggest?.posts || [])[i];
     if (!l || l.id == null) return;
     closePortalSuggest();
-    location.href = 'listing-detail.html?id=' + encodeURIComponent(l.id);
+    lmOpenListing(l.id);
 }
 
 function closePortalSuggest() {
@@ -3064,7 +3118,7 @@ function buildAiAnalysis(details, color) {
 // anonymous / own / sold listings — same rules as buildOfferRow — and View
 // Listing then fills the row on its own.
 function buildMatchActionRow(listing) {
-    const viewBtn = `<button class="lc-view-btn" onclick="location.href='listing-detail.html?id=${listing.id}'">
+    const viewBtn = `<button class="lc-view-btn" onclick="lmOpenListing('${listing.id}')">
             <i class="fas fa-arrow-up-right-from-square"></i> View Listing
         </button>`;
     const localUser = JSON.parse(localStorage.getItem('user') || 'null');
