@@ -466,6 +466,10 @@ html[data-theme="dark"] .fp-row:hover { background: #243044; }
   opacity: 0; pointer-events: none; transition: opacity 0.12s; z-index: 30;
 }
 .hf-react-opt:hover .hf-react-optlabel { opacity: 1; }
+/* Touch drag: the emoji under the finger gets the same pop as :hover, only
+   bigger so it reads as "selected". Live-toggled by the drag picker in home.js. */
+.hf-react-opt.rm-hover { transform: scale(1.34) translateY(-4px); box-shadow: 0 6px 16px rgba(0,0,0,0.22); }
+.hf-react-opt.rm-hover .hf-react-optlabel { opacity: 1; }
 .hf-poll { margin: 10px 0 2px; display: flex; flex-direction: column; gap: 8px; }
 .hf-poll-opt {
   position: relative; overflow: hidden; text-align: left;

@@ -1087,11 +1087,11 @@ function buildHomePostCard(post, stats) {
                         style="${cur ? `color:${cur.color};` : ''}"
                         aria-label="${cur ? cur.label : 'Like'}" title="${cur ? cur.label : 'Like'}"
                         onclick="quickReact('${post.id}')"
-                        ontouchstart="reactTouchStart('${post.id}')" ontouchend="reactTouchEnd('${post.id}')">
+                        ontouchstart="reactTouchStart(event,'${post.id}')">
                     <i class="${cur ? cur.icon : 'far fa-thumbs-up'}"></i>
                 </button>
                 <div class="hf-react-picker" id="hfpicker-${post.id}">
-                    ${REACTION_ORDER.map(k => `<button type="button" class="hf-react-opt" aria-label="${REACTIONS[k].label}" onclick="setReaction('${post.id}','${k}')" style="--rc:${REACTIONS[k].color}"><span class="hf-react-optlabel">${REACTIONS[k].label}</span><i class="${REACTIONS[k].icon}"></i></button>`).join('')}
+                    ${REACTION_ORDER.map(k => `<button type="button" class="hf-react-opt" data-k="${k}" aria-label="${REACTIONS[k].label}" onclick="setReaction('${post.id}','${k}')" style="--rc:${REACTIONS[k].color}"><span class="hf-react-optlabel">${REACTIONS[k].label}</span><i class="${REACTIONS[k].icon}"></i></button>`).join('')}
                 </div>
             </div>
             <button class="hf-action-btn" onclick="toggleHomeComments('${post.id}')" aria-label="Comment" title="Comment">
@@ -1469,22 +1469,98 @@ function scheduleHideReactPicker(postId) {
     }, 260);
 }
 
-// Long-press opens the picker on touch devices
+// ── Facebook-style press-and-drag reaction picker (touch) ────────────────
+// Hold the Like button → after a short hold the picker pops up; keep the finger
+// down and slide across the emojis: the one under the finger scales up and shows
+// its name, updating live as you move. Release over an emoji to pick it (release
+// off any emoji cancels). One continuous gesture — no release-and-tap-each.
+// `_reactTouchTimer` stays as the "held" flag so the button's onclick
+// (quickReact) is suppressed after a hold; a plain quick tap still toggles Like.
 let _reactTouchTimer = null;
-function reactTouchStart(postId) {
-    // Disable text selection / the iOS callout for the whole hold-and-swipe
-    // reaction gesture, so dragging across the emoji picker never selects the
-    // post's body text (#3). Cleared on release.
-    document.body.classList.add('rm-reacting');
-    _reactTouchTimer = setTimeout(() => { _reactTouchTimer = 'held'; showReactPicker(postId); }, 380);
+let _rg = null;   // active reaction-gesture state
+
+function _rgTeardownListeners() {
+    document.removeEventListener('touchmove', _reactTouchMove, { passive: false });
+    document.removeEventListener('touchend', _reactTouchEnd, { passive: false });
+    document.removeEventListener('touchcancel', _reactTouchEnd, { passive: false });
 }
-function reactTouchEnd(postId) {
-    if (_reactTouchTimer && _reactTouchTimer !== 'held') clearTimeout(_reactTouchTimer);
-    _reactTouchTimer = null;
-    // Drop any stray selection the release may have started, then re-enable
-    // normal text selection a tick later.
-    try { const s = window.getSelection && window.getSelection(); if (s) s.removeAllRanges(); } catch (e) {}
-    setTimeout(() => document.body.classList.remove('rm-reacting'), 60);
+
+// Highlight the emoji currently under the finger (and only that one), so its
+// scale-up + name bubble track the finger. Mirrors the desktop :hover state via
+// the .rm-hover class. Records the hovered reaction key on the gesture.
+function _rgHighlightAt(x, y) {
+    if (!_rg || !_rg.opened) return;
+    const picker = document.getElementById('hfpicker-' + _rg.postId);
+    if (!picker) return;
+    picker.querySelectorAll('.hf-react-opt.rm-hover').forEach(o => o.classList.remove('rm-hover'));
+    const el = document.elementFromPoint(x, y);
+    const opt = el && el.closest ? el.closest('.hf-react-opt') : null;
+    if (opt && picker.contains(opt)) {
+        opt.classList.add('rm-hover');
+        _rg.current = opt.getAttribute('data-k');
+    } else {
+        _rg.current = null;
+    }
+}
+
+function reactTouchStart(e, postId) {
+    const t = (e.touches && e.touches[0]) || e;
+    _rg = { postId: postId, x0: t.clientX, y0: t.clientY, opened: false, moved: false, current: null, timer: null };
+    // Suppress text selection / the iOS callout for the whole gesture so dragging
+    // across the picker can never select the post body (#3). Cleared on release.
+    document.body.classList.add('rm-reacting');
+    // Pop the picker after a short hold. A quick tap never gets here → onclick
+    // (quickReact) handles the plain Like toggle.
+    _rg.timer = setTimeout(function () {
+        if (!_rg) return;
+        _rg.opened = true;
+        _reactTouchTimer = 'held';          // tell quickReact to stand down
+        showReactPicker(postId);
+        _rgHighlightAt(_rg.x0, _rg.y0);
+    }, 300);
+    document.addEventListener('touchmove', _reactTouchMove, { passive: false });
+    document.addEventListener('touchend', _reactTouchEnd, { passive: false });
+    document.addEventListener('touchcancel', _reactTouchEnd, { passive: false });
+}
+
+function _reactTouchMove(e) {
+    if (!_rg) return;
+    const t = (e.touches && e.touches[0]) || e;
+    if (Math.abs(t.clientX - _rg.x0) > 6 || Math.abs(t.clientY - _rg.y0) > 6) _rg.moved = true;
+    if (_rg.opened) {
+        // The picker is open — this gesture is now dedicated to choosing a
+        // reaction: block page scroll and live-track the emoji under the finger.
+        if (e.cancelable) e.preventDefault();
+        _rgHighlightAt(t.clientX, t.clientY);
+    } else if (_rg.moved) {
+        // Finger moved before the hold completed → the user is scrolling, not
+        // reacting. Abort so the feed scrolls normally.
+        clearTimeout(_rg.timer);
+        _rgTeardownListeners();
+        document.body.classList.remove('rm-reacting');
+        _rg = null;
+    }
+}
+
+function _reactTouchEnd(e) {
+    if (!_rg) return;
+    const g = _rg;
+    clearTimeout(g.timer);
+    _rgTeardownListeners();
+    if (g.opened) {
+        if (e && e.cancelable) e.preventDefault();   // suppress the trailing click
+        const picker = document.getElementById('hfpicker-' + g.postId);
+        if (picker) picker.querySelectorAll('.rm-hover').forEach(o => o.classList.remove('rm-hover'));
+        if (g.current) applyReaction(g.postId, g.current);   // release over an emoji → pick it
+        if (picker) picker.classList.remove('open');
+        // Reset the held flag shortly after (covers the case where the trailing
+        // click never fires, so the next tap isn't swallowed by quickReact).
+        setTimeout(function () { if (_reactTouchTimer === 'held') _reactTouchTimer = null; }, 350);
+    }
+    // Drop any stray selection, then re-enable normal text selection a tick later.
+    try { const s = window.getSelection && window.getSelection(); if (s) s.removeAllRanges(); } catch (e2) {}
+    setTimeout(function () { document.body.classList.remove('rm-reacting'); }, 60);
+    _rg = null;
 }
 
 // Tapping the main button toggles the current reaction (default: Like)
