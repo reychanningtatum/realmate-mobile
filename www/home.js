@@ -1289,38 +1289,100 @@ function _homeApplyBlockFilter() {
 document.addEventListener('rmbr:ready', _homeApplyBlockFilter);
 document.addEventListener('rmbr:changed', _homeApplyBlockFilter);
 
+// ── Post 3-dot menu → Facebook-style BOTTOM SHEET (adapted from Portal) ───
+// Mirrors the Portal kebab menu (toggleLcMenu in livemarket.js): the menu opens
+// as a full-width sheet that slides up from the bottom over a dimmed backdrop,
+// instead of a fixed dropdown pinned to the button (which clipped against card
+// corners / could sit behind other cards, #4). The card's EXISTING
+// .hf-post-menu — with its item onclick handlers — is moved into the sheet
+// unchanged and returned to the card on close, so options + behaviour don't
+// change. Self-contained (injects its own <style> + overlay on first use), so it
+// also works on the Profile (dashboard.html), where home.js renders posts too.
+let _hfScrollLocked = false;
+function _hfBlockTouch(ev) {
+    // Let the sheet itself scroll (long menus); block page/momentum scroll behind.
+    if (ev.target && ev.target.closest && ev.target.closest('#hfSheet')) return;
+    if (ev.cancelable) ev.preventDefault();
+}
+function _hfLockScroll() {
+    if (_hfScrollLocked) return;
+    _hfScrollLocked = true;
+    document.addEventListener('touchmove', _hfBlockTouch, { passive: false });
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
+}
+function _hfUnlockScroll() {
+    if (!_hfScrollLocked) return;
+    _hfScrollLocked = false;
+    document.removeEventListener('touchmove', _hfBlockTouch, { passive: false });
+    document.documentElement.style.overflow = '';
+    document.body.style.overflow = '';
+}
+function _hfEnsureSheet() {
+    let ov = document.getElementById('hfSheetOverlay');
+    if (ov) return ov;
+    const st = document.createElement('style');
+    st.textContent =
+        '#hfSheetOverlay{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0);display:none;align-items:flex-end;justify-content:center;transition:background .22s ease;}'
+      + '#hfSheetOverlay.hf-sheet-open{background:rgba(0,0,0,.45);}'
+      + '#hfSheet{background:var(--white,#fff);border-radius:22px 22px 0 0;width:100%;max-width:540px;padding:6px 12px calc(20px + env(safe-area-inset-bottom));box-shadow:0 -8px 34px rgba(15,23,42,.22);transform:translateY(101%);transition:transform .26s cubic-bezier(.2,.8,.2,1);}'
+      + '#hfSheetOverlay.hf-sheet-open #hfSheet{transform:translateY(0);}'
+      + '#hfSheetGrip{width:40px;height:5px;background:#d7dde5;border-radius:5px;margin:10px auto 6px;}'
+      + '#hfSheetBody .hf-post-menu{display:block !important;position:static !important;top:auto;right:auto;border:0;box-shadow:none;min-width:0;background:transparent;overflow:visible;z-index:auto;padding:4px 0;}'
+      + '#hfSheetBody .hf-post-menu div{padding:17px 12px;font-size:16px;gap:16px;border-radius:12px;}'
+      + '#hfSheetBody .hf-post-menu div i{font-size:18px;width:22px;text-align:center;}'
+      + '#hfSheetBody .hf-post-menu div:active{background:#eef2f7;}'
+      + 'html[data-theme="dark"] #hfSheet{background:#1e293b;}'
+      + 'html[data-theme="dark"] #hfSheetBody .hf-post-menu div:active{background:#0f172a;}';
+    document.head.appendChild(st);
+    ov = document.createElement('div');
+    ov.id = 'hfSheetOverlay';
+    ov.innerHTML = '<div id="hfSheet"><div id="hfSheetGrip"></div><div id="hfSheetBody"></div></div>';
+    ov.addEventListener('click', function (e) {
+        // Backdrop tap closes. A menu-item tap runs its own onclick first (target
+        // phase), then bubbles here and closes the sheet — so every action also
+        // dismisses the menu, like a native bottom sheet.
+        if (e.target === ov || e.target.closest('#hfSheetBody .hf-post-menu > div')) closeHfSheet();
+    });
+    document.body.appendChild(ov);
+    return ov;
+}
+// Close the open sheet: slide it down, fade the backdrop, then return the menu to
+// its card and restore scrolling. Idempotent (safe to call when nothing is open).
+function closeHfSheet() {
+    const ov = document.getElementById('hfSheetOverlay');
+    if (!ov || ov.style.display === 'none') { _hfUnlockScroll(); return; }
+    const body = document.getElementById('hfSheetBody');
+    const m = body ? body.querySelector('.hf-post-menu') : null;
+    ov.classList.remove('hf-sheet-open');
+    ov.__hfId = null;
+    setTimeout(function () {
+        if (m) {
+            m.style.display = 'none';
+            if (m.__hfHome && m.__hfHome.isConnected) m.__hfHome.appendChild(m);
+            else if (m.parentNode === body) m.remove();   // card re-rendered → drop orphan
+            m.__hfHome = null;
+        }
+        ov.style.display = 'none';
+    }, 260);
+    _hfUnlockScroll();
+}
 function togglePostMenu(postId) {
     const menu = document.getElementById(`hfmenu-${postId}`);
     if (!menu) return;
-    const opening = menu.style.display === 'none';
-    if (opening) {
-        // The post card clips content (rounded corners); render the menu as a
-        // FIXED overlay pinned to the kebab button so it can extend BEYOND the
-        // card instead of being cut off, and never sit behind other cards (#4).
-        menu.style.display = 'block';
-        const btn = menu.parentElement && menu.parentElement.querySelector('.hf-post-menu-btn');
-        if (btn) {
-            const r = btn.getBoundingClientRect();
-            const mw = menu.offsetWidth || 180, mh = menu.offsetHeight || 200;
-            let left = Math.min(Math.max(8, r.right - mw), window.innerWidth - mw - 8);
-            let top = r.bottom + 4;
-            if (top + mh > window.innerHeight - 8) top = Math.max(8, r.top - mh - 4);
-            menu.style.position = 'fixed';
-            menu.style.left = left + 'px';
-            menu.style.top = top + 'px';
-            menu.style.right = 'auto';
-            menu.style.zIndex = '3000';
-        }
-    } else {
-        menu.style.display = 'none';
-        menu.style.position = ''; menu.style.top = ''; menu.style.left = ''; menu.style.right = ''; menu.style.zIndex = '';
-    }
-    const close = () => {
-        menu.style.display = 'none';
-        menu.style.position = ''; menu.style.top = ''; menu.style.left = ''; menu.style.right = ''; menu.style.zIndex = '';
-        document.removeEventListener('click', close);
-    };
-    if (opening) setTimeout(() => document.addEventListener('click', close), 10);
+    const ov = document.getElementById('hfSheetOverlay');
+    // Tapping the same post's kebab while its sheet is open toggles it closed.
+    if (ov && ov.style.display !== 'none' && String(ov.__hfId) === String(postId)) { closeHfSheet(); return; }
+    if (ov && ov.style.display !== 'none') closeHfSheet();   // close any other first
+    const sheet = _hfEnsureSheet();
+    const box = document.getElementById('hfSheetBody');
+    menu.__hfHome = menu.parentNode;
+    menu.style.display = 'block';
+    box.appendChild(menu);                 // move the REAL menu (keeps item onclick handlers)
+    sheet.__hfId = postId;
+    sheet.style.display = 'flex';
+    _hfLockScroll();
+    requestAnimationFrame(function () { requestAnimationFrame(function () { sheet.classList.add('hf-sheet-open'); }); });
 }
 
 let _pendingDeletePostId = null;
