@@ -51,6 +51,12 @@
       var myId = me && me.id; out.myId = myId || null;
       if (myId && String(myId) === String(ownerId)) { out.isSelf = true; out.ownerPublic = true; return out; }
       var prof = await c.from('profiles').select('is_public').eq('id', ownerId).maybeSingle();
+      // Privacy not deployed yet: if the is_public column doesn't exist (the
+      // privacy-following migration hasn't been run), there is no privacy to
+      // enforce — treat the owner as Public so their content stays visible,
+      // rather than defaulting to Private and hiding everyone. Self-heals into
+      // real gating once the column exists.
+      if (prof.error) { out.ownerPublic = true; return out; }
       out.ownerPublic = !!(prof.data && prof.data.is_public);
       if (out.ownerPublic || !myId) return out;              // Public, or logged-out → only public content
       var fol = await c.from('follows').select('status')
@@ -78,8 +84,14 @@
       var myId = me && me.id; res.myId = myId || null;
       if (myId) res.set.add(String(myId));                 // my own posts always
       if (!ids.length) return res;
-      var pub = await c.from('profiles').select('id').in('id', ids).eq('is_public', true);
-      (pub.data || []).forEach(function (r) { res.set.add(String(r.id)); });
+      var pub = await c.from('profiles').select('id,is_public').in('id', ids);
+      // Privacy not deployed yet: if the is_public column doesn't exist (the
+      // privacy-following migration hasn't been run), the query errors. There's
+      // no privacy to enforce, so show EVERY requested owner instead of blanking
+      // the feed down to just my own + followed posts. Self-heals into real
+      // gating once the column exists.
+      if (pub.error) { ids.forEach(function (s) { res.set.add(s); }); return res; }
+      (pub.data || []).forEach(function (r) { if (r.is_public) res.set.add(String(r.id)); });
       if (myId) {
         var fol = await c.from('follows').select('following_id')
           .eq('follower_id', myId).eq('status', 'accepted').in('following_id', ids);
