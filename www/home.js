@@ -1267,59 +1267,13 @@ function _homeNameFor(userId) {
 }
 function rmGoProfile(userId, name) {
     if (!userId) return;
-    // Opening a BLOCKED user's profile (from a post, or a name search result):
-    // don't route to an empty profile — show a clear, PERSISTENT full-screen
-    // alert (a fleeting toast flashed by too fast to read) reminding the viewer
-    // they blocked this account and its posts/listings stay hidden until
-    // unblocked. `name` is passed by callers that have it (e.g. search) so a
-    // name-based block is caught even with no visible posts to look it up from.
-    const nm = name || _homeNameFor(userId);
-    if (window.RMBR && RMBR.isBlocked(userId, nm)) {
-        _showBlockedUserModal(nm);
-        return;
-    }
+    // Always route to the profile page. If the viewer BLOCKED this account, the
+    // dashboard renders a persistent full-page "You blocked this user" notice
+    // (see loadProfile in dashboard-script.js) instead of bouncing to the feed.
+    // Handling it there — real page content on a freshly-loaded page — is
+    // bulletproof; a tap-triggered overlay on the feed kept getting torn down by
+    // the navigation + the profile's old bounce-to-feed, so it only ever flashed.
     location.href = 'dashboard.html?user_id=' + userId;
-}
-
-// Full-screen "you blocked this user" alert. A dimmed backdrop covers the page
-// and a centred card states why the profile can't open; it stays until the user
-// taps "Got it" (or the backdrop). Injected on demand so it works on the Feed
-// and the Profile (dashboard) alike. Mirrors _ensureHomeDeleteModal's pattern.
-function _ensureBlockedUserModal() {
-    let modal = document.getElementById('rmBlockedUserModal');
-    if (modal) return modal;
-    modal = document.createElement('div');
-    modal.id = 'rmBlockedUserModal';
-    modal.style.cssText = 'display:none; position:fixed; inset:0; z-index:100000; background:rgba(15,23,42,0.62); align-items:center; justify-content:center; padding:24px; -webkit-backdrop-filter:blur(3px); backdrop-filter:blur(3px);';
-    modal.innerHTML =
-        '<div style="background:#fff; border-radius:22px; padding:32px 26px; max-width:360px; width:100%; text-align:center; box-shadow:0 24px 70px rgba(0,0,0,0.30);">' +
-        '<div style="width:74px; height:74px; border-radius:50%; background:#fef2f2; display:flex; align-items:center; justify-content:center; margin:0 auto 18px;"><i class="fas fa-user-slash" style="font-size:32px; color:#ef4444;"></i></div>' +
-        '<h3 style="font-size:19px; font-weight:800; color:#0f172a; margin:0 0 10px;">You blocked this user</h3>' +
-        '<p id="rmBlockedUserMsg" style="color:#475569; font-size:14px; line-height:1.55; margin:0 0 24px;"></p>' +
-        '<button onclick="closeBlockedUserModal()" style="width:100%; padding:14px; border-radius:12px; border:none; background:#32cd32; color:#fff; font-size:15px; font-weight:700; cursor:pointer; font-family:inherit;">Got it</button>' +
-        '</div>';
-    modal.addEventListener('click', function (e) { if (e.target === modal) closeBlockedUserModal(); });
-    document.body.appendChild(modal);
-    return modal;
-}
-let _blockModalOpenedAt = 0;
-function closeBlockedUserModal() {
-    // GUARD: on touch devices (iOS WebKit) the very tap that opens this modal
-    // "clicks through" onto the just-shown full-screen backdrop and fired this
-    // close in the SAME gesture — so the alert flashed for one frame and the feed
-    // reappeared (the bug reported on build 60). Ignore any dismiss within 600ms
-    // of opening; a genuine "Got it"/backdrop tap always comes well after that.
-    if (Date.now() - _blockModalOpenedAt < 600) return;
-    const m = document.getElementById('rmBlockedUserModal');
-    if (m) m.style.display = 'none';
-}
-function _showBlockedUserModal(name) {
-    const m = _ensureBlockedUserModal();
-    const msg = document.getElementById('rmBlockedUserMsg');
-    if (msg) msg.textContent = 'You blocked ' + (name ? name : 'this user') +
-        '. You can no longer see their posts, listings, or profile. Unblock them in Settings to view again.';
-    m.style.display = 'flex';
-    _blockModalOpenedAt = Date.now();
 }
 
 // Re-hide blocked authors/posts whenever the block list finishes loading or

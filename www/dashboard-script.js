@@ -1051,6 +1051,34 @@ window.addEventListener('storage', function (e) {
     if (e.key === 'rm_mate_removed' && e.newValue) { try { _onMateRemovedRegate(JSON.parse(e.newValue).name); } catch (_) {} }
 });
 
+// A blocked user's profile can't be viewed (UGC safety). Instead of bouncing to
+// the feed with a fleeting toast — which read as a broken half-second flash —
+// replace the page with a PERSISTENT full-page notice. This is page content on a
+// freshly-loaded page, NOT a tap-triggered overlay, so nothing (the opening tap,
+// a navigation race) can tear it down: it stays until the user taps "Back to
+// Feed". Covers every entry point (feed name-search, post avatar, mate list…).
+function _renderBlockedProfileState() {
+    var el = document.createElement('div');
+    el.id = 'rmBlockedProfilePage';
+    el.style.cssText = 'position:fixed; inset:0; background:#f4f7fa; display:flex; align-items:center; justify-content:center; padding:24px; z-index:2147483000;';
+    el.innerHTML =
+        '<div style="max-width:360px; width:100%; text-align:center;">' +
+        '<div style="width:88px; height:88px; border-radius:50%; background:#fef2f2; display:flex; align-items:center; justify-content:center; margin:0 auto 22px;"><i class="fas fa-user-slash" style="font-size:38px; color:#ef4444;"></i></div>' +
+        '<h2 style="font-size:22px; font-weight:800; color:#0f172a; margin:0 0 12px;">You blocked this user</h2>' +
+        '<p style="color:#475569; font-size:15px; line-height:1.55; margin:0 0 28px;">You can no longer see their posts, listings, or profile. Unblock them in Settings to view again.</p>' +
+        '<button id="rmBlockedBackBtn" style="width:100%; padding:15px; border-radius:12px; border:none; background:#32cd32; color:#fff; font-size:16px; font-weight:700; cursor:pointer; font-family:inherit;">Back to Feed</button>' +
+        '</div>';
+    document.body.appendChild(el);
+    var btn = document.getElementById('rmBlockedBackBtn');
+    if (btn) btn.addEventListener('click', function () {
+        // In the mobile app-shell the profile is a sub-page of the Feed tab — the
+        // shell's rmBack pops it back (keeping the feed's scroll). Otherwise just
+        // load the feed.
+        try { if (window.parent && window.parent !== window && window.parent.rmBack) { window.parent.rmBack(); return; } } catch (e) {}
+        location.replace('home.html');
+    });
+}
+
 async function loadProfile() {
     if (_supabase) {
         try {
@@ -1063,8 +1091,10 @@ async function loadProfile() {
             if (_viewUserId && _viewUserId !== myAuthId && window.RMBR) {
                 if (!RMBR.ready) { await new Promise(r => { const f = () => r(); document.addEventListener('rmbr:ready', f, { once: true }); setTimeout(f, 1500); }); }
                 if (RMBR.isBlocked(_viewUserId, null)) {
-                    if (typeof showToast === 'function') showToast('You blocked this user. Unblock in Settings to view their profile.');
-                    location.replace('home.html');
+                    // Don't bounce to the feed with a fleeting toast — that read as a
+                    // broken half-second flash. Show a PERSISTENT full-page notice
+                    // that stays until the user taps "Back to Feed".
+                    _renderBlockedProfileState();
                     return;
                 }
             }
