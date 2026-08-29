@@ -117,11 +117,17 @@
   function go(tab, forceSrc) {
     if (!TABS[tab] && !forceSrc) return;
     closeNavMenu();
-    // Re-tapping the tab you're already on returns it to the top (Portal: the
-    // top of the active sub-tab) rather than doing nothing. Listing Detail is
-    // internal iframe navigation, so open-listing-then-back keeps its own scroll
-    // position and is unaffected by this.
-    if (tab === current && !forceSrc) { scrollFrameTop(tab); return; }
+    // Re-tapping the tab you're already on: if its iframe has wandered onto a
+    // sub-page (e.g. Feed → a user's profile via rmGoProfile's location.href, or
+    // Portal → a listing detail), pop back to the tab ROOT so the nav button
+    // still works from there — without this the active tab's button looks dead
+    // once you've opened a profile inside it. Otherwise (already at the root)
+    // just return the content to the top (Portal: the top of the active sub-tab).
+    if (tab === current && !forceSrc) {
+      var curFrame = frames[tab];
+      if (curFrame && onSubpage(curFrame)) { try { curFrame.contentWindow.history.back(); } catch (e) {} return; }
+      scrollFrameTop(tab); return;
+    }
     // Remember where we came from so an in-shell "Back" (rmBack) can return
     // there — e.g. Portal → Profile → Back should land on Portal, not the
     // browser history (which can walk back to the marketing page).
