@@ -1265,10 +1265,15 @@ function _homeNameFor(userId) {
     try { const p = (_homePosts || []).find(p => String(p.user_id) === String(userId)); return p ? p.user_name : null; }
     catch (e) { return null; }
 }
-function rmGoProfile(userId) {
+function rmGoProfile(userId, name) {
     if (!userId) return;
-    if (window.RMBR && RMBR.isBlocked(userId, _homeNameFor(userId))) {
-        (window.showToast || alert)("You blocked this user. You can't see the profile of this user.");
+    // Opening a BLOCKED user's profile (from a post, or a name search result):
+    // don't route to an empty profile — remind the viewer they blocked this
+    // account and that their posts/listings stay hidden until unblocked. `name`
+    // is passed by callers that have it (e.g. search) so a name-based block is
+    // caught even when the user has no visible posts to look the name up from.
+    if (window.RMBR && RMBR.isBlocked(userId, name || _homeNameFor(userId))) {
+        (window.showToast || alert)("You blocked this user — you can no longer see their posts, listings, or profile. Unblock them in Settings to view again.");
         return;
     }
     location.href = 'dashboard.html?user_id=' + userId;
@@ -2628,7 +2633,12 @@ async function runHomeSearch(q) {
             const name   = safeText(p.full_name || 'realmate Member');
             const job    = safeText(_homeValidPosition(p.job_title));
             const avatar = p.avatar_url || avatarUrl(p.full_name || '?');
-            html += `<a href="dashboard.html?user_id=${p.id}" class="hs-people-row">
+            // Route the tap through rmGoProfile (not the bare href) so a BLOCKED
+            // account shows the "you blocked this user" reminder instead of
+            // opening an empty profile. Pass the name (JS-string escaped) so a
+            // name-based block is caught too. href stays as a no-JS fallback.
+            const nameArg = String(p.full_name || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+            html += `<a href="dashboard.html?user_id=${p.id}" class="hs-people-row" onclick="event.preventDefault(); clearHomeSearch(); rmGoProfile('${p.id}','${nameArg}')">
                 <img src="${avatar}" class="hs-avatar" onerror="this.src='${avatarUrl('?')}'">
                 <div><div class="hs-name">${name}</div>${job ? `<div class="hs-job">${job}</div>` : ''}</div>
             </a>`;
