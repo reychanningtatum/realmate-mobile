@@ -206,6 +206,7 @@
 <script src="search-overlay.js?v=20260828b"></script>
 <script src="auth-guard.js?v=20260826a"></script>
 <script src="mates.js?v=20260826a"></script>
+<script src="follows.js?v=20260830a"></script>
 <!-- RMBR (block list) so clicking a blocked Realmate can say "You blocked this
      user" instead of the dashboard bouncing the view to the Feed. -->
 <link rel="stylesheet" href="block-report.css?v=20260823bp">
@@ -246,6 +247,7 @@ function setRmTab(tab) {
 
 async function loadRealmates() {
   const { accepted, pendingReceived, pendingSent } = await getMatesList();
+  const followReqs = (typeof getIncomingFollowRequests === 'function') ? await getIncomingFollowRequests() : [];
 
   document.getElementById('rmLoading').style.display = 'none';
   document.getElementById('rmContent').style.display = 'block';
@@ -257,7 +259,7 @@ async function loadRealmates() {
       <div class="rm-stat-label"><i class="fas fa-user-group" style="color:#32cd32;margin-right:4px;"></i>realmates</div>
     </button>
     <button type="button" class="rm-stat" data-tab="pending" onclick="setRmTab('pending')">
-      <div class="rm-stat-num">${pendingReceived.length}</div>
+      <div class="rm-stat-num">${pendingReceived.length + followReqs.length}</div>
       <div class="rm-stat-label"><i class="fas fa-user-clock" style="color:#f59e0b;margin-right:4px;"></i>Requests In</div>
     </button>
     <button type="button" class="rm-stat" data-tab="sent" onclick="setRmTab('sent')">
@@ -288,17 +290,10 @@ async function loadRealmates() {
     `).join('');
   }
 
-  // Pending received (Requests In)
+  // Pending received (Requests In) — realmate requests AND follow requests.
   const pendingList = document.getElementById('rmPendingList');
-  if (pendingReceived.length === 0) {
-    pendingList.innerHTML = `
-      <div class="rm-empty">
-        <i class="fas fa-user-clock"></i>
-        <strong>No incoming requests</strong>
-        You're all caught up.
-      </div>`;
-  } else {
-    pendingList.innerHTML = pendingReceived.map(m => `
+  const _sub = (t) => `<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#94a3b8;margin:2px 2px 10px;">${t}</div>`;
+  const _mateReqHtml = pendingReceived.map(m => `
       <div class="rm-card${m.id ? ' rm-card-clickable' : ''}" ${m.id ? `onclick="goToProfile('${m.id}')"` : ''}>
         <img class="rm-card-avatar" src="${m.img || avatarFallback(m.name)}" onerror="this.src='${avatarFallback(m.name)}'">
         <div class="rm-card-info">
@@ -311,6 +306,31 @@ async function loadRealmates() {
         </div>
       </div>
     `).join('');
+  const _followReqHtml = followReqs.map(f => `
+      <div class="rm-card${f.id ? ' rm-card-clickable' : ''}" ${f.id ? `onclick="goToProfile('${f.id}')"` : ''}>
+        <img class="rm-card-avatar" src="${f.img || avatarFallback(f.name)}" onerror="this.src='${avatarFallback(f.name)}'">
+        <div class="rm-card-info">
+          <div class="rm-card-name">${f.name}</div>
+          <div class="rm-card-job">Requested to follow you</div>
+        </div>
+        <div class="rm-card-actions" onclick="event.stopPropagation();">
+          <button type="button" class="rm-btn-accept" onclick="acceptFollowFromPage('${f.id}','${f.name.replace(/'/g, "\\'")}')">Accept</button>
+          <button type="button" class="rm-btn-decline" onclick="rejectFollowFromPage('${f.id}')">Reject</button>
+        </div>
+      </div>
+    `).join('');
+  if (!pendingReceived.length && !followReqs.length) {
+    pendingList.innerHTML = `
+      <div class="rm-empty">
+        <i class="fas fa-user-clock"></i>
+        <strong>No incoming requests</strong>
+        You're all caught up.
+      </div>`;
+  } else {
+    const _both = pendingReceived.length && followReqs.length;
+    pendingList.innerHTML =
+      (pendingReceived.length ? (_both ? _sub('Realmate requests') : '') + _mateReqHtml : '') +
+      (followReqs.length ? (_both ? _sub('Follow requests') : '') + _followReqHtml : '');
   }
 
   // Pending sent (Requests Out)
@@ -372,6 +392,25 @@ async function removeFromPage(mateName) {
   } else {
     (window.showToast || alert)('Could not remove: ' + ((result && result.error) || 'Unknown error'), 'error');
   }
+}
+
+async function acceptFollowFromPage(followerId, name) {
+  const ok = await showConfirmDialog({
+    title: 'Accept follow request?',
+    message: `${name} will be able to see your posts and About once you accept.`,
+    confirmText: 'Accept',
+    cancelText: 'Cancel'
+  });
+  if (!ok) return;
+  const result = (typeof acceptFollowRequest === 'function') ? await acceptFollowRequest(followerId) : { error: 'unavailable' };
+  if (result && result.success) { loadRealmates(); }
+  else { (window.showToast || alert)('Could not accept: ' + ((result && result.error) || 'Unknown error'), 'error'); }
+}
+
+async function rejectFollowFromPage(followerId) {
+  const result = (typeof rejectFollowRequest === 'function') ? await rejectFollowRequest(followerId) : { error: 'unavailable' };
+  if (result && result.success) { loadRealmates(); }
+  else { (window.showToast || alert)('Could not reject: ' + ((result && result.error) || 'Unknown error'), 'error'); }
 }
 
 document.addEventListener('DOMContentLoaded', loadRealmates);

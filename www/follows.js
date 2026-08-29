@@ -188,12 +188,25 @@ async function followUser(targetUserId, targetName) {
 // Owner-side: accept / reject a pending follow request (followerId → me).
 async function acceptFollowRequest(followerId) {
     try {
+        const me = _followLocalUser();
         const { data: auth } = await _followsDb.auth.getUser();
         const myId = auth?.user?.id; if (!myId) return { error: 'Not authenticated' };
         const { error } = await _followsDb.from('follows')
             .update({ status: 'accepted' })
             .eq('follower_id', followerId).eq('following_id', myId);
         if (error) throw error;
+        // Let the follower know they were accepted — they can now see my posts + About.
+        await _followsInsertNotification({
+            type:                   'follow_accepted',
+            sender_id:              myId,
+            sender_user_name:       me?.name || '',
+            sender_profile_picture: me?.image || '',
+            recipient_id:           followerId,
+            recipient_user_name:    '',
+            message:                'accepted your follow request — you can now see their posts & About.',
+            is_read:                false,
+            created_at:             new Date().toISOString()
+        });
         return { success: true };
     } catch (e) { return { error: e.message }; }
 }
@@ -217,6 +230,27 @@ async function listFollowRequests() {
             .eq('following_id', myId).eq('status', 'pending')
             .order('created_at', { ascending: false });
         return data || [];
+    } catch (e) { return []; }
+}
+
+// Same as listFollowRequests() but enriched with each requester's avatar +
+// display name, for the My Realmates "Requests In" cards. -> [{id,name,img,created_at}]
+async function getIncomingFollowRequests() {
+    try {
+        const rows = await listFollowRequests();
+        if (!rows.length) return [];
+        const ids = rows.map(r => r.follower_id).filter(Boolean);
+        const profMap = {};
+        if (ids.length) {
+            const { data: profs } = await _followsDb.from('profiles')
+                .select('id, full_name, avatar_url').in('id', ids);
+            (profs || []).forEach(p => { profMap[p.id] = p; });
+        }
+        return rows.map(r => {
+            const p = profMap[r.follower_id] || {};
+            const name = p.full_name || r.follower_name || 'realmate Member';
+            return { id: r.follower_id, name, img: _followsAvatarFor(name, p.avatar_url), created_at: r.created_at };
+        });
     } catch (e) { return []; }
 }
 

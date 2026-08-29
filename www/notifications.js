@@ -203,6 +203,9 @@ function _buildNotificationCard(notif) {
     } else if (type === 'follow_request') {
         typeIcon = "fa-user-plus";
         contextClass = "badge-mate";
+    } else if (type === 'follow_accepted') {
+        typeIcon = "fa-user-check";
+        contextClass = "badge-mate";
     } else if (type === 'match') {
         typeIcon = "fa-bolt";
         contextClass = "badge-offer";
@@ -469,7 +472,7 @@ async function handleNotificationRowClick(id) {
     }
 
     // Mate/follow notifications → go to sender's profile
-    if (notif.type === 'mate_request' || notif.type === 'mate_accepted' || notif.type === 'mate_declined' || notif.type === 'follow') {
+    if (notif.type === 'mate_request' || notif.type === 'mate_accepted' || notif.type === 'mate_declined' || notif.type === 'follow' || notif.type === 'follow_accepted') {
         await _notifGoToSenderProfile(notif);
         return;
     }
@@ -550,6 +553,17 @@ function setupRealtimeNotificationListener() {
 }
 
 async function handleNotifAcceptFollow(btn, followerId, notifId) {
+    // Make the consequence explicit before granting access: accepting lets this
+    // follower see my posts + About.
+    const _box = btn.closest('.hub-message-content-box');
+    const _nameEl = _box && _box.querySelector('.hub-sender-name-clickable');
+    const _fname = ((_nameEl && _nameEl.textContent) || 'This user').trim();
+    const _okFollow = (typeof showConfirmDialog === 'function')
+        ? await showConfirmDialog({ title: 'Accept follow request?',
+            message: _fname + ' will be able to see your posts and About once you accept.',
+            confirmText: 'Accept', cancelText: 'Cancel' })
+        : confirm(_fname + ' will be able to see your posts and About once you accept. Continue?');
+    if (!_okFollow) return;
     btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
     const result = (typeof acceptFollowRequest === 'function') ? await acceptFollowRequest(followerId) : { error: 'unavailable' };
     if (!result || result.error) {

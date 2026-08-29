@@ -69,11 +69,12 @@
   }
 
   // Batch: given a list of owner ids (e.g. the authors of a feed of posts),
-  // return the set of owners whose POSTS the current viewer may see — my own,
-  // Public accounts, and accounts I follow (accepted) or am Realmates with. Runs
-  // a small fixed number of queries regardless of feed size (vs resolve() per
-  // owner), so the Feed can filter efficiently. Fails open to "only mine +
-  // public" on error (never leaks Private content).
+  // return the set of owners whose POSTS may appear in the viewer's Feed. The
+  // Feed is an OPEN discovery stream, so this returns EVERY requested owner (plus
+  // the viewer). Account privacy is enforced on the PROFILE via resolve(), not
+  // here — tapping a private author from the feed still hits the profile gate.
+  // Kept as a batch hook so a future per-post visibility model (Discoverable /
+  // Followers / Only Me) can filter here without changing callers.
   //   -> { set: Set<string ownerId>, myId: string|null }
   async function postAccessSet(ownerIds) {
     var res = { set: new Set(), myId: null };
@@ -85,24 +86,12 @@
       var myId = me && me.id; res.myId = myId || null;
       if (myId) res.set.add(String(myId));                 // my own posts always
       if (!ids.length) return res;
-      var pub = await c.from('profiles').select('id,is_public').in('id', ids);
-      // Privacy not deployed yet: if the is_public column doesn't exist (the
-      // privacy-following migration hasn't been run), the query errors. There's
-      // no privacy to enforce, so show EVERY requested owner instead of blanking
-      // the feed down to just my own + followed posts. Self-heals into real
-      // gating once the column exists.
-      if (pub.error) { ids.forEach(function (s) { res.set.add(s); }); return res; }
-      (pub.data || []).forEach(function (r) { if (r.is_public) res.set.add(String(r.id)); });
-      if (myId) {
-        var fol = await c.from('follows').select('following_id')
-          .eq('follower_id', myId).eq('status', 'accepted').in('following_id', ids);
-        (fol.data || []).forEach(function (r) { res.set.add(String(r.following_id)); });
-        var mts = await c.from('mates').select('requester_id,recipient_id')
-          .eq('status', 'accepted').or('requester_id.eq.' + myId + ',recipient_id.eq.' + myId);
-        (mts.data || []).forEach(function (r) {
-          res.set.add(String(String(r.requester_id) === String(myId) ? r.recipient_id : r.requester_id));
-        });
-      }
+      // The Feed is an OPEN discovery stream (product decision): a post shared to
+      // the feed is visible to everyone here, even from a Private account. Account
+      // privacy gates the PROFILE (see resolve()), not the feed. Per-post
+      // visibility (Discoverable / Followers / Only Me) is a separate, future
+      // concept; when it lands, filter on each post's own visibility here.
+      ids.forEach(function (s) { res.set.add(s); });
     } catch (e) { /* fail open to mine + public */ }
     return res;
   }
