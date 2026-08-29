@@ -51,12 +51,13 @@
       var myId = me && me.id; out.myId = myId || null;
       if (myId && String(myId) === String(ownerId)) { out.isSelf = true; out.ownerPublic = true; return out; }
       var prof = await c.from('profiles').select('is_public').eq('id', ownerId).maybeSingle();
-      // Privacy not deployed yet: if the is_public column doesn't exist (the
-      // privacy-following migration hasn't been run), there is no privacy to
-      // enforce — treat the owner as Public so their content stays visible,
-      // rather than defaulting to Private and hiding everyone. Self-heals into
-      // real gating once the column exists.
-      if (prof.error) { out.ownerPublic = true; return out; }
+      // Do NOT treat an account as Public just because the is_public column isn't
+      // deployed yet — that exposed every profile's posts + listings to
+      // non-Realmates (the "privacy was lost" bug). Leave ownerPublic FALSE on a
+      // missing column / error so we fall through to the RELATIONSHIP gate below
+      // (Realmate → listings+posts+About, Follower → posts+About, neither →
+      // nothing). The FEED stays open separately via postAccessSet(); this
+      // profile gate is intentionally the private-by-default, safe direction.
       out.ownerPublic = !!(prof.data && prof.data.is_public);
       if (out.ownerPublic || !myId) return out;              // Public, or logged-out → only public content
       var fol = await c.from('follows').select('status')
