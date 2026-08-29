@@ -1358,9 +1358,13 @@ html[data-theme="dark"] .stats-list-avatar { border-color: #334155; }
         margin-top: 0;
     }
     .profile-cover {
-        height: 232px;
+        /* Lock to 5:3 so what displays here EXACTLY matches the cover crop
+           tool's aspect ratio (openCoverCropModal) on every device width —
+           no object-fit re-cropping of the user's framing. At a ~390px iPhone
+           width this resolves to ~234px tall (≈ the previous fixed 232px). */
+        height: auto;
+        aspect-ratio: 5 / 3;
         margin-top: 0;
-        aspect-ratio: auto;
         border-radius: 0;
     }
     /* Mobile-only refinement: smaller (38px, within the 36-40px range) and

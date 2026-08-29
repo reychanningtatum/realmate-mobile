@@ -2072,7 +2072,7 @@ function openCoverCropModal(src, isNewUpload) {
     document.body.style.overflow = 'hidden';
     if (_coverCropper) _coverCropper.destroy();
     _coverCropper = new Cropper(img, {
-        aspectRatio: 16 / 5,
+        aspectRatio: 5 / 3,   /* match the dashboard cover display ratio (was 16/5, too wide) */
         viewMode: 1,
         dragMode: 'move',
         cropBoxResizable: false,
@@ -2095,7 +2095,7 @@ async function applyCoverCrop() {
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
     btn.disabled = true;
     try {
-        const canvas = _coverCropper.getCroppedCanvas({ width: 1200, height: 375 });
+        const canvas = _coverCropper.getCroppedCanvas({ width: 1200, height: 720 });
         if (!canvas) throw new Error('Could not process image.');
         const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.90));
         const file = new File([blob], `cover_${Date.now()}.jpg`, { type: 'image/jpeg' });
