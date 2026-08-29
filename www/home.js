@@ -1302,7 +1302,14 @@ function _ensureBlockedUserModal() {
     document.body.appendChild(modal);
     return modal;
 }
+let _blockModalOpenedAt = 0;
 function closeBlockedUserModal() {
+    // GUARD: on touch devices (iOS WebKit) the very tap that opens this modal
+    // "clicks through" onto the just-shown full-screen backdrop and fired this
+    // close in the SAME gesture — so the alert flashed for one frame and the feed
+    // reappeared (the bug reported on build 60). Ignore any dismiss within 600ms
+    // of opening; a genuine "Got it"/backdrop tap always comes well after that.
+    if (Date.now() - _blockModalOpenedAt < 600) return;
     const m = document.getElementById('rmBlockedUserModal');
     if (m) m.style.display = 'none';
 }
@@ -1312,6 +1319,7 @@ function _showBlockedUserModal(name) {
     if (msg) msg.textContent = 'You blocked ' + (name ? name : 'this user') +
         '. You can no longer see their posts, listings, or profile. Unblock them in Settings to view again.';
     m.style.display = 'flex';
+    _blockModalOpenedAt = Date.now();
 }
 
 // Re-hide blocked authors/posts whenever the block list finishes loading or
