@@ -135,12 +135,18 @@
 
     var cached = frames[tab];
     if (cached && !forceSrc) {
-      // Re-entering a tab whose iframe wandered onto a sub-page (e.g. Portal →
-      // a listing detail, then off to Feed and back): pop it back to its root
-      // view first so the tab never reappears showing a stale sub-page (#6).
-      // The iframe's own history + bfcache restore the root at the exact
-      // scroll/post the user left — no reload flash.
-      if (onSubpage(cached)) { try { cached.contentWindow.history.back(); } catch (e) {} }
+      // Show the tab EXACTLY as the user left it — INCLUDING a sub-page (Portal →
+      // a listing detail). Re-entering Portal after a Feed round-trip keeps that
+      // listing detail on screen; its Back button (goBack → rmBack → a single
+      // history.back()) then returns to the EXACT Live Market post + scroll via
+      // bfcache (verified pixel-exact restore).
+      //
+      // We used to auto-pop the sub-page to root here — but that extra
+      // history.back() on re-entry both discarded the listing detail AND left the
+      // Back button broken (iframe already at root → rmBack fell through to the
+      // previous tab, or the pop consumed the one "back" the user expected).
+      // Keeping the sub-page is what makes Back a clean, single-tap return to the
+      // exact spot in Live Market.
       withTransition(function () { reveal(tab); });
       return;
     }
