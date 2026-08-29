@@ -77,7 +77,12 @@
       var st = document.createElement('style');
       st.id = 'rm-ptr-style';
       st.textContent =
-        '.rm-ptr{position:fixed;left:50%;top:0;z-index:9000;height:38px;min-width:38px;' +
+        // position:ABSOLUTE (page-anchored), not fixed: the indicator must stay in
+        // its refresh area between the top controls and the first post. If it were
+        // fixed to the viewport, scrolling down mid-refresh would leave it floating
+        // in the MIDDLE of the screen; absolute makes it scroll away with the page
+        // (and reappear when you scroll back / when we snap to top on finish).
+        '.rm-ptr{position:absolute;left:50%;top:0;z-index:9000;height:38px;min-width:38px;' +
         'box-sizing:border-box;border-radius:19px;background:#fff;box-shadow:0 5px 18px rgba(15,23,42,.22);' +
         'display:flex;align-items:center;justify-content:center;gap:0;padding:0;color:#32cd32;font-size:15px;' +
         'opacity:0;transform:translate(-50%,-52px);pointer-events:none;}' +
@@ -120,7 +125,17 @@
       ind.style.opacity = '0';
       moveInd(0);
     }
-    function finish() { if (arrow) arrow.className = 'fas fa-arrow-down'; busy = false; reset(); }
+    function finish() {
+      if (arrow) arrow.className = 'fas fa-arrow-down';
+      busy = false;
+      reset();
+      // Refresh complete → return to the TOPMOST item so the user always sees the
+      // freshly-loaded content, even if they scrolled down while it was loading.
+      try {
+        if (winScroll) window.scrollTo({ top: 0, behavior: 'smooth' });
+        else if (scrollEl && scrollEl.scrollTo) scrollEl.scrollTo({ top: 0, behavior: 'smooth' });
+      } catch (e) {}
+    }
 
     content.addEventListener('touchstart', function (e) {
       // Only arm the gesture when the scroll is genuinely at the very top.
