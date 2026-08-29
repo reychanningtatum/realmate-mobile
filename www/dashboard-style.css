@@ -852,9 +852,14 @@ html[data-theme="dark"] .btn-mate-profile.mate-status-pending { background: #0f1
 .btn-follow:hover:not(:disabled) { background: #3b82f6; color: white; box-shadow: 0 4px 14px rgba(59,130,246,0.25); }
 .btn-follow-ing { background: #eff6ff; border-color: #3b82f6; color: #2563eb; }
 .btn-follow-ing:hover:not(:disabled) { background: #fee2e2; border-color: #ef4444; color: #ef4444; }
+/* Pending follow REQUEST (awaiting the owner's approval) — amber, distinct from
+   the blue "Following". Hover hints the withdraw (red). */
+.btn-follow-requested { background: #fffbeb; border-color: #f59e0b; color: #b45309; }
+.btn-follow-requested:hover:not(:disabled) { background: #fee2e2; border-color: #ef4444; color: #ef4444; }
 html[data-theme="dark"] .btn-follow { background: #1e293b; border-color: #3b82f6; color: #93c5fd; }
 html[data-theme="dark"] .btn-follow:hover:not(:disabled) { background: #3b82f6; color: #fff; }
 html[data-theme="dark"] .btn-follow-ing { background: rgba(59,130,246,0.1); }
+html[data-theme="dark"] .btn-follow-requested { background: rgba(245,158,11,0.12); border-color: #f59e0b; color: #fbbf24; }
 
 .menu-dots {
     position: absolute;

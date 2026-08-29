@@ -55,9 +55,11 @@ async function _followsInsertNotification(payload) {
 // Returns { followers: N, following: N }
 async function getFollowCounts(userId) {
     try {
+        // Count only ACCEPTED relationships — a pending outgoing request is not a
+        // "following", and a pending incoming request is not a "follower" yet.
         const [{ count: followers }, { count: following }] = await Promise.all([
-            _followsDb.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', userId),
-            _followsDb.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', userId)
+            _followsDb.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', userId).eq('status', 'accepted'),
+            _followsDb.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', userId).eq('status', 'accepted')
         ]);
         return { followers: followers || 0, following: following || 0 };
     } catch { return { followers: 0, following: 0 }; }
@@ -75,7 +77,8 @@ async function _getFollowRelationList(userId, direction) {
         const { data: rows, error } = await _followsDb
             .from('follows')
             .select(`${otherCol}, ${otherNameCol}`)
-            .eq(col, userId);
+            .eq(col, userId)
+            .eq('status', 'accepted');   // pending requests aren't followers/following yet
         if (error) throw error;
         if (!rows || rows.length === 0) return [];
 
@@ -125,6 +128,27 @@ async function isFollowing(targetUserId) {
             .eq('following_id', targetUserId);
         return (count || 0) > 0;
     } catch { return false; }
+}
+
+// The current viewer's follow relationship to targetUserId, distinguishing an
+// ACCEPTED follow from a still-PENDING request awaiting the owner's approval:
+//   'accepted' | 'pending' | 'none'
+// This is what lets the follow button show "Requested" (not "Following") the
+// instant you request to follow a Private account.
+async function followState(targetUserId) {
+    try {
+        const { data: auth } = await _followsDb.auth.getUser();
+        const myId = auth?.user?.id;
+        if (!myId) return 'none';
+        const { data } = await _followsDb
+            .from('follows')
+            .select('status')
+            .eq('follower_id', myId)
+            .eq('following_id', targetUserId)
+            .maybeSingle();
+        if (!data) return 'none';
+        return data.status === 'pending' ? 'pending' : 'accepted';
+    } catch { return 'none'; }
 }
 
 async function followUser(targetUserId, targetName) {
@@ -271,8 +295,28 @@ async function unfollowUser(targetUserId) {
     }
 }
 
+// The three follow-button states. A Private account (default) turns a follow
+// into a REQUEST, so "Follow" -> "Requested" (awaiting their approval), NOT
+// straight to "Following" — that instant "Following" is what made it look like
+// approval was bypassed. Only an ACCEPTED follow shows "Following".
+function _followBtnHtml(state, targetUserId, targetName, safeName) {
+    if (state === 'accepted') {
+        return `<button class="btn-follow btn-follow-ing" data-target-name="${targetName}" onclick="handleUnfollow(this,'${targetUserId}')">
+               <i class="fas fa-user-check"></i> Following
+           </button>`;
+    }
+    if (state === 'pending') {
+        return `<button class="btn-follow btn-follow-requested" data-target-name="${targetName}" onclick="handleCancelRequest(this,'${targetUserId}')">
+               <i class="fas fa-clock"></i> Requested
+           </button>`;
+    }
+    return `<button class="btn-follow" data-target-name="${targetName}" onclick="handleFollow(this,'${targetUserId}','${safeName}')">
+               <i class="fas fa-user-plus"></i> Follow
+           </button>`;
+}
+
 // Renders a follow button for a given targetUserId + targetName
-// Checks DB for current follow state
+// Checks DB for current follow state (accepted / pending / none)
 async function renderFollowButton(containerId, targetUserId, targetName) {
     const el = document.getElementById(containerId);
     if (!el) return;
@@ -281,27 +325,30 @@ async function renderFollowButton(containerId, targetUserId, targetName) {
     const myId = auth?.user?.id;
     if (!myId || myId === targetUserId) { el.innerHTML = ''; return; }
 
-    const already = await isFollowing(targetUserId);
+    const state = await followState(targetUserId);
     const safeName = targetName.replace(/'/g,"\\'");
-    el.innerHTML = already
-        ? `<button class="btn-follow btn-follow-ing" data-target-name="${targetName}" onclick="handleUnfollow(this,'${targetUserId}')">
-               <i class="fas fa-user-check"></i> Following
-           </button>`
-        : `<button class="btn-follow" data-target-name="${targetName}" onclick="handleFollow(this,'${targetUserId}','${safeName}')">
-               <i class="fas fa-user-plus"></i> Follow
-           </button>`;
+    el.innerHTML = _followBtnHtml(state, targetUserId, targetName, safeName);
 }
 
 async function handleFollow(btn, targetUserId, targetName) {
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
     const result = await followUser(targetUserId, targetName);
-    if (result.success) {
+    if (result.success && result.status === 'pending') {
+        // Private account: this is a REQUEST awaiting their approval — not a
+        // follow yet. Show "Requested" (tap to withdraw) and do NOT bump the
+        // follower count; the owner sees it in Notifications + My Realmates.
+        btn.className = 'btn-follow btn-follow-requested';
+        btn.innerHTML = '<i class="fas fa-clock"></i> Requested';
+        btn.onclick = () => handleCancelRequest(btn, targetUserId);
+        btn.disabled = false;
+        (window.showToast || function () {})('Follow request sent — waiting for their approval.', 'success');
+    } else if (result.success) {
         btn.className = 'btn-follow btn-follow-ing';
         btn.innerHTML = '<i class="fas fa-user-check"></i> Following';
         btn.onclick = () => handleUnfollow(btn, targetUserId);
         btn.disabled = false;
-        // Bump follower count display
+        // Bump follower count display (only for an immediate/accepted follow)
         ['followersCount', 'followersCountHero'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.innerText = (parseInt(el.innerText) || 0) + 1;
@@ -310,6 +357,33 @@ async function handleFollow(btn, targetUserId, targetName) {
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-user-plus"></i> Follow';
         (window.showToast || alert)('Could not follow: ' + (result.error || 'Unknown error'), 'error');
+    }
+}
+
+// Withdraw a still-pending follow request (before the owner has accepted).
+async function handleCancelRequest(btn, targetUserId) {
+    const confirmed = (typeof showConfirmDialog === 'function')
+        ? await showConfirmDialog({
+            title: 'Cancel follow request?',
+            message: 'Withdraw your pending follow request to this user?',
+            confirmText: 'Withdraw',
+            cancelText: 'Keep'
+          })
+        : confirm('Withdraw your pending follow request to this user?');
+    if (!confirmed) return;
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    const result = await unfollowUser(targetUserId);   // deletes the pending row
+    if (result.success) {
+        btn.className = 'btn-follow';
+        btn.innerHTML = '<i class="fas fa-user-plus"></i> Follow';
+        const name = btn.dataset.targetName || '';
+        btn.onclick = () => handleFollow(btn, targetUserId, name);
+        btn.disabled = false;
+    } else {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-clock"></i> Requested';
     }
 }
 
