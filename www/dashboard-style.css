@@ -1222,7 +1222,7 @@ html[data-theme="dark"] .stats-list-avatar { border-color: #334155; }
        cover; only the two buttons capture clicks. */
     .mobile-profile-topbar {
         display: flex; align-items: center; justify-content: space-between;
-        position: absolute; top: 0; left: 0; right: 0; height: auto;
+        position: absolute; top: 12px; left: 0; right: 0; height: auto;   /* pushed a bit lower than the very top */
         padding: 14px 16px; background: transparent;
         border-bottom: none; z-index: 200; pointer-events: none;
     }
@@ -1348,11 +1348,17 @@ html[data-theme="dark"] .stats-list-avatar { border-color: #334155; }
        then grow the cover by the same inset so its visible height below the
        status bar is unchanged. Pulling the card (not just the cover) avoids the
        negative-margin-inside-the-card edge case that left a strip above it. */
+    /* We do NOT render behind the status bar (that needed native/device work and
+       kept regressing). The webview already sits below the status bar, so the
+       Dashboard content just runs FLUSH to the top of the web view — kill any
+       safe-area top padding (which was leaving a white strip above the cover) and
+       drop the cover's negative-margin/inset math so it starts right at the top. */
+    html.rm-embedded body { padding-top: 0; }
     .profile-card {
-        margin-top: calc(-1 * var(--rm-safe-top, env(safe-area-inset-top)));
+        margin-top: 0;
     }
     .profile-cover {
-        height: calc(200px + var(--rm-safe-top, env(safe-area-inset-top)));
+        height: 200px;
         margin-top: 0;
         aspect-ratio: auto;
         border-radius: 0;

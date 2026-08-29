@@ -22,55 +22,12 @@
   var prevTab = null;   // the tab we came from, for in-shell "back" (see rmBack)
   var host, loading;
 
-  // ── Safe-area threading + self-healing overlay coordinator ───────────────
-  // The status-bar overlay (native-statusbar.js) lets the webview go behind the
-  // status bar. iOS does NOT give the tab IFRAMES the safe-area inset, so this
-  // SHELL (the top-level document, which DOES see the real inset once the overlay
-  // is applied) measures it and threads it into every iframe as --rm-safe-top;
-  // each tab's safe-area rules read var(--rm-safe-top, env(...)). CRUCIALLY the
-  // overlay applies ASYNC, a beat after load, so the inset is only measurable a
-  // little later — we re-measure over the first few seconds. If it NEVER becomes
-  // measurable, the overlay can't be offset correctly (it would tuck the tab
-  // headers under the status bar, the earlier regression), so we turn the overlay
-  // back OFF — self-healing, no regression. When the inset is unknown, iframes get
-  // no --rm-safe-top and fall back to env() = the original pre-overlay layout.
-  var _insetProbe = null;
-  function topInset() {
-    try {
-      if (!_insetProbe) {
-        _insetProbe = document.createElement('div');
-        _insetProbe.style.cssText = 'position:fixed;top:0;left:0;width:0;height:0;visibility:hidden;pointer-events:none;box-sizing:content-box;padding-top:env(safe-area-inset-top);';
-        document.body.appendChild(_insetProbe);
-      }
-      return _insetProbe.offsetHeight || 0;
-    } catch (e) { return 0; }
-  }
-  var _threadInset = 0;         // last measured real top inset (px)
-  var _insetSettled = false;    // have we ever measured a real inset?
-  function threadSafeArea(f) {
-    try {
-      var root = f && f.contentDocument && f.contentDocument.documentElement;
-      if (!root) return;
-      if (_threadInset > 0) root.style.setProperty('--rm-safe-top', _threadInset + 'px');
-      else root.style.removeProperty('--rm-safe-top');   // fall back to env()
-    } catch (e) {}
-  }
-  function rethreadAll() { for (var t in frames) if (frames[t]) threadSafeArea(frames[t]); }
-  function coordinateInset(finalCheck) {
-    var v = topInset();
-    if (v > 0) { _threadInset = v; _insetSettled = true; rethreadAll(); }
-    else if (finalCheck && !_insetSettled) {
-      // Overlay never produced a measurable inset → can't offset correctly → undo it.
-      try { if (window.__rmSetStatusBarOverlay) window.__rmSetStatusBarOverlay(false); } catch (e) {}
-    }
-  }
-  setTimeout(function () { coordinateInset(false); }, 800);
-  setTimeout(function () { coordinateInset(false); }, 1800);
-  setTimeout(function () { coordinateInset(true);  }, 3000);
-  window.addEventListener('resize', function () { _insetProbe = null; coordinateInset(false); });
-  if (window.visualViewport && window.visualViewport.addEventListener) {
-    window.visualViewport.addEventListener('resize', function () { _insetProbe = null; coordinateInset(false); });
-  }
+  // ── Safe-area threading (DISABLED) ───────────────────────────────────────
+  // We no longer try to render behind the status bar (see native-statusbar.js),
+  // so this must NOT set --rm-safe-top — leaving it unset means every
+  // var(--rm-safe-top, env(...)) rule falls back to env() = the normal layout.
+  // Kept as a no-op so the iframe-load call site needs no change.
+  function threadSafeArea(f) { /* no-op */ }
 
   function setActive(tab) {
     document.querySelectorAll('.mob-nav-item[data-tab]').forEach(function (a) {
