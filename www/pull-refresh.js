@@ -125,16 +125,29 @@
       ind.style.opacity = '0';
       moveInd(0);
     }
+    function toTop() {
+      try {
+        if (winScroll) window.scrollTo(0, 0);
+        else if (scrollEl) scrollEl.scrollTop = 0;
+      } catch (e) {}
+    }
     function finish() {
       if (arrow) arrow.className = 'fas fa-arrow-down';
+      // Refresh complete → jump to the TOPMOST item so the user always lands on
+      // the latest content, even if they scrolled to the bottom while it loaded.
+      // INSTANT (not smooth): a smooth animation left scrollTop briefly > 0, so
+      // the very next pull saw "not at top" and needed a SECOND pull. Snap to top
+      // BEFORE clearing `busy`, and re-assert after the post-refresh layout
+      // settles, so the gesture re-arms cleanly at scroll 0.
+      toTop();
       busy = false;
       reset();
-      // Refresh complete → return to the TOPMOST item so the user always sees the
-      // freshly-loaded content, even if they scrolled down while it was loading.
-      try {
-        if (winScroll) window.scrollTo({ top: 0, behavior: 'smooth' });
-        else if (scrollEl && scrollEl.scrollTo) scrollEl.scrollTo({ top: 0, behavior: 'smooth' });
-      } catch (e) {}
+      toTop();
+      // The feed/portal rebuild during onRefresh, and scroll anchoring can nudge
+      // scrollTop back off 0 a frame or two later — re-assert briefly so we truly
+      // land at the top AND the next pull re-arms at scroll 0 (one pull, not two).
+      requestAnimationFrame(toTop);
+      setTimeout(toTop, 120);
     }
 
     content.addEventListener('touchstart', function (e) {
