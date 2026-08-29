@@ -389,55 +389,80 @@ function _lcUnlockScroll() {
     document.body.style.overflow = '';
 }
 
-// Close a listing-card menu and return it to its card (see toggleLcMenu for why
-// it's moved to <body>). Also used by closeLcMenu and the outside-click handler.
+// ── Post 3-dot menu → Facebook-style BOTTOM SHEET ────────────────────────
+// The kebab menu opens as a full-width sheet that slides up from the bottom over
+// a dimmed backdrop (like the "Save post / Report" sheet on Facebook), instead of
+// a small dropdown pinned to the button. The card's transform used to trap a
+// fixed dropdown and it was easy to clip/misplace; a bottom sheet is always fully
+// visible, has big tap targets, and freezes the page behind it. The menu's EXISTING
+// items (with their onclick handlers) are moved into the sheet — options and
+// behaviour are unchanged.
+function _lcEnsureSheet() {
+    let ov = document.getElementById('lcSheetOverlay');
+    if (ov) return ov;
+    const st = document.createElement('style');
+    st.textContent =
+        '#lcSheetOverlay{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0);display:none;align-items:flex-end;justify-content:center;transition:background .22s ease;}'
+      + '#lcSheetOverlay.lc-sheet-open{background:rgba(0,0,0,.45);}'
+      + '#lcSheet{background:var(--white,#fff);border-radius:22px 22px 0 0;width:100%;max-width:540px;padding:6px 12px calc(20px + env(safe-area-inset-bottom));box-shadow:0 -8px 34px rgba(15,23,42,.22);transform:translateY(101%);transition:transform .26s cubic-bezier(.2,.8,.2,1);}'
+      + '#lcSheetOverlay.lc-sheet-open #lcSheet{transform:translateY(0);}'
+      + '#lcSheetGrip{width:40px;height:5px;background:#d7dde5;border-radius:5px;margin:10px auto 6px;}'
+      + '#lcSheetBody .lc-menu{display:block !important;position:static !important;border:0;box-shadow:none;min-width:0;background:transparent;overflow:visible;padding:4px 0;}'
+      + '#lcSheetBody .lc-menu-item{padding:17px 12px;font-size:16px;gap:16px;border-radius:12px;}'
+      + '#lcSheetBody .lc-menu-item i{font-size:18px;width:22px;}'
+      + '#lcSheetBody .lc-menu-item:active{background:#eef2f7;}'
+      + 'html[data-theme="dark"] #lcSheet{background:#1e293b;}'
+      + 'html[data-theme="dark"] #lcSheetBody .lc-menu-item:active{background:#0f172a;}';
+    document.head.appendChild(st);
+    ov = document.createElement('div');
+    ov.id = 'lcSheetOverlay';
+    ov.innerHTML = '<div id="lcSheet"><div id="lcSheetGrip"></div><div id="lcSheetBody"></div></div>';
+    ov.addEventListener('click', function (e) { if (e.target === ov) closeLcMenu(); });
+    document.body.appendChild(ov);
+    return ov;
+}
+
+// Close the open sheet: slide it down, fade the backdrop, then return the menu to
+// its card and restore scrolling. Idempotent (safe to call when nothing is open).
 function _lcCloseMenu(menu) {
-    if (!menu) return;
-    menu.classList.remove('open');
-    menu.style.position = ''; menu.style.top = ''; menu.style.left = ''; menu.style.right = '';
-    menu.style.zIndex = ''; menu.style.pointerEvents = '';
-    if (menu.__lcHome && menu.__lcHome.isConnected) menu.__lcHome.appendChild(menu);
-    else if (menu.parentNode === document.body) menu.remove();   // card re-rendered → drop orphan
-    menu.__lcHome = null;
-    // No card menu open anymore → let the page scroll again.
-    if (!document.querySelector('.lc-menu.open')) _lcUnlockScroll();
+    const ov = document.getElementById('lcSheetOverlay');
+    if (!ov || ov.style.display === 'none') { _lcUnlockScroll(); return; }
+    const body = document.getElementById('lcSheetBody');
+    const m = (menu && menu.parentNode === body) ? menu : (body ? body.querySelector('.lc-menu') : null);
+    ov.classList.remove('lc-sheet-open');
+    ov.__lcId = null;
+    setTimeout(function () {
+        if (m) {
+            m.classList.remove('open');
+            if (m.__lcHome && m.__lcHome.isConnected) m.__lcHome.appendChild(m);
+            else if (m.parentNode === body) m.remove();   // card re-rendered → drop orphan
+            m.__lcHome = null;
+        }
+        ov.style.display = 'none';
+    }, 260);
+    _lcUnlockScroll();
 }
 
 function toggleLcMenu(id, e) {
     if (e) e.stopPropagation();
     const menu = document.getElementById('lcmenu-' + id);
     if (!menu) return;
-    const isOpen = menu.classList.contains('open');
-    document.querySelectorAll('.lc-menu.open').forEach(_lcCloseMenu);
-    if (!isOpen) {
-        const wrap = menu.closest('.lc-menu-wrap');
-        const btn = wrap && wrap.querySelector('.lc-menu-btn');
-        // The listing card lifts on hover (transform: translateY, and touch fires a
-        // sticky :hover on iOS) and its swipe layer uses will-change:transform —
-        // EITHER makes an ancestor the containing block for position:fixed, so a
-        // fixed menu inside the card resolves its coordinates against that ancestor
-        // and lands in the wrong place (looked like the menu "wasn't working").
-        // Portal the menu to <body> so its fixed coords are truly viewport-relative,
-        // then pin it to the kebab button (flipping up near the screen bottom).
-        menu.__lcHome = menu.parentNode;
-        menu.classList.add('open');
-        document.body.appendChild(menu);
-        const r = (btn || menu).getBoundingClientRect();
-        const mw = menu.offsetWidth || 160, mh = menu.offsetHeight || 220;
-        let left = Math.min(Math.max(8, r.right - mw), window.innerWidth - mw - 8);
-        let top = r.bottom + 4;
-        if (top + mh > window.innerHeight - 8) top = Math.max(8, r.top - mh - 4);
-        menu.style.position = 'fixed';
-        menu.style.left = left + 'px';
-        menu.style.top = top + 'px';
-        menu.style.right = 'auto';
-        menu.style.zIndex = '3000';
-        menu.style.pointerEvents = 'auto';
-        _lcLockScroll();   // freeze the page so the menu stays pinned to its button
-    }
+    const ov = document.getElementById('lcSheetOverlay');
+    // Tapping the same post's kebab while its sheet is open toggles it closed.
+    if (ov && ov.style.display !== 'none' && String(ov.__lcId) === String(id)) { closeLcMenu(); return; }
+    document.querySelectorAll('.lc-menu.open').forEach(_lcCloseMenu);   // close any other
+    const sheet = _lcEnsureSheet();
+    const box = document.getElementById('lcSheetBody');
+    menu.__lcHome = menu.parentNode;
+    menu.classList.add('open');
+    box.appendChild(menu);                 // move the REAL menu (keeps its item handlers)
+    sheet.__lcId = id;
+    sheet.style.display = 'flex';
+    _lcLockScroll();
+    requestAnimationFrame(function () { requestAnimationFrame(function () { sheet.classList.add('lc-sheet-open'); }); });
 }
 function closeLcMenu(id) {
-    _lcCloseMenu(document.getElementById('lcmenu-' + id));
+    _lcCloseMenu(id != null ? document.getElementById('lcmenu-' + id) : null);
 }
 function togglePinMenu(listingId, item) {
     togglePin(listingId, null);
