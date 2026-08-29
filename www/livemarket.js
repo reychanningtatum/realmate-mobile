@@ -2234,6 +2234,11 @@ function buildTicker(listings) {
 
 // ── State ─────────────────────────────────────────
 let allListings = [];
+// false until loadLedger() has actually fetched the listings. applyFilters()
+// runs before that on a fresh load (returning from a listing detail RELOADS the
+// page — the realtime socket blocks bfcache), so we must show "Loading…" then,
+// NOT the "No listings found" empty state (which flashed for ~1s).
+let _listingsLoaded = false;
 let myListings = [];
 let activeCategory = 'ALL';
 let activeSegTab = 'MARKET';
@@ -2665,6 +2670,15 @@ function applyFilters() {
 
     grid.innerHTML = '';
     if (!pool.length) {
+        // Still fetching (e.g. a fresh reload after returning from a listing
+        // detail — the realtime socket blocks bfcache, so Back RELOADS this
+        // page)? Show the loading spinner, never "No listings found": there's no
+        // data to filter yet, so any empty result here just means "not loaded".
+        // The empty state below is only truthful once the listings have loaded.
+        if (!_listingsLoaded) {
+            grid.innerHTML = `<div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Loading listings…</p></div>`;
+            return;
+        }
         const msg = activeCategory === 'MATCHES'
             ? 'No matches for your listings yet.<br><small>Post a listing on your profile and the AI will find partner listings here.</small>'
             : 'No listings found.<br><small>Try a different filter or search term.</small>';
@@ -2799,6 +2813,7 @@ async function loadLedger(silent) {
         allListings = data;
     }
     myListings = mine || [];
+    _listingsLoaded = true;   // fetch done → applyFilters may now show empty state
 
     // Sold listings past their 24h window are removed everywhere (and finalized
     // in the DB where this client has permission) before anything renders.
