@@ -1287,7 +1287,23 @@ function _homeApplyBlockFilter() {
     });
 }
 document.addEventListener('rmbr:ready', _homeApplyBlockFilter);
-document.addEventListener('rmbr:changed', _homeApplyBlockFilter);
+document.addEventListener('rmbr:changed', _homeOnBlockChange);
+
+// A block just removes rows (fast, in place). An UNBLOCK must bring a post back
+// AT ITS ORIGINAL SLOT (by post time) — filtering can't re-add rows, so re-fetch
+// the feed silently (posts return sorted by created_at → the unblocked post
+// lands exactly where it was), preserving the scroll position. The reload also
+// re-applies the block filter at fetch time, so still-blocked posts stay hidden.
+async function _homeOnBlockChange(e) {
+    const action = e && e.detail && e.detail.action;
+    const feed = document.getElementById('homeFeed');
+    // Block (or no feed element / unknown on a non-feed page like the Profile):
+    // just drop the affected rows — nothing to restore.
+    if (action === 'block' || !feed || typeof loadHomeFeed !== 'function') { _homeApplyBlockFilter(); return; }
+    const y = window.scrollY || window.pageYOffset || 0;
+    try { await loadHomeFeed(feed, _feedFilter, true); } catch (_) {}
+    try { window.scrollTo(0, y); } catch (_) {}
+}
 
 // ── Post 3-dot menu → Facebook-style BOTTOM SHEET (adapted from Portal) ───
 // Mirrors the Portal kebab menu (toggleLcMenu in livemarket.js): the menu opens

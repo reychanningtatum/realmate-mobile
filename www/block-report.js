@@ -21,6 +21,15 @@
 
   function myName() { try { var u = JSON.parse(localStorage.getItem('user') || '{}'); return (u && u.name) || null; } catch (e) { return null; } }
 
+  // Announce a block-list change. Fires rmbr:changed HERE (with what changed, so
+  // listeners can tell block from unblock) AND writes a localStorage ping so the
+  // OTHER same-origin iframes (Feed, Portal, Profile…) hear it — unblocking a
+  // post in Settings must reach the Feed, which lives in a separate iframe.
+  function _fire(detail) {
+    try { document.dispatchEvent(new CustomEvent('rmbr:changed', { detail: detail })); } catch (e) {}
+    try { localStorage.setItem('rmbr_sync', JSON.stringify(Object.assign({ t: Date.now() }, detail))); } catch (e) {}
+  }
+
   async function init() {
     var sb = client(); if (!sb) return;
     try { var r = await sb.auth.getUser(); myId = r && r.data && r.data.user ? r.data.user.id : null; } catch (e) {}
@@ -54,13 +63,13 @@
       await sb.from('user_blocks').upsert({ blocker_id: myId, blocked_id: userId, blocked_name: userName || null }, { onConflict: 'blocker_id,blocked_id', ignoreDuplicates: true });
       blockedIds.add(userId); if (userName) blockedNames.add(String(userName).toLowerCase());
       toast('User blocked. You won’t see their content.');
-      document.dispatchEvent(new CustomEvent('rmbr:changed'));
+      _fire({ scope: 'user', action: 'block', userId: userId, userName: userName || null });
       return true;
     } catch (e) { toast('Could not block. Please try again.'); return false; }
   }
   async function unblockUser(userId) {
     var sb = client(); if (!sb || !myId || !userId) return false;
-    try { await sb.from('user_blocks').delete().eq('blocker_id', myId).eq('blocked_id', userId); blockedIds.delete(userId); document.dispatchEvent(new CustomEvent('rmbr:changed')); return true; } catch (e) { return false; }
+    try { await sb.from('user_blocks').delete().eq('blocker_id', myId).eq('blocked_id', userId); blockedIds.delete(userId); _fire({ scope: 'user', action: 'unblock', userId: userId }); return true; } catch (e) { return false; }
   }
   async function listBlocked() {
     var sb = client(); if (!sb || !myId) return [];
@@ -76,13 +85,13 @@
       await sb.from('blocked_posts').upsert({ blocker_id: myId, content_type: type || 'post', content_id: String(id), content_label: label || null }, { onConflict: 'blocker_id,content_type,content_id', ignoreDuplicates: true });
       blockedPosts.add(_pkey(type, id));
       toast((type === 'listing' ? 'Listing' : 'Post') + ' hidden. Manage in Settings.');
-      document.dispatchEvent(new CustomEvent('rmbr:changed'));
+      _fire({ scope: 'post', action: 'block', type: type || 'post', id: String(id) });
       return true;
     } catch (e) { toast('Could not hide. Please try again.'); return false; }
   }
   async function unblockPost(type, id) {
     var sb = client(); if (!sb || !myId || id == null) return false;
-    try { await sb.from('blocked_posts').delete().eq('blocker_id', myId).eq('content_type', type || 'post').eq('content_id', String(id)); blockedPosts.delete(_pkey(type, id)); document.dispatchEvent(new CustomEvent('rmbr:changed')); return true; } catch (e) { return false; }
+    try { await sb.from('blocked_posts').delete().eq('blocker_id', myId).eq('content_type', type || 'post').eq('content_id', String(id)); blockedPosts.delete(_pkey(type, id)); _fire({ scope: 'post', action: 'unblock', type: type || 'post', id: String(id) }); return true; } catch (e) { return false; }
   }
   async function listBlockedPosts() {
     var sb = client(); if (!sb || !myId) return [];
@@ -154,5 +163,24 @@
     isPostBlocked: isPostBlocked, blockPost: blockPost, unblockPost: unblockPost, listBlockedPosts: listBlockedPosts };
   Object.defineProperty(window.RMBR, 'ready', { get: function () { return ready; } });
   Object.defineProperty(window.RMBR, 'myId', { get: function () { return myId; } });
+
+  // A block/unblock made in ANOTHER same-origin iframe (e.g. unblocking a post in
+  // Settings) lands here as a storage event. Apply it to THIS document's sets so
+  // isBlocked/isPostBlocked stay correct, then re-fire rmbr:changed locally so
+  // this page (the Feed, Portal, Profile…) reacts — restoring an unblocked post.
+  window.addEventListener('storage', function (ev) {
+    if (ev.key !== 'rmbr_sync' || !ev.newValue) return;
+    var d; try { d = JSON.parse(ev.newValue); } catch (e) { return; }
+    if (!d) return;
+    if (d.scope === 'user') {
+      if (d.action === 'block') { if (d.userId) blockedIds.add(d.userId); if (d.userName) blockedNames.add(String(d.userName).toLowerCase()); }
+      else if (d.action === 'unblock') { if (d.userId) blockedIds.delete(d.userId); }
+    } else if (d.scope === 'post') {
+      var k = _pkey(d.type || 'post', d.id);
+      if (d.action === 'block') blockedPosts.add(k); else if (d.action === 'unblock') blockedPosts.delete(k);
+    }
+    try { document.dispatchEvent(new CustomEvent('rmbr:changed', { detail: d })); } catch (e) {}
+  });
+
   if (document.readyState !== 'loading') init(); else document.addEventListener('DOMContentLoaded', init);
 })();
