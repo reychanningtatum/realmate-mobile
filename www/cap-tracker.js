@@ -632,6 +632,9 @@ function initMiniChart() {
 }
 
 function miniChartOpenAnalytics() {
+    // Analytics is a disabled feature — don't route to it (featureFlags.js would
+    // bounce analytics.html back to the Feed anyway; this avoids the flash).
+    if (window.isFeatureEnabled && !window.isFeatureEnabled('analytics')) return;
     location.href = 'analytics.html';
 }
 

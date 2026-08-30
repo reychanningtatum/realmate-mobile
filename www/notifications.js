@@ -471,12 +471,18 @@ async function handleNotificationRowClick(id) {
         return;
     }
 
-    // Mate/follow notifications → go to sender's profile
-    if (notif.type === 'mate_request' || notif.type === 'mate_accepted' || notif.type === 'mate_declined' || notif.type === 'follow' || notif.type === 'follow_accepted') {
+    // Mate/follow notifications → go to sender's profile. follow_request MUST be
+    // here too: without it, tapping a follow-request row fell through to the
+    // post fallback below and opened the (feature-flagged, disabled) Forum.
+    if (notif.type === 'mate_request' || notif.type === 'mate_accepted' || notif.type === 'mate_declined' ||
+        notif.type === 'follow' || notif.type === 'follow_request' || notif.type === 'follow_accepted') {
         await _notifGoToSenderProfile(notif);
         return;
     }
 
+    // Post/comment/reply notifications. The Forum is a disabled feature, so never
+    // route there — land on the Feed (home). Legacy forum-only posts have no live
+    // destination while the Forum is off; the Feed is the safe home.
     if (notif.target_post_id) {
         try {
             const { data: postRows } = await _supabase
@@ -485,20 +491,16 @@ async function handleNotificationRowClick(id) {
                 .eq('id', notif.target_post_id)
                 .limit(1);
             const source = postRows?.[0]?.source;
-            if (source === 'home') {
+            if (source === 'home' && notif.target_comment_id) {
                 // Override anchor ID for home page comment format
-                if (notif.target_comment_id) {
-                    localStorage.setItem("route_target_anchor_id", `hf-comment-${notif.target_comment_id}`);
-                }
-                location.href = 'home.html';
-            } else {
-                location.href = 'forum.html';
+                localStorage.setItem("route_target_anchor_id", `hf-comment-${notif.target_comment_id}`);
             }
+            location.href = 'home.html';
         } catch {
-            location.href = 'forum.html';
+            location.href = 'home.html';
         }
     } else {
-        location.href = 'forum.html';
+        location.href = 'home.html';
     }
 }
 
