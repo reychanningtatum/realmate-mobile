@@ -263,6 +263,17 @@ async function acceptFollowRequest(followerId) {
             _rmBroadcastRel(followerId);
             return { success: true, alreadyAccepted: true };
         }
+        // Address the notification to the follower by their CURRENT display name.
+        // On a DB without the optional recipient_id column, _followsInsertNotification
+        // strips recipient_id and notifications.js delivers purely by
+        // recipient_user_name — so an EMPTY name (the old bug) meant the follower
+        // never saw "your follow request was accepted". Prefer the live profile
+        // name; fall back to the follows-row snapshot.
+        let _followerName = (updRows[0] && updRows[0].follower_name) || '';
+        try {
+            const { data: _fp } = await _followsDb.from('profiles').select('full_name').eq('id', followerId).maybeSingle();
+            if (_fp && _fp.full_name) _followerName = _fp.full_name;
+        } catch (e) { /* keep the snapshot name */ }
         // Let the follower know they were accepted — they can now see my posts + About.
         await _followsInsertNotification({
             type:                   'follow_accepted',
@@ -270,7 +281,7 @@ async function acceptFollowRequest(followerId) {
             sender_user_name:       me?.name || '',
             sender_profile_picture: me?.image || '',
             recipient_id:           followerId,
-            recipient_user_name:    '',
+            recipient_user_name:    _followerName,
             message:                'accepted your follow request — you can now see their posts & About.',
             is_read:                false,
             created_at:             new Date().toISOString()
