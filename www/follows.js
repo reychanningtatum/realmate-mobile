@@ -151,22 +151,54 @@ async function followState(targetUserId) {
     } catch { return 'none'; }
 }
 
+// The FULL relationship between the current viewer and targetUserId, in BOTH
+// directions, from a single query — required to choose the correct button:
+//   outbound : my follow of them   -> 'accepted' | 'pending' | 'none'
+//   inbound  : their follow of me  -> 'accepted' | 'pending' | 'none'
+// "Follow Back" is outbound 'none' + inbound 'accepted' (they follow me but I
+// don't follow them). Querying only one direction is what made Follow Back
+// impossible — the button never knew the owner already follows the viewer.
+async function followRelationship(targetUserId) {
+    const out = { outbound: 'none', inbound: 'none', myId: null };
+    try {
+        const { data: auth } = await _followsDb.auth.getUser();
+        const myId = auth?.user?.id;
+        out.myId = myId || null;
+        if (!myId || String(myId) === String(targetUserId)) return out;
+        const { data } = await _followsDb
+            .from('follows')
+            .select('follower_id, following_id, status')
+            .or(`and(follower_id.eq.${myId},following_id.eq.${targetUserId}),` +
+                `and(follower_id.eq.${targetUserId},following_id.eq.${myId})`);
+        (data || []).forEach(r => {
+            const st = r.status === 'pending' ? 'pending' : 'accepted';
+            if (String(r.follower_id) === String(myId)) out.outbound = st;
+            else out.inbound = st;
+        });
+    } catch (e) {}
+    return out;
+}
+
 async function followUser(targetUserId, targetName) {
     try {
         const me = _followLocalUser();
         const { data: auth } = await _followsDb.auth.getUser();
         const myId = auth?.user?.id;
         if (!myId) return { error: 'Not authenticated' };
+        // Never follow yourself.
+        if (String(myId) === String(targetUserId)) return { error: 'Cannot follow yourself' };
 
-        // Approval: if the target allows public following, the follow is accepted
-        // immediately; otherwise it's PENDING until the target accepts (their
-        // posts/About stay hidden to me meanwhile). Default (no column / Private)
-        // is approval-required.
+        // Approval is driven by the target's ACCOUNT privacy (the existing
+        // Public/Private setting): a PUBLIC account (is_public) accepts a follow
+        // immediately; a PRIVATE account (the default) requires the owner to
+        // approve, so the follow stays PENDING and grants no access until then.
+        // The separate "Public Following" toggle (public_follow) is also honored
+        // as an explicit no-approval opt-in so that existing setting keeps working.
         let autoAccept = false;
         try {
             const { data: tp } = await _followsDb.from('profiles')
-                .select('public_follow').eq('id', targetUserId).maybeSingle();
-            autoAccept = !!(tp && tp.public_follow);
+                .select('is_public, public_follow').eq('id', targetUserId).maybeSingle();
+            autoAccept = !!(tp && (tp.is_public || tp.public_follow));
         } catch (e) {}
         let status = autoAccept ? 'accepted' : 'pending';
         const baseRow = {
@@ -295,28 +327,34 @@ async function unfollowUser(targetUserId) {
     }
 }
 
-// The three follow-button states. A Private account (default) turns a follow
-// into a REQUEST, so "Follow" -> "Requested" (awaiting their approval), NOT
-// straight to "Following" — that instant "Following" is what made it look like
-// approval was bypassed. Only an ACCEPTED follow shows "Following".
-function _followBtnHtml(state, targetUserId, targetName, safeName) {
-    if (state === 'accepted') {
+// The follow-button label from the two-direction relationship (rel = {outbound,
+// inbound} from followRelationship):
+//   outbound 'accepted'                  -> Following   (tap to unfollow)
+//   outbound 'pending'                   -> Requested   (tap to withdraw)
+//   outbound 'none' + inbound 'accepted' -> Follow Back (they already follow me)
+//   otherwise                            -> Follow
+// Follow and Follow Back run the SAME action (handleFollow); a Private target
+// makes it a REQUEST ("Requested"), a Public target an immediate "Following"
+// (decided in followUser). Only an ACCEPTED follow ever shows "Following".
+function _followBtnHtml(rel, targetUserId, targetName, safeName) {
+    if (rel.outbound === 'accepted') {
         return `<button class="btn-follow btn-follow-ing" data-target-name="${targetName}" onclick="handleUnfollow(this,'${targetUserId}')">
                <i class="fas fa-user-check"></i> Following
            </button>`;
     }
-    if (state === 'pending') {
+    if (rel.outbound === 'pending') {
         return `<button class="btn-follow btn-follow-requested" data-target-name="${targetName}" onclick="handleCancelRequest(this,'${targetUserId}')">
                <i class="fas fa-clock"></i> Requested
            </button>`;
     }
+    const label = (rel.inbound === 'accepted') ? 'Follow Back' : 'Follow';
     return `<button class="btn-follow" data-target-name="${targetName}" onclick="handleFollow(this,'${targetUserId}','${safeName}')">
-               <i class="fas fa-user-plus"></i> Follow
+               <i class="fas fa-user-plus"></i> ${label}
            </button>`;
 }
 
-// Renders a follow button for a given targetUserId + targetName
-// Checks DB for current follow state (accepted / pending / none)
+// Renders a follow button for a given targetUserId + targetName. Reads BOTH
+// follow directions so it can show Follow / Requested / Following / Follow Back.
 async function renderFollowButton(containerId, targetUserId, targetName) {
     const el = document.getElementById(containerId);
     if (!el) return;
@@ -325,9 +363,9 @@ async function renderFollowButton(containerId, targetUserId, targetName) {
     const myId = auth?.user?.id;
     if (!myId || myId === targetUserId) { el.innerHTML = ''; return; }
 
-    const state = await followState(targetUserId);
+    const rel = await followRelationship(targetUserId);
     const safeName = targetName.replace(/'/g,"\\'");
-    el.innerHTML = _followBtnHtml(state, targetUserId, targetName, safeName);
+    el.innerHTML = _followBtnHtml(rel, targetUserId, targetName, safeName);
 }
 
 async function handleFollow(btn, targetUserId, targetName) {

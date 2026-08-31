@@ -22,12 +22,24 @@
       (window.supabase ? (window.__privClient || (window.__privClient = window.supabase.createClient(SB_URL, SB_KEY))) : null);
   }
 
-  // kind: 'posts' | 'listings' | 'about'. flags = the object from resolve().
+  // Access hierarchy (kind: 'posts' | 'listings' | 'about'; f = resolve() flags):
+  //   Self            -> everything
+  //   Realmate        -> Posts + Listings + About
+  //   Approved Follower-> Posts + About only  (NEVER Listings)
+  //   Public account  -> Posts + About to anyone (Listings still Realmate-only)
+  //   Pending / none  -> nothing on a Private profile
+  // Following is a LIMITED social relationship; Listings are the Realmate tier.
   function can(kind, f) {
     if (!f) return false;
-    if (f.isSelf || f.ownerPublic) return true;
-    if (kind === 'listings') return !!f.isMate;              // Realmate gates listings
-    return !!(f.isFollower || f.isMate);                     // Following (or Realmate) gates posts + About
+    if (f.isSelf) return true;                               // owner sees their own everything
+    // Listings are the REALMATE tier — never exposed to followers or the public,
+    // even on a Public account (only the Portal marketplace shows a listing to
+    // anyone; this gates the PROFILE view).
+    if (kind === 'listings') return !!f.isMate;
+    // Posts + About: a Public account shows them to anyone; a Private account
+    // only to an APPROVED follower or a Realmate (a pending request grants none).
+    if (f.ownerPublic) return true;
+    return !!(f.isFollower || f.isMate);
   }
 
   async function _areMates(c, myId, ownerId) {
@@ -59,7 +71,11 @@
       // nothing). The FEED stays open separately via postAccessSet(); this
       // profile gate is intentionally the private-by-default, safe direction.
       out.ownerPublic = !!(prof.data && prof.data.is_public);
-      if (out.ownerPublic || !myId) return out;              // Public, or logged-out → only public content
+      if (!myId) return out;                                 // logged-out → only public content
+      // Resolve BOTH relationship levels even for a Public account: Listings stay
+      // Realmate-only regardless of Public/Private, so a Realmate must still be
+      // recognized to unlock them. isFollower counts ONLY an accepted follow — a
+      // pending request grants no access.
       var fol = await c.from('follows').select('status')
         .eq('follower_id', myId).eq('following_id', ownerId).maybeSingle();
       out.isFollower = !!(fol.data && fol.data.status === 'accepted');
