@@ -497,6 +497,7 @@ async function sendMateRequest(recipientName, recipientImg) {
 
         _matesCache[recipientName] = 'pending_sent';
         if (recipientId) _matesCacheById[recipientId] = 'pending_sent';
+        if (typeof _rmBroadcastRel === 'function') _rmBroadcastRel(null, 'mate');  // sync bus
         return { success: true };
     } catch (e) {
         console.error('sendMateRequest:', e);
@@ -580,6 +581,7 @@ async function cancelMateRequest(recipientName) {
         }
         if (notifErr) console.warn('[mates] mate_request notif delete failed:', notifErr.message);
 
+        if (typeof _rmBroadcastRel === 'function') _rmBroadcastRel(null, 'mate');  // sync bus
         return { success: true };
     } catch (e) {
         console.error('cancelMateRequest:', e);
@@ -643,6 +645,7 @@ async function acceptMateRequest(requesterName) {
         if (acceptedRow) {
             _matesCache[requesterName] = 'accepted';
             if (requesterId) _matesCacheById[requesterId] = 'accepted';
+            if (typeof _rmBroadcastRel === 'function') _rmBroadcastRel(null, 'mate');  // sync bus
             return { success: true, alreadyAccepted: true };
         }
 
@@ -680,6 +683,7 @@ async function acceptMateRequest(requesterName) {
             // skip the duplicate notification.
             _matesCache[requesterName] = 'accepted';
             if (requesterId) _matesCacheById[requesterId] = 'accepted';
+            if (typeof _rmBroadcastRel === 'function') _rmBroadcastRel(null, 'mate');  // sync bus
             return { success: true, alreadyAccepted: true };
         }
 
@@ -701,6 +705,7 @@ async function acceptMateRequest(requesterName) {
             created_at:            new Date().toISOString()
         });
 
+        if (typeof _rmBroadcastRel === 'function') _rmBroadcastRel(null, 'mate');  // sync bus
         return { success: true };
     } catch (e) {
         console.error('acceptMateRequest:', e);
@@ -787,6 +792,7 @@ async function removeMate(userName) {
             return { error: 'Could not remove realmate. Please try again.' };
         }
 
+        if (typeof _rmBroadcastRel === 'function') _rmBroadcastRel(null, 'mate');  // sync bus
         return { success: true, removed: !!(deletedRows && deletedRows.length) };
     } catch (e) {
         console.error('removeMate:', e);
@@ -839,6 +845,7 @@ async function declineMateRequest(requesterName) {
         if (requesterId) delete _matesCacheById[requesterId];
         if (!deletedRows || deletedRows.length === 0) {
             // Already declined/handled by an earlier call.
+            if (typeof _rmBroadcastRel === 'function') _rmBroadcastRel(null, 'mate');  // sync bus
             return { success: true };
         }
 
@@ -857,6 +864,7 @@ async function declineMateRequest(requesterName) {
             created_at:            new Date().toISOString()
         });
 
+        if (typeof _rmBroadcastRel === 'function') _rmBroadcastRel(null, 'mate');  // sync bus
         return { success: true };
     } catch (e) {
         console.error('declineMateRequest:', e);

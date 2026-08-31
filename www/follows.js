@@ -234,6 +234,7 @@ async function followUser(targetUserId, targetName) {
             created_at:             new Date().toISOString()
         });
 
+        _rmBroadcastRel(targetUserId);          // one signal for the whole app
         return { success: true, status: status };
     } catch (e) {
         console.error('followUser:', e);
@@ -263,6 +264,7 @@ async function acceptFollowRequest(followerId) {
             is_read:                false,
             created_at:             new Date().toISOString()
         });
+        _rmBroadcastRel(followerId);
         return { success: true };
     } catch (e) { return { error: e.message }; }
 }
@@ -273,6 +275,7 @@ async function rejectFollowRequest(followerId) {
         const { error } = await _followsDb.from('follows')
             .delete().eq('follower_id', followerId).eq('following_id', myId);
         if (error) throw error;
+        _rmBroadcastRel(followerId);
         return { success: true };
     } catch (e) { return { error: e.message }; }
 }
@@ -320,6 +323,7 @@ async function unfollowUser(targetUserId) {
             .eq('follower_id', myId)
             .eq('following_id', targetUserId);
         if (error) throw error;
+        _rmBroadcastRel(targetUserId);
         return { success: true };
     } catch (e) {
         console.error('unfollowUser:', e);
@@ -348,11 +352,13 @@ async function _rmRefreshFollowButtons() {
 // this page's follow buttons re-render, same-document listeners (the profile
 // gate + Realmate button) get a DOM event, and other tabs/iframes get a
 // localStorage ping.
-function _rmBroadcastRel(otherId) {
-    // local:true — this is MY own action in THIS tab. My buttons already updated
-    // in place and my view of the other profile can't change from my own follow,
-    // so listeners can skip a full re-gate here (avoids self-flicker).
-    try { window.dispatchEvent(new CustomEvent('rm:rel-changed', { detail: { userId: otherId || null, local: true } })); } catch (e) {}
+// otherId = the other user in the relationship (or null). kind = 'follow' |
+// 'mate' — lets the profile decide whether MY OWN action changes what I can see:
+// a mate change (becoming/removing Realmates) unlocks/locks Listings so the gate
+// must re-run; a follow change never changes my view of the other profile, so it
+// can skip the re-gate (avoids self-flicker). External changes always re-gate.
+function _rmBroadcastRel(otherId, kind) {
+    try { window.dispatchEvent(new CustomEvent('rm:rel-changed', { detail: { userId: otherId || null, local: true, kind: kind || 'follow' } })); } catch (e) {}
     try { localStorage.setItem('rm_rel_changed', (otherId || '') + ':' + Date.now()); } catch (e) {}
     _rmRefreshFollowButtons();
 }
@@ -369,21 +375,26 @@ function _rmArmRel() {
             try { window.dispatchEvent(new CustomEvent('rm:rel-changed', { detail: { external: true } })); } catch (e2) {}
         });
     } catch (e) {}
-    // Live DB: react to follows-table changes. Works when the table is in
+    // Live DB: react to BOTH follows- and mates-table changes so a relationship
+    // action on another device propagates here. Works when those tables are in
     // Supabase's realtime publication; a harmless no-op otherwise (the in-app
-    // broadcast above still covers same-session updates). Debounced.
-    try {
-        var t = null;
-        _followsDb.channel('public:follows-rt')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'follows' }, function () {
-                if (t) return;
-                t = setTimeout(function () {
-                    t = null; _rmRefreshFollowButtons();
-                    try { window.dispatchEvent(new CustomEvent('rm:rel-changed', { detail: { external: true } })); } catch (e) {}
-                }, 200);
-            })
-            .subscribe();
-    } catch (e) {}
+    // broadcast + cross-tab localStorage above still cover same-browser updates).
+    // Debounced so a burst coalesces into one refresh.
+    var _rtTimer = null;
+    function _rtFire() {
+        if (_rtTimer) return;
+        _rtTimer = setTimeout(function () {
+            _rtTimer = null; _rmRefreshFollowButtons();
+            try { window.dispatchEvent(new CustomEvent('rm:rel-changed', { detail: { external: true } })); } catch (e) {}
+        }, 200);
+    }
+    ['follows', 'mates'].forEach(function (tbl) {
+        try {
+            _followsDb.channel('public:' + tbl + '-rt')
+                .on('postgres_changes', { event: '*', schema: 'public', table: tbl }, _rtFire)
+                .subscribe();
+        } catch (e) {}
+    });
 }
 
 // The follow-button label from the two-direction relationship (rel = {outbound,
@@ -451,7 +462,6 @@ async function handleFollow(btn, targetUserId, targetName) {
         btn.onclick = () => handleCancelRequest(btn, targetUserId);
         btn.disabled = false;
         (window.showToast || function () {})('Follow request sent — waiting for their approval.', 'success');
-        _rmBroadcastRel(targetUserId);
     } else if (result.success) {
         btn.className = 'btn-follow btn-follow-ing';
         btn.innerHTML = '<i class="fas fa-user-check"></i> Following';
@@ -462,7 +472,6 @@ async function handleFollow(btn, targetUserId, targetName) {
             const el = document.getElementById(id);
             if (el) el.innerText = (parseInt(el.innerText) || 0) + 1;
         });
-        _rmBroadcastRel(targetUserId);
     } else {
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-user-plus"></i> Follow';
@@ -486,7 +495,6 @@ async function handleAcceptFollow(btn, ownerId, ownerName) {
         btn.onclick = () => handleFollow(btn, ownerId, name);
         btn.disabled = false;
         (window.showToast || function () {})('Follow request accepted.', 'success');
-        _rmBroadcastRel(ownerId);
     } else {
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-user-check"></i> Accept Follow';
@@ -515,7 +523,6 @@ async function handleCancelRequest(btn, targetUserId) {
         const name = btn.dataset.targetName || '';
         btn.onclick = () => handleFollow(btn, targetUserId, name);
         btn.disabled = false;
-        _rmBroadcastRel(targetUserId);
     } else {
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-clock"></i> Requested';
@@ -549,9 +556,17 @@ async function handleUnfollow(btn, targetUserId) {
             const el = document.getElementById(id);
             if (el) el.innerText = Math.max(0, (parseInt(el.innerText) || 0) - 1);
         });
-        _rmBroadcastRel(targetUserId);
     } else {
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-user-check"></i> Following';
     }
 }
+
+// Arm the relationship-sync bus on every page that loads this file (profiles,
+// feed, notifications, My Realmates) so cross-tab + live-DB relationship changes
+// are received even where no follow button is rendered. Idempotent.
+try {
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function () { try { _rmArmRel(); } catch (e) {} });
+    } else { _rmArmRel(); }
+} catch (e) {}

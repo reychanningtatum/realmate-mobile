@@ -136,17 +136,17 @@ async function handleGateAddMate(btn, userName) {
 
     if (result.success && result.accepted) {
         // They had already requested us → this became an accept. Now Realmates:
-        // reload so the unlocked posts/listings render for real.
+        // re-run loadProfile (NOT a full page reload) so the unlocked posts/
+        // listings/About render in place — no refresh. (sendMateRequest already
+        // fired the sync bus, which is why other tabs/surfaces also update.)
         _viewMateState = { status: 'accepted', dir: null };
-        if (typeof _rmBroadcastRel === 'function') _rmBroadcastRel(_viewUserId || null);
-        location.reload();
+        if (typeof loadProfile === 'function') loadProfile();
         return;
     }
     if (result.success) {
         _viewMateState = { status: 'pending', dir: 'sent' };
         _syncTopMateButton();
         _refreshRealmateGates();
-        if (typeof _rmBroadcastRel === 'function') _rmBroadcastRel(_viewUserId || null);
         return;
     }
     // Failed — restore the Add button so the user can retry.
@@ -156,8 +156,10 @@ async function handleGateAddMate(btn, userName) {
     if (card) (window.showToast || alert)('Could not send realmate request: ' + (result.error || 'Unknown error'), 'error');
 }
 
-// Gate "Accept Request": accept the incoming request, then reload so the now-
-// unlocked profile renders in its connected state.
+// Gate "Accept Request": accept the incoming request, then re-run loadProfile
+// (NOT a full page reload) so the now-unlocked posts/listings/About render in
+// place — no refresh. acceptMateRequest already fired the sync bus for the rest
+// of the app (other tabs, notifications, My Realmates).
 async function handleGateAcceptMate(btn, userName) {
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
@@ -166,8 +168,7 @@ async function handleGateAcceptMate(btn, userName) {
         : { success: false };
     if (result.success) {
         _viewMateState = { status: 'accepted', dir: null };
-        if (typeof _rmBroadcastRel === 'function') _rmBroadcastRel(_viewUserId || null);
-        location.reload();
+        if (typeof loadProfile === 'function') loadProfile();
         return;
     }
     btn.disabled = false;

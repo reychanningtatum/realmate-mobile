@@ -644,3 +644,26 @@ window.onload = async () => {
     renderNotificationsInterface();
     setupRealtimeNotificationListener();
 };
+// ── Live relationship sync ──────────────────────────────────────────────────
+// Keep notification cards in step with the current relationship state. Any
+// follow/Realmate change — from a card here, another tab, or another device via
+// the shared bus (follows.js dispatches 'rm:rel-changed') — refreshes the mate
+// cache + the pending follow-request set and re-renders, so Accept/Reject
+// affordances always reflect the single source of truth without a refresh.
+(function () {
+    var t = null;
+    function refreshRel() {
+        if (t) return;
+        t = setTimeout(async function () {
+            t = null;
+            try { if (typeof loadMatesCache === 'function') await loadMatesCache(); } catch (e) {}
+            try {
+                window._pendingFollowerIds = new Set(
+                    (typeof listFollowRequests === 'function' ? await listFollowRequests() : [])
+                        .map(function (r) { return String(r.follower_id); }));
+            } catch (e) {}
+            try { if (typeof renderNotificationsInterface === 'function') renderNotificationsInterface(); } catch (e) {}
+        }, 250);
+    }
+    window.addEventListener('rm:rel-changed', refreshRel);
+})();
