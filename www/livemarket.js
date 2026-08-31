@@ -538,6 +538,8 @@ const SOLD_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 // Bottom-sheet confirmation before a sale is committed (matches deleteListing).
 function confirmMarkSold(listingId, btn) {
+    // Subtle UI tap feedback when the Sold/Leased/Rented/Bought button is pressed.
+    if (window.RMSound) RMSound.play('tap');
     // Category-aware completion word — Sold / Rented / Leased / Bought — so the
     // sheet copy matches the post type (e.g. a Willing to Buy post reads "Bought").
     const _l = (typeof allListings !== 'undefined' ? allListings : []).find(l => String(l.id) === String(listingId));

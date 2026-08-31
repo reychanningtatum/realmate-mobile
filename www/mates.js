@@ -706,6 +706,10 @@ async function acceptMateRequest(requesterName) {
         });
 
         if (typeof _rmBroadcastRel === 'function') _rmBroadcastRel(null, 'mate');  // sync bus
+        // Subtle confirmation — only on the genuine accept (the row we just
+        // flipped). The alreadyAccepted early-returns above deliberately stay
+        // silent so a concurrent surface can't double-play it.
+        if (window.RMSound) RMSound.play('confirm');
         return { success: true };
     } catch (e) {
         console.error('acceptMateRequest:', e);

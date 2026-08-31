@@ -1651,6 +1651,10 @@ async function applyReaction(postId, type) {
     if (type) {
         const { error } = await _supaHome.from('forum_likes').insert({ post_id: postId, user_name: user.name, reaction: type });
         if (error) { console.error('React error:', error); return; }
+        // Subtle sound — ONLY once a reaction is genuinely registered (insert
+        // succeeded, type set). Never on removal (type null skips this block) and
+        // never from re-renders (updateReactionUI/feed reloads don't run here).
+        if (window.RMSound) RMSound.play('react');
         if (notifiesOwner) {
             await _homeInsertNotification({
                 recipient_id: post.user_id || null,

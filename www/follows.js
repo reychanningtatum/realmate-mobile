@@ -265,6 +265,8 @@ async function acceptFollowRequest(followerId) {
             created_at:             new Date().toISOString()
         });
         _rmBroadcastRel(followerId);
+        // Subtle confirmation — only reached after the accept genuinely succeeds.
+        if (window.RMSound) RMSound.play('confirm');
         return { success: true };
     } catch (e) { return { error: e.message }; }
 }
