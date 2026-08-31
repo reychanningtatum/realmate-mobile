@@ -533,7 +533,9 @@
         if (IS_REALMATES_PAGE) {
             const pr = await sb.from('profiles').select('id,full_name,avatar_url,job_title,division')
                 .or(`full_name.ilike.${pat},job_title.ilike.${pat},division.ilike.${pat}`).limit(12);
-            renderResults(pr.data || [], []);
+            let _people = pr.data || [];
+            if (window.RMDeact) { try { _people = await RMDeact.filterItemsByOwner(_people, 'id'); } catch (e) {} }
+            renderResults(_people, []);
             return;
         }
 
@@ -595,7 +597,12 @@
             });
         }
 
-        renderResults(pr.data || [], listings);
+        let people = pr.data || [];
+        // Drop DEACTIVATED accounts from People results (fail-open). Listings are
+        // already Realmate-scoped above; deactivated owners can't be Realmates you
+        // can still reach here, so People is the surface that needs filtering.
+        if (window.RMDeact) { try { people = await RMDeact.filterItemsByOwner(people, 'id'); } catch (e) {} }
+        renderResults(people, listings);
     }
 
     function renderResults(people, listings) {

@@ -896,6 +896,11 @@ async function loadHomeFeed(feedEl, filterArg, silent) {
             const _access = await RMPriv.postAccessSet(_owners);
             _homePosts = _homePosts.filter(p => !p.user_id || _access.set.has(String(p.user_id)));
         }
+
+        // Hide posts whose AUTHOR has DEACTIVATED their account (RMDeact). Fail-open.
+        if (window.RMDeact && _homePosts.length) {
+            try { _homePosts = await RMDeact.filterItemsByOwner(_homePosts, 'user_id'); } catch (e) {}
+        }
         if (!_homePosts.length) {
             feed.innerHTML = `<div class="hf-empty">
                 <i class="fas fa-newspaper"></i>

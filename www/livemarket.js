@@ -2812,6 +2812,18 @@ async function loadLedger(silent) {
     } else {
         allListings = data;
     }
+
+    // Hide listings whose OWNER has DEACTIVATED their account. The grid, the
+    // ticker, and AI matching all read allListings, so filtering it here removes
+    // deactivated owners from all three at once. Fail-open — RMDeact never throws
+    // and returns an empty hidden-set on any error, so nothing disappears wrongly.
+    if (window.RMDeact) {
+        try {
+            const _dOwners = allListings.map(l => l.user_id).filter(Boolean);
+            const _dHidden = await RMDeact.deactivatedSet(_dOwners);
+            if (_dHidden.size) allListings = allListings.filter(l => !l.user_id || !_dHidden.has(String(l.user_id)));
+        } catch (e) { /* show all on error */ }
+    }
     myListings = mine || [];
     _listingsLoaded = true;   // fetch done → applyFilters may now show empty state
 

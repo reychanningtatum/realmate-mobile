@@ -1147,6 +1147,29 @@ function _renderBlockedProfileState() {
     });
 }
 
+// Persistent full-page notice shown when the viewed account is DEACTIVATED.
+// Mirrors _renderBlockedProfileState but is a neutral "unavailable" message —
+// no blame, since the owner (not the viewer) chose to deactivate.
+function _renderDeactivatedProfileState() {
+    if (document.getElementById('rmDeactivatedProfilePage')) return;
+    var el = document.createElement('div');
+    el.id = 'rmDeactivatedProfilePage';
+    el.style.cssText = 'position:fixed; inset:0; background:#f4f7fa; display:flex; align-items:center; justify-content:center; padding:24px; z-index:2147483000;';
+    el.innerHTML =
+        '<div style="max-width:360px; width:100%; text-align:center;">' +
+        '<div style="width:88px; height:88px; border-radius:50%; background:#eef2f7; display:flex; align-items:center; justify-content:center; margin:0 auto 22px;"><i class="fas fa-user-clock" style="font-size:36px; color:#64748b;"></i></div>' +
+        '<h2 style="font-size:22px; font-weight:800; color:#0f172a; margin:0 0 12px;">Account unavailable</h2>' +
+        '<p style="color:#475569; font-size:15px; line-height:1.55; margin:0 0 28px;">This account is currently deactivated, so its profile, posts, and listings aren\'t available right now.</p>' +
+        '<button id="rmDeactBackBtn" style="width:100%; padding:15px; border-radius:12px; border:none; background:#32cd32; color:#fff; font-size:16px; font-weight:700; cursor:pointer; font-family:inherit;">Back to Feed</button>' +
+        '</div>';
+    document.body.appendChild(el);
+    var btn = document.getElementById('rmDeactBackBtn');
+    if (btn) btn.addEventListener('click', function () {
+        try { if (window.parent && window.parent !== window && window.parent.rmBack) { window.parent.rmBack(); return; } } catch (e) {}
+        location.replace('home.html');
+    });
+}
+
 async function loadProfile() {
     if (_supabase) {
         try {
@@ -1165,6 +1188,19 @@ async function loadProfile() {
                     _renderBlockedProfileState();
                     return;
                 }
+            }
+
+            // Hide DEACTIVATED accounts: if the viewed user has deactivated their
+            // account (and any auto-return window hasn't lapsed), show a persistent
+            // "account unavailable" notice instead of their profile. Never applies
+            // to yourself — a deactivated account is signed out. Fail-open.
+            if (_viewUserId && _viewUserId !== myAuthId && window.RMDeact) {
+                try {
+                    if (await RMDeact.isDeactivated(_viewUserId)) {
+                        _renderDeactivatedProfileState();
+                        return;
+                    }
+                } catch (e) { /* show profile on error */ }
             }
 
             // If the URL param is the current user's own ID, strip it and load normally
