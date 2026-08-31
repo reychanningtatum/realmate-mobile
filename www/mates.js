@@ -639,27 +639,32 @@ async function acceptMateRequest(requesterName) {
             .or(orParts.join(','));
         if (relErr) throw relErr;
 
-        // Already connected (possibly accepted from another surface/tab). Sync the
-        // cache and report success without inserting a duplicate notification.
-        const acceptedRow = (relRows || []).find(r => r.status === 'accepted');
-        if (acceptedRow) {
-            _matesCache[requesterName] = 'accepted';
-            if (requesterId) _matesCacheById[requesterId] = 'accepted';
-            if (typeof _rmBroadcastRel === 'function') _rmBroadcastRel(null, 'mate');  // sync bus
-            return { success: true, alreadyAccepted: true };
-        }
-
-        // The pending request we're accepting. Prefer the incoming one (they are
-        // the requester); fall back to any pending row for this pair.
+        // Prefer a genuine PENDING row to accept, and only fall back to "already
+        // connected" if there is NONE. This ordering is critical when two accounts
+        // share a display name: the name-pair match above can pull in a NAMESAKE's
+        // already-accepted row, and short-circuiting on it (the old behaviour) left
+        // the real pending request stuck 'pending' forever — the accept silently
+        // no-opped. Always try to flip a pending row first; prefer one addressed to
+        // me, then the incoming one, then any pending row for the pair.
         const pendingRow = (relRows || []).find(r =>
             r.status === 'pending' && (
                 (requesterId && r.requester_id === requesterId && r.recipient_id === myId) ||
                 (r.requester_name === requesterName && r.recipient_name === me.name)
             )
-        ) || (relRows || []).find(r => r.status === 'pending');
+        ) || (relRows || []).find(r => r.status === 'pending' && r.recipient_id === myId)
+          || (relRows || []).find(r => r.status === 'pending');
 
         if (!pendingRow) {
-            // Nothing to accept — do NOT fake success or poison the cache.
+            // Nothing pending to accept. If we're already connected (a namesake's
+            // row, or accepted from another tab), report that idempotently; else
+            // there's genuinely no request. Never fake success or poison the cache.
+            const acceptedRow = (relRows || []).find(r => r.status === 'accepted');
+            if (acceptedRow) {
+                _matesCache[requesterName] = 'accepted';
+                if (requesterId) _matesCacheById[requesterId] = 'accepted';
+                if (typeof _rmBroadcastRel === 'function') _rmBroadcastRel(null, 'mate');  // sync bus
+                return { success: true, alreadyAccepted: true };
+            }
             return { error: 'Request not found' };
         }
 
