@@ -1068,6 +1068,15 @@ function updateUI() {
 const _viewUserId = new URLSearchParams(window.location.search).get('user_id');
 const _isViewingOther = !!_viewUserId;
 
+// Pristine About-card markup, captured at load BEFORE any gating replaces it, so
+// the card can be RESTORED (not left stuck on the gate) the instant access is
+// granted — e.g. becoming realmates unlocks About in real time, no page refresh.
+// dashboard-script.js loads after the About card in the body, so it exists here.
+const _aboutCardTemplate = (function () {
+    var c = document.querySelector('.about-card');
+    return c ? c.innerHTML : null;
+})();
+
 // The current Realmate-request relationship with the profile being viewed, resolved
 // once when the mate button renders and reused by every gated section so the whole
 // profile reflects the SAME status. Shape: { status:'none'|'pending'|'accepted',
@@ -1368,12 +1377,24 @@ async function loadProfile() {
     // listings and about" across all three sections (#12). The private sublines
     // are hidden regardless. Runs AFTER updateUI() populated them, so this is the
     // final word.
+    const _aboutCard = document.querySelector('.about-card');
     if (effectivelyViewingOther && !_canPosts) {
-        const _aboutCard = document.querySelector('.about-card');
         if (_aboutCard) _aboutCard.innerHTML = _realmateGateHtml(user.name, 'about');
         ['locationLine', 'relationshipLine', 'yearsLine', 'languagesLine'].forEach(function (id) {
             var el = document.getElementById(id); if (el) el.style.display = 'none';
         });
+    } else if (_aboutCard && _aboutCard.querySelector('[data-gate-kind]') && _aboutCardTemplate) {
+        // Access is now granted (e.g. you just became realmates) but the card is
+        // still showing the gate from a PRIOR render. There's no "un-gate" for it
+        // otherwise — only a full page reload rebuilt the DOM — so RESTORE the real
+        // About markup and re-populate it, unlocking About in real time. (updateUI
+        // ran earlier while the card was still a gate, so bioDisplay didn't exist
+        // then; repopulate it here.)
+        _aboutCard.innerHTML = _aboutCardTemplate;
+        var _bioEl = document.getElementById('bioDisplay');
+        if (_bioEl) _bioEl.innerText = user.bio || '';
+        var _aboutEmptyEl = document.getElementById('aboutEmptyState');
+        if (_aboutEmptyEl) _aboutEmptyEl.style.display = (user.bio && user.bio.trim()) ? 'none' : 'block';
     }
 }
 
