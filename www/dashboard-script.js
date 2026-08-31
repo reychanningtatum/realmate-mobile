@@ -138,6 +138,7 @@ async function handleGateAddMate(btn, userName) {
         // They had already requested us → this became an accept. Now Realmates:
         // reload so the unlocked posts/listings render for real.
         _viewMateState = { status: 'accepted', dir: null };
+        if (typeof _rmBroadcastRel === 'function') _rmBroadcastRel(_viewUserId || null);
         location.reload();
         return;
     }
@@ -145,6 +146,7 @@ async function handleGateAddMate(btn, userName) {
         _viewMateState = { status: 'pending', dir: 'sent' };
         _syncTopMateButton();
         _refreshRealmateGates();
+        if (typeof _rmBroadcastRel === 'function') _rmBroadcastRel(_viewUserId || null);
         return;
     }
     // Failed — restore the Add button so the user can retry.
@@ -164,6 +166,7 @@ async function handleGateAcceptMate(btn, userName) {
         : { success: false };
     if (result.success) {
         _viewMateState = { status: 'accepted', dir: null };
+        if (typeof _rmBroadcastRel === 'function') _rmBroadcastRel(_viewUserId || null);
         location.reload();
         return;
     }
@@ -1050,6 +1053,25 @@ window.addEventListener('rm:mate_removed', function (e) { _onMateRemovedRegate(e
 window.addEventListener('storage', function (e) {
     if (e.key === 'rm_mate_removed' && e.newValue) { try { _onMateRemovedRegate(JSON.parse(e.newValue).name); } catch (_) {} }
 });
+
+// Any follow/Realmate relationship change from OUTSIDE this tab (another tab or a
+// live DB event — e.g. the other party accepting my follow request) → re-run
+// loadProfile while viewing someone else's profile, so the Follow / Accept
+// Follow / Follow Back / Following + Realmate buttons AND the content gate all
+// reflect the new relationship without a manual refresh. My OWN action in this
+// tab (detail.local) already updates its button in place and can't change my
+// view of the other profile, so it's skipped here (no self-flicker). Debounced.
+let _relRegateTimer = null;
+function _onRelChangedRegate(e) {
+    try {
+        if (e && e.detail && e.detail.local) return;          // my own action — buttons already updated
+        if (!_isViewingOther || typeof loadProfile !== 'function') return;
+        if (_relRegateTimer) return;
+        _relRegateTimer = setTimeout(function () { _relRegateTimer = null; try { loadProfile(); } catch (_) {} }, 250);
+    } catch (_) {}
+}
+window.addEventListener('rm:rel-changed', _onRelChangedRegate);
+window.addEventListener('storage', function (e) { if (e.key === 'rm_rel_changed') _onRelChangedRegate({ detail: { external: true } }); });
 
 // A blocked user's profile can't be viewed (UGC safety). Instead of bouncing to
 // the feed with a fleeting toast — which read as a broken half-second flash —

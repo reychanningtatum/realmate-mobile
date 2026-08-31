@@ -327,11 +327,71 @@ async function unfollowUser(targetUserId) {
     }
 }
 
+// ── Real-time relationship-button sync ──────────────────────────────────────
+// Every follow button rendered on the page is registered here so ANY change to
+// a relationship (my own action, another tab/iframe, or a live DB event from the
+// other party) can re-render them all in place — no manual refresh. The
+// 'rm:rel-changed' DOM event also lets dashboard-script re-gate the profile and
+// re-sync the Realmate button.
+var _rmFollowBtns = {};          // containerId -> { targetId, name }
+var _rmRelArmed = false;
+
+async function _rmRefreshFollowButtons() {
+    for (const cid of Object.keys(_rmFollowBtns)) {
+        if (!document.getElementById(cid)) { delete _rmFollowBtns[cid]; continue; }
+        const info = _rmFollowBtns[cid];
+        try { await renderFollowButton(cid, info.targetId, info.name); } catch (e) {}
+    }
+}
+
+// Announce a follow/Realmate relationship change so every display updates live:
+// this page's follow buttons re-render, same-document listeners (the profile
+// gate + Realmate button) get a DOM event, and other tabs/iframes get a
+// localStorage ping.
+function _rmBroadcastRel(otherId) {
+    // local:true — this is MY own action in THIS tab. My buttons already updated
+    // in place and my view of the other profile can't change from my own follow,
+    // so listeners can skip a full re-gate here (avoids self-flicker).
+    try { window.dispatchEvent(new CustomEvent('rm:rel-changed', { detail: { userId: otherId || null, local: true } })); } catch (e) {}
+    try { localStorage.setItem('rm_rel_changed', (otherId || '') + ':' + Date.now()); } catch (e) {}
+    _rmRefreshFollowButtons();
+}
+
+// Arm cross-tab + live-DB listeners once. A change from another tab or another
+// device (the other party accepting / removing) re-renders buttons and re-fires
+// the DOM event so the profile can re-gate — without a refresh.
+function _rmArmRel() {
+    if (_rmRelArmed) return; _rmRelArmed = true;
+    try {
+        window.addEventListener('storage', function (e) {
+            if (e.key !== 'rm_rel_changed') return;
+            _rmRefreshFollowButtons();
+            try { window.dispatchEvent(new CustomEvent('rm:rel-changed', { detail: { external: true } })); } catch (e2) {}
+        });
+    } catch (e) {}
+    // Live DB: react to follows-table changes. Works when the table is in
+    // Supabase's realtime publication; a harmless no-op otherwise (the in-app
+    // broadcast above still covers same-session updates). Debounced.
+    try {
+        var t = null;
+        _followsDb.channel('public:follows-rt')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'follows' }, function () {
+                if (t) return;
+                t = setTimeout(function () {
+                    t = null; _rmRefreshFollowButtons();
+                    try { window.dispatchEvent(new CustomEvent('rm:rel-changed', { detail: { external: true } })); } catch (e) {}
+                }, 200);
+            })
+            .subscribe();
+    } catch (e) {}
+}
+
 // The follow-button label from the two-direction relationship (rel = {outbound,
 // inbound} from followRelationship):
-//   outbound 'accepted'                  -> Following   (tap to unfollow)
-//   outbound 'pending'                   -> Requested   (tap to withdraw)
-//   outbound 'none' + inbound 'accepted' -> Follow Back (they already follow me)
+//   outbound 'accepted'                  -> Following      (tap to unfollow)
+//   outbound 'pending'                   -> Requested      (tap to withdraw)
+//   outbound 'none' + inbound 'pending'  -> Accept Follow  (they requested me)
+//   outbound 'none' + inbound 'accepted' -> Follow Back    (they already follow me)
 //   otherwise                            -> Follow
 // Follow and Follow Back run the SAME action (handleFollow); a Private target
 // makes it a REQUEST ("Requested"), a Public target an immediate "Following"
@@ -345,6 +405,14 @@ function _followBtnHtml(rel, targetUserId, targetName, safeName) {
     if (rel.outbound === 'pending') {
         return `<button class="btn-follow btn-follow-requested" data-target-name="${targetName}" onclick="handleCancelRequest(this,'${targetUserId}')">
                <i class="fas fa-clock"></i> Requested
+           </button>`;
+    }
+    // They have a PENDING request to follow ME → accept it right here (this is
+    // what makes the button "Accept Follow" the instant they request to follow
+    // you, instead of the wrong "Follow").
+    if (rel.inbound === 'pending') {
+        return `<button class="btn-follow btn-follow-accept" data-target-name="${targetName}" onclick="handleAcceptFollow(this,'${targetUserId}','${safeName}')">
+               <i class="fas fa-user-check"></i> Accept Follow
            </button>`;
     }
     const label = (rel.inbound === 'accepted') ? 'Follow Back' : 'Follow';
@@ -361,8 +429,10 @@ async function renderFollowButton(containerId, targetUserId, targetName) {
 
     const { data: auth } = await _followsDb.auth.getUser();
     const myId = auth?.user?.id;
-    if (!myId || myId === targetUserId) { el.innerHTML = ''; return; }
+    if (!myId || myId === targetUserId) { el.innerHTML = ''; delete _rmFollowBtns[containerId]; return; }
 
+    _rmFollowBtns[containerId] = { targetId: targetUserId, name: targetName };  // for live refresh
+    _rmArmRel();
     const rel = await followRelationship(targetUserId);
     const safeName = targetName.replace(/'/g,"\\'");
     el.innerHTML = _followBtnHtml(rel, targetUserId, targetName, safeName);
@@ -381,6 +451,7 @@ async function handleFollow(btn, targetUserId, targetName) {
         btn.onclick = () => handleCancelRequest(btn, targetUserId);
         btn.disabled = false;
         (window.showToast || function () {})('Follow request sent — waiting for their approval.', 'success');
+        _rmBroadcastRel(targetUserId);
     } else if (result.success) {
         btn.className = 'btn-follow btn-follow-ing';
         btn.innerHTML = '<i class="fas fa-user-check"></i> Following';
@@ -391,10 +462,35 @@ async function handleFollow(btn, targetUserId, targetName) {
             const el = document.getElementById(id);
             if (el) el.innerText = (parseInt(el.innerText) || 0) + 1;
         });
+        _rmBroadcastRel(targetUserId);
     } else {
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-user-plus"></i> Follow';
         (window.showToast || alert)('Could not follow: ' + (result.error || 'Unknown error'), 'error');
+    }
+}
+
+// Accept an INBOUND follow request (they requested to follow me). Flips the
+// button straight to "Follow Back" IN PLACE — no refresh — then broadcasts so
+// every other display of this relationship updates too.
+async function handleAcceptFollow(btn, ownerId, ownerName) {
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    const result = (typeof acceptFollowRequest === 'function')
+        ? await acceptFollowRequest(ownerId) : { error: 'unavailable' };
+    if (result && result.success) {
+        // They now follow me (accepted); I don't follow them yet -> Follow Back.
+        btn.className = 'btn-follow';
+        btn.innerHTML = '<i class="fas fa-user-plus"></i> Follow Back';
+        const name = btn.dataset.targetName || ownerName || '';
+        btn.onclick = () => handleFollow(btn, ownerId, name);
+        btn.disabled = false;
+        (window.showToast || function () {})('Follow request accepted.', 'success');
+        _rmBroadcastRel(ownerId);
+    } else {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-user-check"></i> Accept Follow';
+        (window.showToast || alert)('Could not accept: ' + ((result && result.error) || 'error'), 'error');
     }
 }
 
@@ -419,6 +515,7 @@ async function handleCancelRequest(btn, targetUserId) {
         const name = btn.dataset.targetName || '';
         btn.onclick = () => handleFollow(btn, targetUserId, name);
         btn.disabled = false;
+        _rmBroadcastRel(targetUserId);
     } else {
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-clock"></i> Requested';
@@ -452,6 +549,7 @@ async function handleUnfollow(btn, targetUserId) {
             const el = document.getElementById(id);
             if (el) el.innerText = Math.max(0, (parseInt(el.innerText) || 0) - 1);
         });
+        _rmBroadcastRel(targetUserId);
     } else {
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-user-check"></i> Following';
