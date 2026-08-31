@@ -250,6 +250,64 @@ async function confirmDeleteAccount(){
   }
 }
 
+/* ── Account deactivation (temporary, reversible) ───────────────
+   Sets profiles.deactivated + an optional reactivate_at (any number of days,
+   chosen by the user) + a reason, then signs out. Logging back in reactivates
+   the account (handled in script.js). Requires the deactivation migration. */
+function openDeactivateModal(){
+  var ov=document.getElementById('deactivateOverlay'); if(!ov) return;
+  var r=document.getElementById('deacReason'); if(r) r.value='';
+  var d=document.getElementById('deacDays'); if(d){ d.value=''; d.disabled=false; }
+  var nb=document.getElementById('deacNoAuto'); if(nb) nb.checked=false;
+  var st=document.getElementById('deacStatus'); if(st) st.textContent='';
+  var cb=document.getElementById('deacConfirmBtn'); if(cb){ cb.disabled=false; cb.textContent='Deactivate'; }
+  ov.hidden=false;
+}
+function closeDeactivateModal(){ var ov=document.getElementById('deactivateOverlay'); if(ov) ov.hidden=true; }
+// The days input and the "don't auto-reactivate" checkbox are mutually exclusive.
+function deacToggleDays(){
+  var nb=document.getElementById('deacNoAuto'); var d=document.getElementById('deacDays');
+  if(d) d.disabled = !!(nb && nb.checked);
+}
+async function confirmDeactivate(){
+  var btn=document.getElementById('deacConfirmBtn'); var status=document.getElementById('deacStatus');
+  if(!btn||btn.disabled) return;
+  var noAuto=!!(document.getElementById('deacNoAuto')||{}).checked;
+  var days=parseInt((document.getElementById('deacDays')||{}).value,10);
+  var reason=(document.getElementById('deacReason')||{}).value || null;
+  if(!noAuto && (!days || days<1)){
+    if(status) status.textContent='Enter the number of days, or tick “Don’t auto-reactivate”.';
+    return;
+  }
+  btn.disabled=true; btn.textContent='Deactivating…'; if(status) status.textContent='Deactivating your account…';
+  try{
+    var au = await _supabase.auth.getUser();
+    var user = au && au.data && au.data.user;
+    if(!user) throw new Error('You are not signed in.');
+    var reactivateAt = noAuto ? null : new Date(Date.now() + days*86400000).toISOString();
+    var { error } = await _supabase.from('profiles').update({
+      deactivated: true,
+      deactivated_at: new Date().toISOString(),
+      reactivate_at: reactivateAt,
+      deactivation_reason: reason
+    }).eq('id', user.id);
+    if(error) throw error;
+    if(status) status.textContent = noAuto
+      ? 'Your account is deactivated. Log in anytime to reactivate it.'
+      : ('Your account is deactivated. It will reactivate in '+days+' day'+(days>1?'s':'')+' — or the moment you log in.');
+    try{ await _supabase.auth.signOut(); }catch(e){}
+    localStorage.clear();
+    setTimeout(function(){ location.href='marketing.html'; }, 1800);
+  }catch(err){
+    console.error('[Settings] confirmDeactivate:', err);
+    var missing = err && err.message && /column|schema cache|does not exist|42703/i.test(err.message);
+    if(status) status.textContent = missing
+      ? 'Deactivation isn’t enabled yet — the deactivation migration needs to be run in Supabase.'
+      : ((err && err.message) || 'Could not deactivate. Please try again.');
+    btn.disabled=false; btn.textContent='Deactivate';
+  }
+}
+
 
 /* ── Blocked users (App Store Guideline 1.2) ── */
 function _rmbrEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }

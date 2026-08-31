@@ -1599,6 +1599,13 @@ async function applyReaction(postId, type) {
     const user = getUser();
     if (!user) { (window.showToast || alert)('Sign in to react.', 'error'); return; }
 
+    // Optimistic UI: show the picked reaction on the button IMMEDIATELY so the
+    // selected emoji appears the instant the finger releases — the DB writes
+    // below (delete old, insert new, owner notification) then run in the
+    // background instead of holding the emoji back ~1s. updateReactionUI() at the
+    // end reconciles the button + refreshes the accurate reaction counts.
+    _setReactionButton(postId, type);
+
     // One reaction per user: clear the old one first
     await _supaHome.from('forum_likes').delete().eq('post_id', postId).eq('user_name', user.name);
 
@@ -1634,18 +1641,24 @@ async function applyReaction(postId, type) {
     updateReactionUI(postId, type);
 }
 
+// Synchronously set the reaction button's icon/color/label — no DB, no await.
+// Called OPTIMISTICALLY the instant a reaction is picked so the selected emoji
+// appears immediately; the DB write + accurate count refresh happen afterwards.
+function _setReactionButton(postId, myType) {
+    const btn = document.getElementById(`hfreact-${postId}`);
+    if (!btn) return;
+    const label = document.getElementById(`hfreactlabel-${postId}`);
+    const cur = myType ? REACTIONS[myType] : null;
+    btn.classList.toggle('reacted', !!cur);
+    btn.style.color = cur ? cur.color : '';
+    const icon = btn.querySelector('i');
+    if (icon) icon.className = cur ? cur.icon : 'far fa-thumbs-up';
+    if (label) label.textContent = cur ? cur.label : 'Like';
+}
+
 // Update the button + summary without a full feed reload
 async function updateReactionUI(postId, myType) {
-    const btn = document.getElementById(`hfreact-${postId}`);
-    const label = document.getElementById(`hfreactlabel-${postId}`);
-    if (btn) {
-        const cur = myType ? REACTIONS[myType] : null;
-        btn.classList.toggle('reacted', !!cur);
-        btn.style.color = cur ? cur.color : '';
-        const icon = btn.querySelector('i');
-        if (icon) icon.className = cur ? cur.icon : 'far fa-thumbs-up';
-        if (label) label.textContent = cur ? cur.label : 'Like';
-    }
+    _setReactionButton(postId, myType);
 
     const { data: rows } = await _supaHome.from('forum_likes')
         .select('reaction').eq('post_id', postId);

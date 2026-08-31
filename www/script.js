@@ -590,6 +590,20 @@ async function login(){
       return;
     }
 
+    // Logging in AUTOMATICALLY reactivates a DEACTIVATED account (the user was
+    // told this when they deactivated). Guarded in its own try/catch and a
+    // separate query so a database without the deactivation columns (migration
+    // not run yet) can never break sign-in.
+    try {
+      const { data: dprof, error: derr } = await window.supabaseClient
+        .from('profiles').select('deactivated').eq('id', authUser.id).maybeSingle();
+      if (!derr && dprof && dprof.deactivated) {
+        await window.supabaseClient.from('profiles')
+          .update({ deactivated: false, reactivate_at: null, deactivated_at: null })
+          .eq('id', authUser.id);
+      }
+    } catch (e) { /* deactivation columns absent — nothing to reactivate */ }
+
     // Store basic info and redirect immediately. Fetch the real profile first
     // so the avatar (and name/nickname) are correct from the very first paint —
     // otherwise the nav "Me" tab and the create-post avatar fall back to a

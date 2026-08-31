@@ -159,6 +159,12 @@
             <div id="blockedPostsList" class="blocked-list"><div class="blocked-empty">Loading…</div></div>
         </div>
 
+        <div class="settings-card">
+            <div class="settings-card-title"><i class="fas fa-user-clock" style="color:#f59e0b;"></i> Deactivate Account</div>
+            <p class="settings-card-sub">Temporarily deactivate your account — your profile is hidden until you come back. Choose to auto-reactivate after a set number of days, and logging in reactivates it automatically.</p>
+            <button class="settings-btn" id="deactivateAccountBtn" onclick="openDeactivateModal()">Deactivate My Account</button>
+        </div>
+
         <div class="settings-card settings-danger">
             <div class="settings-card-title"><i class="fas fa-triangle-exclamation" style="color:#e11d48;"></i> Delete Account</div>
             <p class="settings-card-sub">Permanently delete your realmate account and all associated data. This action cannot be undone.</p>
@@ -166,6 +172,36 @@
         </div>
 
     </div>
+</div>
+
+<div id="deactivateOverlay" class="da-overlay" hidden onclick="if(event.target===this) closeDeactivateModal()">
+  <div class="da-modal" role="dialog" aria-modal="true" aria-labelledby="deacTitle">
+    <div class="da-title" id="deacTitle"><i class="fas fa-user-clock"></i> Deactivate your account?</div>
+    <p class="da-body">While deactivated, your profile, posts and listings are hidden. You can come back anytime — <strong>logging in reactivates your account automatically.</strong></p>
+    <label class="da-label" for="deacReason">Reason for deactivating (optional)</label>
+    <select id="deacReason" class="settings-input">
+      <option value="">Select a reason…</option>
+      <option value="Taking a break">Taking a break</option>
+      <option value="Privacy concerns">Privacy concerns</option>
+      <option value="Too busy right now">Too busy right now</option>
+      <option value="Found what I needed">Found what I needed</option>
+      <option value="Not useful for me">Not useful for me</option>
+      <option value="Prefer not to say / Other">Prefer not to say / Other</option>
+    </select>
+    <label class="da-label" for="deacDays">Automatically reactivate after</label>
+    <div style="display:flex; align-items:center; gap:10px;">
+      <input type="number" id="deacDays" class="settings-input" min="1" max="3650" placeholder="e.g. 14" style="max-width:130px;">
+      <span style="color:#64748b; font-size:14px;">days</span>
+    </div>
+    <label style="display:flex; align-items:center; gap:8px; margin-top:10px; font-size:14px; color:#475569; cursor:pointer;">
+      <input type="checkbox" id="deacNoAuto" onchange="deacToggleDays()"> Don’t auto-reactivate (stay deactivated until I log in)
+    </label>
+    <div class="da-actions">
+      <button class="settings-btn da-cancel" onclick="closeDeactivateModal()">Cancel</button>
+      <button class="settings-btn" id="deacConfirmBtn" style="background:#f59e0b; border-color:#f59e0b; color:#fff;" onclick="confirmDeactivate()">Deactivate</button>
+    </div>
+    <div id="deacStatus" class="da-status" role="status"></div>
+  </div>
 </div>
 
 <div id="deleteAccountOverlay" class="da-overlay" hidden onclick="if(event.target===this) closeDeleteAccountModal()">
@@ -185,7 +221,7 @@
 <script src="vendor/supabase-js.min.js?v=2.112.3"></script>
 <script src="block-report.js?v=20260829f"></script>
 <script src="auth-guard.js?v=20260826a"></script>
-<script src="settings.js?v=20260826a"></script>
+<script src="settings.js?v=20260831g"></script>
 <script src="location-engine.js?v=20260809b"></script>
 <script src="match-engine.js?v=20260821p1"></script>
 <script src="match-alert.js?v=20260828b"></script>
