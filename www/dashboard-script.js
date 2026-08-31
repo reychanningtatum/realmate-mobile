@@ -76,8 +76,8 @@ function _realmateGateHtml(userName, kind) {
         <div class="profile-gate-card" data-gate-kind="${kind}">
             <div class="profile-gate-icon"><i class="fas fa-clock"></i></div>
             <div class="profile-gate-title">Request already sent</div>
-            <div class="profile-gate-sub">You've already sent a realmate request to this user. You'll be notified once they accept.</div>
-            <button class="btn-mate-profile mate-status-pending" disabled>
+            <div class="profile-gate-sub">You've sent a realmate request to this user. You'll be notified once they accept — or tap below to withdraw it.</div>
+            <button class="btn-mate-profile mate-status-pending mate-cancelable" onclick="handleGateCancelMate(this, '${safeName}')">
                 <i class="fas fa-clock"></i> Request Sent
             </button>
         </div>`;
@@ -175,6 +175,36 @@ async function handleGateAcceptMate(btn, userName) {
     btn.innerHTML = '<i class="fas fa-check"></i> Accept Request';
 }
 
+// Gate "Request Sent" → withdraw the pending realmate request I sent. Confirms,
+// then flips the whole profile back to "Add as realmate" in place. This is what
+// makes a sent realmate request cancelable (so a pair can never be stuck with
+// both sides showing "Request Sent" and no way out).
+async function handleGateCancelMate(btn, userName) {
+    const ok = (typeof showConfirmDialog === 'function')
+        ? await showConfirmDialog({
+            title: 'Cancel realmate request?',
+            message: `Withdraw your pending realmate request to ${userName}? It will be removed from their notifications.`,
+            confirmText: 'Withdraw',
+            cancelText: 'Keep'
+          })
+        : confirm(`Withdraw your pending realmate request to ${userName}?`);
+    if (!ok) return;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    const result = (typeof cancelMateRequest === 'function')
+        ? await cancelMateRequest(userName)
+        : { success: false, error: 'unavailable' };
+    if (result && result.success) {
+        _viewMateState = { status: 'none', dir: null };
+        _syncTopMateButton();
+        _refreshRealmateGates();
+    } else {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-clock"></i> Request Sent';
+        (window.showToast || alert)('Could not cancel request: ' + ((result && result.error) || 'Unknown error'), 'error');
+    }
+}
+
 // Keep the top-of-profile mate button in sync with _viewMateState after an in-page
 // status change (e.g. sending a request from a gate).
 function _syncTopMateButton() {
@@ -185,7 +215,7 @@ function _syncTopMateButton() {
     if (s === 'accepted') {
         el.innerHTML = `<button class="btn-mate-profile mate-status-mates" onclick="handleRemoveMate(this,'${safeName}')"><i class="fas fa-user-group"></i> realmates</button>`;
     } else if (s === 'pending' && d === 'sent') {
-        el.innerHTML = `<button class="btn-mate-profile mate-status-pending" disabled><i class="fas fa-clock"></i> Request Sent</button>`;
+        el.innerHTML = `<button class="btn-mate-profile mate-status-pending mate-cancelable" onclick="handleGateCancelMate(this, '${safeName}')"><i class="fas fa-clock"></i> Request Sent</button>`;
     } else if (s === 'pending' && d === 'incoming') {
         el.innerHTML = `<button class="btn-mate-profile mate-status-received" onclick="handleGateAcceptMate(this, '${safeName}')"><i class="fas fa-check"></i> Accept Request</button>`;
     } else {
@@ -1235,29 +1265,30 @@ async function loadProfile() {
                 let { data: mateRows } = await _supabase
                     .from('mates')
                     .select('status, requester_id, recipient_id')
-                    .or(`and(requester_id.eq.${myId},recipient_id.eq.${_viewUserId}),and(requester_id.eq.${_viewUserId},recipient_id.eq.${myId})`)
-                    .limit(1);
+                    .or(`and(requester_id.eq.${myId},recipient_id.eq.${_viewUserId}),and(requester_id.eq.${_viewUserId},recipient_id.eq.${myId})`);
                 if (!mateRows?.length && user.name) {
                     const res = await _supabase
                         .from('mates')
                         .select('status, requester_id, recipient_id, requester_name, recipient_name')
-                        .or(`and(requester_name.eq.${myName},recipient_name.eq.${user.name}),and(requester_name.eq.${user.name},recipient_name.eq.${myName})`)
-                        .limit(1);
+                        .or(`and(requester_name.eq.${myName},recipient_name.eq.${user.name}),and(requester_name.eq.${user.name},recipient_name.eq.${myName})`);
                     mateRows = res.data;
                 }
-                const mateRow = mateRows?.[0];
-                viewerIsRealmate = mateRow?.status === 'accepted';
-                // Resolve the shared request state so the gated bottom sections
-                // (Posts wall, Recent Listings) match the top button exactly.
-                if (mateRow?.status === 'accepted') {
-                    _viewMateState = { status: 'accepted', dir: null };
-                } else if (mateRow?.status === 'pending' && mateRow.requester_id === myId) {
-                    _viewMateState = { status: 'pending', dir: 'sent' };
-                } else if (mateRow?.status === 'pending' && mateRow.requester_id === _viewUserId) {
-                    _viewMateState = { status: 'pending', dir: 'incoming' };
-                } else {
-                    _viewMateState = { status: 'none', dir: null };
-                }
+                // Resolve the shared request state, preferring — in order —
+                // already Realmates > an INCOMING request I can Accept > my own
+                // SENT request. Fetching ALL rows (not .limit(1)) and putting the
+                // incoming one first guarantees a mutual/received request is never
+                // a dead-end "Request Sent" with no Accept option: whoever is the
+                // recipient always gets an Accept path, so the pair can never both
+                // be stuck on "Request Sent".
+                const _mrows = mateRows || [];
+                const _mAccepted = _mrows.some(r => r.status === 'accepted');
+                const _mIncoming = _mrows.some(r => r.status === 'pending' && r.requester_id === _viewUserId);
+                const _mSent     = _mrows.some(r => r.status === 'pending' && r.requester_id === myId);
+                viewerIsRealmate = _mAccepted;
+                if (_mAccepted)      _viewMateState = { status: 'accepted', dir: null };
+                else if (_mIncoming) _viewMateState = { status: 'pending', dir: 'incoming' };
+                else if (_mSent)     _viewMateState = { status: 'pending', dir: 'sent' };
+                else                 _viewMateState = { status: 'none', dir: null };
                 // Single source of truth for the top button — same _viewMateState
                 // the gated sections read, so the whole profile stays consistent.
                 _syncTopMateButton();

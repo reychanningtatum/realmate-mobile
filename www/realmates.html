@@ -352,7 +352,9 @@ async function loadRealmates() {
           <div class="rm-card-name">${m.name}</div>
           <div class="rm-card-job">Pending response</div>
         </div>
-        <span class="rm-card-badge rm-badge-sent"><i class="fas fa-clock" style="margin-right:4px;"></i>Pending</span>
+        <div class="rm-card-actions" onclick="event.stopPropagation();">
+          <button type="button" class="rm-btn-decline" onclick="cancelSentFromPage('${m.name.replace(/'/g, "\\'")}')"><i class="fas fa-clock" style="margin-right:4px;"></i>Cancel</button>
+        </div>
       </div>
     `).join('');
   }
@@ -411,6 +413,19 @@ async function rejectFollowFromPage(followerId) {
   const result = (typeof rejectFollowRequest === 'function') ? await rejectFollowRequest(followerId) : { error: 'unavailable' };
   if (result && result.success) { loadRealmates(); }
   else { (window.showToast || alert)('Could not reject: ' + ((result && result.error) || 'Unknown error'), 'error'); }
+}
+
+async function cancelSentFromPage(name) {
+  const ok = await showConfirmDialog({
+    title: 'Cancel realmate request?',
+    message: `Withdraw your pending realmate request to ${name}? It will be removed from their notifications.`,
+    confirmText: 'Withdraw',
+    cancelText: 'Keep'
+  });
+  if (!ok) return;
+  const result = (typeof cancelMateRequest === 'function') ? await cancelMateRequest(name) : { error: 'unavailable' };
+  if (result && result.success) { loadRealmates(); }
+  else { (window.showToast || alert)('Could not cancel: ' + ((result && result.error) || 'Unknown error'), 'error'); }
 }
 
 // Live relationship sync: any follow/Realmate change (here, another tab, or

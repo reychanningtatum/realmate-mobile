@@ -835,6 +835,11 @@ html[data-theme="dark"] .profile-bio-preview { color: #94a3b8; }
 .btn-mate-profile.mate-status-mates { background: #f0fdf4; border-color: #22c55e; color: #15803d; cursor: pointer; }
 .btn-mate-profile.mate-status-mates:hover { background: #fee2e2; border-color: #ef4444; color: #ef4444; }
 .btn-mate-profile.mate-status-pending { border-color: #94a3b8; color: #94a3b8; cursor: default; background: #f8fafc; }
+/* A SENT realmate request is withdrawable — make it clearly interactive and
+   hint the cancel (red) on hover, instead of looking like a dead disabled pill. */
+.btn-mate-profile.mate-status-pending.mate-cancelable { cursor: pointer; }
+.btn-mate-profile.mate-status-pending.mate-cancelable:hover { background: #fee2e2; border-color: #ef4444; color: #ef4444; }
+html[data-theme="dark"] .btn-mate-profile.mate-status-pending.mate-cancelable:hover { background: rgba(239,68,68,0.12); border-color: #ef4444; color: #fca5a5; }
 .btn-mate-profile.mate-status-received { background: #eff6ff; border-color: #3b82f6; color: #3b82f6; }
 .btn-mate-profile.mate-status-received:hover:not(:disabled) { background: #3b82f6; color: white; }
 html[data-theme="dark"] .btn-mate-profile { background: #1e293b; border-color: #22c55e; color: #86efac; }
