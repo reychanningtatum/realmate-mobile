@@ -981,9 +981,13 @@ async function loadHomeFeed(feedEl, filterArg, silent) {
 
         feed.innerHTML = '';
         _homePosts.forEach(post => {
+            // Keep the reaction state ON the post object so applyReaction() can
+            // adjust it locally and repaint the summary optimistically (no query).
+            post.reactCounts  = reactMap[post.id] || {};
+            post.userReaction = userReactMap[post.id] || null;
             const card = buildHomePostCard(post, {
-                reactCounts:  reactMap[post.id] || {},
-                userReaction: userReactMap[post.id] || null,
+                reactCounts:  post.reactCounts,
+                userReaction: post.userReaction,
                 commentCount: commentMap[post.id] || 0,
                 shareCount:   shareMap[post.id] || 0,
                 pollData:     pollVoteMap[post.id] || null
@@ -1611,6 +1615,24 @@ async function applyReaction(postId, type) {
     // end reconciles the button + refreshes the accurate reaction counts.
     _setReactionButton(postId, type);
 
+    // Optimistic SUMMARY: adjust the post's in-memory reaction counts locally
+    // (drop my previous reaction, add the new one) and repaint the chips+total
+    // immediately — so the reaction badge on the post updates the instant I
+    // release, instead of waiting on the DB round-trips below. updateReactionUI()
+    // reconciles against the true counts afterwards (no visible jump).
+    {
+        const _p = _homePosts.find(p => p.id == postId);
+        if (_p) {
+            const counts = Object.assign({}, _p.reactCounts || {});
+            const prev = _p.userReaction || null;
+            if (prev && counts[prev]) { counts[prev]--; if (counts[prev] <= 0) delete counts[prev]; }
+            if (type) counts[type] = (counts[type] || 0) + 1;
+            _p.reactCounts = counts;
+            _p.userReaction = type || null;
+            _renderReactionSummary(postId, counts);
+        }
+    }
+
     // One reaction per user: clear the old one first
     await _supaHome.from('forum_likes').delete().eq('post_id', postId).eq('user_name', user.name);
 
@@ -1661,7 +1683,18 @@ function _setReactionButton(postId, myType) {
     if (label) label.textContent = cur ? cur.label : 'Like';
 }
 
-// Update the button + summary without a full feed reload
+// Repaint just the reaction summary (chips + total) for a post from a counts
+// map — no DB. Shared by the optimistic path and the reconcile below.
+function _renderReactionSummary(postId, reactCounts) {
+    const stats = document.getElementById(`hfstats-${postId}`);
+    if (!stats) return;
+    const existing = stats.querySelector('.hf-react-summary');
+    const html = reactionSummaryHtml(reactCounts || {}, postId);
+    if (existing) existing.remove();
+    if (html) stats.insertAdjacentHTML('afterbegin', html);
+}
+
+// Reconcile the button + summary against the TRUE counts after a reaction write.
 async function updateReactionUI(postId, myType) {
     _setReactionButton(postId, myType);
 
@@ -1673,13 +1706,11 @@ async function updateReactionUI(postId, myType) {
         counts[rt] = (counts[rt] || 0) + 1;
     });
 
-    const stats = document.getElementById(`hfstats-${postId}`);
-    if (stats) {
-        const existing = stats.querySelector('.hf-react-summary');
-        const html = reactionSummaryHtml(counts, postId);
-        if (existing) existing.remove();
-        if (html) stats.insertAdjacentHTML('afterbegin', html);
-    }
+    // Keep the in-memory post state authoritative for the next optimistic tap.
+    const _p = _homePosts.find(p => p.id == postId);
+    if (_p) { _p.reactCounts = counts; _p.userReaction = myType || null; }
+
+    _renderReactionSummary(postId, counts);
 }
 
 // ══════════════════════════════════════════════════
