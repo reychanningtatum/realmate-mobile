@@ -248,10 +248,21 @@ async function acceptFollowRequest(followerId) {
         const me = _followLocalUser();
         const { data: auth } = await _followsDb.auth.getUser();
         const myId = auth?.user?.id; if (!myId) return { error: 'Not authenticated' };
-        const { error } = await _followsDb.from('follows')
+        // Only a genuine PENDING row counts as an accept. .select() lets us see
+        // whether a row actually flipped — a no-op update (no such request, or
+        // already accepted elsewhere) returns zero rows and must NOT fire a fresh
+        // notification or the confirmation sound. Mirrors acceptMateRequest().
+        const { data: updRows, error } = await _followsDb.from('follows')
             .update({ status: 'accepted' })
-            .eq('follower_id', followerId).eq('following_id', myId);
+            .eq('follower_id', followerId).eq('following_id', myId)
+            .eq('status', 'pending')
+            .select();
         if (error) throw error;
+        if (!updRows || updRows.length === 0) {
+            // Nothing pending to accept — sync UI but stay silent.
+            _rmBroadcastRel(followerId);
+            return { success: true, alreadyAccepted: true };
+        }
         // Let the follower know they were accepted — they can now see my posts + About.
         await _followsInsertNotification({
             type:                   'follow_accepted',
@@ -265,7 +276,7 @@ async function acceptFollowRequest(followerId) {
             created_at:             new Date().toISOString()
         });
         _rmBroadcastRel(followerId);
-        // Subtle confirmation — only reached after the accept genuinely succeeds.
+        // Subtle confirmation — only on a genuine pending -> accepted flip.
         if (window.RMSound) RMSound.play('confirm');
         return { success: true };
     } catch (e) { return { error: e.message }; }
