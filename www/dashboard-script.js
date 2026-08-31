@@ -973,13 +973,19 @@ function updateUI() {
         }
     }
     // Division / Group render as green pill badges — hide a pill when its value is empty.
-    document.getElementById("divisionDisplay").innerText = user.division || '';
-    document.getElementById("groupDisplay").innerText = user.group || '';
+    // NULL-GUARD these: on another user's GATED profile the About card's innerHTML
+    // is replaced by the realmate gate, so bioDisplay (and friends) no longer
+    // exist. When loadProfile re-runs (a live relationship change), updateUI would
+    // then throw on `null.innerText` and ABORT loadProfile before it re-rendered
+    // the Realmate button — which is exactly why realmate state wasn't updating in
+    // real time (follow buttons re-render independently, so they were unaffected).
+    var _divD = document.getElementById("divisionDisplay"); if (_divD) _divD.innerText = user.division || '';
+    var _grpD = document.getElementById("groupDisplay");    if (_grpD) _grpD.innerText = user.group || '';
     const _divPill = document.getElementById('divisionPill');
     const _grpPill = document.getElementById('groupPill');
     if (_divPill) _divPill.style.display = user.division ? 'inline-flex' : 'none';
     if (_grpPill) _grpPill.style.display = user.group ? 'inline-flex' : 'none';
-    document.getElementById("bioDisplay").innerText = user.bio;
+    var _bioD = document.getElementById("bioDisplay"); if (_bioD) _bioD.innerText = user.bio;
     const _hasBio = !!(user.bio && user.bio.trim());
     const _aboutEmpty = document.getElementById('aboutEmptyState');
     if (_aboutEmpty) _aboutEmpty.style.display = _hasBio ? 'none' : 'block';
