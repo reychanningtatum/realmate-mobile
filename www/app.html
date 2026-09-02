@@ -76,7 +76,10 @@
         ref: (document.referrer || '').replace(/^https?:\/\/[^/]+\//, '').slice(0, 44),
         url: (location.pathname + location.search).replace(/^.*\//, '').slice(0, 44),
         rem: (function(){ try { return localStorage.getItem('rm_remember'); } catch (e) { return '?'; } })(),
-        ses: (function(){ try { return sessionStorage.getItem('rm_session') ? '1' : '0'; } catch (e) { return '?'; } })() };
+        ses: (function(){ try { return sessionStorage.getItem('rm_session') ? '1' : '0'; } catch (e) { return '?'; } })(),
+        vis: document.visibilityState,
+        cv: (function(){ try { return (window.CSS && CSS.supports && CSS.supports('content-visibility', 'auto')) ? 'Y' : 'N'; } catch (e) { return '?'; } })(),
+        ios: (function(){ var m = navigator.userAgent.match(/OS (\d+)[._]/); return m ? m[1] : '?'; })() };
       log.push(entry); if (log.length > 40) log = log.slice(-40);
       try { localStorage.setItem(KEY, JSON.stringify(log)); } catch (e) {}
       var rapid = log.filter(function (x, i) { return i > 0 && x.gap != null && x.gap < 20; }).length;
@@ -92,7 +95,9 @@
         if (!p) { p = document.createElement('div'); p.id = 'rmDiagPanel';
           p.style.cssText = 'position:fixed;left:8px;right:8px;top:8px;z-index:2147483647;background:rgba(15,23,42,.97);color:#e2e8f0;font:11px/1.55 ui-monospace,monospace;padding:12px 14px;border-radius:12px;max-height:64vh;overflow:auto;box-shadow:0 8px 34px rgba(0,0,0,.45);';
           document.body.appendChild(p); }
-        p.innerHTML = '<b>Reload log &mdash; ' + log.length + ' app loads (' + rapid + ' within 20s ⚠)</b><br><br>' +
+        var last = log[log.length - 1] || {};
+        p.innerHTML = '<b>Reload log &mdash; ' + log.length + ' app loads (' + rapid + ' within 20s ⚠)</b>' +
+          '<br>device: iOS ' + (last.ios || '?') + '   content-visibility=' + (last.cv || '?') + '   vis=' + (last.vis || '?') + '<br><br>' +
           log.slice(-18).map(fmt).join('<br>') +
           '<br><br><span id="rmDiagClear" style="background:#ef4444;color:#fff;padding:5px 12px;border-radius:7px;">Clear</span>&nbsp;&nbsp;' +
           '<span id="rmDiagClose" style="background:#334155;color:#fff;padding:5px 12px;border-radius:7px;">Hide</span>';
