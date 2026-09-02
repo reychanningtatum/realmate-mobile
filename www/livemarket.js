@@ -205,13 +205,13 @@ function photoInnerHtml(imgs, largeCount) {
     largeCount = Math.max(1, Math.min(largeCount, imgs.length));
     const large = imgs.slice(0, largeCount).map((u, i) =>
         `<div class="lc-featured" data-idx="${i}">
-            <img class="lc-featured-img" src="${u}" onerror="lcFeatErr(this)">
+            <img loading="lazy" decoding="async" class="lc-featured-img" src="${u}" onerror="lcFeatErr(this)">
         </div>`).join('');
     const rest = imgs.slice(largeCount);
     const thumbs = rest.length
         ? `<div class="lc-thumbs">${rest.map((u, j) => {
             const idx = largeCount + j;
-            return `<button class="lc-thumb" data-idx="${idx}" aria-label="Show photo ${idx + 1}"><img src="${u}" onerror="lcThumbErr(this)"></button>`;
+            return `<button class="lc-thumb" data-idx="${idx}" aria-label="Show photo ${idx + 1}"><img loading="lazy" decoding="async" src="${u}" onerror="lcThumbErr(this)"></button>`;
           }).join('')}</div>`
         : '';
     return `<div class="lc-featured-stack" data-active="0">${large}</div>${thumbs}`;
@@ -1177,7 +1177,7 @@ function _offerCardHtml(o, p) {
     const uid = o.user_id || '';
     return `
             <div class="offers-rx-card" data-offer-uid="${uid}">
-                <img class="offers-rx-avatar" src="${img}" onerror="this.src='${avatarFallback(name)}'">
+                <img loading="lazy" decoding="async" class="offers-rx-avatar" src="${img}" onerror="this.src='${avatarFallback(name)}'">
                 <div class="offers-rx-info">
                     <div class="offers-rx-name">${escapeHtmlSafe(name)}</div>
                     ${pos ? `<div class="offers-rx-pos">${escapeHtmlSafe(pos)}</div>` : ''}
@@ -1896,7 +1896,7 @@ function buildListingCard(listing, matchLabel = null, fmvResult = null, matchCou
     const profileHeader = `
         <div class="lc-profile">
             <div class="lc-profile-av${userClick ? ' lc-profile-av-click' : ''}" ${userClick}>
-                <img class="lc-profile-avatar" src="${listing.user_img || avatarFallback(listing.user_name)}"
+                <img loading="lazy" decoding="async" class="lc-profile-avatar" src="${listing.user_img || avatarFallback(listing.user_name)}"
                      onerror="this.src='${avatarFallback(listing.user_name)}'">
                 ${verifiedBadge}
             </div>
@@ -2393,7 +2393,7 @@ function renderPortalSuggest(q) {
         people.forEach((p, i) => {
             const img = p.img || `https://ui-avatars.com/api/?name=${encodeURIComponent(p.name || '?')}&background=0f172a&color=32cd32`;
             html += `<div class="ps-item" onclick="portalSuggestPerson(${i})">
-                <img class="ps-avatar" src="${img}" onerror="this.src='https://ui-avatars.com/api/?name=?&background=0f172a&color=32cd32'">
+                <img loading="lazy" decoding="async" class="ps-avatar" src="${img}" onerror="this.src='https://ui-avatars.com/api/?name=?&background=0f172a&color=32cd32'">
                 <div class="ps-info"><div class="ps-name">${escapeHtmlSafe(p.name || 'Member')}</div>${p.job ? `<div class="ps-sub">${escapeHtmlSafe(p.job)}</div>` : ''}</div>
                 <span class="ps-tag">People</span>
             </div>`;
@@ -3712,7 +3712,7 @@ async function onVisUserSearch(term) {
         box.innerHTML = matches.map(u => {
             const img = u.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.full_name)}&background=random&color=fff`;
             return `<div class="lm-vis-result" onclick="addVisUser('${u.id}')">
-                <img src="${img}" onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(u.full_name)}&background=94a3b8&color=fff'">
+                <img loading="lazy" decoding="async" src="${img}" onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(u.full_name)}&background=94a3b8&color=fff'">
                 <span>
                     <span class="lm-vis-result-name">${escapeVis(u.full_name)}</span>
                 </span>
@@ -3943,7 +3943,7 @@ function previewLMImages(input) {
         // cover. The selected thumb shows a persistent "Cover" ribbon.
         thumb.onclick = ev => { if (ev.target.closest('.lm-thumb-remove')) return; setLMCover(i); };
         thumb.innerHTML = `
-            <img alt="">
+            <img loading="lazy" decoding="async" alt="">
             <span class="lm-thumb-cover-badge"><i class="fas fa-star"></i> Cover</span>
             <button class="lm-thumb-remove" onclick="removeLMImage(${i})" aria-label="Remove photo"><i class="fas fa-times"></i></button>
         `;

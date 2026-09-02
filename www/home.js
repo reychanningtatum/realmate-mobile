@@ -263,7 +263,7 @@ async function loadStories() {
                 <div class="story-ring"></div>
             </div>
             <div class="story-avatar-wrap">
-                <img src="${img}" onerror="this.src='${avatarUrl(name)}'">
+                <img loading="lazy" decoding="async" src="${img}" onerror="this.src='${avatarUrl(name)}'">
             </div>
             <span class="story-name">${safeText(name.split(' ')[0])}</span>
         `;
@@ -360,7 +360,7 @@ function renderStoryViewer() {
 
     document.getElementById('storyViewerImg').src = img;
     document.getElementById('storyViewerUser').innerHTML = `
-        <img src="${avatarSrc}">
+        <img loading="lazy" decoding="async" src="${avatarSrc}">
         <div>
             <strong>${safeText(name)}</strong>
             <small>${timeAgo((_allStories[idx] || {}).created_at)}</small>
@@ -670,7 +670,7 @@ function onHomePostInput(ta) {
         if (!box || !cands.length) { hideHomePostMention(); return; }
         box.innerHTML = cands.map(c =>
             `<div class="hf-mention-item" onclick="pickHomePostTag('${c.name.replace(/'/g, "\\'")}')">
-                <img src="${c.img}"><span>${safeText(c.name)}</span></div>`).join('');
+                <img loading="lazy" decoding="async" src="${c.img}"><span>${safeText(c.name)}</span></div>`).join('');
         box.style.display = 'block';
     }, 200);
 }
@@ -708,7 +708,7 @@ function previewHomeMedia(input) {
         } else {
             const reader = new FileReader();
             reader.onload = e => {
-                el.innerHTML = `<img src="${e.target.result}" style="width:100%;height:100%;object-fit:cover;border-radius:8px;">
+                el.innerHTML = `<img loading="lazy" decoding="async" src="${e.target.result}" style="width:100%;height:100%;object-fit:cover;border-radius:8px;">
                     <button class="home-thumb-remove" onclick="removeHomeMedia(${i})"><i class="fas fa-times"></i></button>`;
             };
             reader.readAsDataURL(file);
@@ -1061,7 +1061,7 @@ function buildHomePostCard(post, stats) {
     card.id = `hfpost-${post.id}`;
     card.innerHTML = `
         <div class="hf-post-header">
-            <img class="hf-post-avatar" src="${img}" onerror="this.src='${avatarUrl(name)}'"${!isAnon && post.user_id ? ` style="cursor:pointer;" onclick="rmGoProfile('${post.user_id}')"` : ''}>
+            <img loading="lazy" decoding="async" class="hf-post-avatar" src="${img}" onerror="this.src='${avatarUrl(name)}'"${!isAnon && post.user_id ? ` style="cursor:pointer;" onclick="rmGoProfile('${post.user_id}')"` : ''}>
             <div class="hf-post-meta">
                 <div class="hf-post-name"${!isAnon && post.user_id ? ` style="cursor:pointer;" onclick="rmGoProfile('${post.user_id}')"` : ''}>${safeText(name)}${post.shared_post_id ? ' <span class="hf-shared-tag"><i class="fas fa-share"></i> shared a post</span>' : ''}</div>
                 <div class="hf-post-time">${timeAgo(post.created_at)} ${privacyBadge(post.privacy)}</div>
@@ -1157,7 +1157,7 @@ function buildSharedEmbed(orig) {
         ? ` style="cursor:pointer;" onclick="event.stopPropagation();rmGoProfile('${orig.user_id}')"` : '';
     return `<div class="hf-shared-embed" onclick="scrollToPost('${orig.id}')">
         <div class="hf-shared-head">
-            <img src="${img}" onerror="this.src='${avatarUrl(name)}'"${profileClick}>
+            <img loading="lazy" decoding="async" src="${img}" onerror="this.src='${avatarUrl(name)}'"${profileClick}>
             <div>
                 <div class="hf-shared-name"${profileClick}>${safeText(name)}</div>
                 <div class="hf-shared-time">${timeAgo(orig.created_at)}</div>
@@ -1183,7 +1183,7 @@ function buildPostMedia(post) {
 
     if (imgs.length === 1) {
         return `<div class="hf-post-media">
-            <img src="${imgs[0]}" style="width:100%;border-radius:12px;max-height:500px;object-fit:cover;cursor:pointer;"
+            <img loading="lazy" decoding="async" src="${imgs[0]}" style="width:100%;border-radius:12px;max-height:500px;object-fit:cover;cursor:pointer;"
                 onclick="openHomeImgLightbox('${imgs[0]}')">
         </div>`;
     }
@@ -1192,7 +1192,7 @@ function buildPostMedia(post) {
     const shown = imgs.slice(0, 4);
     return `<div class="hf-post-media hf-img-grid ${gridCls}">
         ${shown.map((u, i) => `<div class="hf-img-cell" onclick="openHomeImgLightbox('${u}')">
-            <img src="${u}">
+            <img loading="lazy" decoding="async" src="${u}">
             ${i === 3 && imgs.length > 4 ? `<span class="hf-img-more">+${imgs.length - 4}</span>` : ''}
         </div>`).join('')}
     </div>`;
@@ -1749,7 +1749,7 @@ function fpPersonRow(name, img, meta, reactionType) {
     const r = reactionType ? REACTIONS[reactionType] : null;
     const badge = r ? `<span class="fp-react" style="background:${r.color}" title="${r.label}"><i class="${r.icon}"></i></span>` : '';
     return `<div class="fp-row">
-        <div class="fp-avatar-wrap"><img src="${img}" onerror="this.src='${avatarUrl(name)}'">${badge}</div>
+        <div class="fp-avatar-wrap"><img loading="lazy" decoding="async" src="${img}" onerror="this.src='${avatarUrl(name)}'">${badge}</div>
         <div class="fp-info"><div class="fp-name">${safeText(name)}</div>${meta ? `<div class="fp-meta">${safeText(meta)}</div>` : ''}</div>
     </div>`;
 }
@@ -1891,13 +1891,13 @@ function renderFeedComment(c, postId, isReply, postAuthor) {
     const mentionArg = isReply ? `,'${(c.user_name || '').replace(/'/g, "\\'")}'` : '';
     return `
     <div class="hf-comment${isReply ? ' hf-comment-reply' : ''}" id="hf-comment-${c.id}">
-        <img class="hf-c-avatar" src="${img}" onerror="this.src='${avatarUrl(c.user_name)}'">
+        <img loading="lazy" decoding="async" class="hf-c-avatar" src="${img}" onerror="this.src='${avatarUrl(c.user_name)}'">
         <div class="hf-c-main">
             <div class="hf-c-bubble">
                 <div class="hf-c-name">${safeText(c.user_name || 'Member')}${isAuthor ? '<span class="hf-c-badge"><i class="fas fa-circle-check"></i> Author</span>' : ''}</div>
                 ${c.content ? `<div class="hf-c-text">${linkifyContent(c.content)}</div>` : ''}
             </div>
-            ${c.media_url ? `<img class="hf-c-photo" src="${c.media_url}" onclick="openHomeImgLightbox('${c.media_url}')">` : ''}
+            ${c.media_url ? `<img loading="lazy" decoding="async" class="hf-c-photo" src="${c.media_url}" onclick="openHomeImgLightbox('${c.media_url}')">` : ''}
             <div class="hf-c-actions">
                 <span class="hf-c-time">${timeAgo(c.created_at)}</span>
                 <span class="hf-c-reply" onclick="showFeedReplyInput('${postId}','${replyTarget}'${mentionArg})">Reply</span>
@@ -2030,7 +2030,7 @@ function stageCommentPhoto(postId, input) {
     const prev = document.getElementById(`hfcphotoprev-${postId}`);
     if (prev) {
         const url = URL.createObjectURL(file);
-        prev.innerHTML = `<div class="hf-cphoto-thumb"><img src="${url}"><button onclick="clearCommentPhoto('${postId}')"><i class="fas fa-times"></i></button></div>`;
+        prev.innerHTML = `<div class="hf-cphoto-thumb"><img loading="lazy" decoding="async" src="${url}"><button onclick="clearCommentPhoto('${postId}')"><i class="fas fa-times"></i></button></div>`;
     }
 }
 function clearCommentPhoto(postId) {
@@ -2111,7 +2111,7 @@ async function submitHomeComment(postId) {
 function openHomeImgLightbox(src) {
     const lb = document.createElement('div');
     lb.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:99999;display:flex;align-items:center;justify-content:center;cursor:zoom-out;';
-    lb.innerHTML = `<img src="${src}" style="max-width:92vw;max-height:90vh;object-fit:contain;border-radius:10px;">`;
+    lb.innerHTML = `<img loading="lazy" decoding="async" src="${src}" style="max-width:92vw;max-height:90vh;object-fit:contain;border-radius:10px;">`;
     lb.addEventListener('click', () => lb.remove());
     document.body.appendChild(lb);
 }
@@ -2175,7 +2175,7 @@ function sharePost(postId) {
     document.getElementById('shareComment').value = '';
     document.getElementById('shareOriginalPreview').innerHTML = `
         <div class="hf-shared-head">
-            <img src="${target.user_img || avatarUrl(name)}" onerror="this.src='${avatarUrl(name)}'">
+            <img loading="lazy" decoding="async" src="${target.user_img || avatarUrl(name)}" onerror="this.src='${avatarUrl(name)}'">
             <div><div class="hf-shared-name">${safeText(name)}</div><div class="hf-shared-time">${timeAgo(target.created_at)}</div></div>
         </div>
         ${target.content ? `<div class="hf-shared-text">${linkifyContent(target.content)}</div>` : ''}`;
@@ -2322,7 +2322,7 @@ function onCommentInput(postId, input) {
         const box = document.getElementById(`hfmention-${postId}`);
         if (!box || !cands.length) { hideMentionBox(postId); return; }
         box.innerHTML = cands.map(c => `<div class="hf-mention-item" onclick="pickMention('${postId}','${c.name.replace(/'/g,"\\'")}')">
-            <img src="${c.img}"><span>${safeText(c.name)}</span></div>`).join('');
+            <img loading="lazy" decoding="async" src="${c.img}"><span>${safeText(c.name)}</span></div>`).join('');
         box.style.display = 'block';
     }, 200);
 }
@@ -2351,7 +2351,7 @@ function onReplyInput(parentId, input) {
         const box = document.getElementById(`hf-rmention-${parentId}`);
         if (!box || !cands.length) { hideReplyMentionBox(parentId); return; }
         box.innerHTML = cands.map(c => `<div class="hf-mention-item" onclick="pickReplyMention('${parentId}','${c.name.replace(/'/g,"\\'")}')">
-            <img src="${c.img}"><span>${safeText(c.name)}</span></div>`).join('');
+            <img loading="lazy" decoding="async" src="${c.img}"><span>${safeText(c.name)}</span></div>`).join('');
         box.style.display = 'block';
     }, 200);
 }
@@ -2465,7 +2465,7 @@ async function loadSuggestedRealmates() {
 
     list.innerHTML = suggestions.map((p, i) => `
         <div class="suggested-row">
-            <img src="${p.avatar_url || avatarUrl(p.full_name)}" onerror="this.src='${avatarUrl(p.full_name)}'"
+            <img loading="lazy" decoding="async" src="${p.avatar_url || avatarUrl(p.full_name)}" onerror="this.src='${avatarUrl(p.full_name)}'"
                  onclick="rmGoProfile('${p.id}')">
             <div class="suggested-info" onclick="rmGoProfile('${p.id}')">
                 <div class="suggested-name">${safeText(p.full_name || 'realmate Member')}</div>
@@ -2548,7 +2548,7 @@ function renderActiveMembers(members, list, showOnline) {
         return `
             <div class="active-member-row" onclick="rmGoProfile('${m.id}')">
                 <div class="active-member-avatar-wrap">
-                    <img src="${avatar}" onerror="this.src='${avatarUrl(name)}'">
+                    <img loading="lazy" decoding="async" src="${avatar}" onerror="this.src='${avatarUrl(name)}'">
                     ${showOnline ? '<div class="online-dot"></div>' : ''}
                 </div>
                 <div class="active-member-info">
@@ -2596,7 +2596,7 @@ async function loadBirthdays() {
             const avatar = p.avatar_url || avatarUrl(name);
             return `
                 <div class="birthday-row">
-                    <img src="${avatar}" onerror="this.src='${avatarUrl(name)}'">
+                    <img loading="lazy" decoding="async" src="${avatar}" onerror="this.src='${avatarUrl(name)}'">
                     <div class="birthday-info">
                         <div class="birthday-name">${safeText(name)}</div>
                         <div class="birthday-label">🎂 Birthday today!</div>
@@ -2689,7 +2689,7 @@ async function runHomeSearch(q) {
             // name-based block is caught too. href stays as a no-JS fallback.
             const nameArg = String(p.full_name || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
             html += `<a href="dashboard.html?user_id=${p.id}" class="hs-people-row" onclick="event.preventDefault(); clearHomeSearch(); rmGoProfile('${p.id}','${nameArg}')">
-                <img src="${avatar}" class="hs-avatar" onerror="this.src='${avatarUrl('?')}'">
+                <img loading="lazy" decoding="async" src="${avatar}" class="hs-avatar" onerror="this.src='${avatarUrl('?')}'">
                 <div><div class="hs-name">${name}</div>${job ? `<div class="hs-job">${job}</div>` : ''}</div>
             </a>`;
         });
