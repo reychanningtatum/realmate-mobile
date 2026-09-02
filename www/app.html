@@ -72,14 +72,20 @@
       var navE = (performance.getEntriesByType && performance.getEntriesByType('navigation')[0]) || {};
       var now = Date.now();
       var prev = log.length ? log[log.length - 1].t : null;
-      var entry = { t: now, nav: navE.type || '?', gap: prev != null ? Math.round((now - prev) / 1000) : null, vis: document.visibilityState };
+      var entry = { t: now, nav: navE.type || '?', gap: prev != null ? Math.round((now - prev) / 1000) : null,
+        ref: (document.referrer || '').replace(/^https?:\/\/[^/]+\//, '').slice(0, 44),
+        url: (location.pathname + location.search).replace(/^.*\//, '').slice(0, 44),
+        rem: (function(){ try { return localStorage.getItem('rm_remember'); } catch (e) { return '?'; } })(),
+        ses: (function(){ try { return sessionStorage.getItem('rm_session') ? '1' : '0'; } catch (e) { return '?'; } })() };
       log.push(entry); if (log.length > 40) log = log.slice(-40);
       try { localStorage.setItem(KEY, JSON.stringify(log)); } catch (e) {}
       var rapid = log.filter(function (x, i) { return i > 0 && x.gap != null && x.gap < 20; }).length;
       function fmt(x) {
         var d = new Date(x.t), p = function (n) { return ('0' + n).slice(-2); };
-        return p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds()) +
-               '  nav=' + x.nav + (x.gap != null ? ('  +' + x.gap + 's' + (x.gap < 20 ? ' ⚠' : '')) : '  (first)');
+        var head = p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+        if (x.mark) return head + '  \u27f9 ' + x.mark;
+        return head + '  ' + x.nav + (x.gap != null ? ('  +' + x.gap + 's' + (x.gap < 20 ? ' ⚠' : '')) : '  (first)') +
+               '<br>&nbsp;&nbsp;&nbsp;url=' + (x.url || '?') + '  ref=' + (x.ref || '\u2205') + '  rem=' + (x.rem || '?') + '  ses=' + (x.ses || '?');
       }
       function show() {
         var p = document.getElementById('rmDiagPanel');
@@ -131,7 +137,7 @@
   <script src="vendor/supabase-js.min.js?v=2.112.3"></script>
   <script src="theme.js?v=20260812a"></script>
   <script src="toast.js?v=20260819a"></script>
-  <script src="auth-guard.js?v=20260826a"></script>
+  <script src="auth-guard.js?v=20260903b"></script>
   <script src="notif-badge.js?v=12"></script>
   <script src="app-shell.js?v=20260901a"></script>
   <script src="nav-menu.js?v=20260826a"></script>
