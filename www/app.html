@@ -57,6 +57,56 @@
 </head>
 <body>
 
+  <!-- TEMP DIAGNOSTIC (remove once the Portal whole-app-reload bug is solved):
+       logs every app.html load to localStorage (survives the reloads) so we can
+       SEE whether/when/how often the Capacitor web view is reloading. iOS exposes
+       no memory API, so we capture what we can: navigation type + seconds since
+       the previous app load. A reload within 20s = the jettison-reload signature.
+       The on-screen panel only appears once that signature is detected, so normal
+       users never see it. Tap the ⟳ badge to view/screenshot the log. -->
+  <script>
+  (function () {
+    try {
+      var KEY = 'rm_reload_log';
+      var log = []; try { log = JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (e) {}
+      var navE = (performance.getEntriesByType && performance.getEntriesByType('navigation')[0]) || {};
+      var now = Date.now();
+      var prev = log.length ? log[log.length - 1].t : null;
+      var entry = { t: now, nav: navE.type || '?', gap: prev != null ? Math.round((now - prev) / 1000) : null, vis: document.visibilityState };
+      log.push(entry); if (log.length > 40) log = log.slice(-40);
+      try { localStorage.setItem(KEY, JSON.stringify(log)); } catch (e) {}
+      var rapid = log.filter(function (x, i) { return i > 0 && x.gap != null && x.gap < 20; }).length;
+      function fmt(x) {
+        var d = new Date(x.t), p = function (n) { return ('0' + n).slice(-2); };
+        return p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds()) +
+               '  nav=' + x.nav + (x.gap != null ? ('  +' + x.gap + 's' + (x.gap < 20 ? ' ⚠' : '')) : '  (first)');
+      }
+      function show() {
+        var p = document.getElementById('rmDiagPanel');
+        if (!p) { p = document.createElement('div'); p.id = 'rmDiagPanel';
+          p.style.cssText = 'position:fixed;left:8px;right:8px;top:8px;z-index:2147483647;background:rgba(15,23,42,.97);color:#e2e8f0;font:11px/1.55 ui-monospace,monospace;padding:12px 14px;border-radius:12px;max-height:64vh;overflow:auto;box-shadow:0 8px 34px rgba(0,0,0,.45);';
+          document.body.appendChild(p); }
+        p.innerHTML = '<b>Reload log &mdash; ' + log.length + ' app loads (' + rapid + ' within 20s ⚠)</b><br><br>' +
+          log.slice(-18).map(fmt).join('<br>') +
+          '<br><br><span id="rmDiagClear" style="background:#ef4444;color:#fff;padding:5px 12px;border-radius:7px;">Clear</span>&nbsp;&nbsp;' +
+          '<span id="rmDiagClose" style="background:#334155;color:#fff;padding:5px 12px;border-radius:7px;">Hide</span>';
+        document.getElementById('rmDiagClear').onclick = function () { try { localStorage.removeItem(KEY); } catch (e) {} p.remove(); var b = document.getElementById('rmDiagBadge'); if (b) b.remove(); };
+        document.getElementById('rmDiagClose').onclick = function () { p.remove(); };
+      }
+      function badge() {
+        var b = document.getElementById('rmDiagBadge');
+        if (!b) { b = document.createElement('div'); b.id = 'rmDiagBadge';
+          b.style.cssText = 'position:fixed;right:6px;top:6px;z-index:2147483647;background:#ef4444;color:#fff;font:bold 11px/1 ui-monospace,monospace;padding:6px 9px;border-radius:13px;box-shadow:0 2px 10px rgba(0,0,0,.35);';
+          b.onclick = show; document.body.appendChild(b); }
+        b.textContent = '↻' + log.length;
+      }
+      // Surface the badge only once the reload signature appears (>=1 reload within
+      // 20s), so a normal launch/relaunch never shows it. Log records silently.
+      document.addEventListener('DOMContentLoaded', function () { if (rapid >= 1) badge(); });
+    } catch (e) {}
+  })();
+  </script>
+
   <div id="rmHost"><div id="rmLoading"><i class="fas fa-spinner fa-spin"></i></div></div>
 
   <!-- One nav bar for the whole app — rendered once, never reloaded. Same
