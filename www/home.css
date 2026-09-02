@@ -415,6 +415,11 @@ h1,h2,h3 { font-family: 'Inter', sans-serif; }
   border: 1px solid var(--border); box-shadow: var(--card-shadow);
   padding: 18px 20px; overflow: hidden;
   margin-bottom: 18px;
+  /* Skip rendering off-screen posts + reclaim their decoded images while
+     scrolling (same memory lever as the Portal cards). contain-intrinsic-size
+     auto remembers each post's real height so scroll stays stable. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 420px;
 }
 .hf-post-card:last-child { margin-bottom: 0; }
 

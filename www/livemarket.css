@@ -770,6 +770,13 @@ html[data-theme="dark"] .sold-indicator { box-shadow: 0 4px 14px -4px rgba(239,6
   transition: transform 0.2s, box-shadow 0.2s;
   cursor: default;
   box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.02);
+  /* Cap memory during long scrolls: the browser skips rendering off-screen
+     cards and can reclaim their decoded images, then remembers each card's real
+     height (contain-intrinsic-size: auto) so scrolling stays stable. This is the
+     main lever against iOS jettisoning the whole web view while scrolling an
+     image-heavy Portal (the "Portal randomly reloads" report). */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 480px;
 }
 .listing-card:hover { transform: translateY(-3px); box-shadow: 0 8px 30px rgba(0,0,0,0.08); }
 .listing-card.is-match { border-color: #1e3a5f; }
