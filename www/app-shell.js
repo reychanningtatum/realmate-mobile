@@ -18,6 +18,9 @@
   };
 
   var frames = {};      // tab -> iframe (kept alive after first load)
+  var suspended = {};   // tab -> { url, scrollY } for a tab whose iframe we freed
+  var suspendTimers = {};
+  var SUSPEND_MS = 5000; // free a backgrounded tab's page after this idle (memory)
   var current = null;
   var prevTab = null;   // the tab we came from, for in-shell "back" (see rmBack)
   var host, loading;
@@ -68,6 +71,58 @@
     });
     current = tab;
     setActive(tab);
+  }
+
+  // ── Memory management: keep only the ACTIVE tab's page fully loaded ────────
+  // Two live tab pages (e.g. Feed + Portal) can exceed iOS's WebView memory
+  // budget, so iOS discards & reloads the VISIBLE tab mid-use — the Portal
+  // "randomly blanks and reloads while scrolling". So after the user leaves a
+  // tab we free its iframe on a short idle; returning reloads it to the same
+  // page + scroll. All same-origin, so the parent can read scroll/location
+  // directly. Everything is best-effort: on any error we simply keep the frame.
+
+  function saveFrameState(tab) {
+    var f = frames[tab]; if (!f) return null;
+    var out = { url: TABS[tab] || '', scrollY: 0 };
+    try {
+      var w = f.contentWindow;
+      if (w) {
+        out.scrollY = w.scrollY || (w.document && w.document.documentElement.scrollTop) || 0;
+        var file = w.location.pathname.replace(/^.*\//, '');
+        if (file) out.url = file + (w.location.search || '');
+      }
+    } catch (e) {}
+    return out;
+  }
+
+  function suspendTab(tab) {
+    if (tab === current) return;                 // never free the visible tab
+    var f = frames[tab]; if (!f) return;
+    var st = saveFrameState(tab);
+    if (st) suspended[tab] = st;
+    try { host.removeChild(f); } catch (e) {}
+    delete frames[tab];
+  }
+
+  function scheduleSuspend(tab) {
+    clearTimeout(suspendTimers[tab]);
+    suspendTimers[tab] = setTimeout(function () { try { suspendTab(tab); } catch (e) {} }, SUSPEND_MS);
+  }
+
+  function restoreFrameScroll(f, y) {
+    if (!(y > 0)) return;
+    var tries = 0;
+    var iv = setInterval(function () {
+      tries++;
+      try {
+        var w = f.contentWindow;
+        if (w) {
+          var maxY = w.document.documentElement.scrollHeight - w.innerHeight;
+          if (maxY >= y - 4) w.scrollTo(0, y);
+        }
+      } catch (e) {}
+      if (tries > 40) clearInterval(iv);
+    }, 50);
   }
 
   function withTransition(fn) {
@@ -133,6 +188,11 @@
     // browser history (which can walk back to the marketing page).
     if (current && current !== tab) prevTab = current;
 
+    // Entering this tab: cancel any pending suspend for it; and after we leave
+    // the current tab, free it on an idle so only the active page stays loaded.
+    clearTimeout(suspendTimers[tab]);
+    if (current && current !== tab) scheduleSuspend(current);
+
     var cached = frames[tab];
     if (cached && !forceSrc) {
       // Show the tab EXACTLY as the user left it — INCLUDING a sub-page (Portal →
@@ -160,6 +220,11 @@
     setActive(tab);
     if (loading) loading.classList.remove('rm-hide');
 
+    // If this tab was SUSPENDED to save memory, reload it exactly where the
+    // user left it (its sub-page/query + scroll), not the bare tab root.
+    var _resume = (!forceSrc && suspended[tab]) ? suspended[tab] : null;
+    if (_resume) delete suspended[tab];
+    var _srcUrl = forceSrc || (_resume && _resume.url) || TABS[tab];
     var f = document.createElement('iframe');
     f.className = 'rm-frame';
     f.setAttribute('title', tab);
@@ -183,8 +248,9 @@
     f.addEventListener('load', function () {
       if (loading) loading.classList.add('rm-hide');
       withTransition(function () { reveal(tab); });
+      if (_resume) restoreFrameScroll(f, _resume.scrollY);
     }, { once: true });
-    f.src = forceSrc || TABS[tab];
+    f.src = _srcUrl;
     host.appendChild(f);
     frames[tab] = f;
   }
