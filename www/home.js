@@ -1072,7 +1072,7 @@ function buildHomePostCard(post, stats) {
                 ${!isOwn ? `<div onclick="rmbrReportPost('${post.id}')"><i class="fas fa-flag"></i> Report post</div>` : ''}
                 ${!isOwn ? `<div onclick="rmbrHidePost('${post.id}')"><i class="fas fa-eye-slash"></i> Block post</div>` : ''}
                 ${!isOwn ? `<div class="hf-menu-danger" onclick="rmbrBlockUserFromPost('${post.id}')"><i class="fas fa-ban"></i> Block user</div>` : ''}
-                ${isOwn ? `<div onclick="pinPost('${post.id}')"><i class="fas fa-thumbtack"></i> Pin to profile</div>` : ''}
+                ${isOwn ? `<div onclick="openEditPost('${post.id}')"><i class="fas fa-pen"></i> Edit post</div>` : ''}
                 ${isOwn ? `<div class="hf-menu-danger" onclick="deleteHomePost('${post.id}')"><i class="fas fa-trash"></i> Delete</div>` : ''}
             </div>
         </div>
@@ -1460,9 +1460,91 @@ async function confirmHomeDelete() {
     // shell iframes), and the listener below removes the card there.
     try { localStorage.setItem('rm_post_deleted', JSON.stringify({ id: String(postId), t: Date.now() })); } catch (e) {}
 }
+
+// ── Edit a post (own posts only) ──────────────────────────────────────────
+// forum_posts is the single shared source of truth. On save we UPDATE the DB,
+// patch this view's card in place, and broadcast so the SAME post updates on the
+// other view (Feed <-> Profile shell iframes) with no manual refresh.
+let _editPostId = null;
+function _ensureHomeEditModal() {
+    let m = document.getElementById('homeEditModal');
+    if (m) return m;
+    m = document.createElement('div');
+    m.id = 'homeEditModal';
+    m.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100000;align-items:center;justify-content:center;padding:20px;';
+    m.innerHTML =
+        '<div style="background:#fff;border-radius:16px;width:100%;max-width:520px;box-shadow:0 12px 40px rgba(0,0,0,.2);overflow:hidden;">' +
+          '<div style="padding:16px 18px;border-bottom:1px solid #eef2f7;font-weight:800;font-size:16px;color:#0f172a;">Edit post</div>' +
+          '<div style="padding:16px 18px;">' +
+            '<textarea id="homeEditText" style="width:100%;min-height:140px;border:1.5px solid #e2e8f0;border-radius:12px;padding:12px;font:15px/1.5 inherit;color:#0f172a;resize:vertical;box-sizing:border-box;" placeholder="Edit your post"></textarea>' +
+          '</div>' +
+          '<div style="display:flex;gap:10px;padding:0 18px 18px;">' +
+            '<button onclick="closeEditPost()" style="flex:1;padding:12px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;font-size:14px;font-weight:600;cursor:pointer;">Cancel</button>' +
+            '<button id="homeEditSaveBtn" style="flex:1;padding:12px;border-radius:10px;border:none;background:#32cd32;color:#fff;font-size:14px;font-weight:700;cursor:pointer;">Save changes</button>' +
+          '</div>' +
+        '</div>';
+    m.addEventListener('click', function (e) { if (e.target === m) closeEditPost(); });
+    document.body.appendChild(m);
+    return m;
+}
+function openEditPost(postId) {
+    const menu = document.getElementById('hfmenu-' + postId); if (menu) menu.style.display = 'none';
+    const post = (typeof _homePosts !== 'undefined' ? _homePosts : []).find(p => String(p.id) === String(postId));
+    _editPostId = String(postId);
+    const m = _ensureHomeEditModal();
+    document.getElementById('homeEditText').value = (post && post.content) || '';
+    document.getElementById('homeEditSaveBtn').onclick = saveEditPost;
+    m.style.display = 'flex';
+    setTimeout(function () { var t = document.getElementById('homeEditText'); if (t) t.focus(); }, 50);
+}
+function closeEditPost() {
+    const m = document.getElementById('homeEditModal'); if (m) m.style.display = 'none';
+    _editPostId = null;
+}
+async function saveEditPost() {
+    if (!_editPostId) return;
+    const id = _editPostId;
+    const text = (document.getElementById('homeEditText').value || '').trim();
+    const btn = document.getElementById('homeEditSaveBtn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Saving\u2026'; }
+    try {
+        const patch = { content: text };
+        try { if (typeof extractHashtags === 'function') patch.hashtags = extractHashtags(text); } catch (e) {}
+        const { error } = await _supaHome.from('forum_posts').update(patch).eq('id', id);
+        if (error) throw error;
+        _applyPostEdit(id, text);
+        try { localStorage.setItem('rm_post_edited', JSON.stringify({ id: String(id), content: text, t: Date.now() })); } catch (e) {}
+        closeEditPost();
+        (window.showToast || function () {})('Post updated.', 'success');
+    } catch (e) {
+        (window.showToast || alert)('Could not save changes: ' + (e.message || e), 'error');
+        if (btn) { btn.disabled = false; btn.textContent = 'Save changes'; }
+    }
+}
+// Patch a rendered post card's text + in-memory copy (editor + storage listener).
+function _applyPostEdit(id, content) {
+    try {
+        if (typeof _homePosts !== 'undefined' && _homePosts) {
+            const p = _homePosts.find(x => String(x.id) === String(id)); if (p) p.content = content;
+        }
+    } catch (e) {}
+    const card = document.getElementById('hfpost-' + id); if (!card) return;
+    let el = card.querySelector('.hf-post-text');
+    if (content && content.length) {
+        if (!el) {
+            el = document.createElement('div'); el.className = 'hf-post-text';
+            const anchor = card.querySelector('.hf-album-title') || card.querySelector('.hf-post-header');
+            if (anchor && anchor.parentNode) anchor.parentNode.insertBefore(el, anchor.nextSibling); else card.appendChild(el);
+        }
+        el.innerHTML = (typeof linkifyContent === 'function') ? linkifyContent(content) : content;
+    } else if (el) { el.remove(); }
+}
 window.addEventListener('storage', function (e) {
     if (e.key === 'rm_post_deleted' && e.newValue) {
         try { var d = JSON.parse(e.newValue); if (d && d.id) document.getElementById('hfpost-' + d.id)?.remove(); } catch (_) {}
+    }
+    if (e.key === 'rm_post_edited' && e.newValue) {
+        try { var ed = JSON.parse(e.newValue); if (ed && ed.id) _applyPostEdit(String(ed.id), ed.content || ''); } catch (_) {}
     }
     // #5: a Realmate was removed elsewhere — re-check post access and drop any
     // posts in this feed that are no longer visible (e.g. that ex-Realmate's, if

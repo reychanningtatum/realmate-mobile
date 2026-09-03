@@ -14,6 +14,7 @@
   <!-- Live Market post styles (scoped under .lm-post-embed) so the profile's
        Listings section renders each post exactly like the Portal. -->
   <link rel="stylesheet" href="listing-card.css?v=20260812l">
+  <link rel="stylesheet" href="listing-editor.css?v=20260903a">
   <link rel="stylesheet" href="block-report.css?v=20260823bp">
   <script src="theme.js?v=20260812a"></script>
   <script src="toast.js?v=20260819a"></script>
@@ -609,11 +610,11 @@
 <script src="location-engine.js?v=20260809b"></script>
 <script src="match-engine.js?v=20260821p1"></script>
 <script src="developers.js?v=36"></script>
-<script src="livemarket.js?v=20260903c"></script>
+<script src="livemarket.js?v=20260903d"></script>
 <script src="privacy.js?v=20260831a"></script>
 <script src="deactivation.js?v=20260831a"></script>
 <script src="dashboard-script.js?v=20260831h"></script>
-<script src="home.js?v=20260831n"></script>
+<script src="home.js?v=20260903d"></script>
 <script src="block-report.js?v=20260829f"></script>
 <script src="congrats.js?v=20260810b"></script>
 <script src="match-alert.js?v=20260828b"></script>
@@ -649,5 +650,160 @@
     }
   })();
 </script>
+
+<!-- Listing Editor modal (Edit Listing in-place on the Dashboard). SAME editor
+     as the Portal (livemarket.js handles it); markup mirrors livemarket.html and
+     is styled by listing-editor.css. Keep in sync with livemarket.html. -->
+<div class="lm-modal-overlay" id="postModalOverlay" onclick="closePostModal(event)">
+  <div class="lm-modal">
+    <div class="lm-modal-header">
+      <h3 id="lmModalTitle">Post a Listing</h3>
+      <button class="lm-modal-close" onclick="closePostModal()"><i class="fas fa-times"></i></button>
+    </div>
+
+    <div class="lm-modal-body">
+      <label class="lm-field-label">Select a category</label>
+      <div class="lm-cat-grid" id="lmCatGrid">
+        <button class="lm-cat-btn cat-sale"   data-cat="FOR SALE">For Sale</button>
+        <button class="lm-cat-btn cat-rent"   data-cat="FOR RENT">For Rent</button>
+        <button class="lm-cat-btn cat-lease"  data-cat="FOR LEASE">For Lease</button>
+        <button class="lm-cat-btn cat-wbuy"   data-cat="WILLING TO BUY">Willing to Buy</button>
+        <button class="lm-cat-btn cat-wrent"  data-cat="WILLING TO RENT">Willing to Rent</button>
+        <button class="lm-cat-btn cat-wlease" data-cat="WILLING TO LEASE">Willing to Lease</button>
+      </div>
+
+      <!-- Phase 2a: structured property details -->
+      <div class="lm-details" id="lmDetails">
+        <div class="lm-details-head">Property details
+          <span class="lm-details-hint">Required for For Sale / Rent / Lease</span></div>
+
+        <div class="lm-field">
+          <label class="lm-field-label" for="lmPrice">Price <span class="lm-req">*</span></label>
+          <div class="lm-price-row">
+            <input type="number" inputmode="numeric" min="0" step="1000" id="lmPrice" class="lm-input" placeholder="e.g. 12500000">
+            <div class="lm-seg" id="lmPricePeriod" data-period="total">
+              <button type="button" class="lm-seg-opt active" data-period="total">Total</button>
+              <button type="button" class="lm-seg-opt" data-period="monthly">/ month</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="lm-field">
+          <label class="lm-field-label">Unit type <span class="lm-req">*</span></label>
+          <div class="lm-unit-chips" id="lmUnitTypes">
+            <button type="button" class="lm-unit-chip" data-unit="Studio">Studio</button>
+            <button type="button" class="lm-unit-chip" data-unit="1BR">1BR</button>
+            <button type="button" class="lm-unit-chip" data-unit="2BR">2BR</button>
+            <button type="button" class="lm-unit-chip" data-unit="3BR">3BR</button>
+            <button type="button" class="lm-unit-chip" data-unit="4BR">4BR</button>
+            <button type="button" class="lm-unit-chip" data-unit="Lot">Lot</button>
+            <button type="button" class="lm-unit-chip" data-unit="House & Lot">House &amp; Lot</button>
+            <button type="button" class="lm-unit-chip" data-unit="Townhouse">Townhouse</button>
+            <button type="button" class="lm-unit-chip" data-unit="Office">Office</button>
+            <button type="button" class="lm-unit-chip" data-unit="Commercial">Commercial</button>
+          </div>
+        </div>
+
+        <div class="lm-field lm-suggest-wrap">
+          <label class="lm-field-label" for="lmLocationCity">Location (city) <span class="lm-req">*</span></label>
+          <input type="text" id="lmLocationCity" class="lm-input" placeholder="Search city or CBD…" autocomplete="off" data-canon="">
+          <div class="lm-suggest-menu" id="lmLocCityMenu" hidden></div>
+        </div>
+
+        <div class="lm-field">
+          <label class="lm-field-label" for="lmLocationArea">Area / district <span class="lm-opt">optional</span></label>
+          <input type="text" id="lmLocationArea" class="lm-input" placeholder="e.g. Salcedo Village">
+        </div>
+
+        <div class="lm-field lm-suggest-wrap">
+          <label class="lm-field-label" for="lmProject">Project <span class="lm-opt">optional</span></label>
+          <input type="text" id="lmProject" class="lm-input" placeholder="Start typing a project…" autocomplete="off">
+          <div class="lm-suggest-menu" id="lmProjectMenu" hidden></div>
+        </div>
+
+        <div class="lm-field">
+          <label class="lm-field-label" for="lmDeveloper">Developer <span class="lm-opt">optional</span></label>
+          <input type="text" id="lmDeveloper" class="lm-input" placeholder="Auto-fills from project">
+        </div>
+
+        <div class="lm-grid-4">
+          <div class="lm-field"><label class="lm-field-label" for="lmBedrooms">Beds <span class="lm-opt">opt</span></label><input type="number" min="0" step="1" id="lmBedrooms" class="lm-input"></div>
+          <div class="lm-field"><label class="lm-field-label" for="lmBathrooms">Baths <span class="lm-opt">opt</span></label><input type="number" min="0" step="1" id="lmBathrooms" class="lm-input"></div>
+          <div class="lm-field"><label class="lm-field-label" for="lmFloorArea">Sqm <span class="lm-opt">opt</span></label><input type="number" min="0" step="0.1" id="lmFloorArea" class="lm-input"></div>
+          <div class="lm-field"><label class="lm-field-label" for="lmParking">Parking <span class="lm-opt">opt</span></label><input type="number" min="0" step="1" id="lmParking" class="lm-input"></div>
+        </div>
+
+        <div class="lm-grid-3">
+          <div class="lm-field"><label class="lm-field-label" for="lmFurnishing">Furnishing <span class="lm-opt">opt</span></label>
+            <select id="lmFurnishing" class="lm-input"><option value="">—</option><option>Bare</option><option>Semi-Furnished</option><option>Fully Furnished</option></select></div>
+          <div class="lm-field"><label class="lm-field-label" for="lmTurnover">Turnover <span class="lm-opt">opt</span></label>
+            <select id="lmTurnover" class="lm-input"><option value="">—</option><option>RFO</option><option>Pre-Selling</option><option>Turnover Ready</option></select></div>
+          <div class="lm-field"><label class="lm-field-label" for="lmFloorLevel">Floor <span class="lm-opt">opt</span></label>
+            <input type="number" min="0" step="1" id="lmFloorLevel" class="lm-input"></div>
+        </div>
+      </div>
+
+      <label class="lm-field-label" for="lmPostText">Describe your listing</label>
+      <textarea id="lmPostText" class="lm-textarea" placeholder="Project, unit type, price, location…" rows="5" oninput="if (_lmDupBlocked) lmClearDupAlert();"></textarea>
+
+      <div class="lm-image-wrap">
+        <label class="lm-img-label" for="lmPostImages">
+          <i class="fas fa-image"></i> Add Photos (optional)
+        </label>
+        <input type="file" id="lmPostImages" accept="image/*" multiple onchange="previewLMImages(this)">
+        <div id="lmEditPhotoNote" class="lm-cover-hint" hidden><i class="fas fa-circle-info"></i> Your current photos stay unless you add new ones here — new photos <strong>replace</strong> the old set.</div>
+        <div id="lmImagePreview" class="lm-img-preview"></div>
+      </div>
+
+      <!-- ═══ Visibility Controls (collapsible) ═══ -->
+      <div class="lm-vis-card" id="lmVisCard">
+        <button type="button" class="lm-vis-head" id="lmVisHead" onclick="toggleVisCard()" aria-expanded="false">
+          <span class="lm-vis-head-left">
+            <i class="fas fa-eye-slash"></i>
+            <span>
+              <span class="lm-vis-title">Visibility Controls</span>
+              <span class="lm-vis-sub" id="lmVisSummary">Visible to everyone · AI matching stays on</span>
+            </span>
+          </span>
+          <i class="fas fa-chevron-down lm-vis-chevron" id="lmVisChevron"></i>
+        </button>
+
+        <div class="lm-vis-body" id="lmVisBody" hidden>
+          <p class="lm-vis-note"><i class="fas fa-circle-info"></i> Hidden people can't see this post, but the AI Match Engine still finds them — only you decide when to reach out.</p>
+
+          <label class="lm-vis-label">Hide from Specific Users</label>
+          <div class="lm-vis-search-wrap">
+            <div class="lm-vis-search-field">
+              <i class="fas fa-search lm-vis-search-icon"></i>
+              <input type="text" id="lmVisUserSearch" class="lm-vis-search" placeholder="Search users by name…" autocomplete="off"
+                     oninput="onVisUserSearch(this.value)" onfocus="onVisUserSearch(this.value)">
+            </div>
+            <div class="lm-vis-results" id="lmVisResults" hidden></div>
+          </div>
+          <div class="lm-vis-chips" id="lmVisChips"></div>
+        </div>
+      </div>
+
+      <!-- Duplicate-listing warning — a single, self-contained alert. While shown,
+           Post Now is disabled (see lmShowDupAlert). Editing the description or
+           switching category clears it. -->
+      <div id="lmDupAlert" class="lm-dup-alert" role="alert" hidden>
+        <i class="fas fa-circle-exclamation lm-dup-alert-icon"></i>
+        <div class="lm-dup-alert-text">
+          <span class="lm-dup-alert-title">Already Posted</span>
+          <span class="lm-dup-alert-msg">You already have an identical listing posted.</span>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="lm-modal-footer">
+      <span id="lmPostStatus" class="lm-post-status"></span>
+      <button class="btn-post-listing" id="lmSubmitBtn" onclick="submitLMPost()">
+        <i class="fas fa-paper-plane"></i> Post Now
+      </button>
+    </div>
+  </div>
+</div>
 </body>
 </html>

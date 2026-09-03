@@ -869,6 +869,29 @@ window.addEventListener('storage', function (e) {
     } catch (_) {}
 });
 
+// Live Portal <-> Profile listing-EDIT sync: the same listing edited in one view
+// updates in the other with no manual refresh. Re-fetch the authoritative row,
+// merge it into the in-memory pools, and re-render whichever view this page shows.
+window.addEventListener('storage', function (e) {
+    if (e.key !== 'rm_listing_edited' || !e.newValue) return;
+    try {
+        var d = JSON.parse(e.newValue); if (!d || !d.id) return;
+        var id = String(d.id);
+        _sb.from('listings').select('*').eq('id', id).maybeSingle().then(function (r) {
+            if (!r || !r.data) return;
+            var merge = function (arr) {
+                if (!Array.isArray(arr)) return;
+                var i = arr.findIndex(function (l) { return String(l.id) === id; });
+                if (i !== -1) arr[i] = Object.assign({}, arr[i], r.data);
+            };
+            if (typeof allListings !== 'undefined') merge(allListings);
+            if (typeof myListings !== 'undefined') merge(myListings);
+            if (typeof applyFilters === 'function' && document.getElementById('listingsGrid')) applyFilters();
+            if (typeof reloadDashboardListings === 'function') { try { reloadDashboardListings(); } catch (_) {} }
+        });
+    } catch (_) {}
+});
+
 // (Removed buildStatusBadge / buildStatusButtons — the "In Negotiation" pill and
 //  the old post-status button row are no longer shown on Portal posts. Completion
 //  is handled by the bottom status button in buildActionBar.)
@@ -1986,7 +2009,7 @@ window.addEventListener('resize', () => {
 // stays clean. Reuses the existing lc-menu open/close + toggle helpers.
 function buildCardMenu(listing, { isOwner, canDismiss, isPinned }) {
     const id = listing.id;
-    let items = `<div class="lc-menu-item" onclick="event.stopPropagation(); togglePinMenu('${id}', this)"><i class="fas fa-thumbtack"></i> <span>${isPinned ? 'Unpin' : 'Pin'}</span></div>`;
+    let items = '';   // Pin removed from the menu (posts + listings)
     if (canDismiss) {
         items += `<div class="lc-menu-item" onclick="event.stopPropagation(); closeLcMenu('${id}'); confirmDismissMatch('${id}')"><i class="fas fa-circle-xmark"></i> <span>Dismiss</span></div>`;
     }
@@ -3653,8 +3676,14 @@ function openPostModal() {
 // (see lmEditId). Photos are intentionally left as-is unless the owner adds new
 // ones — editing here is primarily for the wording and category of a post.
 async function editListing(listingId) {
-    const listing = (allListings || []).find(l => String(l.id) === String(listingId));
+    let listing = (allListings || []).find(l => String(l.id) === String(listingId));
+    if (!listing) {
+        // On the Profile/Dashboard the global Portal pool isn't populated — fetch
+        // the authoritative row directly so Edit works there too.
+        try { const _r = await _sb.from('listings').select('*').eq('id', listingId).maybeSingle(); listing = _r && _r.data; } catch (e) {}
+    }
     if (!listing) { lmToast('Listing not found', 'fa-triangle-exclamation'); return; }
+    if (typeof _lmEnsurePostModal === 'function') _lmEnsurePostModal();
 
     resetPostModal();          // clean slate (also clears any prior edit state)
     lmEditId = String(listingId);
@@ -4256,12 +4285,20 @@ async function submitLMPost() {
             const local = (allListings || []).find(l => String(l.id) === String(lmEditId));
             if (local) Object.assign(local, editRow);
 
+            // Broadcast so the SAME listing updates on the OTHER view (Portal <->
+            // Profile shell iframes) in real time — listings are one shared source of
+            // truth (the `listings` table); the storage listener re-renders there.
+            try { localStorage.setItem('rm_listing_edited', JSON.stringify({ id: String(lmEditId), t: Date.now() })); } catch (e) {}
+
             status.className = 'lm-post-status success';
             status.innerHTML = '<i class="fas fa-circle-check"></i> Changes saved';
             setTimeout(() => {
                 closePostModal(null);
                 resetPostModal();
-                loadLedger();
+                // Re-render whichever listing view THIS page shows (Portal grid or
+                // the Profile's Recent Listings).
+                if (document.getElementById('listingsGrid') && typeof loadLedger === 'function') loadLedger();
+                else if (typeof reloadDashboardListings === 'function') reloadDashboardListings();
             }, 1000);
             return;
         }
