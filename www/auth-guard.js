@@ -36,16 +36,6 @@ function goBack() {
 
 // 🔐 AUTH GUARD — runs on every protected page
 (async function () {
-    // TEMP diagnostic: note in the reload log whenever THIS guard redirects, so we
-    // can tell an auth/session bounce (app→index→app) from an iOS webview reload.
-    function _rmDiagMark(m) {
-        try {
-            var k = 'rm_reload_log', l = JSON.parse(localStorage.getItem(k) || '[]');
-            l.push({ t: Date.now(), mark: m + ' [' + (window.self !== window.top ? 'iframe' : 'top') + ']' });
-            if (l.length > 60) l = l.slice(-60);
-            localStorage.setItem(k, JSON.stringify(l));
-        } catch (e) {}
-    }
     const SUPABASE_URL = 'https://wmegpgrfrtprhuzmgjma.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_Rm_fIBDUfu3DEyLj0_bWZw_qEqo8cd4';
     const _sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -55,7 +45,6 @@ function goBack() {
 
     // No session and not a guest → back to login
     if (!session && !isGuest) {
-        _rmDiagMark('authguard: no-session → index');
         localStorage.clear();
         location.href = "index.html";
         return;
@@ -69,7 +58,6 @@ function goBack() {
     // in is logged out. The marker is per-browsing-session (cleared when the app
     // is fully closed), so in-app navigation between tabs never re-triggers it.
     if (localStorage.getItem('rm_remember') === '0' && !sessionStorage.getItem('rm_session')) {
-        _rmDiagMark('authguard: remember-me signout → index');
         await _sb.auth.signOut();
         localStorage.clear();
         location.href = "index.html";
@@ -88,7 +76,6 @@ function goBack() {
             .eq('id', session.user.id)
             .maybeSingle();
         if (review && review.account_status !== 'Approved') {
-            _rmDiagMark('authguard: reg-gate → index');
             await _sb.auth.signOut();
             localStorage.clear();
             location.href = "index.html";
