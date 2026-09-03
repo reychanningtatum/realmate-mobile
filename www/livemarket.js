@@ -3628,8 +3628,13 @@ function lmDupFieldsFromStructured(s, content, category){
 // a new one — submitLMPost() runs an UPDATE and resetPostModal() clears it.
 let lmEditId      = null;
 let lmImageFiles  = [];
-// Index (into lmImageFiles) of the photo the user picked as the Cover Photo — the
-// single image shown on the Portal post. Defaults to the first photo.
+// When editing, the URLs of the photos the listing ALREADY has that the user has
+// chosen to KEEP. Shown as removable thumbnails alongside any newly added files;
+// the two together form the final photo set. Empty when creating a new listing.
+let lmExistingUrls = [];
+// Index of the Cover Photo — the single image shown on the Portal post — into the
+// COMBINED display list (existing kept photos first, then new files). Defaults to
+// the first photo.
 let lmCoverIndex  = 0;
 // True while a submit is in flight — a hard re-entrancy guard so mashing
 // Post/Save can never fire a second save (which, in edit mode, could otherwise
@@ -3730,13 +3735,25 @@ async function editListing(listingId) {
         updateVisSummary();
     }
 
+    // Load the listing's existing photos into the editor as removable thumbnails
+    // so the owner can drop individual photos, keep the rest, and add more. The
+    // cover starts on the stored cover photo (or the first) within the set.
+    lmExistingUrls = Array.isArray(listing.image_urls) ? listing.image_urls.filter(Boolean) : [];
+    lmImageFiles = [];
+    lmCoverIndex = 0;
+    if (listing.cover_image_url) {
+        const ci = lmExistingUrls.indexOf(listing.cover_image_url);
+        if (ci >= 0) lmCoverIndex = ci;
+    }
+    renderLMPhotos();
+
     // Swap the modal's chrome into edit mode.
     const title = document.getElementById('lmModalTitle');
     if (title) title.textContent = 'Edit Listing';
     const btn = document.getElementById('lmSubmitBtn');
     if (btn) btn.innerHTML = '<i class="fas fa-circle-check"></i> Save Changes';
     const note = document.getElementById('lmEditPhotoNote');
-    if (note) note.hidden = false;
+    if (note) { note.hidden = false; note.innerHTML = '<i class="fas fa-circle-info"></i> Your photos are shown below — tap <strong>&times;</strong> to remove any, or add more. Tap a photo to set it as the cover.'; }
 
     openPostModal();
 }
@@ -3850,6 +3867,7 @@ function resetPostModal() {
     lmSelectedCat = null;
     lmEditId      = null;
     lmImageFiles  = [];
+    lmExistingUrls = [];
     lmCoverIndex  = 0;
     // Restore the modal chrome to "create" mode (editListing() swaps it back).
     const title = document.getElementById('lmModalTitle');
@@ -3960,37 +3978,47 @@ lmInitProjectAutocomplete(); lmInitLocationPicker();
 
 const LM_MAX_IMAGES = 10;
 
+// File-input onchange handler. Captures the newly chosen files (added ON TOP of
+// any existing kept photos when editing) and re-renders the combined preview.
 function previewLMImages(input) {
-    const selected = Array.from(input.files);
-    if (selected.length > LM_MAX_IMAGES) {
-        lmToast(`Up to ${LM_MAX_IMAGES} images — only the first ${LM_MAX_IMAGES} will be used`, 'fa-circle-info');
+    const chosen = Array.from(input.files);
+    // Total is existing-kept + already-added new + freshly chosen; cap at the max.
+    const room = Math.max(0, LM_MAX_IMAGES - lmExistingUrls.length - lmImageFiles.length);
+    if (chosen.length > room) {
+        lmToast(`Up to ${LM_MAX_IMAGES} photos — extra ones were skipped`, 'fa-circle-info');
     }
-    lmImageFiles = selected.slice(0, LM_MAX_IMAGES);
-    // Keep the chosen cover valid; default to the first photo.
-    if (lmCoverIndex >= lmImageFiles.length) lmCoverIndex = 0;
+    lmImageFiles = lmImageFiles.concat(chosen.slice(0, room));
+    // Reset the input so picking the SAME file again still fires a change event.
+    input.value = '';
+    renderLMPhotos();
+}
 
-    const dt = new DataTransfer();
-    lmImageFiles.forEach(f => dt.items.add(f));
-    input.files = dt.files;
+// The combined photo model: existing kept photos (URLs) first, then new files.
+// Returns tiles the render + cover + remove logic all index into as one list.
+function _lmPhotoCount() { return lmExistingUrls.length + lmImageFiles.length; }
+
+// Render the photo tiles (existing kept + new) in one grid. Existing photos show
+// their stored URL immediately; new files fill in as their FileReader resolves.
+function renderLMPhotos() {
+    const total = _lmPhotoCount();
+    if (lmCoverIndex >= total) lmCoverIndex = 0;
 
     const preview = document.getElementById('lmImagePreview');
+    if (!preview) return;
     preview.innerHTML = '';
 
     const label = document.querySelector('.lm-img-label');
-    const countBadge = label?.querySelector('.lm-img-count');
-    if (countBadge) countBadge.remove();
-    if (lmImageFiles.length > 0 && label) {
+    label?.querySelector('.lm-img-count')?.remove();
+    if (total > 0 && label) {
         const badge = document.createElement('span');
         badge.className = 'lm-img-count';
-        badge.textContent = `${lmImageFiles.length}/${LM_MAX_IMAGES}`;
+        badge.textContent = `${total}/${LM_MAX_IMAGES}`;
         label.appendChild(badge);
     }
 
-    // A short helper line telling the user how the cover works — only when there
-    // is more than one photo (a single photo is automatically the cover).
-    const hint = document.getElementById('lmCoverHint');
-    if (hint) hint.remove();
-    if (lmImageFiles.length > 1) {
+    // Cover hint only when more than one photo (a single photo is the cover).
+    document.getElementById('lmCoverHint')?.remove();
+    if (total > 1) {
         const h = document.createElement('div');
         h.id = 'lmCoverHint';
         h.className = 'lm-cover-hint';
@@ -3998,14 +4026,10 @@ function previewLMImages(input) {
         preview.parentNode.insertBefore(h, preview);
     }
 
-    // Build the tiles synchronously (in index order) so the cover highlight always
-    // lands on the right photo, then fill each image in as its FileReader resolves.
-    lmImageFiles.forEach((file, i) => {
+    const makeThumb = (i, isCover) => {
         const thumb = document.createElement('div');
-        thumb.className = 'lm-thumb' + (i === lmCoverIndex ? ' is-cover' : '');
+        thumb.className = 'lm-thumb' + (isCover ? ' is-cover' : '');
         thumb.dataset.idx = String(i);
-        // Clicking the thumbnail (anywhere but the remove button) selects it as the
-        // cover. The selected thumb shows a persistent "Cover" ribbon.
         thumb.onclick = ev => { if (ev.target.closest('.lm-thumb-remove')) return; setLMCover(i); };
         thumb.innerHTML = `
             <img loading="lazy" decoding="async" alt="">
@@ -4013,34 +4037,47 @@ function previewLMImages(input) {
             <button class="lm-thumb-remove" onclick="removeLMImage(${i})" aria-label="Remove photo"><i class="fas fa-times"></i></button>
         `;
         preview.appendChild(thumb);
+        return thumb;
+    };
+
+    // Existing kept photos (index 0..N-1)
+    lmExistingUrls.forEach((url, i) => {
+        const thumb = makeThumb(i, i === lmCoverIndex);
+        const im = thumb.querySelector('img'); if (im) im.src = url;
+    });
+    // New files (index N..)
+    lmImageFiles.forEach((file, j) => {
+        const idx = lmExistingUrls.length + j;
+        const thumb = makeThumb(idx, idx === lmCoverIndex);
         const reader = new FileReader();
         reader.onload = e => { const im = thumb.querySelector('img'); if (im) im.src = e.target.result; };
         reader.readAsDataURL(file);
     });
 }
 
-// Choose which uploaded photo becomes the single Portal cover. Updates the
-// highlighted thumbnail without re-reading the files.
+// Choose which photo becomes the single Portal cover (index into the combined
+// existing+new list). Updates the highlight without re-reading anything.
 function setLMCover(index) {
-    if (index < 0 || index >= lmImageFiles.length) return;
+    if (index < 0 || index >= _lmPhotoCount()) return;
     lmCoverIndex = index;
     document.querySelectorAll('#lmImagePreview .lm-thumb').forEach(t => {
         t.classList.toggle('is-cover', parseInt(t.dataset.idx || '-1', 10) === index);
     });
 }
 
+// Remove a photo by its combined index — an existing kept photo or a new file.
 function removeLMImage(index) {
-    lmImageFiles.splice(index, 1);
-    // Keep the cover pointing at the same photo: shift down if a photo before it
-    // was removed, or reset to the first when the cover itself was removed.
+    const existN = lmExistingUrls.length;
+    if (index < existN) {
+        lmExistingUrls.splice(index, 1);
+    } else {
+        lmImageFiles.splice(index - existN, 1);
+    }
+    // Keep the cover pointing sensibly after the removal.
     if (index === lmCoverIndex) lmCoverIndex = 0;
     else if (index < lmCoverIndex) lmCoverIndex -= 1;
-    if (lmCoverIndex >= lmImageFiles.length) lmCoverIndex = 0;
-
-    const dt = new DataTransfer();
-    lmImageFiles.forEach(f => dt.items.add(f));
-    document.getElementById('lmPostImages').files = dt.files;
-    previewLMImages(document.getElementById('lmPostImages'));
+    if (lmCoverIndex >= _lmPhotoCount()) lmCoverIndex = 0;
+    renderLMPhotos();
 }
 
 function toggleLMAnonMode() {
@@ -4164,6 +4201,40 @@ function lmIsDuplicateListing(neu, existing) {
     return false;
 }
 
+// Pull the offending column name out of a Postgres/PostgREST "missing column"
+// error, in either wording it can arrive as:
+//   • "Could not find the 'cover_image_url' column of 'listings' in the schema cache"
+//   • "column listings.cover_image_url does not exist"
+function _lmMissingColumn(msg) {
+    msg = msg || '';
+    let m = msg.match(/Could not find the '([^']+)' column/i);
+    if (m) return m[1];
+    m = msg.match(/column\s+(?:[\w"]+\.)?["']?([a-zA-Z_]\w*)["']?\s+does not exist/i);
+    if (m) return m[1];
+    return null;
+}
+
+// Write a listing row, transparently dropping any column the DB doesn't have yet
+// (optional columns from un-run migrations, or PostgREST schema-cache misses) and
+// retrying, so a save never fails on a missing OPTIONAL column. Any other error
+// is returned as-is. op is 'insert' or 'update'; id is required for updates.
+async function _lmWriteListing(op, row, id) {
+    const payload = Object.assign({}, row);
+    for (let attempt = 0; attempt < 8; attempt++) {
+        const res = op === 'update'
+            ? await _sb.from('listings').update(payload).eq('id', id)
+            : await _sb.from('listings').insert(payload);
+        if (!res.error) return { error: null };
+        const col = _lmMissingColumn(res.error.message || '');
+        if (col && Object.prototype.hasOwnProperty.call(payload, col)) {
+            delete payload[col];   // shed the missing column and try again
+            continue;
+        }
+        return { error: res.error };
+    }
+    return { error: { message: 'Save failed after stripping missing columns' } };
+}
+
 async function submitLMPost() {
     // Re-entrancy guard: ignore any click while a save is already running, so
     // rapid Post/Save clicks only ever process the FIRST request.
@@ -4220,8 +4291,11 @@ async function submitLMPost() {
             }
         }
 
-        // Upload images (compressed before upload)
-        let imageUrls = [];
+        // Upload any NEW photos (compressed), then combine with the existing kept
+        // photos to form the final ordered set. When creating, lmExistingUrls is
+        // empty so this is just the new uploads; when editing, it already holds the
+        // photos the user chose to keep — so removals and additions both persist.
+        let newUrls = [];
         if (lmImageFiles.length > 0) {
             const compressed = await compressImages(lmImageFiles);
             const uploads = compressed.map(async (file, i) => {
@@ -4231,8 +4305,9 @@ async function submitLMPost() {
                 if (error) throw error;
                 return _sb.storage.from('images').getPublicUrl(path).data.publicUrl;
             });
-            imageUrls = await Promise.all(uploads);
+            newUrls = await Promise.all(uploads);
         }
+        const imageUrls = lmExistingUrls.concat(newUrls);
 
         const { data: authData } = await _sb.auth.getUser();
         const postName = isAnon ? settings.anonName : localUser.name;
@@ -4263,22 +4338,16 @@ async function submitLMPost() {
                 hidden_user_ids: hiddenUsers.length ? hiddenUsers : null
             };
             Object.assign(editRow, _lmPrune(structured));
-            if (imageUrls.length) {
-                editRow.image_urls = imageUrls;
-                editRow.cover_image_url = coverUrl;
-            }
+            // Always write the photo set in edit mode: lmExistingUrls already holds
+            // exactly the photos the owner kept, so this persists BOTH additions and
+            // removals — including clearing every photo (image_urls -> null).
+            editRow.image_urls = imageUrls.length ? imageUrls : null;
+            editRow.cover_image_url = coverUrl;
 
-            let { error } = await _sb.from('listings').update(editRow).eq('id', lmEditId);
-            // Graceful fallbacks when optional columns don't exist yet (migrations
-            // not run): retry without them rather than failing the whole edit.
-            if (error && /cover_image_url/i.test(error.message || '')) {
-                const { cover_image_url, ...noCover } = editRow;
-                ({ error } = await _sb.from('listings').update(noCover).eq('id', lmEditId));
-            }
-            if (error && /hidden_user_ids/i.test(error.message || '')) {
-                const { hidden_user_ids, ...noHides } = editRow;
-                ({ error } = await _sb.from('listings').update(noHides).eq('id', lmEditId));
-            }
+            // Robust save: transparently drop any column the DB doesn't have yet
+            // (un-run migrations / PostgREST schema-cache misses) and retry, so a
+            // save never fails on an optional missing column (e.g. cover_image_url).
+            const { error } = await _lmWriteListing('update', editRow, lmEditId);
             if (error) throw error;
 
             // Reflect the change locally so the card updates without a full reload.
@@ -4319,14 +4388,9 @@ async function submitLMPost() {
             ...(hiddenUsers.length     ? { hidden_user_ids:  hiddenUsers }     : {})
         };
 
-        let { error } = await _sb.from('listings').insert(row);
-        // Graceful fallback if the cover-photo migration hasn't been run yet: retry
-        // without the new column (the Portal still shows image_urls[0] as the cover).
-        if (error && /cover_image_url/i.test(error.message || '')) {
-            const { cover_image_url, ...rowNoCover } = row;
-            ({ error } = await _sb.from('listings').insert(rowNoCover));
-        }
-
+        // Robust insert: same column-stripping resilience as the edit path, so a
+        // new listing posts even before optional migrations (cover_image_url) run.
+        const { error } = await _lmWriteListing('insert', row);
         if (error) throw error;
 
         status.className = 'lm-post-status success';
