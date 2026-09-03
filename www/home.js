@@ -1466,6 +1466,13 @@ async function confirmHomeDelete() {
 // patch this view's card in place, and broadcast so the SAME post updates on the
 // other view (Feed <-> Profile shell iframes) with no manual refresh.
 let _editPostId = null;
+// Photo editing state for the post editor. _editExistingMedia = the post's kept
+// existing photo URLs; _editNewFiles = newly added File objects; _editPhotoEditable
+// = whether THIS post supports photo add/remove (photo/text posts, not video/poll).
+let _editExistingMedia = [];
+let _editNewFiles = [];
+let _editPhotoEditable = false;
+const HOME_EDIT_MAX_PHOTOS = 10;
 function _ensureHomeEditModal() {
     let m = document.getElementById('homeEditModal');
     if (m) return m;
@@ -1477,6 +1484,14 @@ function _ensureHomeEditModal() {
           '<div style="padding:16px 18px;border-bottom:1px solid #eef2f7;font-weight:800;font-size:16px;color:#0f172a;">Edit post</div>' +
           '<div style="padding:16px 18px;">' +
             '<textarea id="homeEditText" style="width:100%;min-height:140px;border:1.5px solid #e2e8f0;border-radius:12px;padding:12px;font:15px/1.5 inherit;color:#0f172a;resize:vertical;box-sizing:border-box;" placeholder="Edit your post"></textarea>' +
+            '<div id="homeEditPhotos" style="margin-top:12px;display:none;">' +
+              '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">' +
+                '<span style="font-size:11px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.04em;">Photos</span>' +
+                '<label for="homeEditFile" style="font-size:13px;font-weight:700;color:#0ea5e9;cursor:pointer;"><i class="far fa-image"></i> Add photos</label>' +
+                '<input type="file" id="homeEditFile" accept="image/*" multiple hidden onchange="onEditPhotosPicked(this)">' +
+              '</div>' +
+              '<div id="homeEditPhotoGrid" style="display:flex;flex-wrap:wrap;gap:8px;"></div>' +
+            '</div>' +
           '</div>' +
           '<div style="display:flex;gap:10px;padding:0 18px 18px;">' +
             '<button onclick="closeEditPost()" style="flex:1;padding:12px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;font-size:14px;font-weight:600;cursor:pointer;">Cancel</button>' +
@@ -1494,8 +1509,57 @@ function openEditPost(postId) {
     const m = _ensureHomeEditModal();
     document.getElementById('homeEditText').value = (post && post.content) || '';
     document.getElementById('homeEditSaveBtn').onclick = saveEditPost;
+
+    // Photo add/remove is offered for photo & text posts — NOT video or poll posts
+    // (those keep text-only editing so their media is never accidentally dropped).
+    const isVideo = !!(post && post.media_type === 'video');
+    const isPoll  = !!(post && post.poll);
+    _editPhotoEditable = !!post && !isVideo && !isPoll;
+    _editExistingMedia = [];
+    _editNewFiles = [];
+    if (_editPhotoEditable) {
+        _editExistingMedia = (Array.isArray(post.media_urls) && post.media_urls.length)
+            ? post.media_urls.filter(Boolean)
+            : (post.media_url ? [post.media_url] : []);
+    }
+    const photoSec = document.getElementById('homeEditPhotos');
+    if (photoSec) photoSec.style.display = _editPhotoEditable ? 'block' : 'none';
+    _renderEditPhotoGrid();
+
     m.style.display = 'flex';
     setTimeout(function () { var t = document.getElementById('homeEditText'); if (t) t.focus(); }, 50);
+}
+// Render the editor's photo thumbnails: kept existing photos first, then new files.
+function _renderEditPhotoGrid() {
+    const grid = document.getElementById('homeEditPhotoGrid');
+    if (!grid) return;
+    grid.innerHTML = '';
+    const tile = (onRemove) => {
+        const d = document.createElement('div');
+        d.style.cssText = 'position:relative;width:72px;height:72px;border-radius:10px;overflow:hidden;border:1px solid #e2e8f0;background:#f1f5f9;';
+        d.innerHTML = '<img style="width:100%;height:100%;object-fit:cover;">' +
+            '<button type="button" aria-label="Remove photo" style="position:absolute;top:2px;right:2px;width:20px;height:20px;border:none;border-radius:50%;background:rgba(15,23,42,.75);color:#fff;font-size:12px;line-height:1;cursor:pointer;">&times;</button>';
+        d.querySelector('button').onclick = onRemove;
+        grid.appendChild(d);
+        return d.querySelector('img');
+    };
+    _editExistingMedia.forEach((url, i) => {
+        const im = tile(() => { _editExistingMedia.splice(i, 1); _renderEditPhotoGrid(); });
+        im.src = url;
+    });
+    _editNewFiles.forEach((file, j) => {
+        const im = tile(() => { _editNewFiles.splice(j, 1); _renderEditPhotoGrid(); });
+        const r = new FileReader(); r.onload = e => { im.src = e.target.result; }; r.readAsDataURL(file);
+    });
+}
+// File-input handler: append newly chosen photos (capped at the max total).
+function onEditPhotosPicked(input) {
+    const chosen = Array.from(input.files || []);
+    const room = Math.max(0, HOME_EDIT_MAX_PHOTOS - _editExistingMedia.length - _editNewFiles.length);
+    if (chosen.length > room) (window.showToast || function(){})('Up to ' + HOME_EDIT_MAX_PHOTOS + ' photos — extras skipped.', 'info');
+    _editNewFiles = _editNewFiles.concat(chosen.slice(0, room));
+    input.value = '';
+    _renderEditPhotoGrid();
 }
 function closeEditPost() {
     const m = document.getElementById('homeEditModal'); if (m) m.style.display = 'none';
@@ -1510,10 +1574,33 @@ async function saveEditPost() {
     try {
         const patch = { content: text };
         try { if (typeof extractHashtags === 'function') patch.hashtags = extractHashtags(text); } catch (e) {}
+
+        // Photo posts: upload any new photos, combine with the kept existing ones,
+        // and persist the full media set (additions AND removals, including
+        // clearing every photo — which turns the post back into a text post).
+        let mediaPatch = null;
+        if (_editPhotoEditable) {
+            const newUrls = [];
+            for (let i = 0; i < _editNewFiles.length; i++) {
+                const file = _editNewFiles[i];
+                const ext  = (file.name.split('.').pop() || 'jpg');
+                const path = `posts/${Date.now()}_${i}.${ext}`;
+                const { error: upErr } = await _supaHome.storage.from('images').upload(path, file, { upsert: true });
+                if (upErr) throw upErr;
+                newUrls.push(_supaHome.storage.from('images').getPublicUrl(path).data.publicUrl);
+            }
+            const finalMedia = _editExistingMedia.concat(newUrls);
+            patch.media_urls = finalMedia.length ? finalMedia : null;
+            patch.media_url  = finalMedia[0] || null;
+            patch.media_type = finalMedia.length ? 'image' : null;
+            patch.post_type  = finalMedia.length ? 'photo' : 'text';
+            mediaPatch = { media_urls: patch.media_urls, media_url: patch.media_url, media_type: patch.media_type, post_type: patch.post_type };
+        }
+
         const { error } = await _supaHome.from('forum_posts').update(patch).eq('id', id);
         if (error) throw error;
-        _applyPostEdit(id, text);
-        try { localStorage.setItem('rm_post_edited', JSON.stringify({ id: String(id), content: text, t: Date.now() })); } catch (e) {}
+        _applyPostEdit(id, text, mediaPatch);
+        try { localStorage.setItem('rm_post_edited', JSON.stringify({ id: String(id), content: text, media: mediaPatch, t: Date.now() })); } catch (e) {}
         closeEditPost();
         (window.showToast || function () {})('Post updated.', 'success');
     } catch (e) {
@@ -1521,11 +1608,23 @@ async function saveEditPost() {
         if (btn) { btn.disabled = false; btn.textContent = 'Save changes'; }
     }
 }
-// Patch a rendered post card's text + in-memory copy (editor + storage listener).
-function _applyPostEdit(id, content) {
+// Patch a rendered post card's text + photos + in-memory copy (editor + storage
+// listener). mediaPatch is null for text-only edits, or {media_urls, media_url,
+// media_type, post_type} when the photo set changed.
+function _applyPostEdit(id, content, mediaPatch) {
+    let post = null;
     try {
         if (typeof _homePosts !== 'undefined' && _homePosts) {
-            const p = _homePosts.find(x => String(x.id) === String(id)); if (p) p.content = content;
+            post = _homePosts.find(x => String(x.id) === String(id));
+            if (post) {
+                post.content = content;
+                if (mediaPatch) {
+                    post.media_urls = mediaPatch.media_urls || [];
+                    post.media_url  = mediaPatch.media_url || null;
+                    post.media_type = mediaPatch.media_type || null;
+                    post.post_type  = mediaPatch.post_type || post.post_type;
+                }
+            }
         }
     } catch (e) {}
     const card = document.getElementById('hfpost-' + id); if (!card) return;
@@ -1538,13 +1637,29 @@ function _applyPostEdit(id, content) {
         }
         el.innerHTML = (typeof linkifyContent === 'function') ? linkifyContent(content) : content;
     } else if (el) { el.remove(); }
+
+    // Re-render the media block from the updated photo set.
+    if (mediaPatch && typeof buildPostMedia === 'function') {
+        const mp = post || { media_urls: mediaPatch.media_urls, media_url: mediaPatch.media_url, media_type: mediaPatch.media_type };
+        const html = buildPostMedia(mp);
+        let mediaEl = card.querySelector('.hf-post-media');
+        if (html) {
+            if (mediaEl) { mediaEl.outerHTML = html; }
+            else {
+                const tmp = document.createElement('div'); tmp.innerHTML = html;
+                const node = tmp.firstElementChild;
+                const anchor = card.querySelector('.hf-post-text') || card.querySelector('.hf-post-header');
+                if (node) { if (anchor && anchor.parentNode) anchor.parentNode.insertBefore(node, anchor.nextSibling); else card.appendChild(node); }
+            }
+        } else if (mediaEl) { mediaEl.remove(); }
+    }
 }
 window.addEventListener('storage', function (e) {
     if (e.key === 'rm_post_deleted' && e.newValue) {
         try { var d = JSON.parse(e.newValue); if (d && d.id) document.getElementById('hfpost-' + d.id)?.remove(); } catch (_) {}
     }
     if (e.key === 'rm_post_edited' && e.newValue) {
-        try { var ed = JSON.parse(e.newValue); if (ed && ed.id) _applyPostEdit(String(ed.id), ed.content || ''); } catch (_) {}
+        try { var ed = JSON.parse(e.newValue); if (ed && ed.id) _applyPostEdit(String(ed.id), ed.content || '', ed.media || null); } catch (_) {}
     }
     // #5: a Realmate was removed elsewhere — re-check post access and drop any
     // posts in this feed that are no longer visible (e.g. that ex-Realmate's, if
