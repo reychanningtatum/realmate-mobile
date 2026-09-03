@@ -70,8 +70,11 @@ function lmOpenListing(id) {
     // re-asserting the saved position (only when we've drifted off it, so we
     // never fight the user) for a short window until it stays put.
     var timer = setInterval(function () {
+        // Batched rendering: the page may not be tall enough to reach the saved
+        // position yet — keep rendering pages until it is (or we run out).
+        if (typeof _lcRenderNextBatch === 'function' && _lcRenderPool && _lcRenderedCount < _lcRenderPool.length && _lmMaxScrollable() < y - 4) _lcRenderNextBatch();
         if (_lmMaxScrollable() >= y - 4 && Math.abs(_lmScrollNow() - y) > 4) _lmScrollTo(y);
-        if (Date.now() - start > 2500) {
+        if (Date.now() - start > 4000) {
             if (_lmMaxScrollable() >= y - 4) _lmScrollTo(y);   // final landing
             clearInterval(timer);
         }
@@ -2706,11 +2709,44 @@ function applyFilters() {
     } else {
         pool.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     }
-    pool.forEach(l => grid.appendChild(
-        buildListingCard(l, matchMap.get(l.id) || null, fmvMap.get(l.id) || null, matchCountMap.get(String(l.id)) || 0)
-    ));
-    // Size any completion sashes to their cards' real diagonals (corner-to-corner).
-    requestAnimationFrame(() => fitCompletionSashes(grid));
+    // Render in BATCHES so the Portal never builds every listing at once. Building
+    // all cards + their images + completion-sash geometry in one synchronous burst
+    // was spiking hard enough to crash the iOS web view's content process — which
+    // iOS then reloaded, re-rendered, and crashed again: the "Portal keeps
+    // reloading itself" loop (verified: content-visibility was active, session
+    // preserved, accelerating cadence — a content-process crash loop, not memory).
+    // Show the first page immediately; append more as the user nears the bottom.
+    _lcRenderPool = pool;
+    _lcRenderCtx = { matchMap: matchMap, fmvMap: fmvMap, matchCountMap: matchCountMap };
+    _lcRenderedCount = 0;
+    _lcRenderNextBatch();
+}
+
+var _lcRenderPool = [], _lcRenderCtx = null, _lcRenderedCount = 0, _lcRenderIO = null;
+var LC_PAGE = 12;
+function _lcRenderNextBatch() {
+    var grid = document.getElementById('listingsGrid');
+    if (!grid || !_lcRenderCtx) return;
+    var s0 = document.getElementById('lc-sentinel'); if (s0) s0.remove();
+    var end = Math.min(_lcRenderedCount + LC_PAGE, _lcRenderPool.length);
+    for (var i = _lcRenderedCount; i < end; i++) {
+        var l = _lcRenderPool[i];
+        grid.appendChild(buildListingCard(l, _lcRenderCtx.matchMap.get(l.id) || null, _lcRenderCtx.fmvMap.get(l.id) || null, _lcRenderCtx.matchCountMap.get(String(l.id)) || 0));
+    }
+    _lcRenderedCount = end;
+    requestAnimationFrame(function () { fitCompletionSashes(grid); });
+    if (_lcRenderedCount < _lcRenderPool.length) {
+        // A sentinel just below the last card; when it scrolls near the viewport we
+        // render the next page (rootMargin pre-loads it so scrolling stays smooth).
+        var sen = document.createElement('div');
+        sen.id = 'lc-sentinel'; sen.style.cssText = 'height:1px;grid-column:1/-1;';
+        grid.appendChild(sen);
+        if (_lcRenderIO) _lcRenderIO.disconnect();
+        _lcRenderIO = new IntersectionObserver(function (entries) {
+            if (entries.some(function (e) { return e.isIntersecting; })) { _lcRenderIO.disconnect(); _lcRenderNextBatch(); }
+        }, { rootMargin: '800px' });
+        _lcRenderIO.observe(sen);
+    } else if (_lcRenderIO) { _lcRenderIO.disconnect(); _lcRenderIO = null; }
 }
 
 function selectCatByName(catName) {
