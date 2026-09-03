@@ -4225,9 +4225,15 @@ async function _lmWriteListing(op, row, id) {
             ? await _sb.from('listings').update(payload).eq('id', id)
             : await _sb.from('listings').insert(payload);
         if (!res.error) return { error: null };
-        const col = _lmMissingColumn(res.error.message || '');
+        const msg = res.error.message || '';
+        let col = _lmMissingColumn(msg);
+        // Defensive: a NOT NULL violation on a column we sent null for — drop it so
+        // the rest of the save still lands (the stored value / column default is
+        // kept). The real fix is to send a valid value, but this stops one such
+        // column from hard-failing the whole save.
+        if (!col) { const m = msg.match(/null value in column "([^"]+)"/i); if (m && payload[m[1]] == null) col = m[1]; }
         if (col && Object.prototype.hasOwnProperty.call(payload, col)) {
-            delete payload[col];   // shed the missing column and try again
+            delete payload[col];   // shed the offending column and try again
             continue;
         }
         return { error: res.error };
@@ -4335,7 +4341,10 @@ async function submitLMPost() {
             const editRow = {
                 category: lmSelectedCat,
                 content,
-                hidden_user_ids: hiddenUsers.length ? hiddenUsers : null
+                // hidden_user_ids is NOT NULL (defaults to '{}'). Always write an
+                // array — [] when there are no hides — never null, which would
+                // violate the constraint. An empty array correctly clears any hides.
+                hidden_user_ids: hiddenUsers
             };
             Object.assign(editRow, _lmPrune(structured));
             // Always write the photo set in edit mode: lmExistingUrls already holds
