@@ -435,16 +435,19 @@ function _lcBlockTouch(ev) {
 function _lcLockScroll() {
     if (_lcScrollLocked) return;
     _lcScrollLocked = true;
+    // Prevent scrolling by cancelling the scroll GESTURES, not by toggling
+    // overflow:hidden on <html>/<body>. Toggling overflow on a scrolled page
+    // reflows the sticky top bar, nudging it down when the sheet opens on the
+    // topmost post. Blocking touchmove (mobile) + wheel (desktop) locks the page
+    // without any layout change. Scrolling inside the menu itself is still allowed.
     document.addEventListener('touchmove', _lcBlockTouch, { passive: false });
-    document.documentElement.style.overflow = 'hidden';
-    document.body.style.overflow = 'hidden';
+    document.addEventListener('wheel', _lcBlockTouch, { passive: false });
 }
 function _lcUnlockScroll() {
     if (!_lcScrollLocked) return;
     _lcScrollLocked = false;
     document.removeEventListener('touchmove', _lcBlockTouch, { passive: false });
-    document.documentElement.style.overflow = '';
-    document.body.style.overflow = '';
+    document.removeEventListener('wheel', _lcBlockTouch, { passive: false });
 }
 
 // ── Post 3-dot menu → Facebook-style BOTTOM SHEET ────────────────────────
@@ -2013,10 +2016,13 @@ window.addEventListener('resize', () => {
 function buildCardMenu(listing, { isOwner, canDismiss, isPinned }) {
     const id = listing.id;
     let items = '';
-    // Pin / Unpin — available on ANY post (the owner's own included), on every
-    // Portal tab (Live Market / My Listings / AI Matches). togglePinMenu writes
-    // rm_pinned, which the independent Pinned filter reads.
-    items += `<div class="lc-menu-item" onclick="event.stopPropagation(); togglePinMenu('${id}', this)"><i class="fas fa-thumbtack ${isPinned ? 'pinned-icon' : ''}"></i> <span>${isPinned ? 'Unpin' : 'Pin'}</span></div>`;
+    // Pin / Unpin — available on other users' posts everywhere, and on your OWN
+    // posts EXCEPT in the Live Market feed. You pin/unpin your own from My Listings
+    // (activeSegTab 'PORTFOLIO'); on Live Market ('MARKET') it's hidden for own posts.
+    const hidePin = isOwner && (typeof activeSegTab !== 'undefined') && activeSegTab === 'MARKET';
+    if (!hidePin) {
+        items += `<div class="lc-menu-item" onclick="event.stopPropagation(); togglePinMenu('${id}', this)"><i class="fas fa-thumbtack ${isPinned ? 'pinned-icon' : ''}"></i> <span>${isPinned ? 'Unpin' : 'Pin'}</span></div>`;
+    }
     if (canDismiss) {
         items += `<div class="lc-menu-item" onclick="event.stopPropagation(); closeLcMenu('${id}'); confirmDismissMatch('${id}')"><i class="fas fa-circle-xmark"></i> <span>Dismiss</span></div>`;
     }
