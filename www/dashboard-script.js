@@ -659,8 +659,7 @@ function _deepLinkToListings() {
     // is a no-op, so this never fights their own scrolling.
     const mc = document.querySelector('.main-content');
     const body = document.getElementById('recentListingsBody');
-    const pos = () => mc ? mc.scrollTop : (window.scrollY || 0);
-    let userTook = false, obs = null, timers = [], landedAt = null;
+    let userTook = false, obs = null, timers = [];
 
     function stop() {
         if (obs) { obs.disconnect(); obs = null; }
@@ -673,16 +672,15 @@ function _deepLinkToListings() {
     // Genuine user input — NOT programmatic scrolls — hands control back for good.
     function onUser() { userTook = true; stop(); }
     function onKey(e) { if (['ArrowUp','ArrowDown','PageUp','PageDown','Home','End',' '].indexOf(e.key) >= 0) onUser(); }
+    // Bring the TOPMOST (newest) listing card to the top of the view. Decide off the
+    // card's own viewport rect, so it works whichever element actually scrolls, and
+    // only scroll when the card is sitting BELOW the top — the initial state, or after
+    // a re-render clamps the scroll back. Never scrolls when it's already in place (so
+    // a live Sold countdown can't nudge it) and never overshoots past the first card.
     function land() {
         if (userTook) return;
         const el = card.querySelector('#recentListingsBody .listing-card');
-        if (!el) return;
-        // Only act when the scroll actually drifted from where WE last put it — i.e.
-        // a re-render clamped it back to the top. Skipping the no-op case means live
-        // DOM updates (e.g. a Sold countdown) never trigger a redundant scroll.
-        if (landedAt !== null && Math.abs(pos() - landedAt) < 4) return;
-        el.scrollIntoView({ block: 'start' });
-        landedAt = pos();
+        if (el && el.getBoundingClientRect().top > 8) el.scrollIntoView({ block: 'start' });
     }
 
     window.addEventListener('wheel', onUser, { passive: true });

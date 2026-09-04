@@ -2670,8 +2670,14 @@ function applyFilters() {
 
     if (activeCategory === 'MATCHES') {
         pool = allListings.filter(l => othersOnly(l) && matchMap.has(l.id));
-        // AI Matches category filter — narrow to matched listings of one category.
-        if (aiMatchesCat !== 'ALL') pool = pool.filter(l => l.category === aiMatchesCat);
+        // AI Matches filter — Pinned shows only pinned matches; a category narrows
+        // to matched listings of that type; All shows every match.
+        if (aiMatchesCat === 'PINNED') {
+            const pins = getPinnedIds();
+            pool = pool.filter(l => pins.includes(String(l.id)));
+        } else if (aiMatchesCat !== 'ALL') {
+            pool = pool.filter(l => l.category === aiMatchesCat);
+        }
     } else if (activeCategory === 'MY_LISTINGS') {
         pool = allListings.filter(l => localUser && l.user_name === localUser.name);
         if (myListingsSubCat === 'PINNED') {
@@ -2725,9 +2731,11 @@ function applyFilters() {
             return;
         }
         const msg = activeCategory === 'MATCHES'
-            ? (aiMatchesCat !== 'ALL'
-                ? 'No matches in this category.<br><small>Try “All” or a different category.</small>'
-                : 'No matches for your listings yet.<br><small>Post a listing on your profile and the AI will find partner listings here.</small>')
+            ? (aiMatchesCat === 'PINNED'
+                ? 'No pinned matches.<br><small>Pin a match to keep it here.</small>'
+                : aiMatchesCat !== 'ALL'
+                    ? 'No matches in this category.<br><small>Try “All” or a different category.</small>'
+                    : 'No matches for your listings yet.<br><small>Post a listing on your profile and the AI will find partner listings here.</small>')
             : 'No listings found.<br><small>Try a different filter or search term.</small>';
         grid.innerHTML = `<div class="empty-state"><i class="fas fa-satellite-dish"></i><p>${msg}</p></div>`;
         return;
