@@ -2007,7 +2007,11 @@ window.addEventListener('resize', () => {
 // stays clean. Reuses the existing lc-menu open/close + toggle helpers.
 function buildCardMenu(listing, { isOwner, canDismiss, isPinned }) {
     const id = listing.id;
-    let items = '';   // Pin removed from the menu (posts + listings)
+    let items = '';
+    // Pin / Unpin — available on ANY post (the owner's own included), on every
+    // Portal tab (Live Market / My Listings / AI Matches). togglePinMenu writes
+    // rm_pinned, which the independent Pinned filter reads.
+    items += `<div class="lc-menu-item" onclick="event.stopPropagation(); togglePinMenu('${id}', this)"><i class="fas fa-thumbtack ${isPinned ? 'pinned-icon' : ''}"></i> <span>${isPinned ? 'Unpin' : 'Pin'}</span></div>`;
     if (canDismiss) {
         items += `<div class="lc-menu-item" onclick="event.stopPropagation(); closeLcMenu('${id}'); confirmDismissMatch('${id}')"><i class="fas fa-circle-xmark"></i> <span>Dismiss</span></div>`;
     }
