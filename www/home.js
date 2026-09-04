@@ -1478,24 +1478,24 @@ function _ensureHomeEditModal() {
     if (m) return m;
     m = document.createElement('div');
     m.id = 'homeEditModal';
-    m.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100000;align-items:center;justify-content:center;padding:20px;';
+    m.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100000;align-items:center;justify-content:center;padding:14px;box-sizing:border-box;';
     m.innerHTML =
-        '<div style="background:#fff;border-radius:16px;width:100%;max-width:520px;box-shadow:0 12px 40px rgba(0,0,0,.2);overflow:hidden;">' +
-          '<div style="padding:16px 18px;border-bottom:1px solid #eef2f7;font-weight:800;font-size:16px;color:#0f172a;">Edit post</div>' +
-          '<div style="padding:16px 18px;">' +
-            '<textarea id="homeEditText" style="width:100%;min-height:140px;border:1.5px solid #e2e8f0;border-radius:12px;padding:12px;font:15px/1.5 inherit;color:#0f172a;resize:vertical;box-sizing:border-box;" placeholder="Edit your post"></textarea>' +
-            '<div id="homeEditPhotos" style="margin-top:12px;display:none;">' +
+        '<div style="background:#fff;border-radius:16px;width:100%;max-width:640px;height:88vh;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 12px 40px rgba(0,0,0,.2);overflow:hidden;">' +
+          '<div style="padding:18px 20px;border-bottom:1px solid #eef2f7;font-weight:800;font-size:18px;color:#0f172a;flex:0 0 auto;">Edit post</div>' +
+          '<div style="padding:18px 20px;flex:1 1 auto;overflow-y:auto;display:flex;flex-direction:column;">' +
+            '<textarea id="homeEditText" style="width:100%;flex:1 1 auto;min-height:200px;border:1.5px solid #e2e8f0;border-radius:12px;padding:14px;font:16px/1.6 inherit;color:#0f172a;resize:none;box-sizing:border-box;" placeholder="Edit your post"></textarea>' +
+            '<div id="homeEditPhotos" style="margin-top:14px;display:none;flex:0 0 auto;">' +
               '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">' +
                 '<span style="font-size:11px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.04em;">Photos</span>' +
-                '<label for="homeEditFile" style="font-size:13px;font-weight:700;color:#0ea5e9;cursor:pointer;"><i class="far fa-image"></i> Add photos</label>' +
+                '<label for="homeEditFile" style="font-size:14px;font-weight:700;color:#0ea5e9;cursor:pointer;"><i class="far fa-image"></i> Add photos</label>' +
                 '<input type="file" id="homeEditFile" accept="image/*" multiple hidden onchange="onEditPhotosPicked(this)">' +
               '</div>' +
               '<div id="homeEditPhotoGrid" style="display:flex;flex-wrap:wrap;gap:8px;"></div>' +
             '</div>' +
           '</div>' +
-          '<div style="display:flex;gap:10px;padding:0 18px 18px;">' +
-            '<button onclick="closeEditPost()" style="flex:1;padding:12px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;font-size:14px;font-weight:600;cursor:pointer;">Cancel</button>' +
-            '<button id="homeEditSaveBtn" style="flex:1;padding:12px;border-radius:10px;border:none;background:#32cd32;color:#fff;font-size:14px;font-weight:700;cursor:pointer;">Save changes</button>' +
+          '<div style="display:flex;gap:12px;padding:14px 20px;border-top:1px solid #eef2f7;flex:0 0 auto;">' +
+            '<button onclick="closeEditPost()" style="flex:1;padding:15px;border-radius:12px;border:1px solid #e2e8f0;background:#fff;font-size:15px;font-weight:600;cursor:pointer;">Cancel</button>' +
+            '<button id="homeEditSaveBtn" style="flex:1;padding:15px;border-radius:12px;border:none;background:#32cd32;color:#fff;font-size:15px;font-weight:700;cursor:pointer;">Save changes</button>' +
           '</div>' +
         '</div>';
     m.addEventListener('click', function (e) { if (e.target === m) closeEditPost(); });
