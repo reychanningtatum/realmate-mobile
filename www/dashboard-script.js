@@ -659,6 +659,16 @@ function _deepLinkToListings() {
     // is a no-op, so this never fights their own scrolling.
     const mc = document.querySelector('.main-content');
     const body = document.getElementById('recentListingsBody');
+    // Watch a container broad enough to catch shifts from OUTSIDE the listings —
+    // e.g. the profile's posts panel loading late ABOVE the listings and pushing
+    // them up, which left the visitor on a LOWER listing. The scroll container is
+    // the widest thing that can shift; fall back to <body>.
+    const shiftHost = mc || document.body;
+    // Late content above the listings shifts them up in the first few seconds; after
+    // that, an above-top position means the visitor scrolled. So correct an
+    // ABOVE-top drift only during this settle window; a BELOW-top drift (initial /
+    // re-render clamp) is corrected throughout.
+    const settleUntil = Date.now() + 14000;
     let userTook = false, obs = null, timers = [];
 
     function stop() {
@@ -680,7 +690,12 @@ function _deepLinkToListings() {
     function land() {
         if (userTook) return;
         const el = card.querySelector('#recentListingsBody .listing-card');
-        if (el && el.getBoundingClientRect().top > 8) el.scrollIntoView({ block: 'start' });
+        if (!el) return;
+        const top = el.getBoundingClientRect().top;
+        // Below the top → bring it up (initial state / re-render clamp). Above the
+        // top → a lower listing is showing because content above shifted; correct it
+        // only during the settle window, so we never fight a real user scroll-up.
+        if (top > 8 || (top < -8 && Date.now() < settleUntil)) el.scrollIntoView({ block: 'start' });
     }
 
     window.addEventListener('wheel', onUser, { passive: true });
@@ -688,9 +703,9 @@ function _deepLinkToListings() {
     window.addEventListener('keydown', onKey);
     if (mc) { mc.addEventListener('wheel', onUser, { passive: true }); mc.addEventListener('touchmove', onUser, { passive: true }); }
 
-    if (body && 'MutationObserver' in window) {
-        obs = new MutationObserver(land);          // re-render adds/removes cards → re-land
-        obs.observe(body, { childList: true, subtree: true });
+    if ('MutationObserver' in window) {
+        obs = new MutationObserver(land);          // any layout change in the column → re-land
+        obs.observe(shiftHost, { childList: true, subtree: true });
     }
     // The listings section re-renders whenever its data (or the market it pulls for
     // match counts, or a realtime listing change) arrives — which clamps the scroll
