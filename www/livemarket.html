@@ -91,6 +91,16 @@
         <button class="chip chip-sub" data-sub="WILLING TO RENT" onclick="selectSubCat(this)">Willing to Rent</button>
         <button class="chip chip-sub" data-sub="WILLING TO LEASE" onclick="selectSubCat(this)">Willing to Lease</button>
       </div>
+      <!-- Category filter for the AI Matches tab (same chips as Live Market) -->
+      <div class="filter-chips" id="aiMatchesCatFilters" style="display:none;">
+        <button class="chip active" data-cat="ALL" onclick="selectAiMatchesCat(this)">All</button>
+        <button class="chip" data-cat="FOR SALE" onclick="selectAiMatchesCat(this)">For Sale</button>
+        <button class="chip" data-cat="FOR RENT" onclick="selectAiMatchesCat(this)">For Rent</button>
+        <button class="chip" data-cat="FOR LEASE" onclick="selectAiMatchesCat(this)">For Lease</button>
+        <button class="chip" data-cat="WILLING TO BUY" onclick="selectAiMatchesCat(this)">Willing to Buy</button>
+        <button class="chip" data-cat="WILLING TO RENT" onclick="selectAiMatchesCat(this)">Willing to Rent</button>
+        <button class="chip" data-cat="WILLING TO LEASE" onclick="selectAiMatchesCat(this)">Willing to Lease</button>
+      </div>
       <!-- 3. Location filter — full-width row, below categories, above search -->
       <div class="filter-location-row">
         <div class="location-wrap location-wrap-row" id="marketLocationFilter">
@@ -431,7 +441,7 @@
 <script src="rm-track.js?v=2"></script>
   <script src="block-report.js?v=20260829f"></script>
   <script src="deactivation.js?v=20260831a"></script>
-  <script src="livemarket.js?v=20260904b"></script>
+  <script src="livemarket.js?v=20260904d"></script>
   <script src="match-alert.js?v=20260828b"></script>
   <script src="notif-badge.js?v=12"></script>
   <script src="pull-refresh.js?v=20260829p"></script>

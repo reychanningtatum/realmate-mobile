@@ -2272,6 +2272,9 @@ let activeCategory = 'ALL';
 let activeSegTab = 'MARKET';
 let marketCat = 'ALL';
 let myListingsSubCat = 'ALL';
+// Category filter for the AI Matches tab (mirrors the Live Market category chips).
+// 'ALL' shows every match; a category narrows to matched listings of that type.
+let aiMatchesCat = 'ALL';
 
 function selectSegTab(btn) {
     document.querySelectorAll('.seg-tab').forEach(t => t.classList.remove('active'));
@@ -2285,9 +2288,11 @@ function selectSegTab(btn) {
     const listPane = document.getElementById('listingsTabPane');
     const catFilters = document.getElementById('marketCatFilters');
     const portfolioFilters = document.getElementById('portfolioSubfilter');
+    const aiFilters = document.getElementById('aiMatchesCatFilters');
 
     catFilters.style.display = activeSegTab === 'MARKET' ? 'flex' : 'none';
     portfolioFilters.style.display = activeSegTab === 'PORTFOLIO' ? 'flex' : 'none';
+    if (aiFilters) aiFilters.style.display = activeSegTab === 'AI_ENGINE' ? 'flex' : 'none';
 
     const ticker = document.getElementById('tickerWrap');
     const showTicker = (activeSegTab === 'FEED' || activeSegTab === 'MARKET') && (typeof isFeatureEnabled === 'function' ? isFeatureEnabled('marketTicker') : false);
@@ -2485,6 +2490,16 @@ function selectMarketCat(btn) {
     setTimeout(syncTopPadding, 50);
 }
 
+// AI Matches tab — filter the matches by listing category. activeCategory stays
+// 'MATCHES' (this is still the match pool); aiMatchesCat narrows it in applyFilters.
+function selectAiMatchesCat(btn) {
+    document.querySelectorAll('#aiMatchesCatFilters .chip').forEach(c => c.classList.remove('active'));
+    btn.classList.add('active');
+    aiMatchesCat = btn.dataset.cat;
+    applyFilters();
+    setTimeout(syncTopPadding, 50);
+}
+
 function selectCat(btn) {
     selectSegTab(btn);
 }
@@ -2655,6 +2670,8 @@ function applyFilters() {
 
     if (activeCategory === 'MATCHES') {
         pool = allListings.filter(l => othersOnly(l) && matchMap.has(l.id));
+        // AI Matches category filter — narrow to matched listings of one category.
+        if (aiMatchesCat !== 'ALL') pool = pool.filter(l => l.category === aiMatchesCat);
     } else if (activeCategory === 'MY_LISTINGS') {
         pool = allListings.filter(l => localUser && l.user_name === localUser.name);
         if (myListingsSubCat === 'PINNED') {
@@ -2708,7 +2725,9 @@ function applyFilters() {
             return;
         }
         const msg = activeCategory === 'MATCHES'
-            ? 'No matches for your listings yet.<br><small>Post a listing on your profile and the AI will find partner listings here.</small>'
+            ? (aiMatchesCat !== 'ALL'
+                ? 'No matches in this category.<br><small>Try “All” or a different category.</small>'
+                : 'No matches for your listings yet.<br><small>Post a listing on your profile and the AI will find partner listings here.</small>')
             : 'No listings found.<br><small>Try a different filter or search term.</small>';
         grid.innerHTML = `<div class="empty-state"><i class="fas fa-satellite-dish"></i><p>${msg}</p></div>`;
         return;

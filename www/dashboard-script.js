@@ -646,15 +646,38 @@ function _deepLinkToListings() {
 
     switchProfileTab('listings');
 
-    // Land on the user's TOPMOST (latest) listing, not a generic position (#10).
-    // Wait for the tab switch / listing cards to lay out before measuring, and
-    // re-run once more after layout settles (images/cards can reflow late).
-    const scrollToTop = () => {
-        const target = card.querySelector('.listing-card') || card;
-        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    // Land on the user's TOPMOST (latest) listing — never a generic position.
+    // renderRecentListings orders listings newest-first, so the FIRST card in
+    // #recentListingsBody is the latest. Two things make a single early scroll
+    // miss: (1) that render finishes LATE — it also fetches the whole market for
+    // match counts, so the cards can appear several seconds in; (2) each card
+    // reflows as its cover image loads. So: poll until the first card exists, then
+    // re-assert the scroll a few times through the reflow — but stop the moment the
+    // visitor scrolls themselves, so we never fight their own navigation.
+    let userScrolled = false;
+    const onUser = () => { userScrolled = true; };
+    window.addEventListener('wheel', onUser, { passive: true, once: true });
+    window.addEventListener('touchmove', onUser, { passive: true, once: true });
+
+    const firstCard = () => card.querySelector('#recentListingsBody .listing-card');
+    const land = () => {
+        if (userScrolled) return false;
+        const el = firstCard();
+        if (!el) return false;
+        el.scrollIntoView({ block: 'start' });
+        return true;
     };
-    requestAnimationFrame(scrollToTop);
-    setTimeout(scrollToTop, 250);
+    let waited = 0;
+    const waitForCard = () => {
+        if (userScrolled) return;
+        if (land()) {
+            // Card is in — re-assert through image/card reflow, then stop.
+            [150, 400, 800, 1400, 2200].forEach(t => setTimeout(land, t));
+            return;
+        }
+        if ((waited += 150) <= 12000) setTimeout(waitForCard, 150);  // await the async render
+    };
+    waitForCard();
 
     // Drop the flag so a later refresh or back-navigation stays put.
     params.delete('view');
