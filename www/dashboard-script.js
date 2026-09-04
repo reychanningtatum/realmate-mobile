@@ -685,8 +685,13 @@ function _deepLinkToListings() {
         obs = new MutationObserver(land);          // re-render adds/removes cards → re-land
         obs.observe(body, { childList: true, subtree: true });
     }
-    timers = [0, 150, 400, 800, 1500, 2500, 4000, 6000, 9000, 12000].map(t => setTimeout(land, t));
-    timers.push(setTimeout(cleanup, 13000));       // stop watching once things settle
+    // The listings section can re-render several times as its data (and the whole
+    // market it pulls for match counts) arrives — sometimes 20s+ in on a cold load.
+    // Keep re-landing across that whole window; it costs nothing once we're in place
+    // and is cancelled the instant the visitor scrolls (onUser), so it never traps
+    // them. The generous cap is just a safety stop.
+    timers = [0, 150, 400, 800, 1500, 2500, 4000, 6000, 9000, 13000, 18000, 24000, 30000].map(t => setTimeout(land, t));
+    timers.push(setTimeout(cleanup, 31000));
     land();
 
     // Drop the flag so a later refresh or back-navigation stays put.
