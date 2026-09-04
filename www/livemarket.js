@@ -413,11 +413,9 @@ function togglePin(listingId, btn) {
     if (btn) {
         btn.innerHTML = `<i class="fas fa-thumbtack ${pinning ? 'pinned-icon' : ''}"></i><span>${pinning ? 'Unpin' : 'Pin'}</span>`;
     }
-    // On either Pinned view (Live Market ▸ Pinned, or My Listings ▸ Pinned),
-    // re-render immediately so the card appears/disappears without a refresh.
-    if (typeof activeCategory !== 'undefined' &&
-        (activeCategory === 'PINNED' ||
-         (activeCategory === 'MY_LISTINGS' && myListingsSubCat === 'PINNED'))) applyFilters();
+    // If the current tab's Pinned toggle is on, re-render immediately so the card
+    // appears/disappears without a refresh.
+    if (marketPinned || myListingsPinned || aiMatchesPinned) applyFilters();
 }
 
 // ── Listing card kebab menu (pin / dismiss / delete) ──
@@ -2275,6 +2273,11 @@ let myListingsSubCat = 'ALL';
 // Category filter for the AI Matches tab (mirrors the Live Market category chips).
 // 'ALL' shows every match; a category narrows to matched listings of that type.
 let aiMatchesCat = 'ALL';
+// Pinned is an INDEPENDENT toggle per tab (not a category) — it ANDs with the
+// selected category, so "Pinned + For Sale" shows only pinned For Sale items.
+let marketPinned = false;
+let myListingsPinned = false;
+let aiMatchesPinned = false;
 
 function selectSegTab(btn) {
     document.querySelectorAll('.seg-tab').forEach(t => t.classList.remove('active'));
@@ -2482,7 +2485,8 @@ document.addEventListener('click', e => {
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closePortalSuggest(); });
 
 function selectMarketCat(btn) {
-    document.querySelectorAll('#marketCatFilters .chip').forEach(c => c.classList.remove('active'));
+    // Only the CATEGORY chips are mutually exclusive — leave the Pinned toggle alone.
+    document.querySelectorAll('#marketCatFilters .chip[data-cat]').forEach(c => c.classList.remove('active'));
     btn.classList.add('active');
     marketCat = btn.dataset.cat;
     activeCategory = marketCat;
@@ -2490,10 +2494,28 @@ function selectMarketCat(btn) {
     setTimeout(syncTopPadding, 50);
 }
 
+// Pinned toggle — independent of the category chips. Toggles the tab's pinned
+// state and re-filters; the category selection is untouched, so Pinned ANDs with
+// whatever category is selected. scope: 'market' | 'mylistings' | 'aimatches'.
+function togglePinned(scope) {
+    const rowId = scope === 'market' ? 'marketCatFilters'
+                : scope === 'mylistings' ? 'portfolioSubfilter'
+                : 'aiMatchesCatFilters';
+    let on;
+    if (scope === 'market') on = (marketPinned = !marketPinned);
+    else if (scope === 'mylistings') on = (myListingsPinned = !myListingsPinned);
+    else on = (aiMatchesPinned = !aiMatchesPinned);
+    const row = document.getElementById(rowId);
+    const btn = row && row.querySelector('.chip-pin');
+    if (btn) btn.classList.toggle('active', on);
+    applyFilters();
+    setTimeout(syncTopPadding, 50);
+}
+
 // AI Matches tab — filter the matches by listing category. activeCategory stays
 // 'MATCHES' (this is still the match pool); aiMatchesCat narrows it in applyFilters.
 function selectAiMatchesCat(btn) {
-    document.querySelectorAll('#aiMatchesCatFilters .chip').forEach(c => c.classList.remove('active'));
+    document.querySelectorAll('#aiMatchesCatFilters .chip[data-cat]').forEach(c => c.classList.remove('active'));
     btn.classList.add('active');
     aiMatchesCat = btn.dataset.cat;
     applyFilters();
@@ -2505,7 +2527,8 @@ function selectCat(btn) {
 }
 
 function selectSubCat(btn) {
-    document.querySelectorAll('.chip-sub').forEach(c => c.classList.remove('active'));
+    // Only the category sub-chips are mutually exclusive — leave the Pinned toggle.
+    document.querySelectorAll('#portfolioSubfilter .chip-sub[data-sub]').forEach(c => c.classList.remove('active'));
     btn.classList.add('active');
     myListingsSubCat = btn.dataset.sub;
     applyFilters();
@@ -2668,31 +2691,28 @@ function applyFilters() {
     const myUserId = myListings[0]?.user_id;
     const othersOnly = l => !myUserId || l.user_id !== myUserId;
 
+    // Build the pool by CATEGORY for the active tab, then AND the independent
+    // Pinned toggle on top (Pinned + category shows only pinned items of that
+    // category). Each tab has its own category selection and its own Pinned toggle.
+    let pinnedActive = false;
     if (activeCategory === 'MATCHES') {
         pool = allListings.filter(l => othersOnly(l) && matchMap.has(l.id));
-        // AI Matches filter — Pinned shows only pinned matches; a category narrows
-        // to matched listings of that type; All shows every match.
-        if (aiMatchesCat === 'PINNED') {
-            const pins = getPinnedIds();
-            pool = pool.filter(l => pins.includes(String(l.id)));
-        } else if (aiMatchesCat !== 'ALL') {
-            pool = pool.filter(l => l.category === aiMatchesCat);
-        }
+        if (aiMatchesCat !== 'ALL') pool = pool.filter(l => l.category === aiMatchesCat);
+        pinnedActive = aiMatchesPinned;
     } else if (activeCategory === 'MY_LISTINGS') {
         pool = allListings.filter(l => localUser && l.user_name === localUser.name);
-        if (myListingsSubCat === 'PINNED') {
-            const pins = getPinnedIds();
-            pool = pool.filter(l => pins.includes(String(l.id)));
-        } else if (myListingsSubCat !== 'ALL') {
-            pool = pool.filter(l => l.category === myListingsSubCat);
-        }
-    } else if (activeCategory === 'PINNED') {
-        const pins = getPinnedIds();
-        pool = allListings.filter(l => pins.includes(String(l.id)));
-    } else if (activeCategory === 'ALL') {
-        pool = [...allListings];
+        if (myListingsSubCat !== 'ALL') pool = pool.filter(l => l.category === myListingsSubCat);
+        pinnedActive = myListingsPinned;
     } else {
-        pool = allListings.filter(l => l.category === activeCategory);
+        // Live Market: activeCategory is 'ALL' or a specific category.
+        pool = (activeCategory === 'ALL') ? [...allListings]
+                                          : allListings.filter(l => l.category === activeCategory);
+        pinnedActive = marketPinned;
+    }
+    // Independent Pinned toggle — intersect the category pool with pinned ids.
+    if (pinnedActive) {
+        const pins = getPinnedIds();
+        pool = pool.filter(l => pins.includes(String(l.id)));
     }
 
     // Hide posts the user has dismissed (except on My Listings — you can't dismiss your own)
@@ -2731,12 +2751,14 @@ function applyFilters() {
             return;
         }
         const msg = activeCategory === 'MATCHES'
-            ? (aiMatchesCat === 'PINNED'
-                ? 'No pinned matches.<br><small>Pin a match to keep it here.</small>'
+            ? (aiMatchesPinned
+                ? 'No pinned matches here.<br><small>Pin a match, or turn off Pinned.</small>'
                 : aiMatchesCat !== 'ALL'
                     ? 'No matches in this category.<br><small>Try “All” or a different category.</small>'
                     : 'No matches for your listings yet.<br><small>Post a listing on your profile and the AI will find partner listings here.</small>')
-            : 'No listings found.<br><small>Try a different filter or search term.</small>';
+            : ((marketPinned || myListingsPinned)
+                ? 'No pinned items here.<br><small>Pin an item, or turn off Pinned.</small>'
+                : 'No listings found.<br><small>Try a different filter or search term.</small>');
         grid.innerHTML = `<div class="empty-state"><i class="fas fa-satellite-dish"></i><p>${msg}</p></div>`;
         return;
     }

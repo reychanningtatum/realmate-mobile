@@ -479,6 +479,18 @@ html[data-theme="dark"] .chip { background: #1e293b; color: #94a3b8; border-colo
 html[data-theme="dark"] .chip:hover { background: #243044; color: #cbd5e1; }
 html[data-theme="dark"] .chip.active { background: rgba(50,205,50,0.15); color: #32cd32; border-color: #32cd32; }
 
+/* Pinned = an INDEPENDENT toggle (leftmost), separated from the category chips by
+   a vertical divider. Its active look is deliberately different from the green
+   category-active so both can read as "on" at the same time (Pinned + For Sale). */
+.chip-divider { flex: 0 0 auto; align-self: stretch; width: 1px; margin: 3px 3px; background: #cbd5e1; border-radius: 1px; }
+.chip-pin { display: inline-flex; align-items: center; gap: 5px; }
+.chip-pin i { font-size: 11px; }
+.chip-pin.active { background: #0f172a; border-color: #0f172a; color: #fff; box-shadow: 0 2px 8px rgba(15,23,42,0.25); }
+.chip-pin.active i { color: #fbbf24; }
+html[data-theme="dark"] .chip-divider { background: #475569; }
+html[data-theme="dark"] .chip-pin.active { background: #e2e8f0; border-color: #e2e8f0; color: #0f172a; }
+html[data-theme="dark"] .chip-pin.active i { color: #d97706; }
+
 /* ── Match banner on card ── */
 .match-banner {
   display: flex; align-items: center; gap: 6px;

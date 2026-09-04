@@ -9,7 +9,7 @@
   <link rel="stylesheet" href="vendor/googlefonts/fonts.css?v=1">
   <script src="vendor/supabase-js.min.js?v=2.112.3"></script>
 <script src="auth-guard.js?v=20260903d"></script>
-  <link rel="stylesheet" href="livemarket.css?v=20260904c">
+  <link rel="stylesheet" href="livemarket.css?v=20260904p">
   <link rel="stylesheet" href="mobile-back.css">
   <link rel="stylesheet" href="block-report.css?v=20260823bp">
   <!-- Account/seller options sheet — tapping a Portal post's user (avatar/name)
@@ -63,8 +63,9 @@
       </div>
       <!-- 2. Category Filters (right below tabs) -->
       <div class="filter-chips" id="marketCatFilters">
+        <button class="chip chip-pin" onclick="togglePinned('market')"><i class="fas fa-thumbtack"></i> Pinned</button>
+        <span class="chip-divider" aria-hidden="true"></span>
         <button class="chip active" data-cat="ALL" onclick="selectMarketCat(this)">All</button>
-        <button class="chip" data-cat="PINNED" onclick="selectMarketCat(this)"><i class="fas fa-thumbtack"></i> Pinned</button>
         <button class="chip" data-cat="FOR SALE" onclick="selectMarketCat(this)">For Sale</button>
         <button class="chip" data-cat="FOR RENT" onclick="selectMarketCat(this)">For Rent</button>
         <button class="chip" data-cat="FOR LEASE" onclick="selectMarketCat(this)">For Lease</button>
@@ -73,8 +74,9 @@
         <button class="chip" data-cat="WILLING TO LEASE" onclick="selectMarketCat(this)">Willing to Lease</button>
       </div>
       <div class="filter-chips" id="portfolioSubfilter" style="display:none;">
+        <button class="chip chip-sub chip-pin" onclick="togglePinned('mylistings')"><i class="fas fa-thumbtack"></i> Pinned</button>
+        <span class="chip-divider" aria-hidden="true"></span>
         <button class="chip chip-sub active" data-sub="ALL" onclick="selectSubCat(this)">All</button>
-        <button class="chip chip-sub" data-sub="PINNED" onclick="selectSubCat(this)"><i class="fas fa-thumbtack"></i> Pinned</button>
         <button class="chip chip-sub" data-sub="FOR SALE" onclick="selectSubCat(this)">For Sale</button>
         <button class="chip chip-sub" data-sub="FOR RENT" onclick="selectSubCat(this)">For Rent</button>
         <button class="chip chip-sub" data-sub="FOR LEASE" onclick="selectSubCat(this)">For Lease</button>
@@ -93,8 +95,9 @@
       </div>
       <!-- Category filter for the AI Matches tab (same chips as Live Market) -->
       <div class="filter-chips" id="aiMatchesCatFilters" style="display:none;">
+        <button class="chip chip-pin" onclick="togglePinned('aimatches')"><i class="fas fa-thumbtack"></i> Pinned</button>
+        <span class="chip-divider" aria-hidden="true"></span>
         <button class="chip active" data-cat="ALL" onclick="selectAiMatchesCat(this)">All</button>
-        <button class="chip" data-cat="PINNED" onclick="selectAiMatchesCat(this)"><i class="fas fa-thumbtack"></i> Pinned</button>
         <button class="chip" data-cat="FOR SALE" onclick="selectAiMatchesCat(this)">For Sale</button>
         <button class="chip" data-cat="FOR RENT" onclick="selectAiMatchesCat(this)">For Rent</button>
         <button class="chip" data-cat="FOR LEASE" onclick="selectAiMatchesCat(this)">For Lease</button>
@@ -442,7 +445,7 @@
 <script src="rm-track.js?v=2"></script>
   <script src="block-report.js?v=20260829f"></script>
   <script src="deactivation.js?v=20260831a"></script>
-  <script src="livemarket.js?v=20260904h"></script>
+  <script src="livemarket.js?v=20260904p"></script>
   <script src="match-alert.js?v=20260828b"></script>
   <script src="notif-badge.js?v=12"></script>
   <script src="pull-refresh.js?v=20260829p"></script>
