@@ -22,22 +22,22 @@
   display: none; position: fixed; inset: 0;
   background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);
   z-index: 1000; align-items: center; justify-content: center;
-  padding: 20px;
+  padding: 14px;
 }
 .lm-modal-overlay.open { display: flex; }
 .lm-modal {
   background: white; border-radius: 16px;
-  width: 100%; max-width: 520px;
+  width: 100%; max-width: 640px;
   box-shadow: 0 16px 48px rgba(0,0,0,0.15);
   display: flex; flex-direction: column;
-  max-height: 90vh; overflow: hidden;
+  height: 88vh; max-height: 88vh; overflow: hidden;
 }
 .lm-modal-header {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 18px 22px 14px;
+  padding: 20px 24px 16px;
   border-bottom: 1px solid #f1f5f9;
 }
-.lm-modal-header h3 { font-size: 16px; font-weight: 800; color: #111827; font-family: 'Inter', sans-serif; }
+.lm-modal-header h3 { font-size: 18px; font-weight: 800; color: #111827; font-family: 'Inter', sans-serif; }
 .lm-modal-close {
   background: transparent; border: 1.5px solid #111827; border-radius: 50%;
   width: 30px; height: 30px; cursor: pointer;
