@@ -413,6 +413,9 @@ function togglePin(listingId, btn) {
     if (btn) {
         btn.innerHTML = `<i class="fas fa-thumbtack ${pinning ? 'pinned-icon' : ''}"></i><span>${pinning ? 'Unpin' : 'Pin'}</span>`;
     }
+    // Flip the on-card "Pinned" badge instantly (every rendered copy of the card —
+    // the Portal grid and, when open, the AI Match Engine view).
+    document.querySelectorAll('[id="lc-' + id + '"]').forEach(c => c.classList.toggle('is-pinned', pinning));
     // If the current tab's Pinned toggle is on, re-render immediately so the card
     // appears/disappears without a refresh.
     if (marketPinned || myListingsPinned || aiMatchesPinned) applyFilters();
@@ -1878,6 +1881,7 @@ function buildListingCard(listing, matchLabel = null, fmvResult = null, matchCou
         : '';
 
     const isPinned = getPinnedIds().includes(String(listing.id));
+    if (isPinned) card.classList.add('is-pinned');   // shows the on-card Pinned badge
     const isOwner = localUser && listing.user_name === localUser.name;
     // Dismiss = hide any other user's post from my feed (not just matches)
     const canDismiss = localUser && listing.user_name !== localUser.name;
@@ -1950,6 +1954,7 @@ function buildListingCard(listing, matchLabel = null, fmvResult = null, matchCou
         <div class="lc-top">
             <div class="lc-top-head">
                 <span class="lc-cat-pill lc-cat-pill-top">${catTag(listing.category)}</span>
+                <span class="lc-pin-badge"><i class="fas fa-thumbtack"></i> Pinned</span>
             </div>
         </div>
         <div class="lc-caption">${buildRawPost(listing)}</div>

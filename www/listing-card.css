@@ -239,6 +239,13 @@ html[data-theme="dark"] .lc-thumbs::-webkit-scrollbar-thumb {background: #475569
 .lc-top-head {display: flex; align-items: center; justify-content: space-between; gap: 10px;}
 .lc-top-head .listing-status-badge {margin-bottom: 0; flex: none;}
 .lc-top-head .lc-cat-pill.lc-cat-pill-top {align-self: center;}
+/* On-card "Pinned" indicator — shown only when the card is pinned (.is-pinned). */
+.lc-pin-badge {display: none; align-items: center; gap: 5px; flex: none; white-space: nowrap;
+  padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 800; letter-spacing: 0.02em;
+  background: #fff7ed; color: #b45309; border: 1px solid #fdba74;}
+.lc-pin-badge i {font-size: 10px; transform: rotate(20deg);}
+.listing-card.is-pinned .lc-pin-badge {display: inline-flex;}
+html[data-theme="dark"] .lc-pin-badge {background: rgba(251,191,36,0.12); color: #fbbf24; border-color: rgba(251,191,36,0.35);}
 .lc-cat-pill.lc-cat-pill-top {position: static; top: auto; left: auto;
   align-self: flex-start; margin: 0;
   background: rgba(15, 23, 42, 0.48);
