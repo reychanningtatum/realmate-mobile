@@ -716,6 +716,49 @@ function _deepLinkToListings() {
     timers.push(setTimeout(stop, 60000));
     land();
 
+    // ── TEMP v3 diagnostic — catch WHAT scrolls the window up (and its source). ──
+    (function _dlDiag3() {
+        const t0 = Date.now();
+        const now = () => (Date.now() - t0) + 'ms';
+        const events = [];
+        let p = null;
+        const render = () => {
+            if (!p) {
+                p = document.createElement('div');
+                p.id = 'dlDiagPanel';
+                p.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:2147483647;background:rgba(15,23,42,.97);color:#e2e8f0;font:10px/1.25 monospace;padding:6px 8px;max-height:62vh;overflow:auto;white-space:pre-wrap;';
+                p.addEventListener('click', () => p.remove());
+                document.body.appendChild(p);
+            }
+            p.textContent = 'DIAG v3 — tap to close. scrollTo calls + source + user gestures + win drift\n' + events.slice(-30).join('\n');
+        };
+        const log = (s) => { events.push(now() + ' ' + s); render(); };
+        // Wrap scrollTo on the likely scrollers to catch programmatic scroll-to-top.
+        const wrap = (obj, tag) => {
+            try {
+                const orig = obj && obj.scrollTo;
+                if (!orig || orig.__dlw) return;
+                const w = function () {
+                    const a = arguments;
+                    const y = (a[0] && typeof a[0] === 'object') ? a[0].top : a[1];
+                    const st = ((new Error()).stack || '').split('\n').slice(2, 4).join(' ')
+                        .replace(/https?:\/\/[^ )]+\//g, '').replace(/\s+/g, ' ');
+                    log('SCROLLTO[' + tag + '](' + (y == null ? '?' : Math.round(y)) + ') <- ' + st.slice(0, 80));
+                    return orig.apply(this, a);
+                };
+                w.__dlw = true; obj.scrollTo = w;
+            } catch (e) {}
+        };
+        wrap(window, 'win'); wrap(document.documentElement, 'de'); wrap(document.body, 'body');
+        if (mc) wrap(mc, 'mc');
+        ['touchmove', 'wheel', 'keydown'].forEach(ev =>
+            window.addEventListener(ev, () => log('USER:' + ev + ' win=' + Math.round(window.scrollY || 0)), { passive: true, capture: true }));
+        let lastWin = -999;
+        const iv = setInterval(() => { const w = Math.round(window.scrollY || 0); if (Math.abs(w - lastWin) > 3) { log('win=' + w); lastWin = w; } }, 150);
+        setTimeout(() => clearInterval(iv), 15000);
+        log('start win=' + Math.round(window.scrollY || 0));
+    })();
+
     // Drop the flag so a later refresh or back-navigation stays put.
     params.delete('view');
     const qs = params.toString();
