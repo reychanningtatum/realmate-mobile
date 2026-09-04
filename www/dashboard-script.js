@@ -659,39 +659,48 @@ function _deepLinkToListings() {
     // is a no-op, so this never fights their own scrolling.
     const mc = document.querySelector('.main-content');
     const body = document.getElementById('recentListingsBody');
-    let userScrolled = false, obs = null, timers = [];
+    const pos = () => mc ? mc.scrollTop : (window.scrollY || 0);
+    let userTook = false, obs = null, timers = [], landedAt = null;
 
-    function cleanup() {
+    function stop() {
         if (obs) { obs.disconnect(); obs = null; }
         timers.forEach(clearTimeout); timers = [];
         window.removeEventListener('wheel', onUser);
         window.removeEventListener('touchmove', onUser);
+        window.removeEventListener('keydown', onKey);
         if (mc) { mc.removeEventListener('wheel', onUser); mc.removeEventListener('touchmove', onUser); }
     }
-    function onUser() { userScrolled = true; cleanup(); }
+    // Genuine user input — NOT programmatic scrolls — hands control back for good.
+    function onUser() { userTook = true; stop(); }
+    function onKey(e) { if (['ArrowUp','ArrowDown','PageUp','PageDown','Home','End',' '].indexOf(e.key) >= 0) onUser(); }
     function land() {
-        if (userScrolled) return;
+        if (userTook) return;
         const el = card.querySelector('#recentListingsBody .listing-card');
-        if (el) el.scrollIntoView({ block: 'start' });
+        if (!el) return;
+        // Only act when the scroll actually drifted from where WE last put it — i.e.
+        // a re-render clamped it back to the top. Skipping the no-op case means live
+        // DOM updates (e.g. a Sold countdown) never trigger a redundant scroll.
+        if (landedAt !== null && Math.abs(pos() - landedAt) < 4) return;
+        el.scrollIntoView({ block: 'start' });
+        landedAt = pos();
     }
 
-    // Genuine user input (wheel/touch) — NOT programmatic scrolls — cancels the
-    // deep-link so we never yank the visitor back once they take over.
     window.addEventListener('wheel', onUser, { passive: true });
     window.addEventListener('touchmove', onUser, { passive: true });
+    window.addEventListener('keydown', onKey);
     if (mc) { mc.addEventListener('wheel', onUser, { passive: true }); mc.addEventListener('touchmove', onUser, { passive: true }); }
 
     if (body && 'MutationObserver' in window) {
         obs = new MutationObserver(land);          // re-render adds/removes cards → re-land
         obs.observe(body, { childList: true, subtree: true });
     }
-    // The listings section can re-render several times as its data (and the whole
-    // market it pulls for match counts) arrives — sometimes 20s+ in on a cold load.
-    // Keep re-landing across that whole window; it costs nothing once we're in place
-    // and is cancelled the instant the visitor scrolls (onUser), so it never traps
-    // them. The generous cap is just a safety stop.
-    timers = [0, 150, 400, 800, 1500, 2500, 4000, 6000, 9000, 13000, 18000, 24000, 30000].map(t => setTimeout(land, t));
-    timers.push(setTimeout(cleanup, 31000));
+    // The listings section re-renders whenever its data (or the market it pulls for
+    // match counts, or a realtime listing change) arrives — which clamps the scroll
+    // container back to the top. Re-land across a generous window; the drift-guard
+    // makes it free once we're in place, and any real scroll cancels it, so it never
+    // traps the visitor.
+    timers = [0, 150, 400, 800, 1500, 2500, 4000, 6000, 9000, 13000, 18000, 25000, 35000, 50000].map(t => setTimeout(land, t));
+    timers.push(setTimeout(stop, 60000));
     land();
 
     // Drop the flag so a later refresh or back-navigation stays put.
