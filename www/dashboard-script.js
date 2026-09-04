@@ -648,36 +648,46 @@ function _deepLinkToListings() {
 
     // Land on the user's TOPMOST (latest) listing — never a generic position.
     // renderRecentListings orders listings newest-first, so the FIRST card in
-    // #recentListingsBody is the latest. Two things make a single early scroll
-    // miss: (1) that render finishes LATE — it also fetches the whole market for
-    // match counts, so the cards can appear several seconds in; (2) each card
-    // reflows as its cover image loads. So: poll until the first card exists, then
-    // re-assert the scroll a few times through the reflow — but stop the moment the
-    // visitor scrolls themselves, so we never fight their own navigation.
-    let userScrolled = false;
-    const onUser = () => { userScrolled = true; };
-    window.addEventListener('wheel', onUser, { passive: true, once: true });
-    window.addEventListener('touchmove', onUser, { passive: true, once: true });
+    // #recentListingsBody is the latest. What made the old single early scroll miss:
+    //   (1) the scroll container here is .main-content, not the window;
+    //   (2) that render finishes LATE (it also fetches the whole market for match
+    //       counts) and RE-RENDERS — each time it momentarily empties
+    //       #recentListingsBody, the container clamps back to the top, undoing an
+    //       earlier scroll.
+    // So watch the body and re-land on every re-render (and on a short timer
+    // schedule for reflow) until the visitor scrolls — landing when already in place
+    // is a no-op, so this never fights their own scrolling.
+    const mc = document.querySelector('.main-content');
+    const body = document.getElementById('recentListingsBody');
+    let userScrolled = false, obs = null, timers = [];
 
-    const firstCard = () => card.querySelector('#recentListingsBody .listing-card');
-    const land = () => {
-        if (userScrolled) return false;
-        const el = firstCard();
-        if (!el) return false;
-        el.scrollIntoView({ block: 'start' });
-        return true;
-    };
-    let waited = 0;
-    const waitForCard = () => {
+    function cleanup() {
+        if (obs) { obs.disconnect(); obs = null; }
+        timers.forEach(clearTimeout); timers = [];
+        window.removeEventListener('wheel', onUser);
+        window.removeEventListener('touchmove', onUser);
+        if (mc) { mc.removeEventListener('wheel', onUser); mc.removeEventListener('touchmove', onUser); }
+    }
+    function onUser() { userScrolled = true; cleanup(); }
+    function land() {
         if (userScrolled) return;
-        if (land()) {
-            // Card is in — re-assert through image/card reflow, then stop.
-            [150, 400, 800, 1400, 2200].forEach(t => setTimeout(land, t));
-            return;
-        }
-        if ((waited += 150) <= 12000) setTimeout(waitForCard, 150);  // await the async render
-    };
-    waitForCard();
+        const el = card.querySelector('#recentListingsBody .listing-card');
+        if (el) el.scrollIntoView({ block: 'start' });
+    }
+
+    // Genuine user input (wheel/touch) — NOT programmatic scrolls — cancels the
+    // deep-link so we never yank the visitor back once they take over.
+    window.addEventListener('wheel', onUser, { passive: true });
+    window.addEventListener('touchmove', onUser, { passive: true });
+    if (mc) { mc.addEventListener('wheel', onUser, { passive: true }); mc.addEventListener('touchmove', onUser, { passive: true }); }
+
+    if (body && 'MutationObserver' in window) {
+        obs = new MutationObserver(land);          // re-render adds/removes cards → re-land
+        obs.observe(body, { childList: true, subtree: true });
+    }
+    timers = [0, 150, 400, 800, 1500, 2500, 4000, 6000, 9000, 12000].map(t => setTimeout(land, t));
+    timers.push(setTimeout(cleanup, 13000));       // stop watching once things settle
+    land();
 
     // Drop the flag so a later refresh or back-navigation stays put.
     params.delete('view');
