@@ -716,6 +716,38 @@ function _deepLinkToListings() {
     timers.push(setTimeout(stop, 60000));
     land();
 
+    // ── TEMP on-device diagnostic (remove once the mobile "lands lower" cause is
+    // found). Shows which card is newest vs which one is actually at the top. ──
+    (function _dlDiag() {
+        const snap = (label) => {
+            const c = document.querySelector('.listings-card');
+            const cards = c ? Array.prototype.slice.call(c.querySelectorAll('#recentListingsBody .listing-card')) : [];
+            const first = cards[0];
+            let topCard = null, best = Infinity;
+            cards.forEach(el => { const t = Math.abs(el.getBoundingClientRect().top); if (t < best) { best = t; topCard = el; } });
+            return label
+                + ' n=' + cards.length
+                + ' first=' + (first ? first.id : '-') + '@' + (first ? Math.round(first.getBoundingClientRect().top) : '-')
+                + ' atTop=' + (topCard ? topCard.id : '-') + '#' + (topCard ? cards.indexOf(topCard) : '-')
+                + ' mc=' + (mc ? Math.round(mc.scrollTop) : 'x')
+                + ' win=' + Math.round(window.scrollY || 0)
+                + ' if=' + (window.self !== window.top ? 1 : 0);
+        };
+        const lines = [];
+        const render = () => {
+            let p = document.getElementById('dlDiagPanel');
+            if (!p) {
+                p = document.createElement('div');
+                p.id = 'dlDiagPanel';
+                p.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:2147483647;background:rgba(15,23,42,.96);color:#e2e8f0;font:11px/1.35 monospace;padding:8px 10px;max-height:48vh;overflow:auto;white-space:pre-wrap;';
+                p.addEventListener('click', () => p.remove());
+                document.body.appendChild(p);
+            }
+            p.textContent = 'VIEW-LISTINGS DIAG — tap to close\n(first=newest card@its top px; atTop=card nearest viewport top #index)\n' + lines.join('\n');
+        };
+        [0, 300, 800, 1500, 3000, 5000, 8000, 12000].forEach(t => setTimeout(() => { lines.push(snap('t' + t)); render(); }, t));
+    })();
+
     // Drop the flag so a later refresh or back-navigation stays put.
     params.delete('view');
     const qs = params.toString();
