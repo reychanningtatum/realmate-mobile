@@ -631,90 +631,26 @@ function switchProfileTab(tab) {
     if (tab === 'about') updateBioReadMoreVisibility();
 }
 
-// Portal's "View Listings" opens this dashboard with ?view=listings so the
-// visitor lands on the Listings section instead of the top of the profile.
-// Both mobile and desktop are tabbed now (desktop tabs Posts / Listings in the
-// main column), so activate the Listings tab first on either layout, then scroll.
+// Portal's "View Listings" opens this dashboard with ?view=listings. The visitor
+// wants to land at the TOP of the profile (name/photo) with the LISTINGS tab
+// active and the listings just below — NOT scrolled down onto a listing. So we
+// only switch to the Listings tab; we do NOT scroll into the listings. Listings
+// render newest-first, so the first one shown below is the latest.
 function _deepLinkToListings() {
     const params = new URLSearchParams(window.location.search);
     if (params.get('view') !== 'listings') return;
 
     const card = document.querySelector('.listings-card');
     // Realmates-only listings on another member's profile are hidden entirely —
-    // nothing to scroll to, so leave the visitor at the top of the profile.
-    if (!card || card.style.display === 'none') return;
+    // just leave the visitor at the top of the profile.
+    if (card && card.style.display !== 'none') switchProfileTab('listings');
 
-    switchProfileTab('listings');
-
-    // Land on the user's TOPMOST (latest) listing — never a generic position.
-    // renderRecentListings orders listings newest-first, so the FIRST card in
-    // #recentListingsBody is the latest. What made the old single early scroll miss:
-    //   (1) the scroll container here is .main-content, not the window;
-    //   (2) that render finishes LATE (it also fetches the whole market for match
-    //       counts) and RE-RENDERS — each time it momentarily empties
-    //       #recentListingsBody, the container clamps back to the top, undoing an
-    //       earlier scroll.
-    // So watch the body and re-land on every re-render (and on a short timer
-    // schedule for reflow) until the visitor scrolls — landing when already in place
-    // is a no-op, so this never fights their own scrolling.
-    const mc = document.querySelector('.main-content');
-    const body = document.getElementById('recentListingsBody');
-    // Watch a container broad enough to catch shifts from OUTSIDE the listings —
-    // e.g. the profile's posts panel loading late ABOVE the listings and pushing
-    // them up, which left the visitor on a LOWER listing. The scroll container is
-    // the widest thing that can shift; fall back to <body>.
-    const shiftHost = mc || document.body;
-    // Late content above the listings shifts them up in the first few seconds; after
-    // that, an above-top position means the visitor scrolled. So correct an
-    // ABOVE-top drift only during this settle window; a BELOW-top drift (initial /
-    // re-render clamp) is corrected throughout.
-    const settleUntil = Date.now() + 14000;
-    let userTook = false, obs = null, timers = [];
-
-    function stop() {
-        if (obs) { obs.disconnect(); obs = null; }
-        timers.forEach(clearTimeout); timers = [];
-        window.removeEventListener('wheel', onUser);
-        window.removeEventListener('touchmove', onUser);
-        window.removeEventListener('keydown', onKey);
-        if (mc) { mc.removeEventListener('wheel', onUser); mc.removeEventListener('touchmove', onUser); }
-    }
-    // Genuine user input — NOT programmatic scrolls — hands control back for good.
-    function onUser() { userTook = true; stop(); }
-    function onKey(e) { if (['ArrowUp','ArrowDown','PageUp','PageDown','Home','End',' '].indexOf(e.key) >= 0) onUser(); }
-    // Bring the TOPMOST (newest) listing card to the top of the view. Decide off the
-    // card's own viewport rect, so it works whichever element actually scrolls, and
-    // only scroll when the card is sitting BELOW the top — the initial state, or after
-    // a re-render clamps the scroll back. Never scrolls when it's already in place (so
-    // a live Sold countdown can't nudge it) and never overshoots past the first card.
-    function land() {
-        if (userTook) return;
-        const el = card.querySelector('#recentListingsBody .listing-card');
-        if (!el) return;
-        const top = el.getBoundingClientRect().top;
-        // Below the top → bring it up (initial state / re-render clamp). Above the
-        // top → a lower listing is showing because content above shifted; correct it
-        // only during the settle window, so we never fight a real user scroll-up.
-        if (top > 8 || (top < -8 && Date.now() < settleUntil)) el.scrollIntoView({ block: 'start' });
-    }
-
-    window.addEventListener('wheel', onUser, { passive: true });
-    window.addEventListener('touchmove', onUser, { passive: true });
-    window.addEventListener('keydown', onKey);
-    if (mc) { mc.addEventListener('wheel', onUser, { passive: true }); mc.addEventListener('touchmove', onUser, { passive: true }); }
-
-    if ('MutationObserver' in window) {
-        obs = new MutationObserver(land);          // any layout change in the column → re-land
-        obs.observe(shiftHost, { childList: true, subtree: true });
-    }
-    // The listings section re-renders whenever its data (or the market it pulls for
-    // match counts, or a realtime listing change) arrives — which clamps the scroll
-    // container back to the top. Re-land across a generous window; the drift-guard
-    // makes it free once we're in place, and any real scroll cancels it, so it never
-    // traps the visitor.
-    timers = [0, 150, 400, 800, 1500, 2500, 4000, 6000, 9000, 13000, 18000, 25000, 35000, 50000].map(t => setTimeout(land, t));
-    timers.push(setTimeout(stop, 60000));
-    land();
+    // Keep the profile header at the top: make sure nothing left the page scrolled
+    // down. A one-shot reset (no observers/timers) so it never fights the visitor.
+    try {
+        window.scrollTo(0, 0);
+        document.querySelectorAll('.main-content').forEach(el => { el.scrollTop = 0; });
+    } catch (e) {}
 
     // Drop the flag so a later refresh or back-navigation stays put.
     params.delete('view');
