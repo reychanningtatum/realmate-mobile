@@ -11,6 +11,7 @@
   <!-- home.css carries the .mobile-bottom-nav styling; the shell layout below
        overrides html/body so the feed layout rules stay inert. -->
   <link rel="stylesheet" href="home.css?v=20260903a">
+  <link rel="stylesheet" href="customer-service.css?v=1">
   <style>
     html, body { margin: 0; height: 100%; overflow: hidden; background: #f4f7fa;
       font-family: 'Inter', sans-serif; }
@@ -73,6 +74,7 @@
       <div class="mob-nav-menu" id="navMenu">
         <a href="#" onclick="event.preventDefault(); rmMe('dashboard.html')"><i class="fas fa-user-tie"></i> Profile</a>
         <a href="#" onclick="event.preventDefault(); rmMe('realmates.html')"><i class="fas fa-user-group"></i> realmates</a>
+        <a href="#" onclick="event.preventDefault(); openCustomerService()"><i class="fas fa-headset"></i> Customer Service</a>
         <a href="#" onclick="event.preventDefault(); rmMe('settings.html')"><i class="fas fa-cog"></i> Settings</a>
         <a href="#" onclick="event.preventDefault(); logout()"><i class="fas fa-sign-out-alt"></i> Logout</a>
       </div>
@@ -86,5 +88,6 @@
   <script src="notif-badge.js?v=12"></script>
   <script src="app-shell.js?v=20260901a"></script>
   <script src="nav-menu.js?v=20260826a"></script>
+  <script src="customer-service.js?v=1"></script>
 </body>
 </html>

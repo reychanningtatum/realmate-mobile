@@ -1,0 +1,113 @@
+/* ============================================================================
+   Customer Service — user-facing modals (Profile navbar → Customer Service)
+   Self-contained; matches the app's card/rounded aesthetic. Theme-aware.
+   ============================================================================ */
+.cs-overlay {
+  position: fixed; inset: 0; z-index: 100000;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(15, 23, 42, 0.55); padding: 18px;
+  opacity: 0; transition: opacity .18s ease;
+  -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
+}
+.cs-overlay.open { opacity: 1; }
+.cs-card {
+  width: 100%; max-width: 440px; max-height: 90vh; overflow-y: auto;
+  background: #fff; border-radius: 20px; box-shadow: 0 24px 64px rgba(0,0,0,.28);
+  transform: translateY(8px) scale(.98); transition: transform .18s ease;
+  display: flex; flex-direction: column;
+}
+.cs-overlay.open .cs-card { transform: none; }
+
+.cs-head { display: flex; align-items: center; gap: 10px; padding: 16px 18px; border-bottom: 1px solid #eef2f7; }
+.cs-title { flex: 1; font-size: 16px; font-weight: 800; color: #0f172a; display: flex; align-items: center; gap: 9px; }
+.cs-title i { color: #2563eb; }
+.cs-x, .cs-back {
+  border: none; background: #f1f5f9; color: #475569; width: 32px; height: 32px;
+  border-radius: 9px; font-size: 18px; line-height: 1; cursor: pointer; flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.cs-back { font-size: 14px; }
+.cs-x:hover, .cs-back:hover { background: #e2e8f0; }
+
+.cs-body { padding: 14px 18px 20px; }
+
+/* Chooser options */
+.cs-opt {
+  width: 100%; display: flex; align-items: center; gap: 14px; text-align: left;
+  padding: 15px 14px; margin-bottom: 12px; border: 1px solid #e6ebf2; border-radius: 15px;
+  background: #fff; cursor: pointer; transition: border-color .15s, background .15s, box-shadow .15s;
+}
+.cs-opt:last-child { margin-bottom: 0; }
+.cs-opt:hover { border-color: #cbd5e1; background: #f8fafc; box-shadow: 0 4px 14px rgba(15,23,42,.06); }
+.cs-opt-ic { width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; font-size: 18px; }
+.cs-ic-amber { background: #fff7ed; color: #d97706; }
+.cs-ic-blue { background: #eff6ff; color: #2563eb; }
+.cs-opt-tx { flex: 1; min-width: 0; }
+.cs-opt-t { display: block; font-size: 14px; font-weight: 800; color: #0f172a; }
+.cs-opt-s { display: block; font-size: 12px; color: #64748b; margin-top: 3px; line-height: 1.4; }
+.cs-opt-ch { color: #cbd5e1; font-size: 13px; flex-shrink: 0; }
+.cs-opt-note { color: #94a3b8; font-weight: 500; }
+
+/* Form */
+.cs-label { display: block; font-size: 12px; font-weight: 700; color: #475569; margin: 12px 0 6px; }
+.cs-input {
+  width: 100%; box-sizing: border-box; padding: 11px 13px; font-size: 14px; color: #0f172a;
+  border: 1px solid #d9e0ea; border-radius: 11px; background: #fff; font-family: inherit;
+}
+.cs-input:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,.12); }
+.cs-textarea { resize: vertical; min-height: 96px; }
+
+.cs-primary {
+  width: 100%; margin-top: 16px; padding: 13px; border: none; border-radius: 12px;
+  background: #2563eb; color: #fff; font-size: 14px; font-weight: 800; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+}
+.cs-primary:hover { background: #1d4ed8; }
+.cs-primary:disabled { opacity: .7; cursor: default; }
+.cs-secondary {
+  margin-top: 18px; padding: 10px 18px; border: 1px solid #e2e8f0; border-radius: 11px;
+  background: #fff; color: #475569; font-size: 13px; font-weight: 700; cursor: pointer;
+}
+.cs-secondary:hover { background: #f1f5f9; }
+
+.cs-msg { margin-top: 12px; font-size: 13px; font-weight: 600; padding: 9px 12px; border-radius: 10px; }
+.cs-ok { color: #15803d; background: #f0fdf4; border: 1px solid #bbf7d0; }
+.cs-err { color: #dc2626; background: #fef2f2; border: 1px solid #fecaca; }
+.cs-foot { margin-top: 12px; font-size: 12px; color: #94a3b8; text-align: center; }
+
+/* Waiting screen */
+.cs-wait { align-items: center; text-align: center; padding: 34px 24px 26px; }
+.cs-wait-ic { width: 68px; height: 68px; border-radius: 50%; background: #eff6ff; color: #2563eb; display: flex; align-items: center; justify-content: center; font-size: 28px; margin-bottom: 16px; }
+.cs-wait-tx { font-size: 15px; font-weight: 700; color: #0f172a; line-height: 1.5; max-width: 300px; }
+
+/* Toast */
+.cs-toast {
+  position: fixed; left: 50%; bottom: 88px; transform: translate(-50%, 20px); z-index: 100001;
+  background: #0f172a; color: #fff; font-size: 13px; font-weight: 600; padding: 12px 18px;
+  border-radius: 999px; box-shadow: 0 10px 30px rgba(0,0,0,.25); display: flex; align-items: center; gap: 9px;
+  opacity: 0; transition: opacity .25s ease, transform .25s ease; max-width: 90vw;
+}
+.cs-toast.show { opacity: 1; transform: translate(-50%, 0); }
+.cs-toast i { color: #4ade80; }
+
+/* Dark theme */
+@media (prefers-color-scheme: dark) {
+  .cs-card { background: #0f1729; box-shadow: 0 24px 64px rgba(0,0,0,.6); }
+  .cs-head { border-bottom-color: #1e293b; }
+  .cs-title { color: #f1f5f9; }
+  .cs-x, .cs-back { background: #1e293b; color: #cbd5e1; }
+  .cs-x:hover, .cs-back:hover { background: #334155; }
+  .cs-opt { background: #131c30; border-color: #263349; }
+  .cs-opt:hover { background: #182238; border-color: #334155; }
+  .cs-opt-t { color: #f1f5f9; }
+  .cs-opt-s { color: #94a3b8; }
+  .cs-label { color: #cbd5e1; }
+  .cs-input { background: #131c30; border-color: #334155; color: #f1f5f9; }
+  .cs-wait-tx { color: #f1f5f9; }
+}
+/* App's explicit dark class, if present */
+body.dark .cs-card, html.dark .cs-card { background: #0f1729; }
+body.dark .cs-title, html.dark .cs-title { color: #f1f5f9; }
+body.dark .cs-opt, html.dark .cs-opt { background: #131c30; border-color: #263349; }
+body.dark .cs-opt-t, html.dark .cs-opt-t { color: #f1f5f9; }
+body.dark .cs-input, html.dark .cs-input { background: #131c30; border-color: #334155; color: #f1f5f9; }
