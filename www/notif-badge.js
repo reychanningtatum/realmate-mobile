@@ -317,6 +317,17 @@
     await refresh();
     setInterval(refresh, 60000);
 
+    // INSTANT chat-badge refresh when a chat is read: chat.js dispatches
+    // 'rm-chat-read' in its own window and postMessages it up to the app shell
+    // the moment markRead() commits. Refreshing here directly (no debounce)
+    // bypasses the realtime round-trip that otherwise left the red alert up for
+    // a couple of seconds after the user had already opened the chat.
+    window.addEventListener('rm-chat-read', () => refreshChatBadge());
+    window.addEventListener('message', (e) => {
+        if (e.origin !== location.origin) return;
+        if (e.data && e.data.type === 'rm-chat-read') refreshChatBadge();
+    });
+
     // Debounced re-check — used by the realtime subscriptions below so a
     // burst of several events arriving at once (several notifications in
     // quick succession, or an INSERT immediately followed by an UPDATE)

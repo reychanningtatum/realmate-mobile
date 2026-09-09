@@ -1042,6 +1042,16 @@ async function markRead(convId) {
     }
     const conv = conversations.find(c => c.id === convId);
     if (conv) { conv.unreadCount = 0; renderConvList(); }
+    _notifyChatRead(); // clear the nav badge instantly (don't wait for realtime)
+}
+
+// Tell notif-badge (this window AND the app-shell parent) that a chat was just
+// read, so the red Chat badge refreshes immediately instead of after the
+// realtime round-trip + debounce. The write above has already committed, so the
+// recount it triggers sees the messages as read.
+function _notifyChatRead() {
+    try { window.dispatchEvent(new CustomEvent('rm-chat-read')); } catch (e) {}
+    try { if (window.parent && window.parent !== window) window.parent.postMessage({ type: 'rm-chat-read' }, '*'); } catch (e) {}
 }
 
 // ===== REALTIME =====
