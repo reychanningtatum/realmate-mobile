@@ -1849,16 +1849,22 @@ function setupMobileKeyboard() {
     if (!container || !composer) return;
 
     const vv = window.visualViewport;
-    const embedded = document.documentElement.classList.contains('rm-embedded');
+    // FILL vs CLAMP. Inside the native app the visible area above the keyboard is
+    // already the right height — the app shell shrinks the embedded iframe (see
+    // the rm-keyboard bridge), and Capacitor's native resize shrinks a top-level
+    // webview — so the container just fills it with NO pixel height. Setting an
+    // explicit visualViewport height there overshoots by the safe-area inset and
+    // leaves a gap between the composer and the keyboard (the reported bug: the
+    // support chat opens top-level, so it isn't rm-embedded, but is still native).
+    // A plain web browser overlays the keyboard, so there we clamp to the visible
+    // viewport. window.Capacitor is injected by the native runtime (absent on the
+    // Render web build); rm-embedded marks the in-shell iframe.
+    const fillMode = !!window.Capacitor || document.documentElement.classList.contains('rm-embedded');
     let keyboardOpen = false;
 
-    // Size the container so the composer sits right above the keyboard.
-    // Embedded: the app shell shrinks this iframe to exactly the visible area
-    // (see the rm-keyboard bridge), so just fill it — no pixel height. Standalone
-    // web: the keyboard overlays the layout viewport, so clamp to visualViewport.
     function fitToViewport() {
         if (!keyboardOpen) return;
-        if (embedded) container.style.height = '';
+        if (fillMode) container.style.height = '';
         else if (vv) container.style.height = vv.height + 'px';
     }
 
