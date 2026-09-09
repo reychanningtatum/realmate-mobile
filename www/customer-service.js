@@ -94,6 +94,15 @@
             <input id="csSubject" class="cs-input" type="text" maxlength="120" placeholder="Short summary">
             <label class="cs-label">Message</label>
             <textarea id="csMessage" class="cs-input cs-textarea" rows="5" maxlength="2000" placeholder="Tell us what's going on…"></textarea>
+            <label class="cs-label">Photo <span class="cs-opt-note">(optional)</span></label>
+            <input type="file" id="csPhotoInput" accept="image/*" style="display:none;" onchange="csPickConcernPhoto(this)">
+            <div id="csPhotoRow">
+              <button type="button" class="cs-photo-btn" onclick="document.getElementById('csPhotoInput').click()"><i class="fas fa-image"></i> Add photo</button>
+            </div>
+            <div id="csPhotoPreview" class="cs-photo-preview" style="display:none;">
+              <img id="csPhotoImg" alt="attachment preview">
+              <button type="button" class="cs-photo-remove" onclick="csRemoveConcernPhoto()" aria-label="Remove photo"><i class="fas fa-times"></i></button>
+            </div>
             <div id="csConcernMsg" class="cs-msg" style="display:none;"></div>
             <button id="csConcernSend" class="cs-primary" onclick="csSubmitConcern()"><i class="fas fa-paper-plane"></i> Submit concern</button>
             <div class="cs-foot">Sending as <b>${esc(u.name || u.email || 'you')}</b></div>
@@ -103,7 +112,38 @@
     document.body.appendChild(ov);
     setTimeout(() => { const m = document.getElementById('csMessage'); if (m) m.focus(); }, 50);
   };
-  window.closeCsConcern = function () { remove('csConcernOverlay'); };
+  window.closeCsConcern = function () { _concernPhoto = null; remove('csConcernOverlay'); };
+
+  // Optional concern photo (preview + remove before submit).
+  var _concernPhoto = null;
+  window.csPickConcernPhoto = function (input) {
+    const f = input && input.files && input.files[0];
+    if (!f) return;
+    if (!/^image\//.test(f.type)) { csToast('Please choose an image file.'); input.value = ''; return; }
+    if (f.size > 15 * 1024 * 1024) { csToast('Image is too large (max 15MB).'); input.value = ''; return; }
+    _concernPhoto = f;
+    const img = document.getElementById('csPhotoImg');
+    if (img) img.src = URL.createObjectURL(f);
+    const prev = document.getElementById('csPhotoPreview'); if (prev) prev.style.display = 'flex';
+    const row = document.getElementById('csPhotoRow'); if (row) row.style.display = 'none';
+  };
+  window.csRemoveConcernPhoto = function () {
+    _concernPhoto = null;
+    const inp = document.getElementById('csPhotoInput'); if (inp) inp.value = '';
+    const prev = document.getElementById('csPhotoPreview'); if (prev) prev.style.display = 'none';
+    const row = document.getElementById('csPhotoRow'); if (row) row.style.display = '';
+  };
+
+  async function _uploadConcernPhoto(uid) {
+    if (!_concernPhoto) return null;
+    // Reuse the EXISTING chat-files storage bucket (same as chat attachments).
+    const ext = (_concernPhoto.name.split('.').pop() || 'jpg').toLowerCase();
+    const path = `support/${uid || 'anon'}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+    const { error } = await SB().storage.from('chat-files').upload(path, _concernPhoto, { contentType: _concernPhoto.type, upsert: false });
+    if (error) throw error;
+    const { data } = SB().storage.from('chat-files').getPublicUrl(path);
+    return data && data.publicUrl ? data.publicUrl : null;
+  }
 
   window.csSubmitConcern = async function () {
     const u = getUser() || {};
@@ -118,6 +158,8 @@
     try {
       let uid = u.id || null;
       try { const r = await SB().auth.getUser(); uid = (r && r.data && r.data.user && r.data.user.id) || uid; } catch (e) {}
+      let photoUrl = null;
+      try { photoUrl = await _uploadConcernPhoto(uid); } catch (e) { show('Could not upload the photo: ' + (e.message || e), false); btn.disabled = false; btn.innerHTML = old; return; }
       const payload = {
         name: u.name || null,
         email: u.email || null,
@@ -125,10 +167,11 @@
         subject: ((document.getElementById('csSubject') || {}).value || '').trim() || null,
         message: message,
         user_id: uid,
+        photo_url: photoUrl,
       };
       const { error } = await SB().from('support_requests').insert(payload);
       if (error) throw error;
-      // Success screen
+      _concernPhoto = null;
       remove('csConcernOverlay');
       csToast('Concern submitted — our team will review it. Thank you!');
     } catch (e) {

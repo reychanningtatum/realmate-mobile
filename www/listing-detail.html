@@ -339,6 +339,7 @@
     <span>Me</span>
     <div class="mob-nav-menu" id="navMenu">
       <a href="dashboard.html"><i class="fas fa-user-tie"></i> Profile</a>
+      <a href="#" onclick="event.preventDefault(); openCustomerService()"><i class="fas fa-headset"></i> Customer Service</a>
       <a href="settings.html"><i class="fas fa-cog"></i> Settings</a>
       <a href="#" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</a>
     </div>
@@ -1276,5 +1277,7 @@ function navLdLightbox(dir){
 
 document.addEventListener('DOMContentLoaded', loadListing);
 </script>
+<link rel="stylesheet" href="customer-service.css?v=1">
+<script src="customer-service.js?v=5"></script>
 </body>
 </html>

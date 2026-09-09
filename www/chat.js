@@ -224,10 +224,53 @@ function isUserOnline(userId) {
     return !!onlineUsers[userId];
 }
 
-// The shared "Realmate Support" identity: never links to a profile and always
-// shows as online (it's a service account, not a person).
+// The shared "Realmate Support" identity: never links to a profile, shows a
+// ticket number + Online/Offline from the ticket, and is read-only when closed.
 function _isSupportUser(u) {
     return !!(u && (u.name === 'Realmate Support' || u.full_name === 'Realmate Support'));
+}
+
+// Ticket meta for the active support conversation: { number, status } or null.
+let _activeSupportTicket = null;
+let _supportTicketChannel = null;
+
+// Fetch the support ticket for a conversation (JWT-scoped via the library client,
+// so the SELECT-own policy applies), then refresh the header + composer lock.
+async function _loadSupportTicket(convId) {
+    _activeSupportTicket = null;
+    _unsubSupportTicket();
+    try {
+        const { data } = await _chatSupa.from('support_requests')
+            .select('id,ticket_number,status').eq('chat_conversation_id', convId).maybeSingle();
+        if (data && activeConversationId === convId) {
+            _activeSupportTicket = { number: data.ticket_number, status: data.status };
+            updateHeaderStatus();
+            _applySupportComposerLock();
+            // Live updates (e.g. the ticket being closed while open).
+            try {
+                _supportTicketChannel = _chatSupa.channel('sup-ticket-' + data.id)
+                    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'support_requests', filter: 'id=eq.' + data.id }, (p) => {
+                        if (activeConversationId !== convId) return;
+                        _activeSupportTicket = { number: p.new.ticket_number, status: p.new.status };
+                        updateHeaderStatus(); _applySupportComposerLock();
+                    }).subscribe();
+            } catch (e) {}
+        }
+    } catch (e) {}
+}
+function _unsubSupportTicket() {
+    if (_supportTicketChannel) { try { _chatSupa.removeChannel(_supportTicketChannel); } catch (e) {} _supportTicketChannel = null; }
+}
+function _supportTicketClosed() {
+    return _activeSupportTicket && _activeSupportTicket.status === 'resolved';
+}
+// Closed support tickets are read-only: hide the composer, show the notice.
+function _applySupportComposerLock() {
+    const composer = document.getElementById('chatComposer');
+    const notice = document.getElementById('chatClosedNotice');
+    const closed = _isSupportUser(activeOtherUser) && _supportTicketClosed();
+    if (composer) composer.style.display = closed ? 'none' : '';
+    if (notice) notice.style.display = closed ? 'flex' : 'none';
 }
 
 function refreshOnlineUI() {
@@ -541,6 +584,11 @@ async function openConversation(convId) {
     // Support is a service account — no profile page, so drop the clickable affordance.
     const _hdrBtn = document.getElementById('chatHeaderAvatarBtn');
     if (_hdrBtn) _hdrBtn.classList.toggle('no-profile', _isSupportUser(activeOtherUser));
+    // Reset support-ticket UI; load it (ticket #, Online/Offline, read-only) if this
+    // is a Realmate Support conversation.
+    _activeSupportTicket = null; _unsubSupportTicket();
+    _applySupportComposerLock();
+    if (_isSupportUser(activeOtherUser)) _loadSupportTicket(convId);
     updateHeaderStatus();
 
     if (window.innerWidth <= 768) {
@@ -612,7 +660,11 @@ function updateHeaderStatus() {
     if (!activeOtherUser) return;
 
     if (_isSupportUser(activeOtherUser)) {
-        el.innerHTML = '<span class="status-online">● Online</span>';
+        const t = _activeSupportTicket;
+        const num = (t && t.number) ? ` · Ticket No. ${t.number}` : '';
+        el.innerHTML = (t && t.status === 'resolved')
+            ? `<span class="status-offline">● Offline</span>${num}`
+            : `<span class="status-online">● Online</span>${num}`;
         return;
     }
 
@@ -754,6 +806,7 @@ function fileBubble(m, icon, preview) {
 
 // ===== SEND MESSAGE =====
 async function sendMessage() {
+    if (_supportTicketClosed()) return; // closed support ticket is read-only
     const input = document.getElementById('chatComposerInput');
     const text = input.value.trim();
     const convId = activeConversationId;

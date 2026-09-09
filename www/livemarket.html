@@ -424,6 +424,7 @@
       <a href="dashboard.html"><i class="fas fa-user-tie"></i> Profile</a>
       <a href="realmates.html"><i class="fas fa-user-group"></i> realmates</a>
       <a href="analytics.html" style="display:none"><i class="fas fa-chart-area"></i> Analytics</a>
+      <a href="#" onclick="event.preventDefault(); openCustomerService()"><i class="fas fa-headset"></i> Customer Service</a>
       <a href="settings.html"><i class="fas fa-cog"></i> Settings</a>
       <a href="#" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</a>
     </div>
@@ -451,5 +452,7 @@
   <script src="pull-refresh.js?v=20260829p"></script>
 <script src="nav-menu.js?v=20260826a"></script>
 <script>document.addEventListener("DOMContentLoaded",function(){if(window.rmPullRefresh)rmPullRefresh({content:".main-content",windowScroll:true,pullTarget:"#listingsGrid",label:"Loading Portal",onRefresh:async function(){if(window.loadLedger)await loadLedger(true);}});});</script>
+<link rel="stylesheet" href="customer-service.css?v=1">
+<script src="customer-service.js?v=5"></script>
 </body>
 </html>

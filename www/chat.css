@@ -430,6 +430,13 @@
   color: #32cd32;
   font-weight: 600;
 }
+.chat-header-status .status-offline { color: #94a3b8; font-weight: 600; }
+.chat-closed-notice {
+  display: flex; align-items: center; gap: 8px;
+  padding: 14px 18px; background: #f1f5f9; color: #64748b;
+  font-size: 13px; font-weight: 600; border-top: 1px solid #e2e8f0;
+}
+.chat-closed-notice i { color: #94a3b8; }
 
 .chat-header-search-btn {
   border: none;

@@ -51,9 +51,21 @@
 /* Form */
 .cs-label { display: block; font-size: 12px; font-weight: 700; color: #475569; margin: 12px 0 6px; }
 .cs-input {
-  width: 100%; box-sizing: border-box; padding: 11px 13px; font-size: 14px; color: #0f172a;
+  /* font-size MUST be >= 16px: iOS Safari auto-zooms the page when focusing an
+     input smaller than that. This is the fix for the "Raise a Concern zoom". */
+  width: 100%; box-sizing: border-box; padding: 11px 13px; font-size: 16px; color: #0f172a;
   border: 1px solid #d9e0ea; border-radius: 11px; background: #fff; font-family: inherit;
 }
+.cs-photo-btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 14px;
+  border: 1px dashed #cbd5e1; border-radius: 11px; background: #f8fafc; color: #475569;
+  font-size: 14px; font-weight: 700; cursor: pointer; }
+.cs-photo-btn:hover { background: #f1f5f9; border-color: #94a3b8; }
+.cs-photo-btn i { color: #2563eb; }
+.cs-photo-preview { position: relative; display: inline-flex; margin-top: 4px; }
+.cs-photo-preview img { max-width: 160px; max-height: 160px; border-radius: 12px; border: 1px solid #e2e8f0; }
+.cs-photo-remove { position: absolute; top: -8px; right: -8px; width: 26px; height: 26px; border-radius: 50%;
+  border: none; background: #0f172a; color: #fff; font-size: 12px; cursor: pointer; display: flex;
+  align-items: center; justify-content: center; }
 .cs-input:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,.12); }
 .cs-textarea { resize: vertical; min-height: 96px; }
 

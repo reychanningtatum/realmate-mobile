@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="vendor/fontawesome/css/all.min.css?v=6.5.0">
   <link rel="stylesheet" href="vendor/googlefonts/fonts.css?v=1">
   <link rel="stylesheet" href="home.css?v=20260903a">
-  <link rel="stylesheet" href="chat.css?v=20260909a">
+  <link rel="stylesheet" href="chat.css?v=20260909b">
   <link rel="stylesheet" href="block-report.css?v=20260823bp">
   <link rel="stylesheet" href="mobile-back.css">
   <link rel="stylesheet" href="safe-area.css?v=20260828b">
@@ -141,8 +141,13 @@
         <button class="chat-file-preview-remove" onclick="removeAttachedFile()"><i class="fas fa-times"></i></button>
       </div>
 
+      <!-- Closed customer-service ticket notice (read-only) -->
+      <div class="chat-closed-notice" id="chatClosedNotice" style="display:none;">
+        <i class="fas fa-lock"></i> This support conversation is closed. Start a new request from Customer Service if you need more help.
+      </div>
+
       <!-- Composer -->
-      <div class="chat-composer">
+      <div class="chat-composer" id="chatComposer">
         <button class="chat-composer-attach" onclick="document.getElementById('chatFileInput').click()" title="Attach file">
           <i class="fas fa-paperclip"></i>
         </button>
@@ -253,7 +258,7 @@
 <script src="vendor/supabase-js.min.js?v=2.112.3"></script>
 <script src="compress.js"></script>
 <script src="auth-guard.js?v=20260903d"></script>
-<script src="chat.js?v=20260909b"></script>
+<script src="chat.js?v=20260909c"></script>
 <script src="block-report.js?v=20260829f"></script>
 <script src="location-engine.js?v=20260809b"></script>
 <script src="match-engine.js?v=20260821p1"></script>
@@ -276,11 +281,14 @@
       <a href="dashboard.html"><i class="fas fa-user-tie"></i> Profile</a>
       <a href="realmates.html"><i class="fas fa-user-group"></i> realmates</a>
       <a href="analytics.html" style="display:none"><i class="fas fa-chart-area"></i> Analytics</a>
+      <a href="#" onclick="event.preventDefault(); openCustomerService()"><i class="fas fa-headset"></i> Customer Service</a>
       <a href="settings.html"><i class="fas fa-cog"></i> Settings</a>
       <a href="#" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</a>
     </div>
   </div>
 </nav>
 <script src="nav-menu.js?v=20260826a"></script>
+<link rel="stylesheet" href="customer-service.css?v=1">
+<script src="customer-service.js?v=5"></script>
 </body>
 </html>

@@ -143,6 +143,7 @@
       <a href="dashboard.html"><i class="fas fa-user-tie"></i> Profile</a>
       <a href="realmates.html"><i class="fas fa-user-group"></i> realmates</a>
       <a href="analytics.html" style="display:none"><i class="fas fa-chart-area"></i> Analytics</a>
+      <a href="#" onclick="event.preventDefault(); openCustomerService()"><i class="fas fa-headset"></i> Customer Service</a>
       <a href="settings.html"><i class="fas fa-cog"></i> Settings</a>
       <a href="#" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</a>
     </div>
@@ -379,5 +380,7 @@ async function loadOverview() {
 
 document.addEventListener('DOMContentLoaded', loadOverview);
 </script>
+<link rel="stylesheet" href="customer-service.css?v=1">
+<script src="customer-service.js?v=5"></script>
 </body>
 </html>
