@@ -170,6 +170,25 @@
         }
     }
 
+    // The shared "Realmate Support" user id (cached for the page's lifetime).
+    // Every support chat is with this one identity, so it lets us collapse the
+    // several underlying support conversations (a fresh one is created per
+    // request) into a single badge unit — the user has one logical support chat
+    // and it must never stack the count.
+    let _supportUidCache; // undefined = not fetched; null = unavailable
+    async function getSupportUid() {
+        if (_supportUidCache !== undefined) return _supportUidCache;
+        try {
+            const r = await fetch(
+                `${SUPABASE_URL}/rest/v1/profiles?select=id&full_name=eq.${encodeURIComponent('Realmate Support')}&limit=1`,
+                { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } }
+            );
+            const d = await r.json();
+            _supportUidCache = (Array.isArray(d) && d[0] && d[0].id) || null;
+        } catch { _supportUidCache = null; }
+        return _supportUidCache;
+    }
+
     async function fetchUnreadChatCount() {
         try {
             const u = JSON.parse(localStorage.getItem('user') || 'null');
@@ -194,7 +213,7 @@
 
             const idList = convIds.map(id => `"${id}"`).join(',');
             const res = await fetch(
-                `${SUPABASE_URL}/rest/v1/messages?select=conversation_id&is_read=eq.false&sender_id=neq.${u.id}&conversation_id=in.(${idList})`,
+                `${SUPABASE_URL}/rest/v1/messages?select=conversation_id,sender_id&is_read=eq.false&sender_id=neq.${u.id}&conversation_id=in.(${idList})`,
                 { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } }
             );
             const data = await res.json();
@@ -203,6 +222,13 @@
             // unread messages from one person is still just 1 conversation
             // to catch up on, so dedupe by conversation_id.
             const unreadConvIds = new Set(data.map(m => m.conversation_id));
+            // Track which unread conversations are with Realmate Support (their
+            // unread messages are sent BY the support user) so we can collapse
+            // them below.
+            const supportUid = await getSupportUid();
+            const supportUnread = new Set(
+                supportUid ? data.filter(m => m.sender_id === supportUid).map(m => m.conversation_id) : []
+            );
 
             // Muted/manually-marked-unread state lives in chat.js's
             // localStorage flags (no DB column for either — see chat.js for
@@ -216,6 +242,14 @@
                 const manualUnread = JSON.parse(localStorage.getItem(`chat_manualUnread_${u.id}`)) || [];
                 manualUnread.forEach(id => { if (!muted.has(id)) unreadConvIds.add(id); });
             } catch {}
+
+            // Collapse Realmate Support into ONE badge unit: the user has a
+            // single logical support chat, so however many support conversations
+            // carry unread messages, they contribute at most 1 — never a count
+            // that climbs per request/message. Keep the first still-unread
+            // support conversation, drop the rest from the count.
+            const liveSupport = [...supportUnread].filter(id => unreadConvIds.has(id));
+            if (liveSupport.length > 1) liveSupport.slice(1).forEach(id => unreadConvIds.delete(id));
 
             return unreadConvIds.size;
         } catch { return 0; }

@@ -499,6 +499,12 @@
   flex-direction: column;
   gap: 4px;
 }
+/* Keep the thread anchored to the BOTTOM (just above the composer) when it's
+   short, instead of stranding the messages at the top with a big empty gap
+   above the input. The auto top-margin on the first row soaks up the free
+   space; once the thread overflows there's no free space left to take, so it
+   collapses to 0 and scrolling stays normal — no message is ever clipped. */
+.chat-messages > :first-child { margin-top: auto; }
 
 .chat-messages::-webkit-scrollbar { width: 4px; }
 .chat-messages::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
