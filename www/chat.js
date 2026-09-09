@@ -133,8 +133,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadConversations();
     setupRealtimeConversations();
 
-    const openWith = new URLSearchParams(window.location.search).get('user');
-    if (openWith) {
+    const _qp = new URLSearchParams(window.location.search);
+    const openConv = _qp.get('conversation');
+    const openWith = _qp.get('user');
+    if (openConv) {
+        // Open a SPECIFIC conversation (e.g. a live customer-service chat) — exact,
+        // never by user, so a fresh CS session always lands on its own thread.
+        _chatOpenedExternally = true;
+        if (!conversations.find(c => c.id === openConv)) await loadConversations();
+        if (conversations.find(c => c.id === openConv)) await openConversation(openConv);
+    } else if (openWith) {
         _chatOpenedExternally = true;
         await openConversationWithUser(openWith);
     } else {
