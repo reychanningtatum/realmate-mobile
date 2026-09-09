@@ -185,6 +185,35 @@
 
   const SEL = 'id,ticket_number,status,assigned_to,assigned_username,chat_conversation_id,chat_rep_id,is_live_chat';
 
+  // ── Sounds (synthesized Web Audio; created inside the click gesture) ────────
+  let _csAudioCtx = null, _csWaitSoundTimer = null;
+  function _csAudio() {
+    try {
+      if (!_csAudioCtx) _csAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (_csAudioCtx.state === 'suspended') _csAudioCtx.resume();
+      return _csAudioCtx;
+    } catch (e) { return null; }
+  }
+  function _csBeep(freq, dur, gain, type) {
+    const ctx = _csAudio(); if (!ctx) return;
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = type || 'sine'; o.frequency.value = freq; o.connect(g); g.connect(ctx.destination);
+    const t = ctx.currentTime; g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(gain || 0.05, t + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + (dur || 0.18));
+    o.start(t); o.stop(t + (dur || 0.18) + 0.03);
+  }
+  function _csStartWaitSound() {
+    _csStopWaitSound();
+    const ping = () => { _csBeep(660, 0.12, 0.045); setTimeout(() => _csBeep(880, 0.12, 0.035), 130); };
+    ping();
+    _csWaitSoundTimer = setInterval(ping, 4500);
+  }
+  function _csStopWaitSound() { if (_csWaitSoundTimer) { clearInterval(_csWaitSoundTimer); _csWaitSoundTimer = null; } }
+  function _csJoinSound() {
+    _csBeep(523, 0.14, 0.06); setTimeout(() => _csBeep(659, 0.14, 0.06), 120); setTimeout(() => _csBeep(784, 0.22, 0.06), 250);
+  }
+
   window.csStartLiveChat = async function () {
     const u = getUser() || {};
     if (!u.id) { csToast('Please sign in to start a live chat.'); return; }
@@ -204,12 +233,14 @@
       _csWaitTicketNo = ticket.ticket_number || null;
       _watchTicket(ticket.id);
       _showWaiting('Waiting for a representative to join…', true);
+      _csStartWaitSound();
       // Frontend-only 30s timeout: stop the spinner and show a "busy" message so
       // the user is never stuck on an endless loader. The TICKET STAYS PENDING in
       // the queue and the watch keeps running — a rep can still accept later and
       // the user transitions in automatically.
       clearTimeout(_csWaitTimer);
       _csWaitTimer = setTimeout(() => {
+        _csStopWaitSound(); // stop the loading sound once we drop to the passive "busy" state
         if (document.getElementById('csWaitOverlay')) {
           _showWaiting('All of our representatives are currently busy. Please wait — a representative will respond to your request shortly. You don’t need to submit it again.', false);
         }
@@ -244,6 +275,7 @@
   function _openRepChat(row) {
     const convId = row && row.chat_conversation_id;
     if (!convId) return;
+    _csStopWaitSound(); _csJoinSound(); // Support accepted — play the join chime
     _teardownWatch();
     _showWaiting('Connected! A representative has joined. Opening chat…', true);
     setTimeout(() => {
@@ -257,6 +289,7 @@
     if (_csWaitChannel) { try { SB().removeChannel(_csWaitChannel); } catch (e) {} _csWaitChannel = null; }
     if (_csWaitPoll) { clearInterval(_csWaitPoll); _csWaitPoll = null; }
     if (_csWaitTimer) { clearTimeout(_csWaitTimer); _csWaitTimer = null; }
+    _csStopWaitSound();
   }
 
   function _showWaiting(text, spinning, isError) {
