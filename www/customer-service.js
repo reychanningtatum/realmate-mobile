@@ -159,6 +159,10 @@
           .order('created_at', { ascending: false }).limit(1);
         if (data && data.length) ticket = data[0];
       } catch (e) {}
+      // A being-handled ticket with no chat_rep_id is a STALE pre-Support-identity
+      // claim — ignore it so we don't route the customer to an employee's personal
+      // profile; start a fresh request instead.
+      if (ticket && ticket.status === 'being_handled' && !ticket.chat_rep_id) ticket = null;
       if (!ticket) {
         const payload = {
           name: u.name || null, email: u.email || null, category: 'live_chat', is_live_chat: true,
@@ -168,8 +172,8 @@
         if (error) throw error;
         ticket = data;
       }
-      // Already claimed while we were away? Jump straight in.
-      if (ticket.status === 'being_handled' && (ticket.chat_rep_id || ticket.assigned_to)) { _openRepChat(ticket); return; }
+      // Already claimed (with a Support conversation) while we were away? Jump in.
+      if (ticket.status === 'being_handled' && ticket.chat_rep_id) { _openRepChat(ticket); return; }
       _watchCustomer(uid);
       _showWaiting('Waiting for a representative to join…', true);
     } catch (e) {
@@ -182,7 +186,9 @@
   function _watchCustomer(uid) {
     _teardownWatch();
     const check = (row) => {
-      if (row && row.is_live_chat && row.status === 'being_handled' && (row.chat_rep_id || row.assigned_to)) _openRepChat(row);
+      // Only route once the Support conversation exists (chat_rep_id set) — never
+      // to an employee's personal id.
+      if (row && row.is_live_chat && row.status === 'being_handled' && row.chat_rep_id) _openRepChat(row);
     };
     try {
       _csWaitChannel = SB().channel('cs-cust-' + uid)
@@ -201,9 +207,10 @@
   }
 
   function _openRepChat(row) {
+    const repId = row && row.chat_rep_id;
+    if (!repId) return; // never route to an employee's personal profile
     _teardownWatch();
     _showWaiting('Connected! A representative has joined. Opening chat…', true);
-    const repId = row.chat_rep_id || row.assigned_to;
     setTimeout(() => {
       remove('csWaitOverlay');
       // Reuse the existing chat: open the conversation with the Realmate Support rep.
