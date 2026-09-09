@@ -1851,48 +1851,51 @@ function setupMobileKeyboard() {
     if (!container || !composer) return;
 
     const vv = window.visualViewport;
-    if (!vv) return;
-
+    const embedded = document.documentElement.classList.contains('rm-embedded');
     let keyboardOpen = false;
 
+    // Size the container so the composer sits right above the keyboard.
+    // Embedded: the app shell shrinks this iframe to exactly the visible area
+    // (see the rm-keyboard bridge), so just fill it — no pixel height. Standalone
+    // web: the keyboard overlays the layout viewport, so clamp to visualViewport.
+    function fitToViewport() {
+        if (!keyboardOpen) return;
+        if (embedded) container.style.height = '';
+        else if (vv) container.style.height = vv.height + 'px';
+    }
+
     function openKeyboardState() {
+        if (keyboardOpen) return;
         keyboardOpen = true;
         container.classList.add('keyboard-open');
-        container.style.height = vv.height + 'px';
+        fitToViewport();
         _notifyShellKeyboard(true);
         scrollMessagesToBottom();
     }
     function closeKeyboardState() {
+        if (!keyboardOpen) return;
         keyboardOpen = false;
         container.classList.remove('keyboard-open');
         container.style.height = '';
         _notifyShellKeyboard(false);
     }
 
-    function onViewportResize() {
-        const keyboardNow = vv.height < window.innerHeight * 0.75;
-
-        if (keyboardNow && !keyboardOpen) {
-            openKeyboardState();
-        } else if (keyboardNow && keyboardOpen) {
-            container.style.height = vv.height + 'px';
-        } else if (!keyboardNow && keyboardOpen) {
-            closeKeyboardState();
-        }
-    }
-
-    vv.addEventListener('resize', onViewportResize);
-
+    // Drive off focus/blur, NOT a viewport-height ratio: under Capacitor's
+    // native keyboard resize the whole webview shrinks, so innerHeight and
+    // visualViewport shrink together and a ratio test never sees the keyboard.
+    // Focus/blur fire in every resize mode.
     composer.addEventListener('focus', () => {
-        setTimeout(() => {
-            onViewportResize();
-            scrollMessagesToBottom();
-        }, 300);
+        openKeyboardState();
+        // Re-fit once the keyboard animation settles.
+        setTimeout(() => { fitToViewport(); scrollMessagesToBottom(); }, 300);
     });
-
     composer.addEventListener('blur', () => {
         setTimeout(closeKeyboardState, 100);
     });
+
+    // When available, keep the height in sync as the keyboard finishes animating
+    // or the accessory bar toggles.
+    if (vv) vv.addEventListener('resize', fitToViewport);
 }
 
 function scrollMessagesToBottom() {

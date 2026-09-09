@@ -1271,6 +1271,15 @@ html[data-theme="dark"] .chat-archived-header button { background: #1e293b; colo
     bottom: 0 !important;
   }
 
+  /* Embedded: the app shell shrinks the iframe to the visible area (keyboard
+     top) while the keyboard is open, so the chat just fills the iframe. No pixel
+     height — the composer lands on the keyboard with no dead gap. Top keeps its
+     safe-area inset so the header stays clear of the status bar. */
+  html.rm-embedded .chat-container.keyboard-open {
+    bottom: 0;
+    height: auto !important;
+  }
+
   .chat-sidebar {
     width: 100%;
     min-width: 100%;
