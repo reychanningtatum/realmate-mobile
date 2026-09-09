@@ -437,6 +437,14 @@
   font-size: 13px; font-weight: 600; border-top: 1px solid #e2e8f0;
 }
 .chat-closed-notice i { color: #94a3b8; }
+/* Suggested replies (active Customer Service conversations only) */
+.chat-suggest-replies { display: flex; align-items: center; gap: 8px; padding: 10px 16px;
+  overflow-x: auto; -webkit-overflow-scrolling: touch; border-top: 1px solid #eef2f7; background: #fafcff; }
+.chat-suggest-replies::-webkit-scrollbar { height: 0; }
+.csr-label { font-size: 10px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: #94a3b8; flex-shrink: 0; }
+.csr-chip { flex-shrink: 0; border: 1px solid #bfdbfe; background: #eff6ff; color: #1d4ed8; font-size: 13px;
+  font-weight: 600; padding: 8px 14px; border-radius: 999px; cursor: pointer; white-space: nowrap; }
+.csr-chip:hover { background: #dbeafe; border-color: #93c5fd; }
 
 .chat-header-search-btn {
   border: none;

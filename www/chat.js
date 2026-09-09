@@ -243,7 +243,7 @@ async function _loadSupportTicket(convId) {
         const { data } = await _chatSupa.from('support_requests')
             .select('id,ticket_number,status').eq('chat_conversation_id', convId).maybeSingle();
         if (data && activeConversationId === convId) {
-            _activeSupportTicket = { number: data.ticket_number, status: data.status };
+            _activeSupportTicket = { id: data.id, number: data.ticket_number, status: data.status };
             updateHeaderStatus();
             _applySupportComposerLock();
             // Live updates (e.g. the ticket being closed while open).
@@ -251,7 +251,7 @@ async function _loadSupportTicket(convId) {
                 _supportTicketChannel = _chatSupa.channel('sup-ticket-' + data.id)
                     .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'support_requests', filter: 'id=eq.' + data.id }, (p) => {
                         if (activeConversationId !== convId) return;
-                        _activeSupportTicket = { number: p.new.ticket_number, status: p.new.status };
+                        _activeSupportTicket = { id: data.id, number: p.new.ticket_number, status: p.new.status };
                         updateHeaderStatus(); _applySupportComposerLock();
                     }).subscribe();
             } catch (e) {}
@@ -265,12 +265,43 @@ function _supportTicketClosed() {
     return _activeSupportTicket && _activeSupportTicket.status === 'resolved';
 }
 // Closed support tickets are read-only: hide the composer, show the notice.
+// Suggested replies show only while a support conversation is ACTIVE.
+const USER_CS_SUGGESTIONS = ['I’m satisfied', 'Thank you for your help', 'I still need assistance', 'I have another question'];
 function _applySupportComposerLock() {
     const composer = document.getElementById('chatComposer');
     const notice = document.getElementById('chatClosedNotice');
-    const closed = _isSupportUser(activeOtherUser) && _supportTicketClosed();
+    const replies = document.getElementById('chatSuggestReplies');
+    const isSupport = _isSupportUser(activeOtherUser);
+    const closed = isSupport && _supportTicketClosed();
     if (composer) composer.style.display = closed ? 'none' : '';
     if (notice) notice.style.display = closed ? 'flex' : 'none';
+    if (replies) {
+        const showReplies = isSupport && !!_activeSupportTicket && !closed;
+        replies.style.display = showReplies ? 'flex' : 'none';
+        if (showReplies && !replies.dataset.built) {
+            replies.innerHTML = '<span class="csr-label">Suggested</span>' +
+                USER_CS_SUGGESTIONS.map((s, i) => `<button type="button" class="csr-chip" onclick="sendSuggestedReply(${i})">${s}</button>`).join('');
+            replies.dataset.built = '1';
+        }
+    }
+}
+
+// Send a suggested reply as the user through the EXISTING chat send path.
+// "I'm satisfied" (index 0) also runs the existing ticket-closing workflow.
+async function sendSuggestedReply(i) {
+    const text = USER_CS_SUGGESTIONS[i];
+    if (!text || _supportTicketClosed()) return;
+    const input = document.getElementById('chatComposerInput');
+    if (input) { input.value = text; }
+    await sendMessage();
+    if (i === 0) await _customerCloseSupportTicket();
+}
+async function _customerCloseSupportTicket() {
+    const tid = _activeSupportTicket && _activeSupportTicket.id;
+    if (!tid) return;
+    try { await _chatSupa.functions.invoke('admin-support', { body: { action: 'customer-close', id: tid } }); } catch (e) {}
+    // Reflect the close immediately (realtime confirms it too).
+    if (_activeSupportTicket) { _activeSupportTicket.status = 'resolved'; updateHeaderStatus(); _applySupportComposerLock(); }
 }
 
 function refreshOnlineUI() {

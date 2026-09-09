@@ -90,7 +90,10 @@
 /* Waiting screen */
 .cs-wait { align-items: center; text-align: center; padding: 34px 24px 26px; }
 .cs-wait-ic { width: 68px; height: 68px; border-radius: 50%; background: #eff6ff; color: #2563eb; display: flex; align-items: center; justify-content: center; font-size: 28px; margin-bottom: 16px; }
-.cs-wait-tx { font-size: 15px; font-weight: 700; color: #0f172a; line-height: 1.5; max-width: 300px; }
+.cs-wait-title { font-size: 16px; font-weight: 800; color: #0f172a; }
+.cs-wait-sub { font-size: 12px; font-weight: 700; color: #64748b; background: #f1f5f9; border: 1px solid #e2e8f0; padding: 2px 10px; border-radius: 999px; margin: 6px 0 10px; }
+.cs-wait-sub:empty { display: none; }
+.cs-wait-tx { font-size: 14px; font-weight: 600; color: #475569; line-height: 1.55; max-width: 320px; }
 
 /* Toast */
 .cs-toast {
@@ -102,24 +105,10 @@
 .cs-toast.show { opacity: 1; transform: translate(-50%, 0); }
 .cs-toast i { color: #4ade80; }
 
-/* Dark theme */
+/* The Customer Service card is ALWAYS a clean white card (light), matching the
+   rest of the realmate UI — never a dark/tinted theme, even in dark mode. Only
+   the scrim behind it deepens slightly for contrast. */
 @media (prefers-color-scheme: dark) {
-  .cs-card { background: #0f1729; box-shadow: 0 24px 64px rgba(0,0,0,.6); }
-  .cs-head { border-bottom-color: #1e293b; }
-  .cs-title { color: #f1f5f9; }
-  .cs-x, .cs-back { background: #1e293b; color: #cbd5e1; }
-  .cs-x:hover, .cs-back:hover { background: #334155; }
-  .cs-opt { background: #131c30; border-color: #263349; }
-  .cs-opt:hover { background: #182238; border-color: #334155; }
-  .cs-opt-t { color: #f1f5f9; }
-  .cs-opt-s { color: #94a3b8; }
-  .cs-label { color: #cbd5e1; }
-  .cs-input { background: #131c30; border-color: #334155; color: #f1f5f9; }
-  .cs-wait-tx { color: #f1f5f9; }
+  .cs-overlay { background: rgba(2, 6, 23, 0.66); }
 }
-/* App's explicit dark class, if present */
-body.dark .cs-card, html.dark .cs-card { background: #0f1729; }
-body.dark .cs-title, html.dark .cs-title { color: #f1f5f9; }
-body.dark .cs-opt, html.dark .cs-opt { background: #131c30; border-color: #263349; }
-body.dark .cs-opt-t, html.dark .cs-opt-t { color: #f1f5f9; }
-body.dark .cs-input, html.dark .cs-input { background: #131c30; border-color: #334155; color: #f1f5f9; }
+body.dark .cs-overlay, html.dark .cs-overlay { background: rgba(2, 6, 23, 0.66); }

@@ -181,9 +181,9 @@
   };
 
   // ── 2. Chat with a Customer Service Representative ──────────────────────────
-  let _csWaitChannel = null, _csWaitPoll = null;
+  let _csWaitChannel = null, _csWaitPoll = null, _csWaitTimer = null, _csWaitTicketNo = null;
 
-  const SEL = 'id,status,assigned_to,assigned_username,chat_conversation_id,chat_rep_id,is_live_chat';
+  const SEL = 'id,ticket_number,status,assigned_to,assigned_username,chat_conversation_id,chat_rep_id,is_live_chat';
 
   window.csStartLiveChat = async function () {
     const u = getUser() || {};
@@ -201,8 +201,19 @@
       };
       const { data: ticket, error } = await SB().from('support_requests').insert(payload).select(SEL).single();
       if (error) throw error;
+      _csWaitTicketNo = ticket.ticket_number || null;
       _watchTicket(ticket.id);
       _showWaiting('Waiting for a representative to join…', true);
+      // Frontend-only 30s timeout: stop the spinner and show a "busy" message so
+      // the user is never stuck on an endless loader. The TICKET STAYS PENDING in
+      // the queue and the watch keeps running — a rep can still accept later and
+      // the user transitions in automatically.
+      clearTimeout(_csWaitTimer);
+      _csWaitTimer = setTimeout(() => {
+        if (document.getElementById('csWaitOverlay')) {
+          _showWaiting('All of our representatives are currently busy. Please wait — a representative will respond to your request shortly. You don’t need to submit it again.', false);
+        }
+      }, 30000);
     } catch (e) {
       _showWaiting('Could not start the chat: ' + (e.message || e), false, true);
     }
@@ -245,6 +256,7 @@
   function _teardownWatch() {
     if (_csWaitChannel) { try { SB().removeChannel(_csWaitChannel); } catch (e) {} _csWaitChannel = null; }
     if (_csWaitPoll) { clearInterval(_csWaitPoll); _csWaitPoll = null; }
+    if (_csWaitTimer) { clearTimeout(_csWaitTimer); _csWaitTimer = null; }
   }
 
   function _showWaiting(text, spinning, isError) {
@@ -254,6 +266,8 @@
         <div class="cs-overlay open" id="csWaitOverlay">
           <div class="cs-card cs-wait" role="dialog" aria-label="Live chat">
             <div class="cs-wait-ic" id="csWaitIc"><i class="fas fa-comments"></i></div>
+            <div class="cs-wait-title">realmate Support</div>
+            <div class="cs-wait-sub" id="csWaitSub"></div>
             <div class="cs-wait-tx" id="csWaitTx"></div>
             <button class="cs-secondary" id="csWaitCancel" onclick="csCancelWait()">Cancel</button>
           </div>
@@ -262,10 +276,13 @@
     }
     const ic = document.getElementById('csWaitIc');
     const tx = document.getElementById('csWaitTx');
+    const sub = document.getElementById('csWaitSub');
     if (tx) tx.textContent = text;
-    if (ic) ic.innerHTML = isError ? '<i class="fas fa-circle-exclamation"></i>' : (spinning ? '<i class="fas fa-spinner fa-spin"></i>' : '<i class="fas fa-comments"></i>');
+    if (sub) sub.textContent = _csWaitTicketNo ? ('Ticket No. ' + _csWaitTicketNo) : '';
+    if (ic) ic.innerHTML = isError ? '<i class="fas fa-circle-exclamation"></i>'
+      : (spinning ? '<i class="fas fa-spinner fa-spin"></i>' : '<i class="fas fa-headset"></i>');
     const cancel = document.getElementById('csWaitCancel');
-    if (cancel) cancel.textContent = isError ? 'Close' : 'Cancel';
+    if (cancel) cancel.textContent = (isError || !spinning) ? 'Close' : 'Cancel';
   }
   window.csCancelWait = function () { _teardownWatch(); remove('csWaitOverlay'); };
 
