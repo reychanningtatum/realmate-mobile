@@ -138,7 +138,9 @@
   };
 
   // ── 2. Chat with a Customer Service Representative ──────────────────────────
-  let _csWaitChannel = null, _csWaitPoll = null, _csWaitTicketId = null;
+  let _csWaitChannel = null, _csWaitPoll = null;
+
+  const SEL = 'id,status,assigned_to,assigned_username,chat_conversation_id,chat_rep_id,is_live_chat';
 
   window.csStartLiveChat = async function () {
     const u = getUser() || {};
@@ -149,60 +151,63 @@
     try {
       let uid = u.id;
       try { const r = await SB().auth.getUser(); uid = (r && r.data && r.data.user && r.data.user.id) || uid; } catch (e) {}
-      const payload = {
-        name: u.name || null,
-        email: u.email || null,
-        category: 'live_chat',
-        is_live_chat: true,
-        subject: 'Live chat request',
-        message: 'Customer requested a live chat with a representative.',
-        user_id: uid,
-      };
-      const { data, error } = await SB().from('support_requests').insert(payload).select('id').single();
-      if (error) throw error;
-      _csWaitTicketId = data.id;
-      _watchTicket(data.id);
+      // Reuse an existing unresolved live-chat request instead of piling up duplicates.
+      let ticket = null;
+      try {
+        const { data } = await SB().from('support_requests').select(SEL)
+          .eq('user_id', uid).eq('is_live_chat', true).neq('status', 'resolved')
+          .order('created_at', { ascending: false }).limit(1);
+        if (data && data.length) ticket = data[0];
+      } catch (e) {}
+      if (!ticket) {
+        const payload = {
+          name: u.name || null, email: u.email || null, category: 'live_chat', is_live_chat: true,
+          subject: 'Live chat request', message: 'Customer requested a live chat with a representative.', user_id: uid,
+        };
+        const { data, error } = await SB().from('support_requests').insert(payload).select(SEL).single();
+        if (error) throw error;
+        ticket = data;
+      }
+      // Already claimed while we were away? Jump straight in.
+      if (ticket.status === 'being_handled' && (ticket.chat_rep_id || ticket.assigned_to)) { _openRepChat(ticket); return; }
+      _watchCustomer(uid);
       _showWaiting('Waiting for a representative to join…', true);
     } catch (e) {
       _showWaiting('Could not start the chat: ' + (e.message || e), false, true);
     }
   };
 
-  function _watchTicket(ticketId) {
+  // Watch ALL of this customer's live-chat tickets (by user_id) so whichever one
+  // an employee claims routes them into the chat — robust to duplicate requests.
+  function _watchCustomer(uid) {
     _teardownWatch();
-    const onRow = (row) => {
-      if (!row) return;
-      if (row.status === 'being_handled' && row.assigned_to) {
-        _openRepChat(row);
-      } else if (row.status === 'resolved') {
-        _showWaiting('This request was closed. Please try again.', false, true);
-        _teardownWatch();
-      }
+    const check = (row) => {
+      if (row && row.is_live_chat && row.status === 'being_handled' && (row.chat_rep_id || row.assigned_to)) _openRepChat(row);
     };
-    // Realtime (delivered under the SELECT-own policy since the client carries the JWT).
     try {
-      _csWaitChannel = SB().channel('cs-ticket-' + ticketId)
-        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'support_requests', filter: 'id=eq.' + ticketId }, (p) => onRow(p.new))
+      _csWaitChannel = SB().channel('cs-cust-' + uid)
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'support_requests', filter: 'user_id=eq.' + uid }, (p) => check(p.new))
         .subscribe();
     } catch (e) {}
-    // Poll fallback every 4s in case realtime is unavailable.
+    // Poll fallback (realtime needs the JWT-scoped SELECT-own policy; poll is the backstop).
     _csWaitPoll = setInterval(async () => {
       try {
-        const { data } = await SB().from('support_requests').select('id,status,assigned_to,assigned_username,chat_conversation_id').eq('id', ticketId).single();
-        onRow(data);
+        const { data } = await SB().from('support_requests').select(SEL)
+          .eq('user_id', uid).eq('is_live_chat', true).eq('status', 'being_handled')
+          .order('assigned_at', { ascending: false }).limit(1);
+        if (data && data.length) check(data[0]);
       } catch (e) {}
-    }, 4000);
+    }, 3500);
   }
 
   function _openRepChat(row) {
     _teardownWatch();
-    const who = row.assigned_username ? ('@' + row.assigned_username) : 'a representative';
-    _showWaiting('Connected! ' + who + ' has joined. Opening chat…', true);
+    _showWaiting('Connected! A representative has joined. Opening chat…', true);
+    const repId = row.chat_rep_id || row.assigned_to;
     setTimeout(() => {
       remove('csWaitOverlay');
-      // Reuse the existing chat: open (or find) the 1:1 conversation with the rep.
-      // The admin claim already created the conversation; chat.html finds it.
-      window.location.href = 'chat.html?user=' + encodeURIComponent(row.assigned_to);
+      // Reuse the existing chat: open the conversation with the Realmate Support rep.
+      window.location.href = 'chat.html?user=' + encodeURIComponent(repId);
     }, 900);
   }
 
