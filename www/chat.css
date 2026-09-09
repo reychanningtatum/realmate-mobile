@@ -1260,6 +1260,12 @@ html[data-theme="dark"] .chat-archived-header button { background: #1e293b; colo
     overflow: hidden;
   }
 
+  /* Embedded in the app shell, the iframe already ends above the app's bottom
+     nav, so the chat must NOT reserve nav height again — that left a dead gap
+     under the inbox. Fill the iframe instead; the conversation list scrolls
+     naturally into the reclaimed space. */
+  html.rm-embedded .chat-container { bottom: 0; }
+
   /* When keyboard is open, expand to full screen (JS toggles this) */
   .chat-container.keyboard-open {
     bottom: 0 !important;

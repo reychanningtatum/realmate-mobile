@@ -44,6 +44,10 @@ let typingChannel = null;
 let messagesChannel = null;
 let convChannel = null;
 let _showingArchived = false;
+// When true, the next sendMessage() must NOT re-focus the composer — used by
+// suggested-reply chips so tapping one sends the message without popping the
+// on-screen keyboard.
+let _skipComposerRefocus = false;
 // Every conversation the current user participates in, INCLUDING ones they've
 // soft-deleted from their inbox. Lets the realtime layer tell "a new message in
 // a chat I deleted" (which must resurface) apart from "a message in a chat that
@@ -296,8 +300,11 @@ function _applySupportComposerLock() {
 async function sendSuggestedReply(i) {
     const text = USER_CS_SUGGESTIONS[i];
     if (!text || _supportTicketClosed()) return;
+    // Send directly without activating the text input or on-screen keyboard.
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
     const input = document.getElementById('chatComposerInput');
     if (input) { input.value = text; }
+    _skipComposerRefocus = true;
     await sendMessage();
     if (i === 0) await _customerCloseSupportTicket();
 }
@@ -869,7 +876,9 @@ async function sendMessage() {
 
     btn.disabled = false;
     updateSendButton();
-    input.focus();
+    // Suggested-reply sends set this so we don't pop the keyboard back open.
+    if (_skipComposerRefocus) { _skipComposerRefocus = false; }
+    else { input.focus(); }
 }
 
 async function doSendText(text, convId) {
@@ -1822,6 +1831,18 @@ function goToActiveOtherProfile() {
 }
 
 // ===== MOBILE KEYBOARD HANDLING (iOS Safari) =====
+// Tell the app shell (parent frame) the keyboard opened/closed, so it can hide
+// its bottom nav and let this iframe use the full height — otherwise the nav
+// stays put (it lives in the parent, out of reach of our CSS) and a dead gap
+// sits between the messages and the composer while typing.
+function _notifyShellKeyboard(open) {
+    try {
+        if (window.parent && window.parent !== window) {
+            window.parent.postMessage({ type: 'rm-keyboard', open: !!open }, '*');
+        }
+    } catch (e) {}
+}
+
 function setupMobileKeyboard() {
     if (window.innerWidth > 768) return;
 
@@ -1834,20 +1855,29 @@ function setupMobileKeyboard() {
 
     let keyboardOpen = false;
 
+    function openKeyboardState() {
+        keyboardOpen = true;
+        container.classList.add('keyboard-open');
+        container.style.height = vv.height + 'px';
+        _notifyShellKeyboard(true);
+        scrollMessagesToBottom();
+    }
+    function closeKeyboardState() {
+        keyboardOpen = false;
+        container.classList.remove('keyboard-open');
+        container.style.height = '';
+        _notifyShellKeyboard(false);
+    }
+
     function onViewportResize() {
         const keyboardNow = vv.height < window.innerHeight * 0.75;
 
         if (keyboardNow && !keyboardOpen) {
-            keyboardOpen = true;
-            container.classList.add('keyboard-open');
-            container.style.height = vv.height + 'px';
-            scrollMessagesToBottom();
+            openKeyboardState();
         } else if (keyboardNow && keyboardOpen) {
             container.style.height = vv.height + 'px';
         } else if (!keyboardNow && keyboardOpen) {
-            keyboardOpen = false;
-            container.classList.remove('keyboard-open');
-            container.style.height = '';
+            closeKeyboardState();
         }
     }
 
@@ -1861,11 +1891,7 @@ function setupMobileKeyboard() {
     });
 
     composer.addEventListener('blur', () => {
-        setTimeout(() => {
-            keyboardOpen = false;
-            container.classList.remove('keyboard-open');
-            container.style.height = '';
-        }, 100);
+        setTimeout(closeKeyboardState, 100);
     });
 }
 
