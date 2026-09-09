@@ -389,6 +389,8 @@
   padding: 0;
   background: none;
 }
+/* Support is a service account — no profile page to open. */
+.chat-header-avatar.no-profile { cursor: default; }
 
 .chat-header-avatar img {
   width: 100%;

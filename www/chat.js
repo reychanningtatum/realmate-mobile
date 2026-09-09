@@ -216,6 +216,12 @@ function isUserOnline(userId) {
     return !!onlineUsers[userId];
 }
 
+// The shared "Realmate Support" identity: never links to a profile and always
+// shows as online (it's a service account, not a person).
+function _isSupportUser(u) {
+    return !!(u && (u.name === 'Realmate Support' || u.full_name === 'Realmate Support'));
+}
+
 function refreshOnlineUI() {
     renderConvList();
     if (activeOtherUser) updateHeaderStatus();
@@ -359,7 +365,7 @@ function _convRowHtml(c, matchMsg, lf) {
 
     const active = c.id === activeConversationId ? ' active' : '';
     const unreadCls = isUnread ? ' unread' : '';
-    const online = (c.otherUser.show_active_status && isUserOnline(c.otherUser.id)) ? '<div class="online-dot"></div>' : '';
+    const online = (_isSupportUser(c.otherUser) || (c.otherUser.show_active_status && isUserOnline(c.otherUser.id))) ? '<div class="online-dot"></div>' : '';
     const lm = c.lastMessage;
     let preview = '';
     let previewCls = 'chat-conv-last';
@@ -524,6 +530,9 @@ async function openConversation(convId) {
     document.getElementById('chatActiveConv').style.display = 'flex';
     document.getElementById('chatHeaderAvatar').src = activeOtherUser.image;
     document.getElementById('chatHeaderName').textContent = activeOtherUser.name;
+    // Support is a service account — no profile page, so drop the clickable affordance.
+    const _hdrBtn = document.getElementById('chatHeaderAvatarBtn');
+    if (_hdrBtn) _hdrBtn.classList.toggle('no-profile', _isSupportUser(activeOtherUser));
     updateHeaderStatus();
 
     if (window.innerWidth <= 768) {
@@ -593,6 +602,11 @@ function handleChatBack() {
 function updateHeaderStatus() {
     const el = document.getElementById('chatHeaderStatus');
     if (!activeOtherUser) return;
+
+    if (_isSupportUser(activeOtherUser)) {
+        el.innerHTML = '<span class="status-online">● Online</span>';
+        return;
+    }
 
     if (!activeOtherUser.show_active_status) {
         el.textContent = '';
@@ -1273,6 +1287,7 @@ function _convAction(action, convId) {
     _closeSwipePanel();
 
     if (action === 'profile') {
+        if (_isSupportUser(conv.otherUser)) return; // Support has no profile page
         location.href = `dashboard.html?user_id=${conv.otherUser.id}`;
     } else if (action === 'pin') {
         const nowOn = _toggleConvFlag('pinned', convId);
@@ -1697,7 +1712,8 @@ function chatPreviewOpenConversation() {
 }
 
 function goToActiveOtherProfile() {
-    if (activeOtherUser) location.href = `dashboard.html?user_id=${activeOtherUser.id}`;
+    if (!activeOtherUser || _isSupportUser(activeOtherUser)) return; // Support has no profile page
+    location.href = `dashboard.html?user_id=${activeOtherUser.id}`;
 }
 
 // ===== MOBILE KEYBOARD HANDLING (iOS Safari) =====
