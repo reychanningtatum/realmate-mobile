@@ -306,7 +306,8 @@ async function sendSuggestedReply(i) {
     if (input) { input.value = text; }
     _skipComposerRefocus = true;
     await sendMessage();
-    if (i === 0) await _customerCloseSupportTicket();
+    // "I'm satisfied" no longer auto-closes the ticket: it just sends the
+    // message, which cues the admin (a banner in their chat pane) to close it.
 }
 async function _customerCloseSupportTicket() {
     const tid = _activeSupportTicket && _activeSupportTicket.id;
@@ -537,6 +538,7 @@ function renderConvList(filter) {
     items = [...items].sort((a, b) => (pinned.has(b.conv.id) ? 1 : 0) - (pinned.has(a.conv.id) ? 1 : 0));
 
     _openSwipeConvId = null; // the DOM is being fully rebuilt — nothing can stay "open"
+    _closeConvMoreMenu();    // and a floating ••• menu must not survive the rebuild either
 
     if (!items.length) {
         list.innerHTML = lf
@@ -609,6 +611,7 @@ async function openConversation(convId) {
     const conv = conversations.find(c => c.id === convId);
     if (!conv) return;
 
+    _closeConvMoreMenu(); // never let a row's ••• menu carry over to another chat
     _closeSwipePanel();
     unsubMessages();
 
@@ -1378,6 +1381,11 @@ function _openConvMoreMenu(convId, btn) {
     document.querySelector('#convMoreMute i').className = `fas fa-bell-slash${muted ? ' chat-conv-swipe-active' : ''}`;
     document.querySelector('#convMoreArchive span').textContent = archived ? 'Unarchive Chat' : 'Archive Chat';
 
+    // Realmate Support is a service account — you can't block it, so hide the
+    // Block option in a Support conversation.
+    const blockBtn = document.getElementById('convMoreBlock');
+    if (blockBtn) blockBtn.style.display = _isSupportUser(conv.otherUser) ? 'none' : '';
+
     _convMoreMenuConvId = convId;
     _positionMenuNearButton(document.getElementById('chatConvMoreMenu'), btn);
 }
@@ -1490,6 +1498,9 @@ function closeArchivedView() {
         if (actionBtn) return;
         const item = e.target.closest('.chat-conv-item');
         if (!item) return;
+        // Any fresh interaction with a row (a tap, or a swipe — including a
+        // swipe-right to dismiss) closes an open ••• menu so it never lingers.
+        _closeConvMoreMenu();
         const row = rowOf(item);
         const convId = row.dataset.convId;
         const panel = _swipePanelOf(row);
