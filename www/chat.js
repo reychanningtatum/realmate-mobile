@@ -249,9 +249,10 @@ async function _loadSupportTicket(convId) {
     _activeSupportTicket = null;
     _unsubSupportTicket();
     try {
-        const { data } = await _chatSupa.from('support_requests')
+        const { data, error } = await _chatSupa.from('support_requests')
             .select('id,ticket_number,status').eq('chat_conversation_id', convId).maybeSingle();
-        if (data && activeConversationId === convId) {
+        if (activeConversationId !== convId) return;
+        if (data) {
             _activeSupportTicket = { id: data.id, number: data.ticket_number, status: data.status };
             updateHeaderStatus();
             _applySupportComposerLock();
@@ -264,6 +265,15 @@ async function _loadSupportTicket(convId) {
                         updateHeaderStatus(); _applySupportComposerLock();
                     }).subscribe();
             } catch (e) {}
+        } else if (!error) {
+            // A Realmate Support conversation with NO ticket (and no query error)
+            // = the ticket was removed on the admin side. Keep the thread
+            // read-only so the user can still review the full history but can't
+            // send new messages. (On a transient error we leave it unlocked
+            // rather than risk falsely locking an active chat.)
+            _activeSupportTicket = { id: null, number: null, status: 'resolved' };
+            updateHeaderStatus();
+            _applySupportComposerLock();
         }
     } catch (e) {}
 }
