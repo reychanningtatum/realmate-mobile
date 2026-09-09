@@ -892,12 +892,18 @@ async function doSendText(text, convId) {
     if (msg && activeConversationId === convId) {
         const container = document.getElementById('chatMessages');
         if (container.querySelector('div[style*="text-align"]')) container.innerHTML = '';
-        const d = new Date(msg.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-        const lastSep = container.querySelectorAll('.chat-date-sep');
-        const lastD = lastSep.length ? lastSep[lastSep.length - 1].textContent.trim() : '';
-        if (d !== lastD) addDateSep(container, d);
-        addMsgBubble(container, msg);
-        container.scrollTop = container.scrollHeight;
+        // Guard against a double-append: the realtime INSERT echo for our own
+        // message can arrive before this local append. Without this the bubble
+        // was added twice (then the echo's dedup removed one), which showed as a
+        // jump/bounce right after Send.
+        if (!container.querySelector(`[data-msg-id="${msg.id}"]`)) {
+            const d = new Date(msg.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            const lastSep = container.querySelectorAll('.chat-date-sep');
+            const lastD = lastSep.length ? lastSep[lastSep.length - 1].textContent.trim() : '';
+            if (d !== lastD) addDateSep(container, d);
+            addMsgBubble(container, msg);
+            container.scrollTop = container.scrollHeight;
+        }
     }
     const conv = conversations.find(c => c.id === convId);
     if (conv && msg) { conv.lastMessage = msg; sortAndRenderConvs(); }
@@ -1894,7 +1900,13 @@ function setupMobileKeyboard() {
         setTimeout(() => { fitToViewport(); scrollMessagesToBottom(); }, 300);
     });
     composer.addEventListener('blur', () => {
-        setTimeout(closeKeyboardState, 100);
+        setTimeout(() => {
+            // If focus bounced right back to the composer (Send re-focuses it, or
+            // a button briefly stole focus), the keyboard never actually closed —
+            // don't toggle the layout, which showed as a bounce right after Send.
+            if (document.activeElement === composer) return;
+            closeKeyboardState();
+        }, 100);
     });
 
     // When available, keep the height in sync as the keyboard finishes animating
