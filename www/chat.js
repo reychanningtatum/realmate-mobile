@@ -44,6 +44,11 @@ let typingChannel = null;
 let messagesChannel = null;
 let convChannel = null;
 let _showingArchived = false;
+// Every conversation the current user participates in, INCLUDING ones they've
+// soft-deleted from their inbox. Lets the realtime layer tell "a new message in
+// a chat I deleted" (which must resurface) apart from "a message in a chat that
+// isn't mine at all" (ignored). Rebuilt on every loadConversations().
+let _myConvIds = new Set();
 
 // ===== CONVERSATION FLAGS (pin / mute / archive / manual-unread) =====
 // `conversations` / `conversation_participants` have no columns for any of
@@ -352,12 +357,13 @@ async function loadConversations() {
     if (myParts && myParts.code) {
         myParts = await chatGet('conversation_participants', `select=conversation_id&user_id=eq.${currentUser.id}`);
     }
-    if (!myParts.length) { conversations = []; renderConvList(); return; }
+    if (!myParts.length) { _myConvIds = new Set(); conversations = []; renderConvList(); return; }
 
     const deletedMap = {};
     myParts.forEach(p => { if (p.deleted_at) deletedMap[p.conversation_id] = p.deleted_at; });
 
     const ids = myParts.map(p => p.conversation_id);
+    _myConvIds = new Set(ids);
     const idStr = ids.map(id => `"${id}"`).join(',');
 
     const [allParts, profiles_raw, msgs, unread] = await Promise.all([
@@ -1079,6 +1085,13 @@ function setupRealtimeConversations() {
                     conv.unreadCount = (conv.unreadCount || 0) + 1;
                     conv.lastMessage = m;
                     sortAndRenderConvs();
+                } else if (_myConvIds.has(m.conversation_id)) {
+                    // A new message arrived in a conversation that's mine but
+                    // isn't currently in the list — i.e. one I soft-deleted from
+                    // my inbox. A reply resurfaces it (a deleted chat with a
+                    // message newer than its deleted_at is no longer hidden by
+                    // loadConversations), so rebuild to bring it back.
+                    loadConversations();
                 }
             })
         // Cross-device sync: if messages get marked read elsewhere (another
