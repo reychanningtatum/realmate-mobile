@@ -1424,8 +1424,6 @@ function _convAction(action, convId) {
         promptDeleteChat(convId); // existing custom (non-browser) confirmation modal
     } else if (action === 'kbd-menu') {
         _openSwipePanel(convId, true);
-    } else if (action === 'listings') {
-        location.href = `dashboard.html?user_id=${conv.otherUser.id}`;
     } else if (action === 'toggleread') {
         // The ••• menu's single read-state item — its label AND behavior
         // flip with the conversation's current read state.

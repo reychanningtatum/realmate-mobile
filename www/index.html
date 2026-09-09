@@ -144,6 +144,13 @@
           .rm-slider::before{content:"";position:absolute;top:3px;left:3px;width:21px;height:21px;background:#fff;border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,.28);transition:transform .22s ease;}
           .rm-switch input:checked + .rm-slider{background:var(--primary);}
           .rm-switch input:checked + .rm-slider::before{transform:translateX(19px);}
+          /* Vertically center the field icons (lock / eye / user) on the input
+             box. The input is the .input-group's last child, so its bottom edge
+             is the group's bottom edge; anchoring the icon ~half the input's
+             height above that bottom and nudging it down by half its own height
+             lands it exactly on the input's vertical centre — independent of the
+             label height above. Fixes the eye sitting slightly too high. */
+          .input-group i.left, .input-group i.right { top: auto; bottom: 24px; transform: translateY(50%); }
         </style>
         <label class="rm-remember">
           <span>Remember me</span>
