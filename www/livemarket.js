@@ -5001,31 +5001,33 @@ function closeLockedPopup() {
     document.body.style.overflow = '';
 }
 
-// View Profile from the seller popup. Save the feed scroll with the SAME proven
-// mechanism the listing-detail round-trip uses (lmReturnScroll →
-// _lmRestoreScrollOnReturn), NOT the pagehide listener — pagehide never fires in
-// the iOS WKWebView, so nothing was saved and Back landed at the top. This is the
-// exact path that already makes "View Listing" → Back return to the exact post.
+// Open a profile / their-listings page as a shell TAB-SWITCH into the 'me' tab,
+// mirroring rmGoChat EXACTLY — the one Back flow confirmed working on device.
+// Navigating the Portal's OWN iframe (the old location.href) forced a full reload
+// of livemarket on Back, whose window-scroll restore is unreliable in the iOS
+// WKWebView (this is why Profile/Listings kept landing at the top). Opening a
+// different tab instead leaves the Portal iframe ALIVE: Back reveals it with the
+// scroll intact (fast return) or reloads + restores via restorePortalScroll after
+// the tab is suspended — exactly like Chat. Re-tapping "Me" force-reloads the own
+// profile (rmMe uses forceSrc), so the 'me' tab is never left showing this user.
+function rmOpenProfileTab(url) {
+    try { savePortalScroll(); } catch (e) {}
+    try {
+        if (window.self !== window.top && window.parent && typeof window.parent.rmOpen === 'function') {
+            window.parent.rmOpen('me', url); return;
+        }
+    } catch (e) {}
+    location.href = url;   // standalone / desktop web (no shell)
+}
+
 function rmViewProfileFromPopup() {
     if (!window._spUserId) { closeSellerPopup(); return; }
-    try {
-        sessionStorage.setItem('lmReturnScroll', JSON.stringify({ y: _lmScrollNow(), t: Date.now() }));
-        sessionStorage.removeItem(RM_SCROLL_KEY);   // avoid a stale card-anchor fighting the restore
-    } catch (e) {}
     const uid = window._spUserId;
     closeSellerPopup();
-    location.href = 'dashboard.html?user_id=' + uid;
+    rmOpenProfileTab('dashboard.html?user_id=' + uid);
 }
 
 async function handleViewListings() {
-    // Same proven scroll-save as rmViewProfileFromPopup / listing-detail (raw-Y via
-    // lmReturnScroll → _lmRestoreScrollOnReturn) — captured BEFORE the async work so
-    // Back returns to the exact Portal post. pagehide is unreliable in the iOS
-    // WKWebView, which is why relying on it landed the user at the top.
-    try {
-        sessionStorage.setItem('lmReturnScroll', JSON.stringify({ y: _lmScrollNow(), t: Date.now() }));
-        sessionStorage.removeItem(RM_SCROLL_KEY);   // avoid a stale card-anchor fighting the restore
-    } catch (e) {}
     closeSellerPopup();
     const targetId = window._spUserId;
     if (!targetId) return;
@@ -5040,7 +5042,7 @@ async function handleViewListings() {
     // If viewing own profile, allow directly. view=listings deep-links straight
     // to the dashboard's Listings section (see dashboard-script.js).
     if (!myId || myId === targetId) {
-        location.href = `dashboard.html?user_id=${targetId}&view=listings`;
+        rmOpenProfileTab(`dashboard.html?user_id=${targetId}&view=listings`);
         return;
     }
 
@@ -5057,7 +5059,7 @@ async function handleViewListings() {
     } catch {}
 
     if (areRealmates) {
-        location.href = `dashboard.html?user_id=${targetId}&view=listings`;
+        rmOpenProfileTab(`dashboard.html?user_id=${targetId}&view=listings`);
     } else {
         _ensureLockedPopup();
         document.getElementById('spLockedOverlay').classList.add('sp-open');
