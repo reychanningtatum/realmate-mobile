@@ -65,12 +65,29 @@
     } catch (e) {}
   }
 
+  // Read a frame's live scroll (called ONLY while the frame is still VISIBLE, from
+  // go() before reveal() hides it) and stash it on the element. A genuine 0 (user
+  // at the top) is recorded too, so returning to a tab left at the top doesn't
+  // wrongly restore a stale deeper position.
+  function captureFrameScroll(tab) {
+    var f = frames[tab]; if (!f) return;
+    try {
+      var w = f.contentWindow;
+      if (w) f.__scrollY = w.scrollY || (w.document && w.document.documentElement.scrollTop) || 0;
+    } catch (e) {}
+  }
+
   function reveal(tab) {
     Object.keys(frames).forEach(function (k) {
       frames[k].classList.toggle('rm-active', k === tab);
     });
     current = tab;
     setActive(tab);
+    // The frame we just showed was display:none while backgrounded, so on iOS its
+    // scroll is now 0 — put it back to where the user left it (captured on the way
+    // out). No-op on first reveal (nothing stored) or when it was at the top.
+    var f = frames[tab];
+    if (f && f.__scrollY > 0) restoreFrameScroll(f, f.__scrollY);
   }
 
   // ── Memory management: keep only the ACTIVE tab's page fully loaded ────────
@@ -83,11 +100,15 @@
 
   function saveFrameState(tab) {
     var f = frames[tab]; if (!f) return null;
-    var out = { url: TABS[tab] || '', scrollY: 0 };
+    // Prefer the scroll captured while the frame was VISIBLE (f.__scrollY). By the
+    // time we suspend, the frame has been display:none for ~5s so a live read here
+    // yields 0 — which is exactly what made a resumed Portal land at the top.
+    var out = { url: TABS[tab] || '', scrollY: (f.__scrollY > 0 ? f.__scrollY : 0) };
     try {
       var w = f.contentWindow;
       if (w) {
-        out.scrollY = w.scrollY || (w.document && w.document.documentElement.scrollTop) || 0;
+        var liveY = w.scrollY || (w.document && w.document.documentElement.scrollTop) || 0;
+        if (liveY > 0) out.scrollY = liveY;   // still visible → trust the live value
         var file = w.location.pathname.replace(/^.*\//, '');
         if (file) out.url = file + (w.location.search || '');
       }
@@ -187,6 +208,14 @@
     // there — e.g. Portal → Profile → Back should land on Portal, not the
     // browser history (which can walk back to the marketing page).
     if (current && current !== tab) prevTab = current;
+
+    // Capture the OUTGOING tab's scroll WHILE it is still visible. Hiding a frame
+    // (display:none, applied by reveal() below) drops its layout and resets the
+    // iframe's scrollY to 0 — iOS WKWebView never restores it on re-show (desktop
+    // Chrome happens to), and saveFrameState() would later read that 0. Stashing it
+    // now (on f.__scrollY) lets reveal() put the user back exactly where they were
+    // — this is what makes Portal → Profile/Listings → Back return to the same post.
+    if (current && current !== tab) captureFrameScroll(current);
 
     // Entering this tab: cancel any pending suspend for it; and after we leave
     // the current tab, free it on an idle so only the active page stays loaded.
