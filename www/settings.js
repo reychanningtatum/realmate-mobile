@@ -249,7 +249,16 @@ async function saveBiometricPref(isOn) {
         }
         await window.rmBio.setEnabled(isOn);
         const t = await window.rmBio.typeName();
-        showSettingsNotificationToast(isOn ? ('Sign in with ' + t + ' is on.') : ('Sign in with ' + t + ' is off.'), 'success');
+        if (isOn) {
+            // Credentials are captured at sign-in time (we don't have the password
+            // here). If none are stored yet, the shortcut activates next sign-in.
+            const ready = await window.rmBio.hasCredentials();
+            showSettingsNotificationToast(ready
+                ? ('Sign in with ' + t + ' is on.')
+                : ('Sign in with ' + t + ' is on — it will be ready the next time you sign in.'), 'success');
+        } else {
+            showSettingsNotificationToast('Sign in with ' + t + ' is off.', 'success');
+        }
     } catch (e) {
         showSettingsNotificationToast('Could not update biometric setting.', 'error');
     }

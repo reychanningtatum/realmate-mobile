@@ -46,10 +46,15 @@
     })();
   }
 
-  // ── Biometric helpers (Face ID / Touch ID) ─────────────────────────────
-  // A pure GATE: verifyIdentity() only — never stores credentials/passwords.
-  // Every call is defensive: if the plugin is missing or biometrics are
-  // unavailable, callers fall back to normal password login (never a lockout).
+  // ── Biometric login (Face ID / Touch ID) ───────────────────────────────
+  // Biometrics is ONLY a sign-in convenience — never a gate when reopening an
+  // already-authenticated session (the persistent session above handles that).
+  // When enabled, the username+password are kept in the iOS KEYCHAIN via the
+  // plugin (encrypted, device-secure — never plain text), so a Face ID sign-in
+  // can restore a session that has genuinely expired. Everything is defensive:
+  // a missing plugin / unavailable biometrics just falls back to password login.
+  var BIO_SERVER = 'com.realmate.app';
+  var BIO_HASCREDS_KEY = 'rm_bio_has_creds';
   function bioTypeName(t) { t = Number(t); if (t === 1) return 'Touch ID'; if (t === 2) return 'Face ID'; return 'biometrics'; }
   window.rmBio = {
     isNative: isNative,
@@ -68,7 +73,7 @@
     verify: async function (reason) {
       var B = plugin('NativeBiometric');
       if (!isNative || !B) return false;
-      try { await B.verifyIdentity({ reason: reason || 'Log in to realmate', title: 'realmate', subtitle: '', description: '' }); return true; }
+      try { await B.verifyIdentity({ reason: reason || 'Sign in to realmate', title: 'realmate', subtitle: '', description: '' }); return true; }
       catch (e) { return false; }
     },
     isEnabled: async function () {
@@ -79,7 +84,35 @@
     setEnabled: async function (on) {
       var Pref = plugin('Preferences');
       if (!isNative || !Pref) return;
-      try { if (on) await Pref.set({ key: BIO_KEY, value: '1' }); else await Pref.remove({ key: BIO_KEY }); } catch (e) {}
+      try {
+        if (on) { await Pref.set({ key: BIO_KEY, value: '1' }); }
+        else { await Pref.remove({ key: BIO_KEY }); await this.clearCredentials(); }
+      } catch (e) {}
+    },
+    // Store username+password in the iOS Keychain (used only for a future Face ID
+    // sign-in). Records a flag so we can offer the button without prompting.
+    saveCredentials: async function (username, password) {
+      var B = plugin('NativeBiometric'), Pref = plugin('Preferences');
+      if (!isNative || !B || !username || !password) return;
+      try { await B.setCredentials({ username: username, password: password, server: BIO_SERVER });
+            if (Pref) await Pref.set({ key: BIO_HASCREDS_KEY, value: '1' }); } catch (e) {}
+    },
+    hasCredentials: async function () {
+      var Pref = plugin('Preferences');
+      if (!isNative || !Pref) return false;
+      try { return (await Pref.get({ key: BIO_HASCREDS_KEY })).value === '1'; } catch (e) { return false; }
+    },
+    // Read the stored credentials. Call verify() FIRST — this just reads Keychain.
+    getCredentials: async function () {
+      var B = plugin('NativeBiometric');
+      if (!isNative || !B) return null;
+      try { var c = await B.getCredentials({ server: BIO_SERVER }); return (c && c.username) ? c : null; } catch (e) { return null; }
+    },
+    clearCredentials: async function () {
+      var B = plugin('NativeBiometric'), Pref = plugin('Preferences');
+      if (!isNative) return;
+      try { if (B) await B.deleteCredentials({ server: BIO_SERVER }); } catch (e) {}
+      try { if (Pref) await Pref.remove({ key: BIO_HASCREDS_KEY }); } catch (e) {}
     }
   };
 })();

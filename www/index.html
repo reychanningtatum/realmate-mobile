@@ -35,7 +35,13 @@
         var h = location.hash || "", q = location.search || "";
         if (h.indexOf("type=recovery")>=0 || h.indexOf("error=")>=0 || q.indexOf("token_hash")>=0) return;
         if (localStorage.getItem("rm_remember") === "0") return;
-        if (!localStorage.getItem("sb-wmegpgrfrtprhuzmgjma-auth-token")) return;
+        // In the native app the session token lives in native Preferences and is
+        // restored asynchronously (see native-auth.js), so it isn't in localStorage
+        // yet at this synchronous point. Hide the form on the app regardless;
+        // attemptAutoLogin reveals it only if there's genuinely no session — so a
+        // returning user goes straight in without the login form ever flashing.
+        var _native = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+        if (!_native && !localStorage.getItem("sb-wmegpgrfrtprhuzmgjma-auth-token")) return;
         document.documentElement.classList.add("rm-autologin");
         setTimeout(function(){ document.documentElement.classList.remove("rm-autologin"); }, 4000);
       } catch (e) {}
@@ -172,6 +178,12 @@
           <span>Login successful. Redirecting you now…</span>
         </div>
         <button class="btn" id="loginBtn" type="submit"><span id="loginBtnText">Sign In</span></button>
+        <!-- Shown only in the native app when Face ID/Touch ID sign-in is enabled and
+             credentials are saved (see script.js _rmShowBioLogin). A convenience — the
+             password field above always remains available. -->
+        <button class="btn" id="bioLoginBtn" type="button" onclick="bioSignIn()" style="display:none; margin-top:10px; background:#fff; color:var(--primary); border:1.5px solid var(--primary);">
+          <i class="fas fa-fingerprint" style="margin-right:8px;"></i><span>Sign in with Face ID</span>
+        </button>
         </form>
         <div style="margin-top: 12px;"><span class="link" id="forgotLink" onclick="forgotPassword()">Forgot password?</span></div>
         <div style="margin-top: 12px;">
@@ -302,8 +314,8 @@
   </div>
 </div>
 
-<script src="native-auth.js?v=1"></script>
+<script src="native-auth.js?v=2"></script>
 <script src="vendor/supabase-js.min.js?v=2.112.3"></script>
-<script src="script.js?v=20260909o"></script>
+<script src="script.js?v=20260909p"></script>
 </body>
 </html>

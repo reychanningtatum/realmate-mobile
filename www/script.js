@@ -43,8 +43,15 @@ window.supabaseClient.auth.onAuthStateChange((event) => {
     if (h.includes("type=recovery") || h.includes("error=") || q.includes("token_hash")) return;
     if (localStorage.getItem("rm_remember") === "0") return;  // user opted out
     function reveal() { document.documentElement.classList.remove("rm-autologin"); }
+    // Show the login form AND, if the user turned on Face ID and we have saved
+    // credentials, reveal the "Sign in with Face ID" shortcut. Biometrics is only
+    // ever a sign-in OPTION here — never a gate when reopening a live session.
+    async function revealWithBio() {
+        try { if (window.rmBio && await window.rmBio.isEnabled() && await window.rmBio.hasCredentials()) _rmShowBioLogin(); } catch (e) {}
+        reveal();
+    }
     // Just logged out this launch — show the login form, never hydrate back in.
-    try { if (sessionStorage.getItem("rm_logged_out")) { sessionStorage.removeItem("rm_logged_out"); reveal(); return; } } catch (e) {}
+    try { if (sessionStorage.getItem("rm_logged_out")) { sessionStorage.removeItem("rm_logged_out"); await revealWithBio(); return; } } catch (e) {}
     var _RM_TOKEN_KEY = "sb-wmegpgrfrtprhuzmgjma-auth-token";
     try {
         // Native: wait for the persisted session to be restored into localStorage
@@ -56,20 +63,40 @@ window.supabaseClient.auth.onAuthStateChange((event) => {
         // (construct-time race, or restored after the client initialised) — hydrate it.
         if (!session) { session = await _rmHydrateSession(_RM_TOKEN_KEY); }
         if (session) {
-            // Biometric gate: if the user enabled Face ID / Touch ID, require it
-            // once per cold start before entering. Cancel/fail → password form.
-            if (window.rmBio && await window.rmBio.isEnabled()) {
-                var ok = await window.rmBio.verify("Log in to realmate");
-                if (!ok) { reveal(); return; }
-            }
+            // Valid session → go STRAIGHT in. Reopening the app must never prompt
+            // biometrics or log the user out.
             var dest = (window.Capacitor || window.matchMedia("(max-width: 900px)").matches)
                 ? "app.html?tab=portal" : "livemarket.html";
             location.replace(dest);
         } else {
-            reveal(); // no valid session → show the login form
+            await revealWithBio(); // no valid session → login form + Face ID option
         }
     } catch (e) { reveal(); /* stay on the login form */ }
 })();
+
+// Show the "Sign in with Face ID/Touch ID" button on the login form.
+async function _rmShowBioLogin() {
+    var btn = document.getElementById("bioLoginBtn");
+    if (!btn) return;
+    try { var label = btn.querySelector("span"); if (label && window.rmBio) label.textContent = "Sign in with " + (await window.rmBio.typeName()); } catch (e) {}
+    btn.style.display = "";
+}
+
+// "Sign in with Face ID" tap: verify → read saved Keychain credentials → sign in
+// through the normal login() path. Falls back to the password form on any failure.
+async function bioSignIn() {
+    try {
+        if (!window.rmBio) return;
+        var ok = await window.rmBio.verify("Sign in to realmate");
+        if (!ok) return; // user cancelled / failed → they can still type or retry
+        var creds = await window.rmBio.getCredentials();
+        if (!creds || !creds.username || !creds.password) { showLoginError("Saved sign-in not found. Please sign in with your password."); return; }
+        var id = document.getElementById("loginIdentifier"), pw = document.getElementById("password");
+        if (id) id.value = creds.username;
+        if (pw) pw.value = creds.password;
+        login();
+    } catch (e) { /* stay on the form; password login remains available */ }
+}
 
 // Explicitly re-hydrate a Supabase session from the token stored in localStorage
 // when getSession() returned null but a token is actually present. Returns the
@@ -708,17 +735,22 @@ async function login(){
       sessionStorage.setItem("rm_session", "1");
     } catch (e) {}
 
-    // Offer biometric login ONCE after a successful sign-in (native only, when
-    // biometrics are enrolled and not already enabled). Declining is remembered
-    // so we never nag again — they can still enable it later in Settings. Only a
-    // yes/no flag is stored; the password is never saved anywhere.
+    // Biometric login (native only). If already enabled, refresh the stored
+    // Keychain credentials so a future Face ID sign-in stays current (e.g. after
+    // a password change). Otherwise offer to enable it once — declining is
+    // remembered so we never nag again (still available later in Settings).
+    // Credentials are stored ONLY in the iOS Keychain, never in plain text.
     try {
-      if (window.rmBio && window.rmBio.isNative && !localStorage.getItem("rm_bio_prompted")
-          && !(await window.rmBio.isEnabled()) && (await window.rmBio.available())) {
-        localStorage.setItem("rm_bio_prompted", "1");
-        var _bt = await window.rmBio.typeName();
-        if (window.confirm("Enable " + _bt + " for faster sign-in next time?")) {
-          await window.rmBio.setEnabled(true);
+      if (window.rmBio && window.rmBio.isNative && (await window.rmBio.available())) {
+        if (await window.rmBio.isEnabled()) {
+          await window.rmBio.saveCredentials(identifier, password);
+        } else if (!localStorage.getItem("rm_bio_prompted")) {
+          localStorage.setItem("rm_bio_prompted", "1");
+          var _bt = await window.rmBio.typeName();
+          if (window.confirm("Enable " + _bt + " for faster sign-in next time?")) {
+            await window.rmBio.setEnabled(true);
+            await window.rmBio.saveCredentials(identifier, password);
+          }
         }
       }
     } catch (e) {}
