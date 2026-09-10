@@ -43,10 +43,23 @@ window.supabaseClient.auth.onAuthStateChange((event) => {
     if (h.includes("type=recovery") || h.includes("error=") || q.includes("token_hash")) return;
     if (localStorage.getItem("rm_remember") === "0") return;  // user opted out
     function reveal() { document.documentElement.classList.remove("rm-autologin"); }
+    var _RM_TOKEN_KEY = "sb-wmegpgrfrtprhuzmgjma-auth-token";
     try {
+        // Native: wait for the persisted session to be restored into localStorage
+        // before asking Supabase for it (see native-auth.js).
+        if (window.rmSessionReady) { try { await window.rmSessionReady; } catch (e) {} }
         var res = await window.supabaseClient.auth.getSession();
         var session = res && res.data && res.data.session;
+        // Fallback: a token is in storage but the client cached a null session
+        // (construct-time race, or restored after the client initialised) — hydrate it.
+        if (!session) { session = await _rmHydrateSession(_RM_TOKEN_KEY); }
         if (session) {
+            // Biometric gate: if the user enabled Face ID / Touch ID, require it
+            // once per cold start before entering. Cancel/fail → password form.
+            if (window.rmBio && await window.rmBio.isEnabled()) {
+                var ok = await window.rmBio.verify("Log in to realmate");
+                if (!ok) { reveal(); return; }
+            }
             var dest = (window.Capacitor || window.matchMedia("(max-width: 900px)").matches)
                 ? "app.html?tab=portal" : "livemarket.html";
             location.replace(dest);
@@ -55,6 +68,21 @@ window.supabaseClient.auth.onAuthStateChange((event) => {
         }
     } catch (e) { reveal(); /* stay on the login form */ }
 })();
+
+// Explicitly re-hydrate a Supabase session from the token stored in localStorage
+// when getSession() returned null but a token is actually present. Returns the
+// restored session or null. Shared by attemptAutoLogin and auth-guard.
+async function _rmHydrateSession(tokenKey) {
+    try {
+        var raw = localStorage.getItem(tokenKey || "sb-wmegpgrfrtprhuzmgjma-auth-token");
+        if (!raw) return null;
+        var tok = JSON.parse(raw);
+        var s = tok && (tok.access_token ? tok : tok.currentSession); // v2 stores the session directly
+        if (!s || !s.access_token || !s.refresh_token) return null;
+        var r = await window.supabaseClient.auth.setSession({ access_token: s.access_token, refresh_token: s.refresh_token });
+        return (r && r.data && r.data.session) || null;
+    } catch (e) { return null; }
+}
 
 window.addEventListener('load', () => {
     const hash = window.location.hash || "";
@@ -519,8 +547,20 @@ function handleLoginEnterKey() {
   login();
 }
 
+// The login <form>'s onsubmit handler — routes Enter/Go (mobile + desktop)
+// through one guarded path so the form never GET-reloads the page and login()
+// can't double-fire signInWithPassword.
+function handleLoginSubmit(e) {
+  if (e) e.preventDefault();
+  var b = document.getElementById("loginBtn");
+  if (b && b.disabled) return false;
+  login();
+  return false;
+}
+
 async function login(){
   const loginBtn = document.getElementById("loginBtn");
+  if (loginBtn && loginBtn.disabled) return;   // guard against double-submit
   const loginBtnText = document.getElementById("loginBtnText");
   const identifier = document.getElementById("loginIdentifier").value.trim();
   const password = document.getElementById("password").value;
@@ -664,6 +704,21 @@ async function login(){
       var _remember = !document.getElementById("rememberMe") || document.getElementById("rememberMe").checked;
       localStorage.setItem("rm_remember", _remember ? "1" : "0");
       sessionStorage.setItem("rm_session", "1");
+    } catch (e) {}
+
+    // Offer biometric login ONCE after a successful sign-in (native only, when
+    // biometrics are enrolled and not already enabled). Declining is remembered
+    // so we never nag again — they can still enable it later in Settings. Only a
+    // yes/no flag is stored; the password is never saved anywhere.
+    try {
+      if (window.rmBio && window.rmBio.isNative && !localStorage.getItem("rm_bio_prompted")
+          && !(await window.rmBio.isEnabled()) && (await window.rmBio.available())) {
+        localStorage.setItem("rm_bio_prompted", "1");
+        var _bt = await window.rmBio.typeName();
+        if (window.confirm("Enable " + _bt + " for faster sign-in next time?")) {
+          await window.rmBio.setEnabled(true);
+        }
+      }
     } catch (e) {}
 
     // Mobile / native app lands in the persistent tab shell (app.html); desktop

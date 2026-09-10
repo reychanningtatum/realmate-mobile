@@ -71,6 +71,22 @@
             </div>
         </div>
 
+        <!-- ── Security (native app + enrolled biometrics only; shown via JS) ── -->
+        <div class="settings-card" id="biometricCard" style="display:none;">
+            <div class="settings-card-title"><i class="fas fa-fingerprint" style="color: var(--primary);"></i> Security</div>
+            <p class="settings-card-sub">Use your device's biometric lock to sign in faster.</p>
+            <div class="settings-row">
+                <div>
+                    <div class="settings-row-label" id="biometricLabel">Sign in with biometrics</div>
+                    <div class="settings-row-desc">Require Face ID / Touch ID to open realmate. Your password is never stored.</div>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" id="toggleBiometric" onchange="saveBiometricPref(this.checked)">
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </div>
+
         <!-- ── Privacy ───────────────────────────────────────────────── -->
         <div class="settings-card">
             <div class="settings-card-title"><i class="fas fa-shield-halved" style="color: var(--primary);"></i> Privacy</div>
@@ -218,10 +234,11 @@
   </div>
 </div>
 
+<script src="native-auth.js?v=1"></script>
 <script src="vendor/supabase-js.min.js?v=2.112.3"></script>
 <script src="block-report.js?v=20260829f"></script>
-<script src="auth-guard.js?v=20260903d"></script>
-<script src="settings.js?v=20260831g"></script>
+<script src="auth-guard.js?v=20260910a"></script>
+<script src="settings.js?v=20260910a"></script>
 <script src="location-engine.js?v=20260809b"></script>
 <script src="match-engine.js?v=20260821p1"></script>
 <script src="match-alert.js?v=20260828b"></script>

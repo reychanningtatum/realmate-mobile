@@ -215,7 +215,45 @@ window.onload = () => {
     initPortalNotifsToggle();
     loadAccountEmail();
     loadPrivacyToggles();
+    initBiometricToggle();
 };
+
+/* ── Biometric login (Face ID / Touch ID) — native app only ──────
+   Reveals the Security card + toggle only when the device actually has
+   biometrics enrolled (via native-auth.js's rmBio helper). The toggle just
+   flips a durable flag in native Preferences; no password is ever stored. */
+async function initBiometricToggle() {
+    try {
+        if (!window.rmBio || !window.rmBio.isNative) return;
+        if (!(await window.rmBio.available())) return; // no hardware / not enrolled
+        const card = document.getElementById('biometricCard');
+        const toggle = document.getElementById('toggleBiometric');
+        const label = document.getElementById('biometricLabel');
+        if (label) { const t = await window.rmBio.typeName(); label.textContent = 'Sign in with ' + (t || 'biometrics'); }
+        if (toggle) toggle.checked = await window.rmBio.isEnabled();
+        if (card) card.style.display = '';
+    } catch (e) {}
+}
+
+async function saveBiometricPref(isOn) {
+    try {
+        if (isOn) {
+            // Verify once when enabling, so we know it actually works on this device.
+            const ok = await window.rmBio.verify('Confirm to enable biometric sign-in');
+            if (!ok) {
+                const toggle = document.getElementById('toggleBiometric');
+                if (toggle) toggle.checked = false;
+                showSettingsNotificationToast('Could not verify — biometric sign-in not enabled.', 'error');
+                return;
+            }
+        }
+        await window.rmBio.setEnabled(isOn);
+        const t = await window.rmBio.typeName();
+        showSettingsNotificationToast(isOn ? ('Sign in with ' + t + ' is on.') : ('Sign in with ' + t + ' is off.'), 'success');
+    } catch (e) {
+        showSettingsNotificationToast('Could not update biometric setting.', 'error');
+    }
+}
 
 
 /* ── Account deletion (Apple Guideline 5.1.1v) ───────────────── */

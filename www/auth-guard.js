@@ -41,11 +41,47 @@ function goBack() {
     const _sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     const isGuest = localStorage.getItem("isGuest") === "true";
-    const { data: { session } } = await _sb.auth.getSession();
+    const _RM_TOKEN_KEY = "sb-wmegpgrfrtprhuzmgjma-auth-token";
+    // Native: wait for the persisted session to be restored into localStorage
+    // before asking Supabase for it (see native-auth.js).
+    if (window.rmSessionReady) { try { await window.rmSessionReady; } catch (e) {} }
+    let { data: { session } } = await _sb.auth.getSession();
 
-    // No session and not a guest → back to login
+    // If getSession came back null but a token is actually stored, hydrate it
+    // explicitly (construct-time race / just-restored native token).
+    if (!session) {
+        try {
+            const raw = localStorage.getItem(_RM_TOKEN_KEY);
+            if (raw) {
+                const tok = JSON.parse(raw);
+                const s = tok && (tok.access_token ? tok : tok.currentSession);
+                if (s && s.access_token && s.refresh_token) {
+                    const r = await _sb.auth.setSession({ access_token: s.access_token, refresh_token: s.refresh_token });
+                    session = (r && r.data && r.data.session) || null;
+                }
+            }
+        } catch (e) {}
+    }
+
+    // No session and not a guest → back to login. But NEVER blanket-clear
+    // localStorage on a transient/offline null (a token still present means the
+    // session may just be un-refreshable right now) — that would wipe the profile
+    // cache and the token, turning a hiccup into a full logout. Only clear when
+    // there is genuinely no token stored (a real logout / expired refresh token).
     if (!session && !isGuest) {
-        localStorage.clear();
+        const hasToken = !!localStorage.getItem(_RM_TOKEN_KEY);
+        if (!hasToken) {
+            // Genuine logout — targeted removals (removeItem also clears the
+            // native Preferences token mirror; see native-auth.js).
+            try {
+                localStorage.removeItem("user");
+                localStorage.removeItem("posts");
+                localStorage.removeItem("isGuest");
+                localStorage.removeItem(_RM_TOKEN_KEY);
+            } catch (e) {}
+        }
+        // Transient: keep everything; index.html's attemptAutoLogin() re-hydrates
+        // the still-valid token when possible.
         location.href = "index.html";
         return;
     }

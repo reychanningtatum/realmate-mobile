@@ -120,6 +120,9 @@ workflows:
           plist_set ITSAppUsesNonExemptEncryption bool false
           plist_set NSCameraUsageDescription string "Realmate uses the camera so you can take and upload photos of your property listings and verification documents."
           plist_set NSPhotoLibraryUsageDescription string "Realmate accesses your photos so you can attach listing images and upload your Alveo ID for account verification."
+          # Face ID / Touch ID sign-in (capacitor-native-biometric). Without this
+          # key iOS hard-crashes the first time BiometricAuth is invoked.
+          plist_set NSFaceIDUsageDescription string "Realmate uses Face ID so you can sign in quickly and securely without re-entering your password."
       - name: Restrict binary to iPhone only (TARGETED_DEVICE_FAMILY = 1)
         # Capacitor's generated Xcode project defaults to universal (iPhone + iPad = "1,2").
         # Realmate is a phone-first app with no iPad-specific design, so limit the binary
