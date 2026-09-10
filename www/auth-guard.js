@@ -2,13 +2,24 @@
 function logout() {
     const SUPABASE_URL = 'https://wmegpgrfrtprhuzmgjma.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_Rm_fIBDUfu3DEyLj0_bWZw_qEqo8cd4';
+    // Remove the session token SYNCHRONOUSLY first, before anything can redirect.
+    // signOut() is async and wasn't awaited, so the token could still be in
+    // storage when index.html's attemptAutoLogin() runs — and its session-restore
+    // would log the user straight back in ("can't log out"). removeItem also
+    // clears the native Preferences mirror (see native-auth.js). Also mark that we
+    // just logged out so auto-login/hydrate is skipped this launch.
+    try {
+        localStorage.removeItem('sb-wmegpgrfrtprhuzmgjma-auth-token');
+        localStorage.removeItem('user');
+        localStorage.removeItem('posts');
+        localStorage.removeItem('isGuest');
+        sessionStorage.removeItem('rm_session');
+        sessionStorage.setItem('rm_logged_out', '1');
+    } catch (e) {}
     try {
         const _sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-        _sb.auth.signOut();
+        _sb.auth.signOut(); // best-effort server revocation; token already gone locally
     } catch(e) {}
-    localStorage.removeItem('user');
-    localStorage.removeItem('posts');
-    localStorage.removeItem('isGuest');
     location.href = 'index.html';
 }
 

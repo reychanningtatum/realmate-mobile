@@ -43,6 +43,8 @@ window.supabaseClient.auth.onAuthStateChange((event) => {
     if (h.includes("type=recovery") || h.includes("error=") || q.includes("token_hash")) return;
     if (localStorage.getItem("rm_remember") === "0") return;  // user opted out
     function reveal() { document.documentElement.classList.remove("rm-autologin"); }
+    // Just logged out this launch — show the login form, never hydrate back in.
+    try { if (sessionStorage.getItem("rm_logged_out")) { sessionStorage.removeItem("rm_logged_out"); reveal(); return; } } catch (e) {}
     var _RM_TOKEN_KEY = "sb-wmegpgrfrtprhuzmgjma-auth-token";
     try {
         // Native: wait for the persisted session to be restored into localStorage
