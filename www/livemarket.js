@@ -64,10 +64,11 @@ function lmOpenListing(id) {
         var ctx = JSON.parse(sessionStorage.getItem('rm_matchCtx') || 'null');
         if (ctx && ctx.listingId != null) {
             inMatch = true;
-            if (String(id) !== String(ctx.listingId)) {
-                ctx.scrollToId = String(id);
-                sessionStorage.setItem('rm_matchCtx', JSON.stringify(ctx));
-            }
+            // Opening a MATCH → return to that match card. Opening the user's OWN
+            // post (id === listingId) → clear scrollToId so Back lands at the top
+            // of the engine (the own post), NEVER on an AI match card.
+            ctx.scrollToId = (String(id) === String(ctx.listingId)) ? null : String(id);
+            sessionStorage.setItem('rm_matchCtx', JSON.stringify(ctx));
         }
     } catch (e) {}
     if (!inMatch) {
@@ -3142,7 +3143,7 @@ function dismissMatch(listingId) {
     if (typeof applyFilters === 'function' && document.getElementById('listingsGrid')) applyFilters();
 }
 
-function showAllMatches(listingId, scrollToId) {
+function showAllMatches(listingId, scrollToId, noFlash) {
     const myListing = myListings.find(l => String(l.id) === String(listingId));
     // Stale/unresolvable context (listing gone or not one of mine): drop it so it
     // can't keep hijacking future loads, and just stay on the current view.
@@ -3200,7 +3201,9 @@ function showAllMatches(listingId, scrollToId) {
             const el = box && box.querySelector('[id="lc-' + scrollToId + '"]');
             if (!el) return false;
             el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            if (!_flashed) {
+            // Green flash ONLY on the initial route into the engine — never when
+            // simply returning here via Back (noFlash), which just re-anchors.
+            if (!noFlash && !_flashed) {
                 el.classList.remove('match-flash');
                 void el.offsetWidth;               // restart the animation if re-applied
                 el.classList.add('match-flash');
@@ -3648,7 +3651,9 @@ async function init() {
     let ctx = null;
     try { ctx = JSON.parse(sessionStorage.getItem('rm_matchCtx') || 'null'); } catch (e) {}
     if (ctx && ctx.listingId != null) {
-        try { showAllMatches(ctx.listingId, ctx.scrollToId); } catch (e) {}
+        // Re-opening via Back: re-anchor to the exact post, but pass noFlash=true so
+        // the green highlight does NOT fire again (it's only for the initial route).
+        try { showAllMatches(ctx.listingId, ctx.scrollToId, true); } catch (e) {}
     }
 
     // Two intentionally-distinct behaviours now that the list has rendered:
@@ -4826,7 +4831,7 @@ function _ensureSellerPopup() {
                     </span>
                     <i class="fas fa-chevron-right sp-opt-arrow"></i>
                 </button>
-                <button id="sellerOptProfile" onclick="closeSellerPopup(); location.href=window._spUserId?'dashboard.html?user_id='+window._spUserId:''">
+                <button id="sellerOptProfile" onclick="rmViewProfileFromPopup()">
                     <span class="sp-opt-icon sp-opt-icon-profile"><i class="fas fa-user-tie"></i></span>
                     <span class="sp-opt-text">
                         <span class="sp-opt-title">View Profile</span>
@@ -4996,8 +5001,21 @@ function closeLockedPopup() {
     document.body.style.overflow = '';
 }
 
+// View Profile from the seller popup: save the exact Portal post + scroll first
+// (Back restores it), then navigate — same reliable pattern as rmGoChat.
+function rmViewProfileFromPopup() {
+    closeSellerPopup();
+    if (!window._spUserId) return;
+    try { savePortalScroll(); } catch (e) {}
+    location.href = 'dashboard.html?user_id=' + window._spUserId;
+}
+
 async function handleViewListings() {
     closeSellerPopup();
+    // Save the exact Portal post + scroll NOW (like rmGoChat) so Back restores it.
+    // Don't rely on the pagehide listener — it is unreliable in the iOS WKWebView,
+    // which is why this used to return to the top.
+    try { savePortalScroll(); } catch (e) {}
     const targetId = window._spUserId;
     if (!targetId) return;
 
