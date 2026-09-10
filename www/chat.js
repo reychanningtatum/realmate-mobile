@@ -34,6 +34,12 @@ let currentUser = null;
 // Used by handleChatBack() to decide whether "Back" should leave the Chat
 // page entirely (real navigation) or just return to the in-page list.
 let _chatOpenedExternally = false;
+// Set ONLY when Chat was opened straight from the Portal "Send Message" handoff
+// (openChatWith) into a conversation. In the app shell, the header Back arrow
+// then returns to the exact Portal post we came from (parent.rmBack → prevTab)
+// instead of dropping onto the conversation list. Cleared the moment the user
+// reaches the list, so normal in-chat back behaviour resumes after that.
+let _returnToShellBack = false;
 let activeConversationId = null;
 let activeOtherUser = null;
 let conversations = [];
@@ -161,6 +167,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const { userId, name } = JSON.parse(openChatWith);
                 sessionStorage.removeItem('openChatWith');
                 _chatOpenedExternally = true;
+                _returnToShellBack = true;   // Back → the Portal post we came from
                 if (userId) {
                     await openConversationWithUser(userId);
                 } else if (name) {
@@ -686,6 +693,7 @@ async function openConversationWithUser(userId) {
 }
 
 function backToConvList() {
+    _returnToShellBack = false;   // reached the list → resume normal in-chat back
     unsubMessages();
     activeConversationId = null;
     activeOtherUser = null;
@@ -705,6 +713,17 @@ function backToConvList() {
 // history to go back to, fall back to the conversation list rather than a
 // hardcoded page.
 function handleChatBack() {
+    // Opened straight from the Portal "Send Message": Back returns to that exact
+    // Portal post via the app shell (which restores the post + scroll), rather
+    // than the conversation list the user never came from.
+    if (_returnToShellBack && activeConversationId) {
+        _returnToShellBack = false;
+        try {
+            if (window.self !== window.top && window.parent && typeof window.parent.rmBack === 'function') {
+                window.parent.rmBack(); return;
+            }
+        } catch (e) {}
+    }
     if (_chatOpenedExternally && window.history.length > 1) {
         window.history.back();
     } else {

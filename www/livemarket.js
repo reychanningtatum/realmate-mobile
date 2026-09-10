@@ -54,7 +54,25 @@ function _lmMaxScrollable() {
     return Math.max(w, m);
 }
 function lmOpenListing(id) {
-    try { sessionStorage.setItem('lmReturnScroll', JSON.stringify({ y: _lmScrollNow(), t: Date.now() })); } catch (e) {}
+    // Inside a listing's AI-Match view, Back must return to THAT match view landing
+    // on the exact post we opened. Record which card in rm_matchCtx so the view's
+    // own scroll-to (showAllMatches _toMatch) targets it, and DON'T also stash the
+    // feed raw-Y (it would fight that scroll in the rebuilt view). Own listing
+    // (id === listingId) keeps the entry anchor so we land at the view's top.
+    var inMatch = false;
+    try {
+        var ctx = JSON.parse(sessionStorage.getItem('rm_matchCtx') || 'null');
+        if (ctx && ctx.listingId != null) {
+            inMatch = true;
+            if (String(id) !== String(ctx.listingId)) {
+                ctx.scrollToId = String(id);
+                sessionStorage.setItem('rm_matchCtx', JSON.stringify(ctx));
+            }
+        }
+    } catch (e) {}
+    if (!inMatch) {
+        try { sessionStorage.setItem('lmReturnScroll', JSON.stringify({ y: _lmScrollNow(), t: Date.now() })); } catch (e) {}
+    }
     location.href = 'listing-detail.html?id=' + encodeURIComponent(id);
 }
 (function _lmRestoreScrollOnReturn() {
@@ -3533,46 +3551,34 @@ function restorePortalScroll() {
     sessionStorage.removeItem(RM_SCROLL_KEY);
     if (s.tab && s.tab !== activeSegTab) return false;
 
-    // Land exactly on the saved post by anchoring its top to where it sat when we
-    // left. Returns true once the anchor card is in the DOM and positioned.
-    const anchor = () => {
+    // Continuously re-assert for a short window: livemarket runs SEVERAL
+    // applyFilters() re-renders while it settles (data arrives, realtime echoes,
+    // rmbr:ready), any of which rebuilds the grid and snaps scroll to the top —
+    // so a one-shot restore lands at the top/a wrong post. We keep rendering pages
+    // until the saved post exists and re-anchor whenever we've DRIFTED off it
+    // (only when drifted, so a user already parked on their post is never fought).
+    const start = Date.now();
+    const timer = setInterval(() => {
+        // The saved post may be beyond the first render batch (or a re-render reset
+        // the rendered count) — render pages until the anchor card is present.
+        if (s.cardId && !document.getElementById(s.cardId)
+            && typeof _lcRenderNextBatch === 'function' && _lcRenderPool && _lcRenderedCount < _lcRenderPool.length) {
+            _lcRenderNextBatch();
+        }
         if (s.cardId && s.cardTop != null) {
             const el = document.getElementById(s.cardId);
-            if (el) { _nudgeScroll(el.getBoundingClientRect().top - s.cardTop); return true; }
-        }
-        return false;
-    };
-    const rawFallback = () => {
-        const sc = _activeScroller();
-        if (sc) sc.scrollTop = s.scrollTop || 0;
-        else window.scrollTo(0, s.winTop || 0);
-    };
-    // A few bounded re-asserts so late images / reflow can't drift the final rest —
-    // bounded (not continuous) so we never fight the user's own scrolling.
-    const finish = () => {
-        if (!anchor()) rawFallback();
-        requestAnimationFrame(anchor);
-        setTimeout(anchor, 150);
-        setTimeout(anchor, 350);
-        setTimeout(anchor, 650);
-    };
-    // The saved post may be beyond the first render batch, so it isn't in the DOM
-    // yet — render pages until it appears, THEN land (otherwise we'd clamp to the
-    // short first-batch height and end up near the top, the bug being fixed).
-    if (s.cardId && !document.getElementById(s.cardId)
-        && typeof _lcRenderNextBatch === 'function' && _lcRenderPool) {
-        const start = Date.now();
-        const timer = setInterval(() => {
-            if (document.getElementById(s.cardId) || _lcRenderedCount >= _lcRenderPool.length || Date.now() - start > 4000) {
-                clearInterval(timer);
-                finish();
-            } else {
-                _lcRenderNextBatch();
+            if (el) {
+                const d = el.getBoundingClientRect().top - s.cardTop;
+                if (Math.abs(d) > 3) _nudgeScroll(d);
             }
-        }, 30);
-    } else {
-        finish();
-    }
+        } else {
+            const sc = _activeScroller();
+            const cur = sc ? sc.scrollTop : (window.scrollY || window.pageYOffset || 0);
+            const target = sc ? (s.scrollTop || 0) : (s.winTop || 0);
+            if (Math.abs(cur - target) > 3) { if (sc) sc.scrollTop = target; else window.scrollTo(0, target); }
+        }
+        if (Date.now() - start > 4000) clearInterval(timer);
+    }, 50);
     return true;
 }
 
@@ -3660,7 +3666,13 @@ async function init() {
     // Restore on real Back/Forward, OR when we just came back from a
     // profile/listings/chat visit (Chat returns as a fresh 'navigate' because the
     // suspended Portal tab is reloaded — _rmRecentPortalSave catches that).
-    if (_navType() === 'back_forward' || _rmRecentPortalSave()) {
+    if (ctx && ctx.listingId != null) {
+        // We just re-opened a listing's Match view (Back from a match's / own
+        // listing detail). showAllMatches() already scrolls to the exact post; the
+        // feed grid is hidden, so running the feed restore here would anchor to a
+        // hidden ledger card and fight that scroll. Skip both restore and goTop.
+        // (RM_SCROLL_KEY is left intact for exitMatchView's return-to-ledger.)
+    } else if (_navType() === 'back_forward' || _rmRecentPortalSave()) {
         if (!restorePortalScroll()) goTop();
     } else {
         try { sessionStorage.removeItem(RM_SCROLL_KEY); } catch (e) {}
