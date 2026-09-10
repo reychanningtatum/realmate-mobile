@@ -1557,8 +1557,11 @@ html[data-theme="dark"] .lc-stat-match:hover { border-color: #166534; }
   box-shadow: 0 6px 20px -10px rgba(0, 0, 0, 0.5);
 }
 .match-your-listing-sticky {
-  position: sticky;
-  top: 48px;
+  /* Was position:sticky + a nested overflow scroller (below): on iOS the pinned
+     card's inner touch-scroller trapped the up-swipe, so after scrolling down the
+     match view couldn't scroll back up. Flow it in the page instead — your listing
+     stays at the top of the match view, collapsible, with normal two-way scroll. */
+  position: relative;
   z-index: 98;
   background: var(--bg);
   padding: 12px 0 10px;
@@ -1575,11 +1578,10 @@ html[data-theme="dark"] .lc-stat-match:hover { border-color: #166534; }
 }
 .your-listing-arrow.collapsed { transform: rotate(180deg); }
 .your-listing-body {
-  /* Expanded: cap the height so the sticky card never eats the whole screen, but
-     let a long post scroll INSIDE it instead of being clipped — the owner can
-     always read their full post. */
-  max-height: min(58vh, 560px); overflow-y: auto; overflow-x: hidden;
-  -webkit-overflow-scrolling: touch;
+  /* Expanded flows in the page (no nested scroller) so it can't trap the up-swipe
+     on iOS. The large max-height keeps the collapse/expand animation while never
+     clipping a real post. */
+  max-height: 4000px; overflow: visible;
   transition: max-height 0.3s ease, opacity 0.3s ease;
   opacity: 1;
 }
@@ -1970,12 +1972,11 @@ html[data-theme="dark"] .mate-status-received { border-color: #60a5fa; color: #6
   .match-header-center span { font-size: 11px !important; }
   .match-header-center .ai-robot { font-size: 16px !important; }
   .match-page-header h2 { font-size: 13px !important; }
-  .match-your-listing-sticky { top: calc(44px + var(--rm-safe-top, env(safe-area-inset-top))); }
   #matchView .match-layout { padding-top: 48px; }
   .match-card { padding: 14px; margin-bottom: 10px; }
   .match-results-header { padding: 8px 12px; border-radius: 10px; }
   #matchView .match-layout { padding-top: 42px; }
-  .match-your-listing-sticky { top: calc(36px + var(--rm-safe-top, env(safe-area-inset-top))); padding: 12px 0 8px; }
+  .match-your-listing-sticky { padding: 12px 0 8px; }
   .match-layout { gap: 12px; }
   .match-card { padding: 14px; margin-bottom: 10px; border-radius: 14px; }
   .match-card-text { font-size: 13px; line-height: 1.5; margin: 8px 0; }

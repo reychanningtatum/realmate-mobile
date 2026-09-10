@@ -3493,6 +3493,18 @@ function savePortalScroll() {
     } catch (e) {}
 }
 
+// True when a Portal scroll was saved very recently — i.e. the user just left the
+// Portal (to a profile/listings/chat) and is coming back. Returning from Chat
+// reloads the Portal as a fresh 'navigate' (the tab was suspended), NOT a
+// 'back_forward', so we use this to still restore the exact post. One-shot: the
+// key is consumed by restorePortalScroll.
+function _rmRecentPortalSave() {
+    try {
+        var s = JSON.parse(sessionStorage.getItem(RM_SCROLL_KEY) || 'null');
+        return !!(s && s.ts && (Date.now() - s.ts) < 300000);
+    } catch (e) { return false; }
+}
+
 // Whichever element actually scrolls: .main-content on desktop (it has its own
 // overflow), or the window on mobile (there .main-content lays out at full
 // height and the page itself scrolls). Returns the .main-content element, or
@@ -3521,20 +3533,46 @@ function restorePortalScroll() {
     sessionStorage.removeItem(RM_SCROLL_KEY);
     if (s.tab && s.tab !== activeSegTab) return false;
 
-    const apply = () => {
+    // Land exactly on the saved post by anchoring its top to where it sat when we
+    // left. Returns true once the anchor card is in the DOM and positioned.
+    const anchor = () => {
         if (s.cardId && s.cardTop != null) {
             const el = document.getElementById(s.cardId);
-            if (el) { _nudgeScroll(el.getBoundingClientRect().top - s.cardTop); return; }
+            if (el) { _nudgeScroll(el.getBoundingClientRect().top - s.cardTop); return true; }
         }
+        return false;
+    };
+    const rawFallback = () => {
         const sc = _activeScroller();
         if (sc) sc.scrollTop = s.scrollTop || 0;
         else window.scrollTo(0, s.winTop || 0);
     };
-    apply();
-    requestAnimationFrame(apply);
-    setTimeout(apply, 120);
-    setTimeout(apply, 300);
-    setTimeout(apply, 600);
+    // A few bounded re-asserts so late images / reflow can't drift the final rest —
+    // bounded (not continuous) so we never fight the user's own scrolling.
+    const finish = () => {
+        if (!anchor()) rawFallback();
+        requestAnimationFrame(anchor);
+        setTimeout(anchor, 150);
+        setTimeout(anchor, 350);
+        setTimeout(anchor, 650);
+    };
+    // The saved post may be beyond the first render batch, so it isn't in the DOM
+    // yet — render pages until it appears, THEN land (otherwise we'd clamp to the
+    // short first-batch height and end up near the top, the bug being fixed).
+    if (s.cardId && !document.getElementById(s.cardId)
+        && typeof _lcRenderNextBatch === 'function' && _lcRenderPool) {
+        const start = Date.now();
+        const timer = setInterval(() => {
+            if (document.getElementById(s.cardId) || _lcRenderedCount >= _lcRenderPool.length || Date.now() - start > 4000) {
+                clearInterval(timer);
+                finish();
+            } else {
+                _lcRenderNextBatch();
+            }
+        }, 30);
+    } else {
+        finish();
+    }
     return true;
 }
 
@@ -3619,7 +3657,10 @@ async function init() {
         requestAnimationFrame(scrollPortalTop);
         setTimeout(scrollPortalTop, 150);
     };
-    if (_navType() === 'back_forward') {
+    // Restore on real Back/Forward, OR when we just came back from a
+    // profile/listings/chat visit (Chat returns as a fresh 'navigate' because the
+    // suspended Portal tab is reloaded — _rmRecentPortalSave catches that).
+    if (_navType() === 'back_forward' || _rmRecentPortalSave()) {
         if (!restorePortalScroll()) goTop();
     } else {
         try { sessionStorage.removeItem(RM_SCROLL_KEY); } catch (e) {}
@@ -4875,6 +4916,10 @@ function closeSelfPopup() {
 // chat merely opened underneath); standalone falls back to a full navigation.
 // The conversation to open is passed via sessionStorage (chat.html reads it).
 function rmGoChat() {
+    // Opening Chat is a shell TAB-SWITCH, not a navigation of the Portal iframe, so
+    // pagehide never fires — save the Portal scroll/anchor now so tapping Portal to
+    // return lands back on the exact same post (see restorePortalScroll + init).
+    try { savePortalScroll(); } catch (e) {}
     try {
         if (window.self !== window.top && window.parent && typeof window.parent.rmOpen === 'function') {
             window.parent.rmOpen('chat', 'chat.html');
