@@ -41,8 +41,38 @@
     try { localStorage.setItem(storeKey(scope), JSON.stringify(arr.slice(0, CAP))); } catch (e) {}
   }
 
+  // Initials for the CSS avatar fallback (no external service needed).
+  function initials(label) {
+    var parts = String(label || '').trim().split(/\s+/).filter(Boolean);
+    if (!parts.length) return '?';
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
+  function escHtml(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  // Encode a URL so it is safe inside a single-quoted CSS url('...') in a style attr.
+  function cssUrl(u) { return String(u || '').replace(/[\\'"()\s]/g, encodeURIComponent); }
+
   window.RMSearchHistory = {
     keyOf: keyOf,
+    initials: initials,
+    // Media chip for a recent entry, rendered with CSS background-image over a
+    // CSS-drawn fallback (initials for people, an icon for posts). No <img> element
+    // and no external avatar service, so a failed/missing image can NEVER show the
+    // iOS broken-image glyph — it just reveals the fallback beneath. `opts.postIcon`
+    // sets the FontAwesome class for post fallbacks (default fa-store).
+    mediaHTML: function (e, opts) {
+      opts = opts || {};
+      if (e && e.type === 'person') {
+        var layer = e.img ? '<span class="rs-av-img" style="background-image:url(\'' + cssUrl(e.img) + '\')"></span>' : '';
+        return '<span class="rs-av"><span class="rs-av-ini">' + escHtml(initials(e.label)) + '</span>' + layer + '</span>';
+      }
+      if (e && e.type === 'post') {
+        var picon = opts.postIcon || 'fa-store';
+        var tlayer = e.img ? '<span class="rs-thumb-img" style="background-image:url(\'' + cssUrl(e.img) + '\')"></span>' : '';
+        return '<span class="rs-thumb"><span class="rs-thumb-ic"><i class="fas ' + picon + '"></i></span>' + tlayer + '</span>';
+      }
+      return '<span class="rs-query"><i class="fas fa-clock-rotate-left"></i></span>';
+    },
     list: function (scope) { return read(scope); },
     // Record an opened entity (or a typed query). Accepts a string (→ query) or an
     // entry object. Dedupes by identity and moves it to the front.

@@ -2877,19 +2877,9 @@ function renderFeedRecent() {
     if (!hist.length) { resultsEl.classList.remove('visible'); resultsEl.innerHTML = ''; return; }
     let h = `<div class="hs-section-label hs-recent-head">Recent searches<button class="hs-clear-all" onclick="feedClearRecent()">Clear all</button></div>`;
     hist.forEach((e, idx) => {
-        const isPerson = e.type === 'person', isPost = e.type === 'post';
-        let media;
-        if (isPerson) {
-            // Same bulletproof pattern as Portal: ui-avatars fallback in data-fb so
-            // onerror needs no nested quotes, and a person ALWAYS shows a picture
-            // (their avatar, or generated initials) — never a blank/broken slot.
-            const uiAv = avatarUrl(e.label || '?');
-            media = `<img class="hs-recent-av" src="${_rsAttr(e.img || uiAv)}" data-fb="${_rsAttr(uiAv)}" onerror="this.onerror=null;this.src=this.dataset.fb">`;
-        } else if (isPost && e.img) {
-            media = `<span class="hs-recent-ic hs-thumb-wrap"><i class="fas fa-file-lines"></i><img class="hs-recent-thumb" src="${_rsAttr(e.img)}" onerror="this.onerror=null;this.remove()"></span>`;
-        } else {
-            media = `<span class="hs-recent-ic"><i class="fas ${isPost ? 'fa-file-lines' : 'fa-clock-rotate-left'}"></i></span>`;
-        }
+        // CSS-background media (no <img>, no ui-avatars) → a person always shows a
+        // picture or CSS-drawn initials, never a blank/broken slot on iOS.
+        const media = RMSearchHistory.mediaHTML(e, { postIcon: 'fa-file-lines' });
         h += `<div class="hs-recent-row" onclick="feedRecentClick(${idx})">
             ${media}
             <div class="hs-recent-body"><div class="hs-recent-term">${safeText(e.label || (isPost ? 'Post' : ''))}</div>${e.sub ? `<div class="hs-recent-sub">${safeText(e.sub)}</div>` : ''}</div>
