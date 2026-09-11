@@ -3655,6 +3655,12 @@ async function init() {
         // the green highlight does NOT fire again (it's only for the initial route).
         try { showAllMatches(ctx.listingId, ctx.scrollToId, true); } catch (e) {}
     }
+    // Drop the pre-paint Match-Engine boot class now that the real view is in place:
+    // showMatchView() has set its own inline styles (success), or — if the context
+    // was stale and showAllMatches() bailed — removing the class simply falls back to
+    // the ledger. Either way the !important boot rules must not linger and fight a
+    // later exitMatchView()/tab switch.
+    try { document.documentElement.classList.remove('rm-matchboot'); } catch (e) {}
 
     // Two intentionally-distinct behaviours now that the list has rendered:
     //  • Back from a Listing Detail (Back button → history.back() → 'back_forward')

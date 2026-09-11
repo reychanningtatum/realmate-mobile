@@ -23,6 +23,12 @@
   <script src="featureFlags.js?v=20260830c"></script>
 <link rel="stylesheet" href="safe-area.css?v=20260828b">
 <script>if(window.self!==window.top)document.documentElement.classList.add("rm-embedded");</script>
+<!-- Returning from a listing detail INTO the AI Match Engine (rm_matchCtx set): show
+     the Match Engine chrome from the very first paint so the user never sees the
+     Portal navbar + "Loading listings" flash before showAllMatches() restores it.
+     The class is removed by init() once showMatchView() has set its own inline styles. -->
+<script>try{if(sessionStorage.getItem('rm_matchCtx'))document.documentElement.classList.add('rm-matchboot');}catch(e){}</script>
+<style>html.rm-matchboot .top-fixed-wrap,html.rm-matchboot .filter-bar,html.rm-matchboot #ledgerView{display:none!important}html.rm-matchboot #matchView{display:block!important}</style>
 </head>
 <body>
 
@@ -447,7 +453,7 @@
 <script src="rm-track.js?v=2"></script>
   <script src="block-report.js?v=20260829f"></script>
   <script src="deactivation.js?v=20260831a"></script>
-  <script src="livemarket.js?v=20260911a"></script>
+  <script src="livemarket.js?v=20260911b"></script>
   <script src="match-alert.js?v=20260828b"></script>
   <script src="notif-badge.js?v=14"></script>
   <script src="pull-refresh.js?v=20260829p"></script>
