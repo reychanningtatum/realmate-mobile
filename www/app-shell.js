@@ -133,16 +133,31 @@
   function restoreFrameScroll(f, y) {
     if (!(y > 0)) return;
     var tries = 0;
-    var iv = setInterval(function () {
+    // Poll only until the content is tall enough to hold y (a reloaded page's
+    // lazy list may not be yet), scroll there ONCE, then STOP. We must NOT keep
+    // re-asserting scrollTo — on a cached (kept-alive) tab the content is ready
+    // immediately, so a continuous re-assert would fight the user's first swipes
+    // for the whole window and make Feed/Portal stutter right after returning.
+    // Also bail the moment the user scrolls, so we never yank them mid-gesture.
+    var w; try { w = f.contentWindow; } catch (e) { return; }
+    if (!w) return;
+    var selfScroll = false, iv = null;
+    function stop() { if (iv) { clearInterval(iv); iv = null; } try { w.removeEventListener('scroll', onUserScroll, true); } catch (e) {} }
+    function onUserScroll() { if (!selfScroll) stop(); }   // user took over → don't fight
+    try { w.addEventListener('scroll', onUserScroll, true); } catch (e) {}
+    iv = setInterval(function () {
       tries++;
       try {
-        var w = f.contentWindow;
-        if (w) {
-          var maxY = w.document.documentElement.scrollHeight - w.innerHeight;
-          if (maxY >= y - 4) w.scrollTo(0, y);
+        var maxY = w.document.documentElement.scrollHeight - w.innerHeight;
+        if (maxY >= y - 4) {
+          selfScroll = true;
+          w.scrollTo(0, y);
+          setTimeout(function () { selfScroll = false; }, 60);
+          stop();                 // landed — stop so we never fight the user's scroll
+          return;
         }
       } catch (e) {}
-      if (tries > 40) clearInterval(iv);
+      if (tries > 40) stop();     // content never got tall enough (~2s) — give up
     }, 50);
   }
 
