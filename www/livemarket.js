@@ -2449,10 +2449,15 @@ function renderPortalSuggest(q) {
             const isPerson = e.type === 'person', isPost = e.type === 'post';
             let media;
             if (isPerson) {
-                const av = e.img || `https://ui-avatars.com/api/?name=${encodeURIComponent(e.label || '?')}&background=0f172a&color=32cd32`;
-                media = `<img loading="lazy" decoding="async" class="ps-avatar" src="${escapeHtmlSafe(av)}" onerror="this.src='https://ui-avatars.com/api/?name=?&background=0f172a&color=32cd32'">`;
+                // Fallback ui-avatars URL kept in data-fb so onerror needs NO nested
+                // quotes (a quoted onerror string mis-parses in WKWebView and can leave
+                // a stray broken-image glyph over the avatar).
+                const uiAv = 'https://ui-avatars.com/api/?name=' + encodeURIComponent(e.label || '?') + '&background=0f172a&color=32cd32';
+                media = `<img class="ps-avatar" src="${escapeHtmlSafe(e.img || uiAv)}" data-fb="${escapeHtmlSafe(uiAv)}" onerror="this.onerror=null;this.src=this.dataset.fb">`;
             } else if (isPost && e.img) {
-                media = `<img loading="lazy" decoding="async" class="ps-thumb" src="${escapeHtmlSafe(e.img)}" onerror="this.outerHTML='<span class=\\'ps-post-icon\\'><i class=\\'fas fa-store\\'></i></span>'">`;
+                // Thumbnail sits over a store-icon fallback; on load-fail it removes
+                // itself to reveal the icon (no fragile outerHTML replacement).
+                media = `<span class="ps-post-icon ps-thumb-wrap"><i class="fas fa-store"></i><img class="ps-thumb" src="${escapeHtmlSafe(e.img)}" onerror="this.onerror=null;this.remove()"></span>`;
             } else {
                 media = `<span class="ps-post-icon"><i class="fas ${isPost ? 'fa-store' : 'fa-clock-rotate-left'}"></i></span>`;
             }

@@ -2865,6 +2865,10 @@ function clearHomeSearch() {
 function _feedJsEsc(s) {
     return String(s || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
+// Escape a string for safe use inside a double-quoted HTML attribute (URLs).
+function _rsAttr(s) {
+    return String(s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
 function renderFeedRecent() {
     const resultsEl = document.getElementById('homeSearchResults');
     if (!resultsEl) return;
@@ -2876,10 +2880,13 @@ function renderFeedRecent() {
         const isPerson = e.type === 'person', isPost = e.type === 'post';
         let media;
         if (isPerson) {
-            const av = e.img || avatarUrl(e.label || '?');
-            media = `<img loading="lazy" decoding="async" class="hs-recent-av" src="${av}" onerror="this.src='${avatarUrl('?')}'">`;
+            // Same bulletproof pattern as Portal: ui-avatars fallback in data-fb so
+            // onerror needs no nested quotes, and a person ALWAYS shows a picture
+            // (their avatar, or generated initials) — never a blank/broken slot.
+            const uiAv = avatarUrl(e.label || '?');
+            media = `<img class="hs-recent-av" src="${_rsAttr(e.img || uiAv)}" data-fb="${_rsAttr(uiAv)}" onerror="this.onerror=null;this.src=this.dataset.fb">`;
         } else if (isPost && e.img) {
-            media = `<img loading="lazy" decoding="async" class="hs-recent-thumb" src="${safeText(e.img)}" onerror="this.outerHTML='<span class=\\'hs-recent-ic\\'><i class=\\'fas fa-file-lines\\'></i></span>'">`;
+            media = `<span class="hs-recent-ic hs-thumb-wrap"><i class="fas fa-file-lines"></i><img class="hs-recent-thumb" src="${_rsAttr(e.img)}" onerror="this.onerror=null;this.remove()"></span>`;
         } else {
             media = `<span class="hs-recent-ic"><i class="fas ${isPost ? 'fa-file-lines' : 'fa-clock-rotate-left'}"></i></span>`;
         }

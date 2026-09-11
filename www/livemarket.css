@@ -346,6 +346,8 @@ body:has(#matchView[style*="display: block"]) .portal-search-fab { display: none
 }
 .ps-clear-all:hover { text-decoration: underline; }
 .ps-recent .ps-post-icon { background: #f1f5f9; color: #64748b; }
+.ps-thumb-wrap { position: relative; overflow: hidden; }
+.ps-thumb-wrap .ps-thumb { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: inherit; }
 .ps-thumb { width: 34px; height: 34px; border-radius: 9px; object-fit: cover; flex-shrink: 0; background: #f1f5f9; }
 .ps-recent-del {
   flex-shrink: 0; border: none; background: none; cursor: pointer; color: #94a3b8;
