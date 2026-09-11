@@ -2517,9 +2517,19 @@ function renderPortalSuggest(q) {
 
 // Clicking a suggested PERSON routes straight to that person's Profile — never a
 // general search. (Own name → own profile; anyone else → their profile page.)
+// Save whatever the user typed into Portal search as a recent term. Called on
+// EVERY commit path — Enter (executeSearch) and tapping a suggestion — so the
+// Portal history populates the same way Feed's does, not only on Enter.
+function _portalSaveCurrentSearch() {
+    if (!window.RMSearchHistory) return;
+    const q = (document.getElementById('searchInput')?.value || '').trim();
+    if (q) RMSearchHistory.add('portal', q);
+}
+
 function portalSuggestPerson(i) {
     const p = (window.__portalSuggest?.people || [])[i];
     if (!p || !p.id) return;
+    _portalSaveCurrentSearch();
     closePortalSuggest();
     const me = JSON.parse(localStorage.getItem('user') || 'null');
     location.href = (me && String(me.id) === String(p.id))
@@ -2532,6 +2542,7 @@ function portalSuggestPerson(i) {
 function portalSuggestPost(i) {
     const l = (window.__portalSuggest?.posts || [])[i];
     if (!l || l.id == null) return;
+    _portalSaveCurrentSearch();
     closePortalSuggest();
     lmOpenListing(l.id);
 }
