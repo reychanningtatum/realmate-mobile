@@ -2835,18 +2835,66 @@ function onHomeSearch(q) {
     document.getElementById('homeSearchClear').style.display = q ? 'flex' : 'none';
     clearTimeout(_homeSearchTimer);
     const resultsEl = document.getElementById('homeSearchResults');
-    if (!q.trim()) { resultsEl.classList.remove('visible'); resultsEl.innerHTML = ''; return; }
+    if (!q.trim()) { renderFeedRecent(); return; }   // empty → show Recent searches
     resultsEl.classList.add('visible');
     resultsEl.innerHTML = '<div class="hs-loading"><i class="fas fa-spinner fa-spin"></i> Searching…</div>';
     _homeSearchTimer = setTimeout(() => runHomeSearch(q.trim()), 300);
 }
 
+// Focusing the empty search box shows the user's Recent searches.
+function onHomeSearchFocus() {
+    if (!(document.getElementById('homeSearchInput').value || '').trim()) renderFeedRecent();
+}
+
+// Enter commits the term to the persistent Feed history, then searches.
+function homeSearchCommit() {
+    const q = (document.getElementById('homeSearchInput').value || '').trim();
+    if (!q) { renderFeedRecent(); return; }
+    if (window.RMSearchHistory) RMSearchHistory.add('feed', q);
+    clearTimeout(_homeSearchTimer);
+    runHomeSearch(q);
+}
+
 function clearHomeSearch() {
     document.getElementById('homeSearchInput').value = '';
     document.getElementById('homeSearchClear').style.display = 'none';
+    renderFeedRecent();   // back to Recent searches rather than a blank panel
+}
+
+// ── Feed recent-searches (persistent, per-user) ────────────────────────────
+function _feedJsEsc(s) {
+    return String(s || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+function renderFeedRecent() {
     const resultsEl = document.getElementById('homeSearchResults');
-    resultsEl.classList.remove('visible');
-    resultsEl.innerHTML = '';
+    if (!resultsEl) return;
+    const hist = (window.RMSearchHistory ? RMSearchHistory.list('feed') : []);
+    if (!hist.length) { resultsEl.classList.remove('visible'); resultsEl.innerHTML = ''; return; }
+    let h = `<div class="hs-section-label hs-recent-head">Recent searches<button class="hs-clear-all" onclick="feedClearRecent()">Clear all</button></div>`;
+    hist.forEach(term => {
+        h += `<div class="hs-recent-row" onclick="feedRunRecent('${_feedJsEsc(term)}')">
+            <span class="hs-recent-ic"><i class="fas fa-clock-rotate-left"></i></span>
+            <div class="hs-recent-term">${safeText(term)}</div>
+            <button class="hs-recent-del" aria-label="Remove" onclick="event.stopPropagation(); feedDelRecent('${_feedJsEsc(term)}')"><i class="fas fa-xmark"></i></button>
+        </div>`;
+    });
+    resultsEl.innerHTML = h;
+    resultsEl.classList.add('visible');
+}
+function feedRunRecent(term) {
+    const inp = document.getElementById('homeSearchInput');
+    if (inp) inp.value = term;
+    document.getElementById('homeSearchClear').style.display = 'flex';
+    if (window.RMSearchHistory) RMSearchHistory.add('feed', term);   // bump to front
+    runHomeSearch(String(term).trim());
+}
+function feedDelRecent(term) {
+    if (window.RMSearchHistory) RMSearchHistory.remove('feed', term);
+    renderFeedRecent();
+}
+function feedClearRecent() {
+    if (window.RMSearchHistory) RMSearchHistory.clear('feed');
+    renderFeedRecent();
 }
 
 async function runHomeSearch(q) {

@@ -2115,8 +2115,22 @@ function buildActionBar(listing, isOwner, isMatch = false) {
         </button>`
         : viewBtn;
 
-    // Everyone else — and the owner once completed (the diagonal ribbon already
-    // marks that state): the offers label on the left, the primary button on the right.
+    // Completed post (Sold / Rented / Leased / Bought): show the live countdown to
+    // auto-removal where the status button was, so the owner (and any viewer) can
+    // see exactly how long until it disappears. The .sold-indicator[data-sold-at]
+    // + .sold-countdown are what refreshSoldCountdowns() updates each minute (and
+    // its zero-crossing triggers the auto-remove sweep). The diagonal ribbon still
+    // marks the SOLD state; this restores the timer that had gone missing.
+    if (isSold) {
+        const soldAtVal = listing.sold_at || '';
+        const soldIndicator = `<span class="sold-indicator" data-sold-at="${soldAtVal}"><i class="fas fa-clock"></i> Removes in <span class="sold-countdown">${soldAtVal ? formatSoldRemaining(soldAtVal) : '24h 0m'}</span></span>`;
+        return `<div class="lc-actionbar lc-actionbar-owner" onclick="event.stopPropagation()">
+            ${soldIndicator}
+            ${viewBtn}
+        </div>`;
+    }
+
+    // Everyone else (live post): the offers label on the left, the primary button on the right.
     const showOffers = listing.user_id && !listing.is_anonymous;
     const offers = showOffers ? (window._offerCountMap[String(listing.id)] || 0) : 0;
     const offersLabel = (offers > 0 && !isSold)
@@ -2395,6 +2409,7 @@ function onSearchInput() {
 function executeSearch() {
     const raw = (document.getElementById('searchInput')?.value || '').trim();
     activeSearchQuery = raw.toLowerCase();
+    if (raw && window.RMSearchHistory) RMSearchHistory.add('portal', raw);   // persist recent
     closePortalSuggest();
     // Feed is a hidden/reserved tab; if somehow active, land the results in the
     // Live Market list. selectSegTab() re-runs applyFilters with the term already
@@ -2422,7 +2437,24 @@ function renderPortalSuggest(q) {
     const box = document.getElementById('portalSuggest');
     if (!box) return;
     q = (q || '').toLowerCase().trim();
-    if (!q) { box.classList.remove('open'); box.innerHTML = ''; return; }
+    // Empty input (focused / just cleared): show the user's Recent searches instead
+    // of live suggestions. Each is re-runnable, individually removable, and there's
+    // a Clear all. Persistent + per-user via RMSearchHistory.
+    if (!q) {
+        const hist = (window.RMSearchHistory ? RMSearchHistory.list('portal') : []);
+        if (!hist.length) { box.classList.remove('open'); box.innerHTML = ''; return; }
+        let rh = `<div class="ps-section ps-section-recent">Recent searches<button class="ps-clear-all" onclick="event.stopPropagation(); portalClearRecent()">Clear all</button></div>`;
+        hist.forEach(term => {
+            rh += `<div class="ps-item ps-recent" onclick="portalRunRecent('${jsEscSafe(term)}')">
+                <span class="ps-post-icon"><i class="fas fa-clock-rotate-left"></i></span>
+                <div class="ps-info"><div class="ps-name">${escapeHtmlSafe(term)}</div></div>
+                <button class="ps-recent-del" aria-label="Remove" onclick="event.stopPropagation(); portalDelRecent('${jsEscSafe(term)}')"><i class="fas fa-xmark"></i></button>
+            </div>`;
+        });
+        box.innerHTML = rh;
+        box.classList.add('open');
+        return;
+    }
 
     const localUser = JSON.parse(localStorage.getItem('user') || 'null');
 
@@ -2509,8 +2541,28 @@ function closePortalSuggest() {
     if (box) { box.classList.remove('open'); }
 }
 
+// ── Portal recent-searches (persistent, per-user) ──────────────────────────
+// Re-run a saved term: put it in the box and execute, exactly like typing + Enter.
+function portalRunRecent(term) {
+    const inp = document.getElementById('searchInput');
+    if (inp) inp.value = term;
+    executeSearch();
+}
+function portalDelRecent(term) {
+    if (window.RMSearchHistory) RMSearchHistory.remove('portal', term);
+    renderPortalSuggest('');   // re-render the recent list in place
+}
+function portalClearRecent() {
+    if (window.RMSearchHistory) RMSearchHistory.clear('portal');
+    renderPortalSuggest('');
+}
+
 function escapeHtmlSafe(s) {
     return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+// Escape a string for safe embedding inside a single-quoted inline on* handler.
+function jsEscSafe(s) {
+    return String(s || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 document.addEventListener('click', e => {
