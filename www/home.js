@@ -2869,27 +2869,44 @@ function renderFeedRecent() {
     const resultsEl = document.getElementById('homeSearchResults');
     if (!resultsEl) return;
     const hist = (window.RMSearchHistory ? RMSearchHistory.list('feed') : []);
+    window.__feedRecent = hist;
     if (!hist.length) { resultsEl.classList.remove('visible'); resultsEl.innerHTML = ''; return; }
     let h = `<div class="hs-section-label hs-recent-head">Recent searches<button class="hs-clear-all" onclick="feedClearRecent()">Clear all</button></div>`;
-    hist.forEach(term => {
-        h += `<div class="hs-recent-row" onclick="feedRunRecent('${_feedJsEsc(term)}')">
-            <span class="hs-recent-ic"><i class="fas fa-clock-rotate-left"></i></span>
-            <div class="hs-recent-term">${safeText(term)}</div>
-            <button class="hs-recent-del" aria-label="Remove" onclick="event.stopPropagation(); feedDelRecent('${_feedJsEsc(term)}')"><i class="fas fa-xmark"></i></button>
+    hist.forEach((e, idx) => {
+        const isPerson = e.type === 'person', isPost = e.type === 'post';
+        let media;
+        if (isPerson) {
+            const av = e.img || avatarUrl(e.label || '?');
+            media = `<img loading="lazy" decoding="async" class="hs-recent-av" src="${av}" onerror="this.src='${avatarUrl('?')}'">`;
+        } else if (isPost && e.img) {
+            media = `<img loading="lazy" decoding="async" class="hs-recent-thumb" src="${safeText(e.img)}" onerror="this.outerHTML='<span class=\\'hs-recent-ic\\'><i class=\\'fas fa-file-lines\\'></i></span>'">`;
+        } else {
+            media = `<span class="hs-recent-ic"><i class="fas ${isPost ? 'fa-file-lines' : 'fa-clock-rotate-left'}"></i></span>`;
+        }
+        h += `<div class="hs-recent-row" onclick="feedRecentClick(${idx})">
+            ${media}
+            <div class="hs-recent-body"><div class="hs-recent-term">${safeText(e.label || (isPost ? 'Post' : ''))}</div>${e.sub ? `<div class="hs-recent-sub">${safeText(e.sub)}</div>` : ''}</div>
+            <button class="hs-recent-del" aria-label="Remove" onclick="event.stopPropagation(); feedDelRecentKey('${_feedJsEsc(RMSearchHistory.keyOf(e))}')"><i class="fas fa-xmark"></i></button>
         </div>`;
     });
     resultsEl.innerHTML = h;
     resultsEl.classList.add('visible');
 }
-function feedRunRecent(term) {
-    const inp = document.getElementById('homeSearchInput');
-    if (inp) inp.value = term;
-    document.getElementById('homeSearchClear').style.display = 'flex';
-    if (window.RMSearchHistory) RMSearchHistory.add('feed', term);   // bump to front
-    runHomeSearch(String(term).trim());
+// Tapping a recent entry re-opens the actual person/post the user clicked before.
+function feedRecentClick(idx) {
+    const e = (window.__feedRecent || [])[idx];
+    if (!e) return;
+    if (e.type === 'person' && e.id) { clearHomeSearch(); rmGoProfile(String(e.id), String(e.label || '')); }
+    else if (e.type === 'post' && e.id != null) { scrollToPost(String(e.id)); }
+    else {
+        const inp = document.getElementById('homeSearchInput');
+        if (inp) inp.value = e.label || '';
+        document.getElementById('homeSearchClear').style.display = 'flex';
+        runHomeSearch(String(e.label || '').trim());
+    }
 }
-function feedDelRecent(term) {
-    if (window.RMSearchHistory) RMSearchHistory.remove('feed', term);
+function feedDelRecentKey(key) {
+    if (window.RMSearchHistory) RMSearchHistory.remove('feed', key);
     renderFeedRecent();
 }
 function feedClearRecent() {
@@ -2914,6 +2931,7 @@ async function runHomeSearch(q) {
     const people = peopleRes.data || [];
     const posts  = postsRes.data  || [];
     const resultsEl = document.getElementById('homeSearchResults');
+    window.__feedSearchResults = { people, posts };   // for the click→save-entity handlers
 
     if (!people.length && !posts.length) {
         resultsEl.innerHTML = '<div class="hs-empty">No results found.</div>';
@@ -2924,16 +2942,13 @@ async function runHomeSearch(q) {
 
     if (people.length) {
         html += `<div class="hs-section-label">People</div>`;
-        people.forEach(p => {
+        people.forEach((p, idx) => {
             const name   = safeText(p.full_name || 'realmate Member');
             const job    = safeText(_homeValidPosition(p.job_title));
             const avatar = p.avatar_url || avatarUrl(p.full_name || '?');
-            // Route the tap through rmGoProfile (not the bare href) so a BLOCKED
-            // account shows the "you blocked this user" reminder instead of
-            // opening an empty profile. Pass the name (JS-string escaped) so a
-            // name-based block is caught too. href stays as a no-JS fallback.
-            const nameArg = String(p.full_name || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
-            html += `<a href="dashboard.html?user_id=${p.id}" class="hs-people-row" onclick="event.preventDefault(); clearHomeSearch(); rmGoProfile('${p.id}','${nameArg}')">
+            // feedPickPerson saves the clicked PERSON to Recent Searches (with their
+            // avatar) then opens the profile via rmGoProfile (which handles blocks).
+            html += `<a href="dashboard.html?user_id=${p.id}" class="hs-people-row" onclick="event.preventDefault(); feedPickPerson(${idx})">
                 <img loading="lazy" decoding="async" src="${avatar}" class="hs-avatar" onerror="this.src='${avatarUrl('?')}'">
                 <div><div class="hs-name">${name}</div>${job ? `<div class="hs-job">${job}</div>` : ''}</div>
             </a>`;
@@ -2942,10 +2957,10 @@ async function runHomeSearch(q) {
 
     if (posts.length) {
         html += `<div class="hs-section-label" style="margin-top:${people.length ? '12px' : '0'}">Posts</div>`;
-        posts.forEach(p => {
+        posts.forEach((p, idx) => {
             const content = safeText((p.content || '').slice(0, 100));
             const poster  = safeText(p.user_name || '');
-            html += `<a href="#" class="hs-listing-row" onclick="event.preventDefault(); scrollToPost('${p.id}')">
+            html += `<a href="#" class="hs-listing-row" onclick="event.preventDefault(); feedPickPost(${idx})">
                 <div class="hs-listing-content">${content}${(p.content||'').length > 100 ? '…' : ''}</div>
                 ${poster ? `<div class="hs-poster">${poster}</div>` : ''}
             </a>`;
@@ -2953,6 +2968,25 @@ async function runHomeSearch(q) {
     }
 
     resultsEl.innerHTML = html;
+}
+
+// Clicking a Feed search result saves the actual PERSON/POST (not the typed text)
+// to Recent Searches, then navigates.
+function feedPickPerson(idx) {
+    const p = (window.__feedSearchResults?.people || [])[idx];
+    if (!p) return;
+    if (window.RMSearchHistory) RMSearchHistory.add('feed', { type: 'person', id: p.id, label: p.full_name || 'realmate Member', sub: _homeValidPosition(p.job_title), img: p.avatar_url || '' });
+    clearHomeSearch();
+    rmGoProfile(String(p.id), String(p.full_name || ''));
+}
+function feedPickPost(idx) {
+    const p = (window.__feedSearchResults?.posts || [])[idx];
+    if (!p) return;
+    if (window.RMSearchHistory) {
+        const snippet = (p.content || '').replace(/\s+/g, ' ').trim().slice(0, 60) || 'Post';
+        RMSearchHistory.add('feed', { type: 'post', id: p.id, label: snippet, sub: p.user_name || '', img: '' });
+    }
+    scrollToPost(String(p.id));
 }
 
 function scrollToPost(id) {

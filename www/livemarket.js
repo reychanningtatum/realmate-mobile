@@ -2442,13 +2442,24 @@ function renderPortalSuggest(q) {
     // a Clear all. Persistent + per-user via RMSearchHistory.
     if (!q) {
         const hist = (window.RMSearchHistory ? RMSearchHistory.list('portal') : []);
+        window.__portalRecent = hist;
         if (!hist.length) { box.classList.remove('open'); box.innerHTML = ''; return; }
         let rh = `<div class="ps-section ps-section-recent">Recent searches<button class="ps-clear-all" onclick="event.stopPropagation(); portalClearRecent()">Clear all</button></div>`;
-        hist.forEach(term => {
-            rh += `<div class="ps-item ps-recent" onclick="portalRunRecent('${jsEscSafe(term)}')">
-                <span class="ps-post-icon"><i class="fas fa-clock-rotate-left"></i></span>
-                <div class="ps-info"><div class="ps-name">${escapeHtmlSafe(term)}</div></div>
-                <button class="ps-recent-del" aria-label="Remove" onclick="event.stopPropagation(); portalDelRecent('${jsEscSafe(term)}')"><i class="fas fa-xmark"></i></button>
+        hist.forEach((e, idx) => {
+            const isPerson = e.type === 'person', isPost = e.type === 'post';
+            let media;
+            if (isPerson) {
+                const av = e.img || `https://ui-avatars.com/api/?name=${encodeURIComponent(e.label || '?')}&background=0f172a&color=32cd32`;
+                media = `<img loading="lazy" decoding="async" class="ps-avatar" src="${escapeHtmlSafe(av)}" onerror="this.src='https://ui-avatars.com/api/?name=?&background=0f172a&color=32cd32'">`;
+            } else if (isPost && e.img) {
+                media = `<img loading="lazy" decoding="async" class="ps-thumb" src="${escapeHtmlSafe(e.img)}" onerror="this.outerHTML='<span class=\\'ps-post-icon\\'><i class=\\'fas fa-store\\'></i></span>'">`;
+            } else {
+                media = `<span class="ps-post-icon"><i class="fas ${isPost ? 'fa-store' : 'fa-clock-rotate-left'}"></i></span>`;
+            }
+            rh += `<div class="ps-item ps-recent" onclick="portalRecentClick(${idx})">
+                ${media}
+                <div class="ps-info"><div class="ps-name">${escapeHtmlSafe(e.label || (isPost ? 'Listing' : ''))}</div>${e.sub ? `<div class="ps-sub">${escapeHtmlSafe(e.sub)}</div>` : ''}</div>
+                <button class="ps-recent-del" aria-label="Remove" onclick="event.stopPropagation(); portalDelRecentKey('${jsEscSafe(RMSearchHistory.keyOf(e))}')"><i class="fas fa-xmark"></i></button>
             </div>`;
         });
         box.innerHTML = rh;
@@ -2517,19 +2528,11 @@ function renderPortalSuggest(q) {
 
 // Clicking a suggested PERSON routes straight to that person's Profile — never a
 // general search. (Own name → own profile; anyone else → their profile page.)
-// Save whatever the user typed into Portal search as a recent term. Called on
-// EVERY commit path — Enter (executeSearch) and tapping a suggestion — so the
-// Portal history populates the same way Feed's does, not only on Enter.
-function _portalSaveCurrentSearch() {
-    if (!window.RMSearchHistory) return;
-    const q = (document.getElementById('searchInput')?.value || '').trim();
-    if (q) RMSearchHistory.add('portal', q);
-}
-
 function portalSuggestPerson(i) {
     const p = (window.__portalSuggest?.people || [])[i];
     if (!p || !p.id) return;
-    _portalSaveCurrentSearch();
+    // Save the PERSON the user opened (with their avatar), not the typed text.
+    if (window.RMSearchHistory) RMSearchHistory.add('portal', { type: 'person', id: p.id, label: p.name || 'Member', sub: p.job, img: p.img || '' });
     closePortalSuggest();
     const me = JSON.parse(localStorage.getItem('user') || 'null');
     location.href = (me && String(me.id) === String(p.id))
@@ -2542,7 +2545,13 @@ function portalSuggestPerson(i) {
 function portalSuggestPost(i) {
     const l = (window.__portalSuggest?.posts || [])[i];
     if (!l || l.id == null) return;
-    _portalSaveCurrentSearch();
+    // Save the POST the user opened, with its thumbnail + a readable label.
+    if (window.RMSearchHistory) {
+        const thumb = (l.image_urls && l.image_urls[0]) || l.image_url || l.cover_image_url || '';
+        const snippet = (l.content || '').replace(/\s+/g, ' ').trim().slice(0, 60) || (l.category || 'Listing');
+        const poster = (l.user_name && !l.is_anonymous) ? l.user_name : 'Anonymous';
+        RMSearchHistory.add('portal', { type: 'post', id: l.id, label: snippet, sub: poster, img: thumb });
+    }
     closePortalSuggest();
     lmOpenListing(l.id);
 }
@@ -2553,14 +2562,25 @@ function closePortalSuggest() {
 }
 
 // ── Portal recent-searches (persistent, per-user) ──────────────────────────
-// Re-run a saved term: put it in the box and execute, exactly like typing + Enter.
-function portalRunRecent(term) {
-    const inp = document.getElementById('searchInput');
-    if (inp) inp.value = term;
-    executeSearch();
+// Tapping a recent entry re-opens the actual thing the user clicked before: a
+// person → their profile, a post → its listing detail, a plain query → re-run it.
+function portalRecentClick(idx) {
+    const e = (window.__portalRecent || [])[idx];
+    if (!e) return;
+    closePortalSuggest();
+    if (e.type === 'person' && e.id) {
+        const me = JSON.parse(localStorage.getItem('user') || 'null');
+        location.href = (me && String(me.id) === String(e.id)) ? 'dashboard.html' : 'dashboard.html?user_id=' + encodeURIComponent(e.id);
+    } else if (e.type === 'post' && e.id != null) {
+        lmOpenListing(e.id);
+    } else {
+        const inp = document.getElementById('searchInput');
+        if (inp) inp.value = e.label || '';
+        executeSearch();
+    }
 }
-function portalDelRecent(term) {
-    if (window.RMSearchHistory) RMSearchHistory.remove('portal', term);
+function portalDelRecentKey(key) {
+    if (window.RMSearchHistory) RMSearchHistory.remove('portal', key);
     renderPortalSuggest('');   // re-render the recent list in place
 }
 function portalClearRecent() {
