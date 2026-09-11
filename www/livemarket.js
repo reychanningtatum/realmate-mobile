@@ -4971,7 +4971,10 @@ function showSellerPopup(userId, name, img, job) {
                         if (typeof showToast === 'function') showToast('You blocked this user. Unblock in Settings to view their profile.');
                         return;
                     }
-                    location.href = 'dashboard.html?user_id=' + userId;
+                    // Open as a shell TAB-SWITCH (keeps the Portal frame alive so Back
+                    // returns to the exact post) — same path View Listings/Send Message
+                    // use. A plain location.href here reloaded the Portal → landed at top.
+                    rmOpenProfileTab('dashboard.html?user_id=' + userId);
                 }
             },
             {
