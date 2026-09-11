@@ -207,6 +207,7 @@
     // Remember where we came from so an in-shell "Back" (rmBack) can return
     // there — e.g. Portal → Profile → Back should land on Portal, not the
     // browser history (which can walk back to the marketing page).
+    var priorBack = prevTab;
     if (current && current !== tab) prevTab = current;
 
     // Capture the OUTGOING tab's scroll WHILE it is still visible. Hiding a frame
@@ -217,10 +218,16 @@
     // — this is what makes Portal → Profile/Listings → Back return to the same post.
     if (current && current !== tab) captureFrameScroll(current);
 
-    // Entering this tab: cancel any pending suspend for it; and after we leave
-    // the current tab, free it on an idle so only the active page stays loaded.
     clearTimeout(suspendTimers[tab]);
-    if (current && current !== tab) scheduleSuspend(current);
+    // Memory management: keep only the active tab AND the immediate Back target
+    // (prevTab) loaded. We do NOT suspend the tab we just left — it is now the Back
+    // target, and returning to it must be a pure reveal (scroll intact), never a
+    // reload: a reloaded Portal can't reliably restore its scroll on iOS, which is
+    // the whole "Back lands at the top" bug. Instead, suspend the tab that just
+    // STOPPED being the Back target. Net result: at most two live frames.
+    if (priorBack && priorBack !== tab && priorBack !== prevTab && frames[priorBack]) {
+      scheduleSuspend(priorBack);
+    }
 
     var cached = frames[tab];
     if (cached && !forceSrc) {
