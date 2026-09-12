@@ -880,10 +880,13 @@
   // returning app/web user is never interrupted by it again. index.html
   // reads this flag on entry and only redirects first-timers here.
   function rmMarkSeen(){ try{ localStorage.setItem('rm_seen_marketing','1'); }catch(e){} }
+  // Flag the login page that we arrived via a marketing tap, so it shows the login
+  // FORM with a fade transition instead of the auto-login loading splash.
+  function rmFromMarketing(){ try{ sessionStorage.setItem('rm_from_marketing','1'); }catch(e){} }
 
   // Proceed into the app → authentication / onboarding (index.html).
-  function rmStart(){ rmMarkSeen(); window.location.href = 'index.html'; }
-  function rmSignIn(){ rmMarkSeen(); window.location.href = 'index.html'; }
+  function rmStart(){ rmMarkSeen(); rmFromMarketing(); window.location.href = 'index.html'; }
+  function rmSignIn(){ rmMarkSeen(); rmFromMarketing(); window.location.href = 'index.html'; }
 
   // App-store download badges. Fill these in with the real listing URLs once the
   // apps are published; until then a click shows a "coming soon" note.

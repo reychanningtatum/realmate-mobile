@@ -39,6 +39,10 @@ window.supabaseClient.auth.onAuthStateChange((event) => {
 // the password-recovery / magic-link flow.
 (async function attemptAutoLogin() {
     if (!document.getElementById("loginBtn")) return;         // login page only
+    // Came from the marketing page: show the login form (already visible, not
+    // pre-hidden) and do NOT auto-forward. The user tapped Get Started / Sign In,
+    // so they want the login page — a smooth transition, not a loading screen.
+    try { if (sessionStorage.getItem("rm_from_marketing")) { sessionStorage.removeItem("rm_from_marketing"); return; } } catch (e) {}
     var h = location.hash || "", q = location.search || "";
     if (h.includes("type=recovery") || h.includes("error=") || q.includes("token_hash")) return;
     if (localStorage.getItem("rm_remember") === "0") return;  // user opted out

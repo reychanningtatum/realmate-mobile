@@ -38,6 +38,12 @@
     (function(){
       try {
         var h = location.hash || "", q = location.search || "";
+        // Came from the marketing page (tapped Get Started / Sign In): the user
+        // wants the login FORM, not an auto-login splash. Show it directly with a
+        // fade — no pre-hide, no loading screen. attemptAutoLogin honors the same
+        // flag and won't auto-forward. (The splash stays only for a cold-start
+        // returning user, where it hides the form flash before the app opens.)
+        if (sessionStorage.getItem("rm_from_marketing")) { document.documentElement.classList.add("rm-enter"); return; }
         if (h.indexOf("type=recovery")>=0 || h.indexOf("error=")>=0 || q.indexOf("token_hash")>=0) return;
         if (localStorage.getItem("rm_remember") === "0") return;
         // In the native app the session token lives in native Preferences and is
@@ -73,6 +79,9 @@
     border:3px solid rgba(255,255,255,0.16);border-top-color:#32cd32;
     animation:rmBootSpin .8s linear infinite;}
   @keyframes rmBootSpin{to{transform:rotate(360deg)}}
+  /* Marketing -> login: fade the form in for a smooth transition (no loading screen). */
+  @keyframes rmEnter{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  html.rm-enter .app-main{animation:rmEnter .32s cubic-bezier(.4,0,.2,1) both}
   </style>
   <link rel="stylesheet" href="vendor/fontawesome/css/all.min.css?v=6.5.0">
   <link rel="stylesheet" href="vendor/googlefonts/fonts.css?v=1">
@@ -349,6 +358,6 @@
 
 <script src="native-auth.js?v=2"></script>
 <script src="vendor/supabase-js.min.js?v=2.112.3"></script>
-<script src="script.js?v=20260909p"></script>
+<script src="script.js?v=20260912z"></script>
 </body>
 </html>
