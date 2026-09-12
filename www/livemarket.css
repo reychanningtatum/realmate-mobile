@@ -357,8 +357,12 @@ body:has(#matchView[style*="display: block"]) .portal-search-fab { display: none
 .rs-thumb-ic { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #2563eb; font-size: 13px; }
 .rs-thumb-img { position: absolute; inset: 0; background-size: cover; background-position: center; background-repeat: no-repeat; }
 .rs-query { width: 34px; height: 34px; border-radius: 9px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: #f1f5f9; color: #64748b; font-size: 13px; }
+/* Absolutely pin the delete × to the row's right edge so no iOS flex quirk can
+   drift it onto the avatar (the "stray icon" the user saw). */
+.ps-recent { position: relative; padding-right: 44px; }
 .ps-recent-del {
-  flex-shrink: 0; border: none; background: none; cursor: pointer; color: #94a3b8;
+  position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+  border: none; background: none; cursor: pointer; color: #94a3b8;
   width: 26px; height: 26px; border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 13px;
 }
 .ps-recent-del:hover { background: #f1f5f9; color: #ef4444; }

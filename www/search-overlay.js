@@ -86,6 +86,27 @@
         list.unshift(item);
         saveSearchHistory(list);
     }
+    // Initials for the CSS avatar fallback (no external service needed).
+    function soInitials(label) {
+        var p = String(label || '').trim().split(/\s+/).filter(Boolean);
+        if (!p.length) return '?';
+        if (p.length === 1) return p[0].slice(0, 2).toUpperCase();
+        return (p[0][0] + p[p.length - 1][0]).toUpperCase();
+    }
+    // Encode a URL for safe use inside a single-quoted CSS url('...').
+    function soCssUrl(u) { return String(u || '').replace(/[\\'"()\s]/g, encodeURIComponent); }
+    // Media chip for a history entry: a profile shows its photo as a CSS
+    // background over CSS-drawn initials (no <img>, so iOS never shows a broken
+    // glyph, and a ui-avatars placeholder is treated as "no photo"); a listing/
+    // query shows an icon.
+    function soHistoryMedia(item) {
+        if (item.type === 'profile') {
+            var realImg = (item.img && item.img.indexOf('ui-avatars.com') === -1) ? item.img : '';
+            var layer = realImg ? `<span class="so-hist-av-img" style="background-image:url('${soCssUrl(realImg)}')"></span>` : '';
+            return `<span class="so-hist-av"><span class="so-hist-av-ini">${esc(soInitials(item.label))}</span>${layer}</span>`;
+        }
+        return `<span class="so-hist-ic"><i class="fas ${item.type === 'listing' ? 'fa-house' : 'fa-clock-rotate-left'}"></i></span>`;
+    }
     function renderSearchHistoryHtml() {
         const list = getSearchHistory();
         if (!list.length) {
@@ -98,7 +119,8 @@
             </div>
             ${list.map((item, i) => `
                 <div class="so-history-item" onclick="window.__openHistoryItem(${i})">
-                    <span class="so-history-term"><i class="fas ${item.type === 'listing' ? 'fa-house' : 'fa-clock-rotate-left'}"></i>${esc(item.label)}</span>
+                    ${soHistoryMedia(item)}
+                    <span class="so-history-term">${esc(item.label)}</span>
                     <button type="button" class="so-history-remove" onclick="event.stopPropagation();window.__removeHistoryItem(${i})"><i class="fas fa-xmark"></i></button>
                 </div>
             `).join('')}
@@ -331,8 +353,12 @@
         transition: background 0.1s;
     }
     .so-history-item:hover { background: #f8fafc; }
+    /* History media chip (CSS-background avatar → iOS never shows a broken glyph) */
+    .so-hist-av { position: relative; width: 32px; height: 32px; border-radius: 50%; overflow: hidden; background: #0f172a; flex-shrink: 0; }
+    .so-hist-av-ini { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #32cd32; font-size: 11px; font-weight: 800; }
+    .so-hist-av-img { position: absolute; inset: 0; background-size: cover; background-position: center; background-repeat: no-repeat; }
+    .so-hist-ic { width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: #f1f5f9; color: #94a3b8; font-size: 13px; }
     .so-history-term {
-        display: flex; align-items: center; gap: 10px;
         font-size: 13px; font-weight: 600; color: #334155;
         min-width: 0; flex: 1;
         overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -476,7 +502,7 @@
         if (!p) return;
         // p.name is the profile's current full_name straight from this
         // search's own query — always the live name, never a stale cache.
-        if (_soHistoryContext()) addToSearchHistory({ type: 'profile', id: p.id, label: p.name });
+        if (_soHistoryContext()) addToSearchHistory({ type: 'profile', id: p.id, label: p.name, img: p.img });
         closeOverlay();
         if (typeof window.showSellerPopup === 'function') {
             window.showSellerPopup(p.id, p.name, p.img, p.job);
