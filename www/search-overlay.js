@@ -533,6 +533,15 @@
     }
     function closeOverlay() {
         overlay.classList.remove('open');
+        // Reset so it never reopens with a half-typed query / stale results —
+        // navigating away should not preserve the open search state.
+        try {
+            const inp = document.getElementById('soInput');
+            if (inp) inp.value = '';
+            _lastQ = '';
+            const res = document.getElementById('soResults');
+            if (res) res.innerHTML = renderEmptyState();
+        } catch (e) {}
     }
 
     let _timer = null, _lastQ = '';

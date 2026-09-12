@@ -225,6 +225,18 @@
     var priorBack = prevTab;
     if (current && current !== tab) prevTab = current;
 
+    // Leaving a tab via the navbar closes any open full-screen search overlay in it
+    // (Feed's "Search people and posts…") so it isn't still open when the user
+    // returns — the overlay lives inside the tab's iframe, above which the shell
+    // nav sits, so the shell must close it.
+    if (current && current !== tab && frames[current]) {
+      try {
+        var _cw = frames[current].contentWindow;
+        if (_cw && typeof _cw.__closeSearchOverlay === 'function') _cw.__closeSearchOverlay();
+        if (_cw && typeof _cw.clearHomeSearch === 'function') _cw.clearHomeSearch();
+      } catch (e) {}
+    }
+
     // Capture the OUTGOING tab's scroll WHILE it is still visible. Hiding a frame
     // (display:none, applied by reveal() below) drops its layout and resets the
     // iframe's scrollY to 0 — iOS WKWebView never restores it on re-show (desktop
