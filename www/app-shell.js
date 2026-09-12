@@ -234,6 +234,7 @@
         var _cw = frames[current].contentWindow;
         if (_cw && typeof _cw.__closeSearchOverlay === 'function') _cw.__closeSearchOverlay();
         if (_cw && typeof _cw.clearHomeSearch === 'function') _cw.clearHomeSearch();
+        if (_cw && typeof _cw.closePortalSuggest === 'function') _cw.closePortalSuggest();  // Portal recent/suggestions dropdown
       } catch (e) {}
     }
 
