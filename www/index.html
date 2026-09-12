@@ -1,6 +1,11 @@
 <!DOCTYPE html>
-<html>
+<html style="background:#080f1a">
 <head>
+  <!-- Paint the page's dark background on the VERY FIRST frame, before style.css
+       loads — otherwise the browser shows a default-white frame for a few ms when
+       navigating marketing.html -> index.html (the "white blink"). Matches the
+       login page's real body background (#080f1a) and the dark boot splash. -->
+  <style>html,body{background:#080f1a}</style>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <script src="native-statusbar.js?v=20260828i"></script>
