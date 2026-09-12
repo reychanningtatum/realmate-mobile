@@ -835,6 +835,10 @@ async function submitHomePost() {
 
 let _homePosts = [];
 let _feedFilter = { type: 'all', value: null };
+// Monotonic load sequence: a loadHomeFeed() that finishes AFTER a newer one
+// started (e.g. closing Saved before its slow query returned) must not render
+// its stale result over the newer feed.
+let _feedLoadSeq = 0;
 let _sharedOriginals = {};
 let _savedSet = new Set();
 const FEED_COLS = 'id, user_id, user_name, user_img, subject, content, media_url, media_type, media_urls, post_type, privacy, poll, hashtags, shared_post_id, album_title, topic, created_at, is_anonymous';
@@ -842,6 +846,8 @@ const FEED_COLS = 'id, user_id, user_name, user_img, subject, content, media_url
 async function loadHomeFeed(feedEl, filterArg, silent) {
     const feed = feedEl || document.getElementById('homeFeed');
     if (!feed) return;
+    const mySeq = ++_feedLoadSeq;
+    const stale = () => mySeq !== _feedLoadSeq;   // a newer load has superseded this one
     const filter = filterArg || _feedFilter;
     // Silent refresh (pull-to-refresh): keep the current posts on screen while
     // fetching, instead of collapsing the feed to a spinner. Collapsing shrank
@@ -861,6 +867,7 @@ async function loadHomeFeed(feedEl, filterArg, silent) {
                 .select('post_id').eq('user_name', user?.name || '');
             savedIds = (saved || []).map(s => s.post_id);
             if (!savedIds.length) {
+                if (stale()) return;
                 feed.innerHTML = `<div class="hf-empty"><i class="fas fa-bookmark"></i><p>No saved posts yet. Tap the bookmark on any post to save it.</p></div>`;
                 return;
             }
@@ -902,6 +909,7 @@ async function loadHomeFeed(feedEl, filterArg, silent) {
             try { _homePosts = await RMDeact.filterItemsByOwner(_homePosts, 'user_id'); } catch (e) {}
         }
         if (!_homePosts.length) {
+            if (stale()) return;
             feed.innerHTML = `<div class="hf-empty">
                 <i class="fas fa-newspaper"></i>
                 <p>${filter.type === 'all' ? 'No posts yet. Be the first to share something!' : ((filter.type === 'user' || filter.type === 'userId') ? 'No posts yet.' : 'Nothing here yet.')}</p>
@@ -979,6 +987,7 @@ async function loadHomeFeed(feedEl, filterArg, silent) {
             });
         }
 
+        if (stale()) return;   // never let a superseded load overwrite the newer feed
         feed.innerHTML = '';
         _homePosts.forEach(post => {
             // Keep the reaction state ON the post object so applyReaction() can
@@ -2463,7 +2472,10 @@ function setFeedFilter(type, value) {
     // Close the avatar "Me" menu if the tap came from there
     document.getElementById('navMenu')?.classList.remove('open');
     renderActiveFilter();
-    loadHomeFeed();
+    // Silent: keep the current posts on screen until the new filter's posts render.
+    // A non-silent load collapsed the feed to a spinner first, which shifted the
+    // layout and made the navbar/top bar blink when closing Saved.
+    loadHomeFeed(null, null, true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 function filterByHashtag(tag) {
