@@ -79,9 +79,13 @@
     border:3px solid rgba(255,255,255,0.16);border-top-color:#32cd32;
     animation:rmBootSpin .8s linear infinite;}
   @keyframes rmBootSpin{to{transform:rotate(360deg)}}
-  /* Marketing -> login: fade the form in for a smooth transition (no loading screen). */
+  /* Marketing -> login: fade the form in for a smooth transition (no loading screen).
+     NOTE: no `both` fill-mode and the form's resting opacity stays 1, so if the
+     animation never runs (a throttled/backgrounded tab, or reduced-motion) the form
+     is simply visible — never stuck invisible behind an unplayed animation. */
   @keyframes rmEnter{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
-  html.rm-enter .app-main{animation:rmEnter .32s cubic-bezier(.4,0,.2,1) both}
+  html.rm-enter .app-main{animation:rmEnter .32s cubic-bezier(.4,0,.2,1)}
+  @media (prefers-reduced-motion: reduce){ html.rm-enter .app-main{animation:none} }
   </style>
   <link rel="stylesheet" href="vendor/fontawesome/css/all.min.css?v=6.5.0">
   <link rel="stylesheet" href="vendor/googlefonts/fonts.css?v=1">
