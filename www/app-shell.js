@@ -162,8 +162,25 @@
   }
 
   function withTransition(fn) {
-    if (document.startViewTransition) document.startViewTransition(fn);
-    else fn();
+    // fn is reveal() — it MUST run. The view transition is purely cosmetic, but
+    // startViewTransition SKIPS/aborts its update callback when the document is
+    // hidden (backgrounded, or mid app-resume / document-swap on iOS) — throwing
+    // "Transition was aborted ... Document hidden". If fn were skipped, no tab
+    // would be shown while the loading spinner is already hidden = a WHITE SCREEN
+    // (seen on the login→app forward and right after tapping a menu item). So:
+    // only use the transition when the document is actually visible, always fall
+    // back to a direct call, and re-run fn if the transition aborts mid-flight
+    // (reveal() is idempotent, so a double call is harmless).
+    if (document.startViewTransition && document.visibilityState === 'visible') {
+      try {
+        var t = document.startViewTransition(fn);
+        if (t && t.updateCallbackDone && t.updateCallbackDone.catch) {
+          t.updateCallbackDone.catch(function () { try { fn(); } catch (e) {} });
+        }
+        return;
+      } catch (e) { /* fall through to a direct, un-animated reveal */ }
+    }
+    fn();
   }
 
   // tab: key in TABS. forceSrc: load a specific URL into that tab's frame
