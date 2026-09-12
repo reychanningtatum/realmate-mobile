@@ -935,8 +935,8 @@ function buildOfferRow(listing) {
             <button class="listing-view-btn" onclick="lmOpenListing('${safeId}')">
                 <i class="fas fa-arrow-up-right-from-square"></i> View Listing
             </button>
-            <div class="sold-indicator sold-indicator-static">
-                <i class="fas fa-check-circle"></i> <span>Sold</span>
+            <div class="sold-indicator sold-indicator-static${isWillingCategory(listing.category) ? ' sold-indicator-willing' : ''}">
+                <i class="fas fa-check-circle"></i> <span>${completionLabel(listing.category)}</span>
             </div>
         </div>`;
     }
@@ -2123,7 +2123,9 @@ function buildActionBar(listing, isOwner, isMatch = false) {
     // marks the SOLD state; this restores the timer that had gone missing.
     if (isSold) {
         const soldAtVal = listing.sold_at || '';
-        const soldIndicator = `<span class="sold-indicator" data-sold-at="${soldAtVal}"><i class="fas fa-clock"></i> Removes in <span class="sold-countdown">${soldAtVal ? formatSoldRemaining(soldAtVal) : '24h 0m'}</span></span>`;
+        // Match the diagonal ribbon's colour: green for willing categories
+        // (Bought/Rented/Leased), red otherwise (Sold/Rented/Leased).
+        const soldIndicator = `<span class="sold-indicator${isWillingCategory(listing.category) ? ' sold-indicator-willing' : ''}" data-sold-at="${soldAtVal}"><i class="fas fa-clock"></i> Removes in <span class="sold-countdown">${soldAtVal ? formatSoldRemaining(soldAtVal) : '24h 0m'}</span></span>`;
         return `<div class="lc-actionbar lc-actionbar-owner" onclick="event.stopPropagation()">
             ${soldIndicator}
             ${viewBtn}

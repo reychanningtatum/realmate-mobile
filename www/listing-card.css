@@ -110,7 +110,9 @@ html[data-theme="dark"] .lc-swipe-content {background: #1e293b;}
   background: linear-gradient(135deg,#f87171,#ef4444);
   box-shadow: 0 4px 12px -4px rgba(239,68,68,0.5);}
 .sold-indicator .sold-countdown {font-variant-numeric: tabular-nums;}
+.sold-indicator.sold-indicator-willing {background: linear-gradient(135deg, #22c55e, #15803d); box-shadow: 0 4px 12px -4px rgba(22,163,74,0.5);}
 html[data-theme="dark"] .sold-indicator {box-shadow: 0 4px 14px -4px rgba(239,68,68,0.6);}
+html[data-theme="dark"] .sold-indicator.sold-indicator-willing {box-shadow: 0 4px 14px -4px rgba(22,163,74,0.6);}
 .listing-card {background: white;
   border-radius: 16px;
   border: 1px solid #c8d3de;

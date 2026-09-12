@@ -1,0 +1,151 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+    body { margin: 0; font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+    * { box-sizing: border-box; }
+    a { color: #2563eb; text-decoration: none; } a:hover { color: #1d4ed8; }
+    .navi { display:flex; align-items:center; gap:10px; padding:11px 14px; border-radius:12px; font-size:13px; font-weight:600; color:rgba(255,255,255,0.5); }
+    .navi svg { width:18px; height:18px; flex-shrink:0; }
+    .eb { display:inline-flex; align-items:center; justify-content:center; gap:6px; height:34px; padding:0 14px; border:1px solid transparent; border-radius:9px; font-size:12.5px; font-weight:700; white-space:nowrap; line-height:1; }
+    .eb svg { width:12px; height:12px; }
+    .eb-primary { background:#16a34a; color:#fff; }
+    .eb-neutral { background:#fff; color:#475569; border-color:#e2e8f0; }
+    .eb-danger  { background:#fff; color:#dc2626; border-color:#fecaca; }
+    .eb-dark    { background:#0f172a; color:#fff; }
+    .badge { display:inline-block; padding:3px 10px; border-radius:999px; font-size:11px; font-weight:800; letter-spacing:.02em; }
+    .b-open { background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; }
+    .b-handling { background:#fff7ed; color:#b45309; border:1px solid #fdba74; }
+    .b-resolved { background:#f0fdf4; color:#15803d; border:1px solid #bbf7d0; }
+    th { font-size:10.5px; font-weight:800; text-transform:uppercase; letter-spacing:.4px; color:#64748b; text-align:left; padding:12px 14px; border-bottom:1.5px solid #e2e8f0; }
+    td { padding:13px 14px; border-bottom:1px solid #f1f5f9; font-size:13px; color:#0f172a; vertical-align:middle; }
+  </style>
+</helmet>
+
+<div style="width:1440px; height:940px; display:flex; background:#eef2f7; color:#0f172a; overflow:hidden;">
+
+  <!-- ── SIDEBAR (Master: green top-strip) ────────────────────────────────── -->
+  <div style="width:240px; flex-shrink:0; background:#0f172a; border-top:4px solid #32cd32; display:flex; flex-direction:column; padding:28px 0;">
+    <div style="padding:0 24px; font-size:22px; font-weight:800; letter-spacing:-.02em; color:#fff; margin-bottom:6px;">realmate<span style="color:#32cd32;">.</span></div>
+    <div style="padding:0 24px; margin-bottom:20px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+      <span style="font-size:10px; font-weight:800; letter-spacing:1.5px; text-transform:uppercase; color:rgba(255,255,255,.32);">Admin Panel</span>
+      <span style="display:inline-flex; align-items:center; gap:5px; padding:3px 9px; border-radius:999px; font-size:9.5px; font-weight:900; letter-spacing:.6px; text-transform:uppercase; background:rgba(217,119,6,.18); color:#fbbf24; border:1px solid rgba(251,191,36,.45);">
+        <svg viewBox="0 0 24 24" width="10" height="10" fill="#fbbf24"><path d="M5 16 3 6l5 4 4-6 4 6 5-4-2 10z"/></svg> Master Admin
+      </span>
+    </div>
+
+    <nav style="display:flex; flex-direction:column; gap:2px; padding:0 12px;">
+      <div class="navi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20a6 6 0 0 1 11 0"/><circle cx="9.5" cy="7.5" r="3.3"/><path d="m15 12 2 2 4-4"/></svg> Registrations</div>
+      <div class="navi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8 12 4l8 4v8l-8 4-8-4z"/><path d="m9 12 2 2 4-4"/></svg> Sold Records</div>
+      <div class="navi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="3"/><path d="M3 19a5 5 0 0 1 10 0"/><path d="M16 6a3 3 0 0 1 0 6"/><path d="M15 14a5 5 0 0 1 5 5"/></svg> Users</div>
+      <div class="navi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7"/><path d="M3 20h18"/></svg> Analytics</div>
+      <div class="navi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></svg> Reports</div>
+      <div class="navi" style="background:rgba(50,205,50,.15); color:#32cd32;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 13v-1a8 8 0 0 1 16 0v1"/><rect x="3" y="13" width="4" height="6" rx="1.5"/><rect x="17" y="13" width="4" height="6" rx="1.5"/><path d="M20 19a4 4 0 0 1-4 3h-2"/></svg> Support</div>
+      <div class="navi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 5 6v5c0 4 3 7 7 8 4-1 7-4 7-8V6z"/><circle cx="12" cy="10" r="2.2"/><path d="M8.5 16a3.7 3.7 0 0 1 7 0"/></svg> Employees</div>
+      <div class="navi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2.4"/><circle cx="5" cy="6" r="1.8"/><circle cx="19" cy="6" r="1.8"/><circle cx="5" cy="18" r="1.8"/><circle cx="19" cy="18" r="1.8"/><path d="m10 10-4-3m8 3 4-3M10 14l-4 3m8-3 4 3"/></svg> Nexus</div>
+      <div class="navi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 5 6v5c0 4 3 7 7 8 4-1 7-4 7-8V6z"/><path d="M9.5 12h5M12 12v3"/><circle cx="12" cy="10" r="1"/></svg> Change Password</div>
+    </nav>
+
+    <div style="margin-top:auto; margin:auto 12px 0; padding:11px 14px; display:flex; align-items:center; gap:10px; font-size:13px; font-weight:600; color:rgba(255,255,255,.5);">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H5v14h4"/><path d="M16 12H9m7 0-3-3m3 3-3 3"/></svg> Exit Admin
+    </div>
+  </div>
+
+  <!-- ── CONTENT — Support tab ─────────────────────────────────────────────── -->
+  <div style="flex:1; overflow:hidden; padding:32px 40px;">
+    <div style="margin-bottom:22px;">
+      <h2 style="font-size:24px; font-weight:800; margin:0 0 6px;">Support</h2>
+      <p style="font-size:13px; color:#64748b; margin:0;">Customer-service tickets and live chats. Accept a request to reply in the same thread.</p>
+    </div>
+
+    <!-- Live Chat Requests -->
+    <div style="background:#fff; border:1px solid #e2e8f0; border-radius:20px; padding:20px 24px; margin-bottom:20px;">
+      <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#2563eb" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-11.8 7.7L4 20l.9-4.8A8.5 8.5 0 1 1 21 11.5z"/></svg>
+        <span style="font-size:15px; font-weight:800; color:#0f172a;">Live Chat Requests</span>
+        <span style="font-size:12px; font-weight:700; color:#2563eb;">(1 waiting)</span>
+      </div>
+      <!-- waiting row -->
+      <div style="display:flex; align-items:center; gap:14px; padding:14px 4px; border-bottom:1px solid #f1f5f9;">
+        <div style="flex:1;">
+          <div style="font-size:14px; font-weight:800; color:#0f172a; display:flex; align-items:center; gap:8px;">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#94a3b8" stroke-width="1.8"><circle cx="12" cy="8" r="3.4"/><path d="M5 20a7 7 0 0 1 14 0"/></svg> Maria Santos
+            <span style="font-size:11px; font-weight:800; color:#2563eb; background:#eff6ff; border:1px solid #bfdbfe; padding:1px 8px; border-radius:999px;">Ticket No. 15344</span>
+          </div>
+          <div style="font-size:12px; color:#94a3b8; margin-top:3px;">9/9/2026, 11:02:14 AM</div>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span style="display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:800; color:#b45309;"><span style="width:8px;height:8px;border-radius:50%;background:#f59e0b;"></span>Waiting</span>
+          <span class="eb eb-primary"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M21 6H3v10h5l4 3v-3h9z"/></svg> Accept chat</span>
+        </div>
+      </div>
+      <!-- active row -->
+      <div style="display:flex; align-items:center; gap:14px; padding:14px 4px;">
+        <div style="flex:1;">
+          <div style="font-size:14px; font-weight:800; color:#0f172a; display:flex; align-items:center; gap:8px;">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#94a3b8" stroke-width="1.8"><circle cx="12" cy="8" r="3.4"/><path d="M5 20a7 7 0 0 1 14 0"/></svg> Andrew Sy
+            <span style="font-size:11px; font-weight:800; color:#2563eb; background:#eff6ff; border:1px solid #bfdbfe; padding:1px 8px; border-radius:999px;">Ticket No. 15343</span>
+          </div>
+          <div style="font-size:12px; color:#94a3b8; margin-top:3px;">9/9/2026, 10:58:41 AM</div>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span style="display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:700; color:#16a34a;"><span style="width:8px;height:8px;border-radius:50%;background:#16a34a;"></span>Active · @axecapital</span>
+          <span class="eb eb-primary"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M21 6H3v10h5l4 3v-3h9z"/></svg> Open chat</span>
+          <span class="eb eb-neutral">Release</span>
+          <span class="eb eb-danger">End</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Support Requests table -->
+    <div style="background:#fff; border:1px solid #e2e8f0; border-radius:20px; padding:20px 24px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#0f172a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 13v-1a8 8 0 0 1 16 0v1"/><rect x="3" y="13" width="4" height="6" rx="1.5"/><rect x="17" y="13" width="4" height="6" rx="1.5"/></svg>
+          <span style="font-size:15px; font-weight:800;">Support Requests</span>
+          <span style="font-size:12px; color:#94a3b8; font-weight:600;">(1 open)</span>
+        </div>
+        <span class="eb eb-neutral"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2 5m2 3v-4h-4"/></svg> Refresh</span>
+      </div>
+      <table style="width:100%; border-collapse:collapse; margin-top:8px;">
+        <thead><tr><th>Ticket</th><th>Category</th><th>From</th><th>Subject</th><th>Status</th><th style="text-align:right;">Action</th></tr></thead>
+        <tbody>
+          <tr>
+            <td style="font-weight:800;">#15345</td>
+            <td>account</td>
+            <td>Reychan Bernaldez</td>
+            <td>Can't update my profile photo</td>
+            <td><span class="badge b-handling">Being handled</span><div style="font-size:11px; color:#64748b; margin-top:3px;">by @axecapital</div></td>
+            <td><div style="display:flex; gap:8px; justify-content:flex-end;"><span class="eb eb-primary">Open chat</span><span class="eb eb-neutral">Release</span></div></td>
+          </tr>
+          <tr>
+            <td style="font-weight:800;">#15342</td>
+            <td><span style="display:inline-flex; align-items:center; gap:5px; padding:3px 9px; border-radius:999px; font-size:11px; font-weight:800; background:#eff6ff; color:#2563eb; border:1px solid #bfdbfe;">Live chat</span></td>
+            <td>Andrew Sy</td>
+            <td>Live chat request</td>
+            <td><span class="badge b-open">Open</span></td>
+            <td><div style="display:flex; gap:8px; justify-content:flex-end;"><span class="eb eb-dark">Accept chat</span><span class="eb eb-primary">Resolve</span></div></td>
+          </tr>
+          <tr>
+            <td style="font-weight:800;">#15338</td>
+            <td>billing</td>
+            <td>Kmell Dungug</td>
+            <td>Refund on subscription</td>
+            <td><span class="badge b-resolved">Resolved</span><div style="font-size:11px; color:#64748b; margin-top:3px;">by @axecapital</div></td>
+            <td><div style="display:flex; gap:8px; justify-content:flex-end;"><span class="eb eb-dark">View chat</span><span class="eb eb-neutral">Reopen</span></div></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

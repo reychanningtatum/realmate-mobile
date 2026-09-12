@@ -217,6 +217,9 @@
     if (tab === current && !forceSrc) {
       var curFrame = frames[tab];
       if (curFrame && onSubpage(curFrame)) { try { curFrame.contentWindow.history.back(); } catch (e) {} return; }
+      // Feed: re-tapping resets any active filter (Saved/hashtag) to the plain feed
+      // at the top — idempotent, never a reload — so repeated taps can't break it.
+      try { var _fw = curFrame && curFrame.contentWindow; if (_fw && typeof _fw.__feedNavHome === 'function') { _fw.__feedNavHome(); return; } } catch (e) {}
       scrollFrameTop(tab); return;
     }
     // Remember where we came from so an in-shell "Back" (rmBack) can return

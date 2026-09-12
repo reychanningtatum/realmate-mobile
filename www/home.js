@@ -2435,8 +2435,30 @@ async function submitShare() {
 // ══════════════════════════════════════════════════
 //  FEED FILTERS (default / Saved / Hashtag / Topic)
 // ══════════════════════════════════════════════════
+// Called by the shell when the Feed nav tab is tapped while already on Feed:
+// normal Feed navigation = the all-feed at the top. Resets any active filter
+// (Saved/hashtag/topic) exactly once; if already on the plain feed it just scrolls
+// to the top (a no-op when already there) — never a reload, so repeated taps are
+// safe and don't break the navbar.
+window.__feedNavHome = function () {
+    if (_feedFilter.type !== 'all') {
+        setFeedFilter('all');   // clears the filter, reloads content once, scrolls up
+    } else {
+        try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) {}
+    }
+};
+
 function setFeedFilter(type, value) {
     _feedFilter = { type, value: value || null };
+    // Closing Saved (or any non-Saved filter): drop the deep-link marker so it can't
+    // re-apply Saved on the next reload/return.
+    if (type !== 'saved') {
+        try {
+            if (location.hash === '#saved' || new URLSearchParams(location.search).get('view') === 'saved') {
+                history.replaceState(null, '', location.pathname);
+            }
+        } catch (e) {}
+    }
     document.getElementById('navSaved')?.classList.toggle('active', type === 'saved');
     // Close the avatar "Me" menu if the tap came from there
     document.getElementById('navMenu')?.classList.remove('open');
@@ -3061,6 +3083,10 @@ document.addEventListener('DOMContentLoaded', () => {
     initCreatePost();
     // Deep-link: open the Saved view directly (e.g. from the avatar menu on another page)
     if (location.hash === '#saved' || new URLSearchParams(location.search).get('view') === 'saved') {
+        // Consume the marker immediately so it can NEVER re-apply Saved on a later
+        // reload — a lingering #saved is what made the Feed navbar bounce back into
+        // Saved and refresh repeatedly after the user had closed the filter.
+        try { history.replaceState(null, '', location.pathname); } catch (e) {}
         setFeedFilter('saved');
     } else {
         loadHomeFeed();
