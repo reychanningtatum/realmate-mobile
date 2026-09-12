@@ -347,6 +347,30 @@
     if (menu) menu.classList.remove('open');
     go('me', url || TABS.me);
   };
+  // "Saved Posts" from the avatar menu. This MUST stay inside the shell: the old
+  // markup was a raw <a href="home.html#saved">, so a tap did a TOP-LEVEL
+  // navigation that tore down the whole iframe shell — after which every nav-bar
+  // tap fell back to a full page load (the "navbar blink"). Instead, switch to
+  // the Feed tab (reveal or load it) and apply its Saved filter in place.
+  window.rmSaved = function () {
+    closeNavMenu();
+    var applySaved = function () {
+      var f = frames['home'];
+      try {
+        var w = f && f.contentWindow;
+        if (w && typeof w.setFeedFilter === 'function') { w.setFeedFilter('saved'); return true; }
+      } catch (e) {}
+      return false;
+    };
+    if (current !== 'home') go('home');
+    // Poll until the Feed iframe's setFeedFilter is available (a fresh load needs
+    // a moment); apply immediately when we're already on Feed.
+    var tries = 0;
+    (function poll() {
+      if (applySaved()) return;
+      if (++tries < 40) setTimeout(poll, 100);
+    })();
+  };
 
   document.addEventListener('DOMContentLoaded', function () {
     host = document.getElementById('rmHost');

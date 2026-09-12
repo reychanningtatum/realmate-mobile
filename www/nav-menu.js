@@ -20,6 +20,18 @@ function ensureSavedNavLink() {
         const link = document.createElement('a');
         link.href = 'home.html#saved';
         link.innerHTML = '<i class="fas fa-bookmark"></i> Saved Posts';
+        // Inside the app shell, a raw href navigation would tear down the iframe
+        // shell (top-level page load) and leave every subsequent nav-bar tap doing
+        // a full reload — the "navbar blink" after opening Saved Posts. Route
+        // through the shell's rmSaved() instead, which switches to the Feed tab and
+        // applies its Saved filter in place. Fall back to the href navigation only
+        // on a genuinely standalone page (no shell present).
+        link.addEventListener('click', function (e) {
+            const shell = window.rmSaved ? window
+                : (window.parent && window.parent !== window && window.parent.rmSaved) ? window.parent
+                : null;
+            if (shell) { e.preventDefault(); shell.rmSaved(); }
+        });
         const profile = menu.querySelector('a'); // first item is Profile
         if (profile && profile.nextSibling) menu.insertBefore(link, profile.nextSibling);
         else menu.appendChild(link);
