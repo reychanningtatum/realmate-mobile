@@ -337,6 +337,23 @@
     f.src = _srcUrl;
     host.appendChild(f);
     frames[tab] = f;
+
+    // Anti-white-screen watchdog. The reveal above is gated on the iframe's
+    // 'load' event AND on withTransition running its callback. If EITHER never
+    // happens (a hung sub-resource so 'load' never fires, or a view transition
+    // that aborts on iOS) the loading spinner is showing but NO tab is active —
+    // a white screen with no way out. So: if a couple of seconds later nothing
+    // is active yet (current still null) and this frame is still the one we
+    // loaded, force it visible directly. reveal() is idempotent, so if the load
+    // handler fires normally first this is a harmless no-op.
+    (function (expectTab, expectFrame) {
+      setTimeout(function () {
+        if (current == null && frames[expectTab] === expectFrame) {
+          try { if (loading) loading.classList.add('rm-hide'); } catch (e) {}
+          try { reveal(expectTab); } catch (e) {}
+        }
+      }, 2500);
+    })(tab, f);
   }
 
   // Public API used by the nav bar in app.html
