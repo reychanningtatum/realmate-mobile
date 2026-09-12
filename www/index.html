@@ -79,14 +79,22 @@
     border:3px solid rgba(255,255,255,0.16);border-top-color:#32cd32;
     animation:rmBootSpin .8s linear infinite;}
   @keyframes rmBootSpin{to{transform:rotate(360deg)}}
-  /* Marketing -> login: a subtle slide-in for a smooth transition (no loading
-     screen). Deliberately animates TRANSFORM ONLY — opacity stays 1 the whole time
-     — so even if the animation never advances (a throttled/backgrounded tab stuck
-     on the first frame, or reduced-motion) the login form is always fully VISIBLE,
-     just momentarily shifted a few px. It can never be stranded invisible. */
-  @keyframes rmEnter{from{transform:translateY(8px)}to{transform:none}}
-  html.rm-enter .app-main{animation:rmEnter .3s cubic-bezier(.4,0,.2,1)}
-  @media (prefers-reduced-motion: reduce){ html.rm-enter .app-main{animation:none} }
+  /* Marketing -> Login PAN (cross-document View Transition). Both pages opt in with
+     @view-transition{navigation:auto}; the browser snapshots the outgoing Marketing
+     page and keeps it painted through the transition, so there is NO inter-document
+     white frame at all. We shape it into an iOS-style push: the new page slides in
+     from the right while the old page eases slightly left underneath. Same-origin
+     only (native capacitor://localhost and the web origin both qualify). On browsers
+     without cross-document view transitions it's simply a normal navigation — and
+     since both pages paint dark from frame 0, still no white flash. */
+  @view-transition { navigation: auto; }
+  ::view-transition-old(root){ animation: rmPanOut .42s cubic-bezier(.22,.61,.36,1) both; }
+  ::view-transition-new(root){ animation: rmPanIn  .42s cubic-bezier(.22,.61,.36,1) both; }
+  @keyframes rmPanOut{ to   { transform: translateX(-24%); } }
+  @keyframes rmPanIn { from { transform: translateX(100%);  } }
+  @media (prefers-reduced-motion: reduce){
+    ::view-transition-old(root),::view-transition-new(root){ animation-duration:.01ms!important; }
+  }
   </style>
   <link rel="stylesheet" href="vendor/fontawesome/css/all.min.css?v=6.5.0">
   <link rel="stylesheet" href="vendor/googlefonts/fonts.css?v=1">

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" style="background:#060c16">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -19,6 +19,18 @@
   }
   *{box-sizing:border-box;}
   html{scroll-behavior:smooth;-webkit-text-size-adjust:100%;}
+  /* Opt into the cross-document PAN to/from the Login page (see index.html). Both
+     documents must opt in; the destination document supplies the animation. Defined
+     here too so the reverse (Login "Back" -> Marketing) pans as well, and so the
+     outgoing Marketing snapshot is kept painted (no white flash between pages). */
+  @view-transition { navigation: auto; }
+  ::view-transition-old(root){ animation: rmPanOut .42s cubic-bezier(.22,.61,.36,1) both; }
+  ::view-transition-new(root){ animation: rmPanIn  .42s cubic-bezier(.22,.61,.36,1) both; }
+  @keyframes rmPanOut{ to   { transform: translateX(-24%); } }
+  @keyframes rmPanIn { from { transform: translateX(100%);  } }
+  @media (prefers-reduced-motion: reduce){
+    ::view-transition-old(root),::view-transition-new(root){ animation-duration:.01ms!important; }
+  }
   body{
     margin:0; font-family:'Inter',sans-serif; color:var(--text);
     background:var(--bg); line-height:1.6; overflow-x:hidden;
