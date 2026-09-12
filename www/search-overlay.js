@@ -105,7 +105,8 @@
             var layer = realImg ? `<span class="so-hist-av-img" style="background-image:url('${soCssUrl(realImg)}')"></span>` : '';
             return `<span class="so-hist-av"><span class="so-hist-av-ini">${esc(soInitials(item.label))}</span>${layer}</span>`;
         }
-        return `<span class="so-hist-ic"><i class="fas ${item.type === 'listing' ? 'fa-house' : 'fa-clock-rotate-left'}"></i></span>`;
+        var icon = item.type === 'listing' ? 'fa-house' : (item.type === 'post' ? 'fa-comment-dots' : 'fa-clock-rotate-left');
+        return `<span class="so-hist-ic"><i class="fas ${icon}"></i></span>`;
     }
     function renderSearchHistoryHtml() {
         const list = getSearchHistory();
@@ -139,6 +140,7 @@
         const item = getSearchHistory()[i];
         if (!item) return;
         closeOverlay();
+        if (item.type === 'post') { _soOpenPost(item.id, item.src); return; }
         location.href = item.type === 'listing'
             ? 'listing-detail.html?id=' + item.id
             : 'dashboard.html?user_id=' + item.id;
@@ -416,7 +418,7 @@
             <div class="so-box">
                 <div class="so-input-row">
                     <i class="fas fa-magnifying-glass"></i>
-                    <input id="soInput" type="text" enterkeyhint="search" placeholder="${IS_REALMATES_PAGE ? 'Search realmates…' : 'Search people, listings, forum…'}" autocomplete="off">
+                    <input id="soInput" type="text" enterkeyhint="search" placeholder="${IS_REALMATES_PAGE ? 'Search realmates…' : 'Search people and posts…'}" autocomplete="off">
                     ${_hideChips ? '' : `
                     <span class="so-enter" onclick="window.__searchEnter()">↵ Enter</span>
                     <span class="so-esc" onclick="window.__closeSearchOverlay()">ESC</span>
@@ -511,6 +513,20 @@
         }
     };
 
+    // Clicking a post: save it to history + deep-link to the feed/forum, scrolling
+    // straight to that post (reuses the notifications' route_target_post_id path).
+    window.__soPostClick = function (i) {
+        const p = (window.__soPosts || [])[i];
+        if (!p) return;
+        if (_soHistoryContext()) addToSearchHistory({ type: 'post', id: p.id, label: (p.content || 'Post').slice(0, 60) || 'Post', src: p.source });
+        closeOverlay();
+        _soOpenPost(p.id, p.source);
+    };
+    function _soOpenPost(id, source) {
+        try { localStorage.setItem('route_target_post_id', String(id)); } catch (e) {}
+        window.location.href = (source === 'forum') ? 'forum.html' : 'home.html';
+    }
+
     function openOverlay() {
         overlay.classList.add('open');
         setTimeout(() => document.getElementById('soInput').focus(), 50);
@@ -565,75 +581,51 @@
             return;
         }
 
-        // Search results are limited to People and (permitted) Listings —
-        // forum_posts is intentionally not queried here at all; posts never
-        // belong in search results, on Feed or Forum.
-        const [pr, lr] = await Promise.all([
+        // This is the FEED-side search: results are People + POSTS (the page's own
+        // feed/forum posts). Listings are intentionally NOT searched here — they
+        // belong to the Portal's own search. Which posts depends on context: Feed
+        // (home) → home posts, Forum → forum posts.
+        const postSource = _soHistoryContext() === 'forum' ? 'forum' : 'home';
+        const [pr, postRes] = await Promise.all([
             sb.from('profiles').select('id,full_name,avatar_url,job_title,division')
               .or(`full_name.ilike.${pat},job_title.ilike.${pat},division.ilike.${pat}`).limit(6),
-            // select('*') (not an explicit column list) so this keeps working
-            // whether or not the visibility-columns migration has been applied.
-            sb.from('listings').select('*')
-              .or(`content.ilike.${pat},category.ilike.${pat},user_name.ilike.${pat}`)
-              .eq('archived', false).order('created_at', { ascending: false }).limit(30)
+            sb.from('forum_posts').select('id, content, user_name, user_id, privacy, created_at')
+              .or(`content.ilike.${pat},user_name.ilike.${pat}`)
+              .eq('source', postSource).order('created_at', { ascending: false }).limit(30)
         ]);
-        let listings = lr.data || [];
+        let posts = postRes.data || [];
 
         let me = {};
         try { me = JSON.parse(localStorage.getItem('user') || '{}') || {}; } catch (e) {}
         const myId = me.id ? String(me.id) : null;
 
-        // Visibility Controls — drop listings this viewer is hidden from, so a
-        // hidden post never surfaces in search. Uses the shared, fail-open
-        // RMVisibility.visibleToViewer (owner + hidden + owner-unlock) to match
-        // the Portal and Search page; falls back to the local owner/hidden check
-        // if visibility.js isn't loaded. Never throws — shows all on error.
-        try {
-            if (window.RMVisibility) {
-                const unlockedOwners = await RMVisibility.fetchUnlockedOwnerIds(sb, myId);
-                listings = listings.filter(l => RMVisibility.visibleToViewer(l, myId, unlockedOwners));
-            } else {
-                listings = filterHiddenListings(listings);
-            }
-        } catch (e) {
-            console.warn('[Visibility] overlay filter failed, showing all:', e);
-        }
-
-        // Listings only surface for accounts the searcher is actually
-        // Realmates with (their own listings always included) — this applies
-        // everywhere the search overlay is used, not just Forum. Profiles are
-        // exempt — searching for a person should never require being
-        // connected to them first.
+        // Respect post privacy: public posts, your own, or a Realmate's — so a
+        // realmates-only post never surfaces to someone who isn't connected.
         const realmateIds = await getMyRealmateIds(sb, myId);
-        listings = listings.filter(l => l.user_id && (String(l.user_id) === myId || realmateIds.has(String(l.user_id))));
+        posts = posts.filter(p => (!p.privacy || p.privacy === 'public') || String(p.user_id) === myId || (p.user_id && realmateIds.has(String(p.user_id))));
+        // Drop blocked authors / blocked posts (fail-open).
+        try { if (window.RMBR) posts = posts.filter(p => !(RMBR.isBlocked(p.user_id, p.user_name) || RMBR.isPostBlocked('post', p.id))); } catch (e) {}
+        if (posts.length > 10) posts = posts.slice(0, 10);
 
-        if (listings.length > 10) listings = listings.slice(0, 10);
-
-        // Listings store the poster's name as a snapshot taken at write time
-        // — overlay each with the poster's LIVE profiles.full_name (by
-        // user_id) so a rename shows up immediately instead of the name it
-        // was posted under.
-        const posterIds = [...new Set(listings.filter(x => x.user_id).map(x => x.user_id))];
+        // Overlay each post's stored poster name with the LIVE profiles.full_name.
+        const posterIds = [...new Set(posts.filter(x => x.user_id).map(x => x.user_id))];
         if (posterIds.length) {
             const { data: posters } = await sb.from('profiles').select('id,full_name').in('id', posterIds);
             const nameById = {};
             (posters || []).forEach(p => { nameById[p.id] = p.full_name; });
-            listings.forEach(x => {
-                if (x.user_id && nameById[x.user_id]) x.user_name = nameById[x.user_id];
-            });
+            posts.forEach(x => { if (x.user_id && nameById[x.user_id]) x.user_name = nameById[x.user_id]; });
         }
+        posts.forEach(x => { x._source = postSource; });
 
         let people = pr.data || [];
-        // Drop DEACTIVATED accounts from People results (fail-open). Listings are
-        // already Realmate-scoped above; deactivated owners can't be Realmates you
-        // can still reach here, so People is the surface that needs filtering.
+        // Drop DEACTIVATED accounts from People results (fail-open).
         if (window.RMDeact) { try { people = await RMDeact.filterItemsByOwner(people, 'id'); } catch (e) {} }
-        renderResults(people, listings);
+        renderResults(people, posts);
     }
 
-    function renderResults(people, listings) {
+    function renderResults(people, posts) {
         const el = document.getElementById('soResults');
-        if (!people.length && !listings.length) {
+        if (!people.length && !posts.length) {
             el.innerHTML = '<div class="so-empty"><i class="fas fa-circle-xmark"></i><span>No results found.</span></div>';
             return;
         }
@@ -656,29 +648,22 @@
                 </div>`;
             });
         }
-        if (listings.length) {
-            html += `<div class="so-section" style="margin-top:${people.length?'8px':'0'}">Listings</div>`;
-            listings.forEach(l => {
-                const cat         = esc(l.category || '');
-                const contentFull = (l.content || '').slice(0, 100);
-                const content     = esc(contentFull);
-                const poster      = esc(l.user_name || '');
-                // History should remember the listing itself, not just its
-                // poster — the content snippet already shown is the most
-                // descriptive label available, falling back to the poster's
-                // name if the listing has no content. Read via data-* +
-                // event delegation (see the click listener below), not an
-                // inline onclick — listing content routinely contains raw
-                // newlines, which silently break an inline onclick="'...'"
-                // JS string (the href still navigates natively even though
-                // the handler throws, which is why this was failing).
-                const label       = contentFull || l.user_name || 'Listing';
-                const cls         = (l.category||'').toLowerCase().replace(/\s+/g,'-');
-                html += `<a href="listing-detail.html?id=${l.id}" class="so-listing" data-listing-id="${l.id}" data-listing-label="${escAttr(label)}">
-                    ${cat ? `<span class="so-lbadge so-${cls}">${cat}</span>` : ''}
-                    <div class="so-lcontent">${content}${(l.content||'').length>100?'…':''}</div>
+        if (posts.length) {
+            // Cache posts so the click handler can save history + deep-link.
+            window.__soPosts = posts.map(p => ({
+                id: p.id,
+                content: (p.content || '').replace(/\s+/g, ' ').trim(),
+                user_name: p.user_name || '',
+                source: p._source || 'home'
+            }));
+            html += `<div class="so-section" style="margin-top:${people.length ? '8px' : '0'}">Posts</div>`;
+            window.__soPosts.forEach((p, i) => {
+                const snippet = esc(p.content.slice(0, 100));
+                const poster  = esc(p.user_name);
+                html += `<div class="so-listing" onclick="window.__soPostClick(${i})">
+                    <div class="so-lcontent">${snippet}${p.content.length > 100 ? '…' : ''}</div>
                     ${poster ? `<div class="so-lposter">${poster}</div>` : ''}
-                </a>`;
+                </div>`;
             });
         }
         el.innerHTML = html;
