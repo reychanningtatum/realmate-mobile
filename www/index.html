@@ -47,7 +47,28 @@
       } catch (e) {}
     })();
   </script>
-  <style>html.rm-autologin body{opacity:0!important}</style>
+  <style>
+  /* While attemptAutoLogin() runs its async session check (native cold start waits
+     on rmSessionReady to restore the persisted session — a couple of seconds), the
+     page used to just hide its body to opacity:0 = a BLANK WHITE SCREEN. Show a
+     branded splash over that wait instead. The splash is an OPAQUE full-screen
+     overlay (so it also hides the login-form flash the old opacity:0 was for), and
+     the html/body get the dark brand background so there is no white even in the
+     first frame before the splash element paints. attemptAutoLogin removes
+     .rm-autologin (reveal or redirect) -> the splash disappears; a 4s safety net in
+     the head also clears it, so it can never get stuck. */
+  html.rm-autologin, html.rm-autologin body{background:#0b1220!important}
+  #rmBootSplash{position:fixed;inset:0;z-index:2147483647;display:none;
+    align-items:center;justify-content:center;flex-direction:column;gap:20px;
+    background:#0b1220;color:#fff;font-family:'Inter',sans-serif;}
+  html.rm-autologin #rmBootSplash{display:flex}
+  #rmBootSplash .rm-wm{font-size:32px;font-weight:800;letter-spacing:-0.6px;}
+  #rmBootSplash .rm-wm span{color:#32cd32}
+  #rmBootSplash .rm-sp{width:26px;height:26px;border-radius:50%;
+    border:3px solid rgba(255,255,255,0.16);border-top-color:#32cd32;
+    animation:rmBootSpin .8s linear infinite;}
+  @keyframes rmBootSpin{to{transform:rotate(360deg)}}
+  </style>
   <link rel="stylesheet" href="vendor/fontawesome/css/all.min.css?v=6.5.0">
   <link rel="stylesheet" href="vendor/googlefonts/fonts.css?v=1">
   <link rel="stylesheet" href="style.css?v=20260824e">
@@ -61,6 +82,13 @@
   </style>
 </head>
 <body>
+
+<!-- Branded boot splash: shown only while html.rm-autologin is set (the async
+     auto-login session check). Replaces the old blank white pre-hide. -->
+<div id="rmBootSplash" aria-hidden="true">
+  <div class="rm-wm">realmate<span>.</span></div>
+  <div class="rm-sp"></div>
+</div>
 
 <style>
   /* Back-to-marketing button — dark glass pill so it stays legible over both
