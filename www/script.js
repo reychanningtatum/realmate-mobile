@@ -39,10 +39,6 @@ window.supabaseClient.auth.onAuthStateChange((event) => {
 // the password-recovery / magic-link flow.
 (async function attemptAutoLogin() {
     if (!document.getElementById("loginBtn")) return;         // login page only
-    // Came from the marketing page: show the login form (already visible, not
-    // pre-hidden) and do NOT auto-forward. The user tapped Get Started / Sign In,
-    // so they want the login page — a smooth transition, not a loading screen.
-    try { if (sessionStorage.getItem("rm_from_marketing")) { sessionStorage.removeItem("rm_from_marketing"); return; } } catch (e) {}
     var h = location.hash || "", q = location.search || "";
     if (h.includes("type=recovery") || h.includes("error=") || q.includes("token_hash")) return;
     if (localStorage.getItem("rm_remember") === "0") return;  // user opted out
@@ -54,6 +50,11 @@ window.supabaseClient.auth.onAuthStateChange((event) => {
         try { if (window.rmBio && await window.rmBio.isEnabled() && await window.rmBio.hasCredentials()) _rmShowBioLogin(); } catch (e) {}
         reveal();
     }
+    // Came from the marketing page (tapped Get Started / Sign In): show the login
+    // form AND the Face ID option, and do NOT auto-forward into the app. Must run
+    // revealWithBio() (not a bare return) or the "Sign in with Face ID" button never
+    // appears on this path — that was the biometrics regression.
+    try { if (sessionStorage.getItem("rm_from_marketing")) { sessionStorage.removeItem("rm_from_marketing"); await revealWithBio(); return; } } catch (e) {}
     // Just logged out this launch — show the login form, never hydrate back in.
     try { if (sessionStorage.getItem("rm_logged_out")) { sessionStorage.removeItem("rm_logged_out"); await revealWithBio(); return; } } catch (e) {}
     var _RM_TOKEN_KEY = "sb-wmegpgrfrtprhuzmgjma-auth-token";

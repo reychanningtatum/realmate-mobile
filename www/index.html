@@ -79,22 +79,16 @@
     border:3px solid rgba(255,255,255,0.16);border-top-color:#32cd32;
     animation:rmBootSpin .8s linear infinite;}
   @keyframes rmBootSpin{to{transform:rotate(360deg)}}
-  /* Marketing -> Login PAN (cross-document View Transition). Both pages opt in with
-     @view-transition{navigation:auto}; the browser snapshots the outgoing Marketing
-     page and keeps it painted through the transition, so there is NO inter-document
-     white frame at all. We shape it into an iOS-style push: the new page slides in
-     from the right while the old page eases slightly left underneath. Same-origin
-     only (native capacitor://localhost and the web origin both qualify). On browsers
-     without cross-document view transitions it's simply a normal navigation — and
-     since both pages paint dark from frame 0, still no white flash. */
-  @view-transition { navigation: auto; }
-  ::view-transition-old(root){ animation: rmPanOut .42s cubic-bezier(.22,.61,.36,1) both; }
-  ::view-transition-new(root){ animation: rmPanIn  .42s cubic-bezier(.22,.61,.36,1) both; }
-  @keyframes rmPanOut{ to   { transform: translateX(-24%); } }
-  @keyframes rmPanIn { from { transform: translateX(100%);  } }
-  @media (prefers-reduced-motion: reduce){
-    ::view-transition-old(root),::view-transition-new(root){ animation-duration:.01ms!important; }
-  }
+  /* Marketing -> Login entrance (works on EVERY iOS version — no cross-document View
+     Transition needed; that isn't supported on older WKWebView, which is why the raw
+     document swap read as a flicker). When arriving from marketing (html.rm-enter),
+     the login content slides in from the right over the dark background — paired with
+     marketing's fade-out (see marketing.html) it reads as one continuous push with no
+     white and no hard cut. TRANSFORM ONLY (opacity stays 1) so the form can never be
+     stranded invisible if the animation doesn't run; reduced-motion disables it. */
+  @keyframes rmEnter{ from{ transform: translateX(26px); } to{ transform: none; } }
+  html.rm-enter .app-main{ animation: rmEnter .34s cubic-bezier(.22,.61,.36,1); }
+  @media (prefers-reduced-motion: reduce){ html.rm-enter .app-main{ animation: none; } }
   </style>
   <link rel="stylesheet" href="vendor/fontawesome/css/all.min.css?v=6.5.0">
   <link rel="stylesheet" href="vendor/googlefonts/fonts.css?v=1">
@@ -371,6 +365,6 @@
 
 <script src="native-auth.js?v=2"></script>
 <script src="vendor/supabase-js.min.js?v=2.112.3"></script>
-<script src="script.js?v=20260912z"></script>
+<script src="script.js?v=20260914a"></script>
 </body>
 </html>

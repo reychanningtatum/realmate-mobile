@@ -19,18 +19,14 @@
   }
   *{box-sizing:border-box;}
   html{scroll-behavior:smooth;-webkit-text-size-adjust:100%;}
-  /* Opt into the cross-document PAN to/from the Login page (see index.html). Both
-     documents must opt in; the destination document supplies the animation. Defined
-     here too so the reverse (Login "Back" -> Marketing) pans as well, and so the
-     outgoing Marketing snapshot is kept painted (no white flash between pages). */
-  @view-transition { navigation: auto; }
-  ::view-transition-old(root){ animation: rmPanOut .42s cubic-bezier(.22,.61,.36,1) both; }
-  ::view-transition-new(root){ animation: rmPanIn  .42s cubic-bezier(.22,.61,.36,1) both; }
-  @keyframes rmPanOut{ to   { transform: translateX(-24%); } }
-  @keyframes rmPanIn { from { transform: translateX(100%);  } }
-  @media (prefers-reduced-motion: reduce){
-    ::view-transition-old(root),::view-transition-new(root){ animation-duration:.01ms!important; }
-  }
+  /* Leaving to the Login page: fade the marketing content out to the dark background
+     first (rmGoLogin() adds .rm-leaving, then navigates). Paired with the login
+     page's slide-in entrance, the marketing->login transition reads as one smooth
+     motion on a continuous dark background — no white, no hard cut. Fade only (no
+     transform) to avoid any horizontal-scroll artifact on this long page. */
+  body{ transition: opacity .2s ease; }
+  body.rm-leaving{ opacity:0; }
+  @media (prefers-reduced-motion: reduce){ body{ transition:none; } }
   body{
     margin:0; font-family:'Inter',sans-serif; color:var(--text);
     background:var(--bg); line-height:1.6; overflow-x:hidden;
@@ -896,9 +892,22 @@
   // FORM with a fade transition instead of the auto-login loading splash.
   function rmFromMarketing(){ try{ sessionStorage.setItem('rm_from_marketing','1'); }catch(e){} }
 
-  // Proceed into the app → authentication / onboarding (index.html).
-  function rmStart(){ rmMarkSeen(); rmFromMarketing(); window.location.href = 'index.html'; }
-  function rmSignIn(){ rmMarkSeen(); rmFromMarketing(); window.location.href = 'index.html'; }
+  // Proceed into the app → authentication / onboarding (index.html). Fade the
+  // marketing page out to the dark background first, then navigate — the login page
+  // slides its content in, so the whole thing is one smooth motion (no white flash,
+  // no hard cut). A safety fallback navigates even if the transitionend never fires.
+  function rmGoLogin(){
+    rmMarkSeen(); rmFromMarketing();
+    var go = function(){ window.location.href = 'index.html'; };
+    try {
+      document.body.classList.add('rm-leaving');
+      var done = false, nav = function(){ if (done) return; done = true; go(); };
+      document.body.addEventListener('transitionend', nav, { once:true });
+      setTimeout(nav, 260); // fallback if transitionend doesn't fire
+    } catch (e) { go(); }
+  }
+  function rmStart(){ rmGoLogin(); }
+  function rmSignIn(){ rmGoLogin(); }
 
   // App-store download badges. Fill these in with the real listing URLs once the
   // apps are published; until then a click shows a "coming soon" note.
