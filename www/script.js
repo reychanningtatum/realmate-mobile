@@ -763,7 +763,13 @@ async function login(){
     // Mobile / native app lands in the persistent tab shell (app.html); desktop
     // web keeps its sidebar layout. Opens on Portal, matching the old target.
     var _rmDest = (window.Capacitor || window.matchMedia("(max-width: 900px)").matches) ? "app.html?tab=portal" : "livemarket.html";
-    setTimeout(() => location.href = _rmDest, 1400);
+    // Drop the dark curtain over the login and navigate — app.html starts under a
+    // matching curtain (rm_enter_app) and lifts it once the app is ready, so login
+    // -> app is the same smooth fade-through-dark. Falls back to a plain navigation.
+    setTimeout(() => {
+        try { if (window.rmCurtainLeaveTo) { window.rmCurtainLeaveTo(_rmDest, 'rm_enter_app'); return; } } catch (e) {}
+        location.href = _rmDest;
+    }, 1400);
 
   } catch(err) {
     showLoginError("Something went wrong. Please try again.");

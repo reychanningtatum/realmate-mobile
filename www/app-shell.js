@@ -88,6 +88,24 @@
     // out). No-op on first reveal (nothing stored) or when it was at the top.
     var f = frames[tab];
     if (f && f.__scrollY > 0) restoreFrameScroll(f, f.__scrollY);
+    // Lift the login->app entry curtain (app.html #rmAppCover) once the first tab is
+    // actually on screen — the dark curtain fades out to reveal the app. Best-effort.
+    try {
+      var _ac = document.getElementById('rmAppCover');
+      if (_ac && !_ac.__lifted && _ac.style.display !== 'none') {
+        _ac.__lifted = true;
+        _ac.style.transition = 'opacity .45s ease';
+        _ac.style.opacity = '0';
+        setTimeout(function () {
+          try {
+            _ac.style.display = 'none';
+            // Revert the dark entry background to the app's light theme so later
+            // tab-switch pans don't reveal a dark edge.
+            document.documentElement.classList.remove('rm-app-enter');
+          } catch (e) {}
+        }, 480);
+      }
+    } catch (e) {}
   }
 
   // ── Memory management: keep only the ACTIVE tab's page fully loaded ────────

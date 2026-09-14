@@ -20,7 +20,26 @@ function logout() {
         const _sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
         _sb.auth.signOut(); // best-effort server revocation; token already gone locally
     } catch(e) {}
-    location.href = 'index.html';
+    // Drop a dark curtain over the current page, then navigate to the login — index.html
+    // starts under a matching curtain (keyed on rm_logged_out, set above) and lifts it,
+    // so logout is the same smooth fade-through-dark as the other transitions. Always
+    // navigates even if the curtain can't animate (fallback timeout).
+    var _go = function(){ location.href = 'index.html'; };
+    try {
+        var cov = document.getElementById('rmLogoutCover');
+        if (!cov) {
+            cov = document.createElement('div');
+            cov.id = 'rmLogoutCover';
+            cov.setAttribute('aria-hidden', 'true');
+            cov.style.cssText = 'position:fixed;inset:0;z-index:2147483646;background:#080f1a;opacity:0;transition:opacity .24s ease;pointer-events:none;';
+            document.body.appendChild(cov);
+        }
+        void cov.offsetWidth;            // register opacity:0 before transitioning to 1
+        var done = false, nav = function(){ if (done) return; done = true; _go(); };
+        cov.addEventListener('transitionend', nav, { once: true });
+        cov.style.opacity = '1';         // fade the dark curtain in over the app
+        setTimeout(nav, 340);            // fallback if transitionend doesn't fire
+    } catch (e) { _go(); }
 }
 
 // Universal back navigation — available on every page's mobile header.

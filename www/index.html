@@ -43,7 +43,10 @@
         // fade — no pre-hide, no loading screen. attemptAutoLogin honors the same
         // flag and won't auto-forward. (The splash stays only for a cold-start
         // returning user, where it hides the form flash before the app opens.)
-        if (sessionStorage.getItem("rm_from_marketing")) { document.documentElement.classList.add("rm-enter"); return; }
+        // Arriving under the dark curtain — from the marketing page OR from a logout:
+        // lift it to reveal the login form (no auto-login splash). attemptAutoLogin
+        // honors these same flags (marketing: no auto-forward; logout: show form).
+        if (sessionStorage.getItem("rm_from_marketing") || sessionStorage.getItem("rm_logged_out")) { document.documentElement.classList.add("rm-enter"); return; }
         if (h.indexOf("type=recovery")>=0 || h.indexOf("error=")>=0 || q.indexOf("token_hash")>=0) return;
         if (localStorage.getItem("rm_remember") === "0") return;
         // In the native app the session token lives in native Preferences and is
@@ -123,13 +126,13 @@
     if(c) c.addEventListener('animationend', reset, { once:true });
     setTimeout(reset, 900);
   }}catch(e){} })();
-  // Back to marketing: drop the same dark curtain over the login, then navigate —
-  // marketing.html starts under the matching curtain and lifts it. Same transition
-  // as marketing->login, reversed.
-  function rmGoMarketing(e){
-    if(e && e.preventDefault) e.preventDefault();
-    try{ sessionStorage.setItem('rm_from_login','1'); }catch(_){}
-    var go=function(){ window.location.href='marketing.html'; };
+  // Drop the same dark curtain over the login page, then navigate — the destination
+  // page starts under a matching curtain and lifts it. Used for Back to marketing AND
+  // for a successful login into the app (script.js login()). Always navigates even if
+  // the curtain animation can't run (fallback timeout).
+  function rmCurtainLeaveTo(url, flag){
+    var go=function(){ window.location.href=url; };
+    try{ if(flag) sessionStorage.setItem(flag,'1'); }catch(_){}
     try{
       var c=document.getElementById('rmEnterCover');
       document.documentElement.classList.remove('rm-enter');
@@ -137,10 +140,11 @@
       document.body.classList.add('rm-leaving');
       var done=false, nav=function(){ if(done)return; done=true; go(); };
       if(c) c.addEventListener('transitionend', nav, { once:true });
-      setTimeout(nav, 320);
+      setTimeout(nav, 340);
     }catch(_){ go(); }
-    return false;
   }
+  window.rmCurtainLeaveTo = rmCurtainLeaveTo;
+  function rmGoMarketing(e){ if(e && e.preventDefault) e.preventDefault(); rmCurtainLeaveTo('marketing.html','rm_from_login'); return false; }
 </script>
 
 <!-- Branded boot splash: shown only while html.rm-autologin is set (the async
@@ -404,6 +408,6 @@
 
 <script src="native-auth.js?v=2"></script>
 <script src="vendor/supabase-js.min.js?v=2.112.3"></script>
-<script src="script.js?v=20260914a"></script>
+<script src="script.js?v=20260914b"></script>
 </body>
 </html>

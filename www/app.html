@@ -5,6 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <script src="native-statusbar.js?v=20260828i"></script>
   <style id="rm-flash-guard">html{background-color:#f4f7fa}</style>
+  <script>
+    // Arrived here from a successful login under the dark curtain: keep this page
+    // dark and covered while the app boots, then app-shell lifts the curtain when the
+    // first tab is shown — so login -> app is the same smooth fade-through-dark.
+    try{ if(sessionStorage.getItem('rm_enter_app')){ sessionStorage.removeItem('rm_enter_app'); document.documentElement.classList.add('rm-app-enter'); } }catch(e){}
+  </script>
+  <style>
+    html.rm-app-enter, html.rm-app-enter body{ background:#080f1a !important; }
+    #rmAppCover{ position:fixed; inset:0; z-index:2147483646; background:#080f1a; pointer-events:none; display:none; opacity:1; }
+    html.rm-app-enter #rmAppCover{ display:block; }
+  </style>
   <title>realmate</title>
   <link rel="stylesheet" href="vendor/fontawesome/css/all.min.css?v=6.5.0">
   <link rel="stylesheet" href="vendor/googlefonts/fonts.css?v=1">
@@ -65,6 +76,19 @@
 </head>
 <body>
 
+  <!-- Login->app entry curtain: opaque dark, covers the booting app; app-shell.js
+       lifts it (fades out) when the first tab is revealed. -->
+  <div id="rmAppCover" aria-hidden="true"></div>
+  <script>
+    // Safety: if the shell never reveals a tab (error), lift the curtain anyway so
+    // the app can never be stuck behind a dark screen.
+    try{ if(document.documentElement.classList.contains('rm-app-enter')){
+      setTimeout(function(){ var c=document.getElementById('rmAppCover');
+        if(c && c.style.display!=='none' && c.style.opacity!=='0'){
+          c.style.transition='opacity .4s ease'; c.style.opacity='0';
+          setTimeout(function(){ try{ c.style.display='none'; }catch(e){} }, 420); } }, 3500);
+    }}catch(e){}
+  </script>
 
   <div id="rmHost"><div id="rmLoading"><i class="fas fa-spinner fa-spin"></i></div></div>
 
@@ -92,9 +116,9 @@
   <script src="vendor/supabase-js.min.js?v=2.112.3"></script>
   <script src="theme.js?v=20260812a"></script>
   <script src="toast.js?v=20260819a"></script>
-  <script src="auth-guard.js?v=20260910b"></script>
+  <script src="auth-guard.js?v=20260914b"></script>
   <script src="notif-badge.js?v=14"></script>
-  <script src="app-shell.js?v=20260912f"></script>
+  <script src="app-shell.js?v=20260914b"></script>
   <script src="nav-menu.js?v=20260912h"></script>
   <script src="customer-service.js?v=7"></script>
   <script>
