@@ -3085,10 +3085,40 @@ async function loadLedger(silent) {
 }
 
 // ── AI Match view ─────────────────────────────────
+// Re-run the AI Match Engine scan: show the SAME "Scanning…" body state used when
+// returning from a Listing Detail via Back, re-fetch the latest listings, then
+// re-render the matches. Shared by the topbar title tap (when already at top) and by
+// pull-to-refresh — so both use the exact same Scanning experience, in the body.
+async function rescanMatchEngine() {
+    var ctx = null;
+    try { ctx = JSON.parse(sessionStorage.getItem('rm_matchCtx') || 'null'); } catch (e) {}
+    if (!ctx || ctx.listingId == null) return;
+    var box = document.getElementById('matchesContainer');
+    if (box) box.innerHTML = '<div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Scanning…</p></div>';
+    try { if (window.loadLedger) await loadLedger(true); } catch (e) {}
+    try { showAllMatches(ctx.listingId, ctx.scrollToId, true); } catch (e) {}
+}
+window.rescanMatchEngine = rescanMatchEngine;
+
+// AI Match Engine topbar title/button tap: if not at the top, route to the topmost
+// position; if already at the top, refresh the engine (re-scan, showing the Scanning
+// state in the body — the same experience as returning from a Listing Detail).
+function onMatchTitleClick() {
+    if (_lmScrollNow() > 4) {
+        try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) { try { window.scrollTo(0, 0); } catch (e2) {} }
+        var mc = document.querySelector('.main-content');
+        if (mc) { try { mc.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) { mc.scrollTop = 0; } }
+    } else {
+        rescanMatchEngine();
+    }
+}
+window.onMatchTitleClick = onMatchTitleClick;
+
 function exitMatchView() {
     localStorage.removeItem('matchQuery');
     localStorage.removeItem('matchResults');
     sessionStorage.removeItem('rm_matchCtx');
+    try { document.documentElement.classList.remove('rm-inmatch'); } catch (e) {}
     document.getElementById('matchView').style.display = 'none';
     document.getElementById('ledgerView').style.display = '';
     const fb = document.querySelector('.filter-bar');
@@ -3409,6 +3439,9 @@ function showMatchView(query, matches) {
     if (topWrap) topWrap.style.display = 'none';
     document.documentElement.style.setProperty('--top-fixed-height', '0px');
     document.getElementById('matchView').style.display = 'block';
+    // Mark the engine as open so pull-to-refresh hides the "Loading Portal" pill and
+    // shows the Scanning body state instead (see the pull-refresh wiring + CSS).
+    try { document.documentElement.classList.add('rm-inmatch'); } catch (e) {}
     applyAutoMinimize();
 
     // Reuse Live Market's exact per-card inputs — the AI-match label/score/reasons

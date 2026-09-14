@@ -29,7 +29,10 @@
      Portal navbar + "Loading listings" flash before showAllMatches() restores it.
      The class is removed by init() once showMatchView() has set its own inline styles. -->
 <script>try{if(sessionStorage.getItem('rm_matchCtx'))document.documentElement.classList.add('rm-matchboot');}catch(e){}</script>
-<style>html.rm-matchboot .top-fixed-wrap,html.rm-matchboot .filter-bar,html.rm-matchboot #ledgerView{display:none!important}html.rm-matchboot #matchView{display:block!important}</style>
+<style>html.rm-matchboot .top-fixed-wrap,html.rm-matchboot .filter-bar,html.rm-matchboot #ledgerView{display:none!important}html.rm-matchboot #matchView{display:block!important}
+/* In the AI Match Engine, pull-to-refresh must NOT show the "Loading Portal" pill
+   over the title — it shows the Scanning state in the body instead (see onRefresh). */
+html.rm-inmatch .rm-ptr{display:none!important}</style>
 </head>
 <body>
 
@@ -221,7 +224,7 @@
       <button class="btn-back rm-mobile-back" onclick="exitMatchView()">
         <i class="fas fa-arrow-left"></i><span class="rm-back-label"> Back</span>
       </button>
-      <div class="match-header-center">
+      <div class="match-header-center" onclick="onMatchTitleClick()" role="button" tabindex="0" style="cursor:pointer;" title="Back to top / refresh matches">
         <span class="ai-robot" aria-hidden="true"><svg viewBox="12 12 76 76"><line class="ant" x1="50" y1="9" x2="50" y2="22"/><circle class="tip" cx="50" cy="8" r="4"/><line class="ear" x1="22" y1="46" x2="15" y2="46"/><line class="ear" x1="78" y1="46" x2="85" y2="46"/><rect class="head" x="22" y="24" width="56" height="52" rx="13"/><rect class="visor" x="30" y="40" width="40" height="17" rx="6"/><rect class="scan" x="31" y="41" width="4" height="15" rx="2"/><circle class="eye" cx="42" cy="48.5" r="4.4"/><circle class="eye" cx="58" cy="48.5" r="4.4"/><rect class="mouth" x="41" y="65" width="18" height="3" rx="1.5"/></svg></span>
         <span style="font-size:15px;font-weight:800;color:#fff;">AI Match <span class="accent">Engine</span></span>
       </div>
@@ -454,12 +457,18 @@
 <script src="rm-track.js?v=2"></script>
   <script src="block-report.js?v=20260829f"></script>
   <script src="deactivation.js?v=20260831a"></script>
-  <script src="livemarket.js?v=20260914d"></script>
+  <script src="livemarket.js?v=20260914e"></script>
   <script src="match-alert.js?v=20260828b"></script>
   <script src="notif-badge.js?v=14"></script>
   <script src="pull-refresh.js?v=20260829p"></script>
 <script src="nav-menu.js?v=20260912h"></script>
-<script>document.addEventListener("DOMContentLoaded",function(){if(window.rmPullRefresh)rmPullRefresh({content:".main-content",windowScroll:true,pullTarget:"#listingsGrid",label:"Loading Portal",onRefresh:async function(){if(window.loadLedger)await loadLedger(true);}});});</script>
+<script>document.addEventListener("DOMContentLoaded",function(){if(window.rmPullRefresh)rmPullRefresh({content:".main-content",windowScroll:true,pullTarget:"#listingsGrid",label:"Loading Portal",onRefresh:async function(){
+  // In the AI Match Engine, refresh = re-scan with the Scanning body state (the pill
+  // is hidden via CSS while rm-inmatch is set). Otherwise refresh the Portal ledger.
+  var mv=document.getElementById('matchView');
+  if(mv&&mv.style.display!=='none'&&window.rescanMatchEngine){ await window.rescanMatchEngine(); return; }
+  if(window.loadLedger)await loadLedger(true);
+}});});</script>
 <link rel="stylesheet" href="customer-service.css?v=2">
 <script src="customer-service.js?v=7"></script>
 </body>
