@@ -70,8 +70,13 @@
     // gapTop = viewport y where the space opens (the pull element's resting top),
     // measured at the start of each pull so it tracks the safe-area inset and the
     // real header height. The indicator is centered in the gap [gapTop, gapTop+y].
+    // gapTop is stored in PAGE coordinates (viewport top + current scroll) because the
+    // indicator is position:absolute (page-anchored). Adding the scroll makes it place
+    // correctly at any scroll offset — and corrects an iOS rubber-band overscroll where
+    // touchstart fires with a slightly negative scroll (which previously pushed the
+    // indicator down onto the first post).
     var gapTop = 0;
-    function computeGapTop() { gapTop = Math.max(0, Math.round(pullEl.getBoundingClientRect().top)); }
+    function computeGapTop() { gapTop = Math.max(0, Math.round(pullEl.getBoundingClientRect().top) + scrollTop()); }
 
     if (!document.getElementById('rm-ptr-style')) {
       var st = document.createElement('style');
@@ -111,6 +116,21 @@
     }
     // Center the indicator vertically in the opening gap [gapTop, gapTop+y].
     function moveInd(y) { ind.style.transform = 'translate(-50%,' + (gapTop + y / 2 - HALF_IND) + 'px)'; }
+
+    // While the refresh runs, the page can RE-LAYOUT (grid rebuild, the sticky header
+    // minimizing) or the user can keep SCROLLING — either would strand the indicator
+    // over a post. So during `busy`, re-derive the gap from the pull element's LIVE
+    // position every frame (it's held at translateY(REST), so its resting page-top is
+    // rect.top - REST + scroll) and re-center the indicator there. This keeps it locked
+    // in the gap above the first post, never overlapping it, until finish() clears it.
+    var busyRaf = null;
+    function busyReassert() {
+      if (!busy) { busyRaf = null; return; }
+      gapTop = Math.max(0, Math.round(pullEl.getBoundingClientRect().top) - REST + scrollTop());
+      moveInd(REST);
+      busyRaf = requestAnimationFrame(busyReassert);
+    }
+    function stopBusyReassert() { if (busyRaf) { cancelAnimationFrame(busyRaf); busyRaf = null; } }
     function drag(pull) {
       var y = Math.min(pull, MAX);
       pullEl.style.transform = 'translateY(' + y + 'px)';
@@ -132,6 +152,7 @@
       } catch (e) {}
     }
     function finish() {
+      stopBusyReassert();          // stop re-centering; reset() below restores the ease + snaps back
       if (arrow) arrow.className = 'fas fa-arrow-down';
       // Refresh complete → jump to the TOPMOST item so the user always lands on
       // the latest content, even if they scrolled to the bottom while it loaded.
@@ -198,6 +219,10 @@
           // hard safety cap. `done` is idempotent so it can only finish once.
           var settled = false;
           function done() { if (settled) return; settled = true; finish(); }
+          // Lock the indicator to the live gap for the whole load: snap each frame (no
+          // transition lag) so a re-layout or scroll can't drift it onto a post.
+          ind.style.transition = 'none';
+          busyReassert();
           var r;
           try { r = onRefresh(); } catch (e) { r = null; }
           if (r && typeof r.then === 'function') { r.then(done, done); }
