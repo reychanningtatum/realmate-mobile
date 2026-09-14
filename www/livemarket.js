@@ -1063,8 +1063,12 @@ function subscribePortalListings() {
     try {
         _listingsChannel = _sb.channel('portal-listings')
             .on('postgres_changes',
-                { event: 'UPDATE', schema: 'public', table: 'listings' },
-                payload => handleListingRealtimeUpdate(payload && payload.new))
+                { event: '*', schema: 'public', table: 'listings' },
+                // Listen to INSERT + UPDATE (+ DELETE) so a match ADDED (new post) or
+                // REMOVED (completed/archived/edited) updates the AI counters in real
+                // time. handleListingRealtimeUpdate merges data + syncs counts only —
+                // never a full grid rebuild. DELETE has no `new`, so pass `old` too.
+                payload => handleListingRealtimeUpdate((payload && (payload.new || payload.old)), payload && payload.eventType))
             .subscribe(status => {
                 if (status === 'CHANNEL_ERROR') {
                     console.warn('[Portal] listings realtime not available — run listings-realtime-migration.sql');
@@ -1073,8 +1077,53 @@ function subscribePortalListings() {
     } catch (e) { console.warn('subscribePortalListings failed', e); }
 }
 
-function handleListingRealtimeUpdate(row) {
+// Surgically refresh the AI-match counters after a data change WITHOUT a disruptive
+// full grid rebuild (a blanket applyFilters() on every realtime echo is the old
+// "Portal refreshes while I'm browsing" bug). Recompute the counts, then re-render
+// ONLY the owner cards whose count actually changed, in place (scroll preserved), so
+// the number on a post always matches what the engine would show. Returns the fresh
+// matchMap (for match-alert bookkeeping). Fully defensive — any failure is swallowed
+// so it can never break the Portal (counts still correct on the next render).
+function syncMatchCountsUI() {
+    var matchMap = null;
+    try {
+        var prev = new Map(matchCountMap);
+        matchMap = buildMatchMap();                       // recomputes matchCountMap too
+        var grid = document.getElementById('listingsGrid');
+        var ledgerVisible = grid && (document.getElementById('ledgerView') || {}).style &&
+                            document.getElementById('ledgerView').style.display !== 'none';
+        if (ledgerVisible && Array.isArray(myListings)) {
+            var fmvMap = (typeof _lcRenderCtx !== 'undefined' && _lcRenderCtx) ? _lcRenderCtx.fmvMap : null;
+            myListings.forEach(function (l) {
+                var id = String(l.id);
+                var now = matchCountMap.get(id) || 0;
+                if ((prev.get(id) || 0) === now) return;   // unchanged → leave the card alone
+                var oldCard = document.getElementById('lc-' + id);
+                if (!oldCard || !oldCard.parentNode) return;
+                var fmv = fmvMap ? fmvMap.get(l.id) : null;
+                var label = matchMap ? matchMap.get(l.id) : null;
+                try { oldCard.replaceWith(buildListingCard(l, label || null, fmv || null, now)); } catch (e) {}
+            });
+        }
+    } catch (e) { console.warn('[Portal] match count sync failed', e); }
+    return matchMap;
+}
+
+function handleListingRealtimeUpdate(row, eventType) {
     if (!row || row.id == null) return;
+    // Hard DELETE: drop the listing from the pool so it stops counting as a match,
+    // then sync the counters live.
+    if (eventType === 'DELETE') {
+        var removed = false;
+        [allListings, myListings].forEach(function (arr) {
+            if (!Array.isArray(arr)) return;
+            var i = arr.findIndex(function (l) { return String(l.id) === String(row.id); });
+            if (i !== -1) { arr.splice(i, 1); removed = true; }
+        });
+        if (document.getElementById('ledgerView')?.style.display !== 'none') document.getElementById('lc-' + row.id)?.remove();
+        if (removed) { try { var mmD = syncMatchCountsUI(); if (mmD) window.RMMatchAlert?.recordMatches([...mmD.keys()].map(String)); } catch (e) {} }
+        return;
+    }
     // Merge the authoritative server fields (status, sold_at, archived, content,
     // pinned, …) onto our cached copy so matching + rendering see the change.
     let changed = false;
@@ -1085,7 +1134,14 @@ function handleListingRealtimeUpdate(row) {
     };
     patch(allListings);
     patch(myListings);
-    if (!changed) return; // a listing we aren't currently showing — nothing to do
+    // A listing we don't have yet (INSERT of a brand-new post): add it to the pool so
+    // it can count as a match immediately (the AI counter updates live below). We do
+    // NOT render its card here — that appears on the next pull-to-refresh, keeping the
+    // no-auto-rebuild rule that fixed the "Portal refreshes while browsing" bug.
+    if (!changed) {
+        if (!row.archived && Array.isArray(allListings)) { allListings.unshift(row); changed = true; }
+        else return; // an archived row we never had — nothing to do
+    }
 
     // #1 (Portal randomly refreshing): do NOT auto-re-render the Portal on a
     // realtime echo. A full applyFilters() (grid) or showAllMatches() (engine)
@@ -1103,7 +1159,9 @@ function handleListingRealtimeUpdate(row) {
                               document.getElementById('ledgerView')?.style.display !== 'none';
         if (ledgerVisible) document.getElementById('lc-' + row.id)?.remove();
     }
-    try { window.RMMatchAlert?.recordMatches([...buildMatchMap().keys()].map(String)); } catch (e) {}
+    // Recompute + surgically refresh the AI-match counters live (no full grid rebuild),
+    // then re-record the match-alert set from the fresh matchMap.
+    try { var mm = syncMatchCountsUI(); if (mm) window.RMMatchAlert?.recordMatches([...mm.keys()].map(String)); } catch (e) {}
 }
 
 function buildOfferBadge(listing) {
@@ -2727,7 +2785,11 @@ function buildMatchMap() {
         const candidates = byCategory.get(PARTNER_MAP[L.category]) || [];
         candidates.forEach(O => {
             if (O.userId === L.userId) return;
-            if (computeMatchScore(L, O).score >= 10) count++;
+            // MUST mirror the AI Match Engine's filter EXACTLY (showAllMatches) so the
+            // count on a post can never disagree with the matches the engine displays:
+            // exclude matches the viewer dismissed, and use the same score>0 threshold.
+            if (dismissed.has(String(O.id))) return;
+            if (computeMatchScore(L, O).score > 0) count++;
         });
         matchCountMap.set(String(L.raw.id), count);
     });
