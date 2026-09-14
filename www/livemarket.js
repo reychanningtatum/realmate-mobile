@@ -71,10 +71,25 @@ function lmOpenListing(id) {
             sessionStorage.setItem('rm_matchCtx', JSON.stringify(ctx));
         }
     } catch (e) {}
+    var url = 'listing-detail.html?id=' + encodeURIComponent(id);
+    // Portal feed → a listing, inside the app shell: open the detail as a SEPARATE
+    // tab (via the shell) so the Portal frame stays ALIVE. Back is then an instant
+    // reveal of the Portal at its exact scroll — NO iOS reload, so none of the
+    // reload + scroll-restore "bounce up/down / eventually stops routing" fragility.
+    // (rmBack: the 'me' frame's __root becomes listing-detail.html, so onSubpage is
+    // false → it reveals prevTab = Portal.) The AI-Match case keeps its own in-place
+    // flow below; standalone/desktop (no shell) also falls through to in-place nav.
     if (!inMatch) {
+        try {
+            if (window.parent && window.parent !== window && typeof window.parent.rmOpen === 'function') {
+                window.parent.rmOpen('me', url);
+                return;
+            }
+        } catch (e) {}
+        // Standalone/desktop fallback: in-place navigation + save scroll for Back.
         try { sessionStorage.setItem('lmReturnScroll', JSON.stringify({ y: _lmScrollNow(), t: Date.now() })); } catch (e) {}
     }
-    location.href = 'listing-detail.html?id=' + encodeURIComponent(id);
+    location.href = url;
 }
 (function _lmRestoreScrollOnReturn() {
     var raw = null;
