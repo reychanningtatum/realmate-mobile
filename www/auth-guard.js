@@ -100,19 +100,31 @@ function goBack() {
     // there is genuinely no token stored (a real logout / expired refresh token).
     if (!session && !isGuest) {
         const hasToken = !!localStorage.getItem(_RM_TOKEN_KEY);
-        if (!hasToken) {
-            // Genuine logout — targeted removals (removeItem also clears the
-            // native Preferences token mirror; see native-auth.js).
-            try {
-                localStorage.removeItem("user");
-                localStorage.removeItem("posts");
-                localStorage.removeItem("isGuest");
-                localStorage.removeItem(_RM_TOKEN_KEY);
-            } catch (e) {}
+        // Are we running inside the app-shell iframe (Portal/Feed/etc. tab)?
+        var _inShell = false;
+        try { _inShell = (window.self !== window.top); } catch (e) { _inShell = true; }
+        // TRANSIENT null but a token IS present (very common on an iOS in-app reload,
+        // e.g. tapping Back from a listing reloads the Portal). Inside the shell we
+        // must NOT navigate this iframe to index.html — that loads the login (then
+        // app.html) INSIDE the Portal frame = a nested shell that "bounces / looks
+        // broken". The top-level already passed the guard and the token is still
+        // here, so just proceed; the token-based client recovers the session.
+        if (hasToken) {
+            if (_inShell) return;                 // don't bounce the iframe
+            location.href = "index.html";         // standalone: attemptAutoLogin re-hydrates
+            return;
         }
-        // Transient: keep everything; index.html's attemptAutoLogin() re-hydrates
-        // the still-valid token when possible.
-        location.href = "index.html";
+        // GENUINE logout — no token at all. Targeted removals (removeItem also clears
+        // the native Preferences token mirror; see native-auth.js).
+        try {
+            localStorage.removeItem("user");
+            localStorage.removeItem("posts");
+            localStorage.removeItem("isGuest");
+            localStorage.removeItem(_RM_TOKEN_KEY);
+        } catch (e) {}
+        // Send the WHOLE app back to login — navigate the TOP window, not just this
+        // iframe (redirecting only the frame would nest login/app inside the shell).
+        try { (window.top || window).location.href = "index.html"; } catch (e) { location.href = "index.html"; }
         return;
     }
 
