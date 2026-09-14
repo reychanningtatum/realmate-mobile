@@ -79,16 +79,20 @@
     border:3px solid rgba(255,255,255,0.16);border-top-color:#32cd32;
     animation:rmBootSpin .8s linear infinite;}
   @keyframes rmBootSpin{to{transform:rotate(360deg)}}
-  /* Marketing -> Login entrance (works on EVERY iOS version — no cross-document View
-     Transition needed; that isn't supported on older WKWebView, which is why the raw
-     document swap read as a flicker). When arriving from marketing (html.rm-enter),
-     the login content slides in from the right over the dark background — paired with
-     marketing's fade-out (see marketing.html) it reads as one continuous push with no
-     white and no hard cut. TRANSFORM ONLY (opacity stays 1) so the form can never be
-     stranded invisible if the animation doesn't run; reduced-motion disables it. */
-  @keyframes rmEnter{ from{ transform: translateX(26px); } to{ transform: none; } }
-  html.rm-enter .app-main{ animation: rmEnter .34s cubic-bezier(.22,.61,.36,1); }
-  @media (prefers-reduced-motion: reduce){ html.rm-enter .app-main{ animation: none; } }
+  /* Marketing -> Login CURTAIN reveal (works on EVERY iOS version — cross-document
+     View Transitions aren't supported on the user's WKWebView, so the raw document
+     swap read as a flicker). marketing.html drops an opaque dark curtain OVER itself
+     before navigating; this page STARTS with the same opaque dark curtain covering
+     the login, then lifts it (fades to 0) to reveal the form. Because the curtain is
+     the same #080f1a on both sides of the navigation — and the native WebView
+     background is #080f1a too — nothing visibly "switches": it's dark, then the login
+     fades up out of the dark. The login content itself never animates (always
+     opacity 1), so it can't be stranded invisible; only the curtain fades. */
+  #rmEnterCover{ position:fixed; inset:0; z-index:9998; background:#080f1a;
+    pointer-events:none; opacity:0; visibility:hidden; }
+  html.rm-enter #rmEnterCover{ visibility:visible; animation: rmCurtainUp .5s ease forwards; }
+  @keyframes rmCurtainUp{ from{ opacity:1; } to{ opacity:0; } }
+  @media (prefers-reduced-motion: reduce){ html.rm-enter #rmEnterCover{ animation-duration:.01ms; } }
   </style>
   <link rel="stylesheet" href="vendor/fontawesome/css/all.min.css?v=6.5.0">
   <link rel="stylesheet" href="vendor/googlefonts/fonts.css?v=1">
@@ -103,6 +107,19 @@
   </style>
 </head>
 <body>
+
+<!-- Marketing->login curtain: opaque dark, covers the login and lifts (fades out)
+     to reveal it when arriving from marketing (html.rm-enter). -->
+<div id="rmEnterCover" aria-hidden="true"></div>
+<script>
+  // Safety: always remove the curtain shortly after load so it can never get stuck
+  // covering the login (e.g. if the fade animation doesn't run). The CSS animation
+  // normally fades it out well before this fires.
+  (function(){ try{ if(document.documentElement.classList.contains('rm-enter')){
+    setTimeout(function(){ var c=document.getElementById('rmEnterCover');
+      if(c){ c.style.animation='none'; c.style.opacity='0'; c.style.visibility='hidden'; } }, 900);
+  }}catch(e){} })();
+</script>
 
 <!-- Branded boot splash: shown only while html.rm-autologin is set (the async
      auto-login session check). Replaces the old blank white pre-hide. -->

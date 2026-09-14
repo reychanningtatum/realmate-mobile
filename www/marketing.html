@@ -19,14 +19,16 @@
   }
   *{box-sizing:border-box;}
   html{scroll-behavior:smooth;-webkit-text-size-adjust:100%;}
-  /* Leaving to the Login page: fade the marketing content out to the dark background
-     first (rmGoLogin() adds .rm-leaving, then navigates). Paired with the login
-     page's slide-in entrance, the marketing->login transition reads as one smooth
-     motion on a continuous dark background — no white, no hard cut. Fade only (no
-     transform) to avoid any horizontal-scroll artifact on this long page. */
-  body{ transition: opacity .2s ease; }
-  body.rm-leaving{ opacity:0; }
-  @media (prefers-reduced-motion: reduce){ body{ transition:none; } }
+  /* Leaving to the Login page: drop an opaque dark CURTAIN over the marketing page
+     (rmGoLogin adds .rm-leaving -> the cover fades in), THEN navigate. index.html
+     starts with the same #080f1a curtain and lifts it to reveal the login, so the
+     document swap happens hidden behind a continuous dark curtain — no white, no
+     visible page switch/flicker. A cover (not a body fade) avoids the janky look of
+     fading this long image-heavy page out. */
+  #rmLeaveCover{ position:fixed; inset:0; z-index:99999; background:#080f1a;
+    pointer-events:none; opacity:0; visibility:hidden; transition:opacity .24s ease; }
+  body.rm-leaving #rmLeaveCover{ visibility:visible; opacity:1; }
+  @media (prefers-reduced-motion: reduce){ #rmLeaveCover{ transition:none; } }
   body{
     margin:0; font-family:'Inter',sans-serif; color:var(--text);
     background:var(--bg); line-height:1.6; overflow-x:hidden;
@@ -494,6 +496,10 @@
 </head>
 <body>
 
+<!-- Dark curtain that fades in over marketing right before navigating to login,
+     so the page swap is hidden (continues into index.html's matching curtain). -->
+<div id="rmLeaveCover" aria-hidden="true"></div>
+
 <div class="bg-grid"></div>
 <div class="bg-glow a"></div>
 <div class="bg-glow b"></div>
@@ -900,10 +906,11 @@
     rmMarkSeen(); rmFromMarketing();
     var go = function(){ window.location.href = 'index.html'; };
     try {
-      document.body.classList.add('rm-leaving');
+      var cover = document.getElementById('rmLeaveCover');
+      document.body.classList.add('rm-leaving'); // fades the dark curtain in
       var done = false, nav = function(){ if (done) return; done = true; go(); };
-      document.body.addEventListener('transitionend', nav, { once:true });
-      setTimeout(nav, 260); // fallback if transitionend doesn't fire
+      if (cover) cover.addEventListener('transitionend', nav, { once:true });
+      setTimeout(nav, 300); // fallback if transitionend doesn't fire
     } catch (e) { go(); }
   }
   function rmStart(){ rmGoLogin(); }
