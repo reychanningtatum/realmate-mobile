@@ -2,11 +2,11 @@
   "appId": "com.realmate.app",
   "appName": "Realmate",
   "webDir": "www",
-  "backgroundColor": "#f4f7fa",
+  "backgroundColor": "#080f1a",
   "ios": {
-    "backgroundColor": "#f4f7fa"
+    "backgroundColor": "#080f1a"
   },
   "android": {
-    "backgroundColor": "#f4f7fa"
+    "backgroundColor": "#080f1a"
   }
 }
