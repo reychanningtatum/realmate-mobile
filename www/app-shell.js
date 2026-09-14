@@ -399,29 +399,28 @@
     if (menu) menu.classList.remove('open');
     go('me', url || TABS.me);
   };
-  // "Saved Posts" from the avatar menu. This MUST stay inside the shell: the old
-  // markup was a raw <a href="home.html#saved">, so a tap did a TOP-LEVEL
-  // navigation that tore down the whole iframe shell — after which every nav-bar
-  // tap fell back to a full page load (the "navbar blink"). Instead, switch to
-  // the Feed tab (reveal or load it) and apply its Saved filter in place.
+  // "Saved Posts" from the avatar menu. This MUST stay inside the shell: a raw
+  // <a href="home.html#saved"> tap did a TOP-LEVEL navigation that tore down the
+  // whole iframe shell — after which every nav-bar tap fell back to a full page
+  // load (the "navbar blink"). Two clean paths, and crucially NO reload-then-
+  // refilter (the old code loaded the plain all-feed, then a 4s polling loop
+  // flipped it to Saved — a visible double render that made the Feed feel buggy
+  // and the nav flicker):
+  //   • Feed already alive  → flip its filter to Saved IN PLACE, after a pure
+  //     reveal (no reload, so the nav bar and tab state stay stable).
+  //   • Feed not loaded yet → load it straight into the Saved view
+  //     (home.html?view=saved, which home.js consumes on first paint), so it
+  //     renders Saved posts on the FIRST render — never all-feed-then-flip.
   window.rmSaved = function () {
     closeNavMenu();
-    var applySaved = function () {
-      var f = frames['home'];
-      try {
-        var w = f && f.contentWindow;
-        if (w && typeof w.setFeedFilter === 'function') { w.setFeedFilter('saved'); return true; }
-      } catch (e) {}
-      return false;
-    };
-    if (current !== 'home') go('home');
-    // Poll until the Feed iframe's setFeedFilter is available (a fresh load needs
-    // a moment); apply immediately when we're already on Feed.
-    var tries = 0;
-    (function poll() {
-      if (applySaved()) return;
-      if (++tries < 40) setTimeout(poll, 100);
-    })();
+    var f = frames['home'], w = null;
+    try { w = f && f.contentWindow; } catch (e) {}
+    if (w && typeof w.setFeedFilter === 'function') {
+      if (current !== 'home') go('home');       // reveal the live Feed tab (no reload)
+      try { w.setFeedFilter('saved'); } catch (e) {}
+      return;
+    }
+    go('home', 'home.html?view=saved');          // fresh load → Saved on first paint
   };
 
   document.addEventListener('DOMContentLoaded', function () {
