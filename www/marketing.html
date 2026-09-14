@@ -156,6 +156,10 @@
       linear-gradient(180deg,rgba(6,12,22,0.5) 0%,rgba(6,12,22,0.2) 45%,rgba(6,12,22,0.66) 100%);}
   .hero > .wrap{position:relative;z-index:1;}
   .hero-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:40px;align-items:center;}
+  /* Keep the hero text/CTAs above the phone's floating cards (esp. the "New buyer
+     matched" node, which extends left into this column) so the buttons are never
+     overlapped on desktop. */
+  .hero-grid > .reveal:first-child{position:relative;z-index:5;}
   .hero h1{font-size:clamp(40px,5.4vw,68px);font-weight:900;line-height:1.02;
     letter-spacing:-2px;margin:22px 0 0;}
   .hero h1 .line2{display:block;color:var(--primary);}
@@ -455,7 +459,10 @@
     .hero::after{background:linear-gradient(180deg,rgba(6,12,22,0.6) 0%,rgba(6,12,22,0.8) 55%,rgba(6,12,22,0.92) 100%);}
     .hero-grid{grid-template-columns:1fr;gap:30px;text-align:center;}
     .hero .lede{margin-left:auto;margin-right:auto;}
-    .hero-cta{justify-content:center;}
+    /* Keep "Download on App Store" and "See How It Works" SIDE BY SIDE on mobile
+       (equal width, wrapping their own text instead of stacking). */
+    .hero-cta{justify-content:center;flex-wrap:nowrap;gap:10px;}
+    .hero-cta .btn{flex:1;min-width:0;white-space:normal;padding:13px 12px;font-size:13px;line-height:1.2;}
     .hero-meta{justify-content:center;text-align:center;}
     .hero .pill{margin:0 auto;}
     .stats-in{grid-template-columns:1fr 1fr;gap:22px 16px;padding:26px 0;}
@@ -927,8 +934,10 @@
     if(c) c.addEventListener('animationend', reset, { once:true });
     setTimeout(reset, 900);
   }}catch(e){} })();
-  function rmStart(){ rmGoLogin(); }
-  function rmSignIn(){ rmGoLogin(); }
+  // Get Started / Join realmate → the Create Account page (login page opens its
+  // register modal via the rm_show_register flag). Sign In → the Login page.
+  function rmStart(){ try{ sessionStorage.setItem('rm_show_register','1'); }catch(e){} rmGoLogin(); }
+  function rmSignIn(){ try{ sessionStorage.removeItem('rm_show_register'); }catch(e){} rmGoLogin(); }
 
   // App-store download badges. Fill these in with the real listing URLs once the
   // apps are published; until then a click shows a "coming soon" note.

@@ -409,5 +409,15 @@
 <script src="native-auth.js?v=2"></script>
 <script src="vendor/supabase-js.min.js?v=2.112.3"></script>
 <script src="script.js?v=20260914b"></script>
+<script>
+  // Arrived from marketing's "Get Started" / "Join realmate": open the Create Account
+  // modal directly. (Sign In leaves this flag unset and simply shows the login form.)
+  try {
+    if (sessionStorage.getItem('rm_show_register')) {
+      sessionStorage.removeItem('rm_show_register');
+      if (typeof openRegister === 'function') openRegister();
+    }
+  } catch (e) {}
+</script>
 </body>
 </html>
