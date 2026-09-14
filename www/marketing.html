@@ -4,6 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#060c16">
+<script>
+  // Arrived here from the login page's Back button: start under the dark curtain
+  // (set synchronously, before paint) so this page is revealed by lifting it — the
+  // same transition as marketing->login, in reverse. See #rmLeaveCover.
+  try{ if(sessionStorage.getItem('rm_from_login')){ sessionStorage.removeItem('rm_from_login'); document.documentElement.classList.add('rm-arriving'); } }catch(e){}
+</script>
 <title>realmate — AI Matches. Real Opportunities.</title>
 <meta name="description" content="realmate is a private AI matching platform built for real estate sales professionals. Post a listing and instantly connect with the right buyers, sellers, and partners in real time. Currently available exclusively to verified members of the Alveo sales community. realmate is independent and not affiliated with Alveo Land Corp. or Ayala Land, Inc.">
 <link rel="icon" href="images/realmate2.png">
@@ -27,8 +33,10 @@
      fading this long image-heavy page out. */
   #rmLeaveCover{ position:fixed; inset:0; z-index:99999; background:#080f1a;
     pointer-events:none; opacity:0; visibility:hidden; transition:opacity .24s ease; }
-  body.rm-leaving #rmLeaveCover{ visibility:visible; opacity:1; }
-  @media (prefers-reduced-motion: reduce){ #rmLeaveCover{ transition:none; } }
+  body.rm-leaving #rmLeaveCover{ visibility:visible; opacity:1; }           /* leave to login: drop */
+  html.rm-arriving #rmLeaveCover{ visibility:visible; animation: rmLift .5s ease forwards; } /* arrive from login: lift */
+  @keyframes rmLift{ from{ opacity:1; } to{ opacity:0; } }
+  @media (prefers-reduced-motion: reduce){ #rmLeaveCover{ transition:none; } html.rm-arriving #rmLeaveCover{ animation-duration:.01ms; } }
   body{
     margin:0; font-family:'Inter',sans-serif; color:var(--text);
     background:var(--bg); line-height:1.6; overflow-x:hidden;
@@ -907,12 +915,24 @@
     var go = function(){ window.location.href = 'index.html'; };
     try {
       var cover = document.getElementById('rmLeaveCover');
+      // If we arrived under the lift animation, clear it so the drop transition runs.
+      document.documentElement.classList.remove('rm-arriving');
+      if (cover){ cover.style.animation='none'; cover.style.opacity=''; cover.style.visibility=''; void cover.offsetWidth; }
       document.body.classList.add('rm-leaving'); // fades the dark curtain in
       var done = false, nav = function(){ if (done) return; done = true; go(); };
       if (cover) cover.addEventListener('transitionend', nav, { once:true });
       setTimeout(nav, 300); // fallback if transitionend doesn't fire
     } catch (e) { go(); }
   }
+  // Arrived from login Back under the curtain: after it lifts, reset to base so a
+  // later leave (Sign In) drops cleanly. Safety timeout force-lifts it.
+  (function(){ try{ if(document.documentElement.classList.contains('rm-arriving')){
+    var c=document.getElementById('rmLeaveCover');
+    var reset=function(){ document.documentElement.classList.remove('rm-arriving');
+      if(c){ c.style.animation='none'; c.style.opacity=''; c.style.visibility=''; } };
+    if(c) c.addEventListener('animationend', reset, { once:true });
+    setTimeout(reset, 900);
+  }}catch(e){} })();
   function rmStart(){ rmGoLogin(); }
   function rmSignIn(){ rmGoLogin(); }
 

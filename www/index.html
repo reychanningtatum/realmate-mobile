@@ -89,10 +89,11 @@
      fades up out of the dark. The login content itself never animates (always
      opacity 1), so it can't be stranded invisible; only the curtain fades. */
   #rmEnterCover{ position:fixed; inset:0; z-index:9998; background:#080f1a;
-    pointer-events:none; opacity:0; visibility:hidden; }
-  html.rm-enter #rmEnterCover{ visibility:visible; animation: rmCurtainUp .5s ease forwards; }
+    pointer-events:none; opacity:0; visibility:hidden; transition:opacity .24s ease; }
+  html.rm-enter #rmEnterCover{ visibility:visible; animation: rmCurtainUp .5s ease forwards; } /* arrive: lift */
+  body.rm-leaving #rmEnterCover{ visibility:visible; opacity:1; }                              /* Back: drop */
   @keyframes rmCurtainUp{ from{ opacity:1; } to{ opacity:0; } }
-  @media (prefers-reduced-motion: reduce){ html.rm-enter #rmEnterCover{ animation-duration:.01ms; } }
+  @media (prefers-reduced-motion: reduce){ #rmEnterCover{ transition:none; } html.rm-enter #rmEnterCover{ animation-duration:.01ms; } }
   </style>
   <link rel="stylesheet" href="vendor/fontawesome/css/all.min.css?v=6.5.0">
   <link rel="stylesheet" href="vendor/googlefonts/fonts.css?v=1">
@@ -112,13 +113,34 @@
      to reveal it when arriving from marketing (html.rm-enter). -->
 <div id="rmEnterCover" aria-hidden="true"></div>
 <script>
-  // Safety: always remove the curtain shortly after load so it can never get stuck
-  // covering the login (e.g. if the fade animation doesn't run). The CSS animation
-  // normally fades it out well before this fires.
+  // Arrived from marketing under the curtain: after it lifts, reset it to base so a
+  // later Back (drop) runs cleanly. Safety timeout force-lifts it so it can never
+  // get stuck covering the login if the animation doesn't run.
   (function(){ try{ if(document.documentElement.classList.contains('rm-enter')){
-    setTimeout(function(){ var c=document.getElementById('rmEnterCover');
-      if(c){ c.style.animation='none'; c.style.opacity='0'; c.style.visibility='hidden'; } }, 900);
+    var c=document.getElementById('rmEnterCover');
+    var reset=function(){ document.documentElement.classList.remove('rm-enter');
+      if(c){ c.style.animation='none'; c.style.opacity=''; c.style.visibility=''; } };
+    if(c) c.addEventListener('animationend', reset, { once:true });
+    setTimeout(reset, 900);
   }}catch(e){} })();
+  // Back to marketing: drop the same dark curtain over the login, then navigate —
+  // marketing.html starts under the matching curtain and lifts it. Same transition
+  // as marketing->login, reversed.
+  function rmGoMarketing(e){
+    if(e && e.preventDefault) e.preventDefault();
+    try{ sessionStorage.setItem('rm_from_login','1'); }catch(_){}
+    var go=function(){ window.location.href='marketing.html'; };
+    try{
+      var c=document.getElementById('rmEnterCover');
+      document.documentElement.classList.remove('rm-enter');
+      if(c){ c.style.animation='none'; c.style.opacity=''; c.style.visibility=''; void c.offsetWidth; }
+      document.body.classList.add('rm-leaving');
+      var done=false, nav=function(){ if(done)return; done=true; go(); };
+      if(c) c.addEventListener('transitionend', nav, { once:true });
+      setTimeout(nav, 320);
+    }catch(_){ go(); }
+    return false;
+  }
 </script>
 
 <!-- Branded boot splash: shown only while html.rm-autologin is set (the async
@@ -142,7 +164,7 @@
   .rm-back-home i{font-size:12px;color:#32cd32;}
   @media(max-width:600px){ .rm-back-home span{display:none;} .rm-back-home{padding:10px 12px;} }
 </style>
-<a href="marketing.html" class="rm-back-home" aria-label="Back to overview"><i class="fas fa-arrow-left"></i><span>Back</span></a>
+<a href="marketing.html" class="rm-back-home" aria-label="Back to overview" onclick="return rmGoMarketing(event)"><i class="fas fa-arrow-left"></i><span>Back</span></a>
 
 <div class="app-main">
     <div class="left-panel">
