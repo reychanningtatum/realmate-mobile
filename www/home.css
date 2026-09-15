@@ -1006,6 +1006,28 @@ html[data-theme="dark"] .privacy-option:hover { background: #243044; }
   display: flex; align-items: center; justify-content: center;
 }
 
+/* Multi-photo horizontal strip — album OR a regular multi-picture post.
+   Swipe/scroll sideways through EVERY photo (no 4-photo cap). Each slide is
+   ~full width and snaps one per swipe, with a small peek of the next photo so
+   it's obvious there are more. The scrollbar is hidden for a clean look; the
+   strip stays scrollable by touch (mobile) and trackpad/drag (desktop). */
+.hf-img-scroll {
+  display: flex; gap: 4px;
+  overflow-x: auto; overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+}
+.hf-img-scroll::-webkit-scrollbar { display: none; }
+.hf-img-slide {
+  flex: 0 0 92%; scroll-snap-align: start;
+  position: relative; height: 340px; overflow: hidden; cursor: pointer;
+}
+.hf-img-slide img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.hf-img-slide:hover img { opacity: 0.92; }
+@media (max-width: 600px) { .hf-img-slide { height: 300px; } }
+
 /* Stats meta (comment + share counters, right-aligned) */
 .hf-stats-meta { margin-left: auto; display: inline-flex; align-items: center; gap: 12px; }
 
@@ -1205,6 +1227,11 @@ html[data-theme="dark"] .hf-poll-opt:not(.voted):hover { background: #161f36; }
 .hf-shared-embed .hf-post-media { margin: 8px 0 0; }
 .hf-shared-embed .hf-post-media img,
 .hf-shared-embed .hf-post-media video { max-height: 260px; border-radius: 8px; }
+/* Inside a reshared post the strip is shorter; let its slide images fill the
+   slide height instead of being capped by the 260px rule above (equal
+   specificity, so this later rule wins). */
+.hf-shared-embed .hf-img-slide { height: 220px; }
+.hf-shared-embed .hf-img-slide img { max-height: none; border-radius: 0; }
 
 /* Save button state */
 .hf-action-btn.saved { color: var(--primary); }

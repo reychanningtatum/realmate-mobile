@@ -1197,13 +1197,17 @@ function buildPostMedia(post) {
         </div>`;
     }
 
-    const gridCls = imgs.length === 2 ? 'grid-2' : imgs.length === 3 ? 'grid-3' : 'grid-4';
-    const shown = imgs.slice(0, 4);
-    return `<div class="hf-post-media hf-img-grid ${gridCls}">
-        ${shown.map((u, i) => `<div class="hf-img-cell" onclick="openHomeImgLightbox('${u}')">
-            <img loading="lazy" decoding="async" src="${u}">
-            ${i === 3 && imgs.length > 4 ? `<span class="hf-img-more">+${imgs.length - 4}</span>` : ''}
-        </div>`).join('')}
+    // Multiple photos — whether an ALBUM or a regular post with several pictures —
+    // render every one in a horizontal, swipeable strip (scroll sideways). This
+    // replaces the old capped 2×2 grid + "+N" overlay, which hid every photo past
+    // the 4th. Each slide is ~full width so it snaps one-per-swipe with a peek of
+    // the next; tapping a photo still opens the lightbox.
+    return `<div class="hf-post-media">
+        <div class="hf-img-scroll">
+            ${imgs.map(u => `<div class="hf-img-slide" onclick="openHomeImgLightbox('${u}')">
+                <img loading="lazy" decoding="async" src="${u}">
+            </div>`).join('')}
+        </div>
     </div>`;
 }
 
