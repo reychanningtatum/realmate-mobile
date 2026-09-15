@@ -1006,27 +1006,63 @@ html[data-theme="dark"] .privacy-option:hover { background: #243044; }
   display: flex; align-items: center; justify-content: center;
 }
 
-/* Multi-photo horizontal strip — album OR a regular multi-picture post.
-   Swipe/scroll sideways through EVERY photo (no 4-photo cap). Each slide is
-   ~full width and snaps one per swipe, with a small peek of the next photo so
-   it's obvious there are more. The scrollbar is hidden for a clean look; the
-   strip stays scrollable by touch (mobile) and trackpad/drag (desktop). */
-.hf-img-scroll {
-  display: flex; gap: 4px;
+/* Full-screen image viewer (opened by tapping a Feed photo). Swipe/scroll
+   sideways through every photo in the post. */
+.hf-viewer { position: fixed; inset: 0; z-index: 100000; background: rgba(0,0,0,0.94); }
+.hf-viewer-track {
+  display: flex; height: 100%;
   overflow-x: auto; overflow-y: hidden;
   scroll-snap-type: x mandatory;
   -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-  overscroll-behavior-x: contain;
+  scrollbar-width: none; overscroll-behavior: contain;
 }
-.hf-img-scroll::-webkit-scrollbar { display: none; }
-.hf-img-slide {
-  flex: 0 0 92%; scroll-snap-align: start;
-  position: relative; height: 340px; overflow: hidden; cursor: pointer;
+.hf-viewer-track::-webkit-scrollbar { display: none; }
+.hf-viewer-slide {
+  flex: 0 0 100%; height: 100%; scroll-snap-align: center;
+  display: flex; align-items: center; justify-content: center;
 }
-.hf-img-slide img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.hf-img-slide:hover img { opacity: 0.92; }
-@media (max-width: 600px) { .hf-img-slide { height: 300px; } }
+.hf-viewer-slide img {
+  max-width: 100vw; max-height: 100vh; object-fit: contain;
+  user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+}
+.hf-viewer-close {
+  position: fixed; top: 12px; right: 14px; z-index: 2;
+  width: 40px; height: 40px; border-radius: 50%; border: none;
+  background: rgba(0,0,0,0.5); color: #fff; font-size: 18px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.hf-viewer-nav {
+  position: fixed; top: 50%; transform: translateY(-50%); z-index: 2;
+  width: 42px; height: 42px; border-radius: 50%; border: none;
+  background: rgba(0,0,0,0.42); color: #fff; font-size: 18px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.hf-viewer-nav.prev { left: 12px; }
+.hf-viewer-nav.next { right: 12px; }
+.hf-viewer-count {
+  position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); z-index: 2;
+  color: #fff; font-size: 13px; font-weight: 600; letter-spacing: .3px;
+  background: rgba(0,0,0,0.5); padding: 5px 12px; border-radius: 14px;
+}
+/* Touch phones don't hover; hide the desktop arrows there (swipe is the gesture). */
+@media (hover: none) { .hf-viewer-nav { display: none; } }
+
+/* Long-press "Save Image" sheet (mobile) */
+.hf-save-sheet {
+  position: fixed; inset: 0; z-index: 100001;
+  background: rgba(0,0,0,0.4); display: flex; align-items: flex-end; justify-content: center;
+  padding: 14px;
+}
+.hf-save-card {
+  width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: 8px;
+}
+.hf-save-opt {
+  width: 100%; padding: 15px; border: none; border-radius: 14px;
+  background: #fff; color: #0f172a; font-size: 16px; font-weight: 600; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+}
+.hf-save-opt i { color: var(--primary, #32cd32); }
+.hf-save-opt.cancel { color: #ef4444; font-weight: 700; }
 
 /* Stats meta (comment + share counters, right-aligned) */
 .hf-stats-meta { margin-left: auto; display: inline-flex; align-items: center; gap: 12px; }
@@ -1227,11 +1263,6 @@ html[data-theme="dark"] .hf-poll-opt:not(.voted):hover { background: #161f36; }
 .hf-shared-embed .hf-post-media { margin: 8px 0 0; }
 .hf-shared-embed .hf-post-media img,
 .hf-shared-embed .hf-post-media video { max-height: 260px; border-radius: 8px; }
-/* Inside a reshared post the strip is shorter; let its slide images fill the
-   slide height instead of being capped by the 260px rule above (equal
-   specificity, so this later rule wins). */
-.hf-shared-embed .hf-img-slide { height: 220px; }
-.hf-shared-embed .hf-img-slide img { max-height: none; border-radius: 0; }
 
 /* Save button state */
 .hf-action-btn.saved { color: var(--primary); }

@@ -1190,24 +1190,28 @@ function buildPostMedia(post) {
         : (post.media_url ? [post.media_url] : []);
     if (!imgs.length) return '';
 
+    // Stash the FULL image list on the media container so a tap can open the
+    // viewer at the right photo and swipe through EVERY one — including any hidden
+    // behind the collage's "+N". Escaped for the HTML attribute.
+    const imgsAttr = JSON.stringify(imgs).replace(/"/g, '&quot;');
+
     if (imgs.length === 1) {
-        return `<div class="hf-post-media">
+        return `<div class="hf-post-media" data-imgs="${imgsAttr}">
             <img loading="lazy" decoding="async" src="${imgs[0]}" style="width:100%;border-radius:12px;max-height:500px;object-fit:cover;cursor:pointer;"
-                onclick="openHomeImgLightbox('${imgs[0]}')">
+                onclick="openHomeImgViewer(this,0)">
         </div>`;
     }
 
-    // Multiple photos — whether an ALBUM or a regular post with several pictures —
-    // render every one in a horizontal, swipeable strip (scroll sideways). This
-    // replaces the old capped 2×2 grid + "+N" overlay, which hid every photo past
-    // the 4th. Each slide is ~full width so it snaps one-per-swipe with a peek of
-    // the next; tapping a photo still opens the lightbox.
-    return `<div class="hf-post-media">
-        <div class="hf-img-scroll">
-            ${imgs.map(u => `<div class="hf-img-slide" onclick="openHomeImgLightbox('${u}')">
-                <img loading="lazy" decoding="async" src="${u}">
-            </div>`).join('')}
-        </div>
+    // Multiple photos (album OR a regular multi-picture post): keep the default
+    // collage grid ON the post. Tapping any tile opens the image viewer, which is
+    // where the user swipes sideways through ALL photos in the post.
+    const gridCls = imgs.length === 2 ? 'grid-2' : imgs.length === 3 ? 'grid-3' : 'grid-4';
+    const shown = imgs.slice(0, 4);
+    return `<div class="hf-post-media hf-img-grid ${gridCls}" data-imgs="${imgsAttr}">
+        ${shown.map((u, i) => `<div class="hf-img-cell" onclick="openHomeImgViewer(this,${i})">
+            <img loading="lazy" decoding="async" src="${u}">
+            ${i === 3 && imgs.length > 4 ? `<span class="hf-img-more">+${imgs.length - 4}</span>` : ''}
+        </div>`).join('')}
     </div>`;
 }
 
@@ -2318,12 +2322,158 @@ async function submitHomeComment(postId) {
 }
 
 // ── Simple image lightbox for home feed ──────────
-function openHomeImgLightbox(src) {
+// Image viewer: a full-screen overlay that shows one photo at a time and lets the
+// user swipe/scroll SIDEWAYS through every photo in the post (albums and regular
+// multi-photo posts alike). Works on desktop (arrows / ← → / trackpad) and mobile
+// (native horizontal swipe). On touch devices, a long-press on the photo offers
+// "Save Image". `arg` may be an <img>/tile element (reads the post's data-imgs
+// list) or a URL string / array (used for single images like comment photos).
+function openHomeImgViewer(arg, index) {
+    let imgs;
+    if (typeof arg === 'string') imgs = [arg];
+    else if (Array.isArray(arg)) imgs = arg.slice();
+    else if (arg && arg.closest) {
+        const wrap = arg.closest('[data-imgs]');
+        try { imgs = wrap ? JSON.parse(wrap.getAttribute('data-imgs')) : null; } catch (e) { imgs = null; }
+        if (!imgs || !imgs.length) { const im = arg.tagName === 'IMG' ? arg : arg.querySelector('img'); imgs = im ? [im.src] : []; }
+    } else imgs = [];
+    imgs = (imgs || []).filter(Boolean);
+    if (!imgs.length) return;
+    let cur = Math.max(0, Math.min(index | 0, imgs.length - 1));
+    const multi = imgs.length > 1;
+
     const lb = document.createElement('div');
-    lb.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:99999;display:flex;align-items:center;justify-content:center;cursor:zoom-out;';
-    lb.innerHTML = `<img loading="lazy" decoding="async" src="${src}" style="max-width:92vw;max-height:90vh;object-fit:contain;border-radius:10px;">`;
-    lb.addEventListener('click', () => lb.remove());
+    lb.className = 'hf-viewer';
+    lb.innerHTML =
+        '<div class="hf-viewer-track">' +
+            imgs.map(u => `<div class="hf-viewer-slide"><img decoding="async" src="${u}" draggable="false"></div>`).join('') +
+        '</div>' +
+        '<button class="hf-viewer-close" aria-label="Close"><i class="fas fa-times"></i></button>' +
+        (multi
+            ? '<button class="hf-viewer-nav prev" aria-label="Previous photo"><i class="fas fa-chevron-left"></i></button>' +
+              '<button class="hf-viewer-nav next" aria-label="Next photo"><i class="fas fa-chevron-right"></i></button>' +
+              '<div class="hf-viewer-count"></div>'
+            : '');
     document.body.appendChild(lb);
+
+    const track = lb.querySelector('.hf-viewer-track');
+    const slides = lb.querySelectorAll('.hf-viewer-slide');
+    const countEl = lb.querySelector('.hf-viewer-count');
+    const updateCount = () => { if (countEl) countEl.textContent = (cur + 1) + ' / ' + imgs.length; };
+
+    // Move to photo i. scrollIntoView reads the REAL layout, so it lands on the
+    // right photo whatever the viewport width is (a plain cur*clientWidth can land
+    // between snap points if the width isn't final yet, then snap to the wrong
+    // photo). The "settling" window stops the resulting programmatic scroll from
+    // being read back as a user swipe (which would corrupt the index/counter).
+    let settling = false, settleTimer = null;
+    const snapTo = (i, smooth) => {
+        cur = Math.max(0, Math.min(i, imgs.length - 1));
+        settling = true;
+        try { slides[cur].scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', inline: 'center', block: 'nearest' }); }
+        catch (e) { track.scrollLeft = cur * track.clientWidth; }
+        updateCount();
+        clearTimeout(settleTimer);
+        settleTimer = setTimeout(() => { settling = false; }, smooth ? 450 : 220);
+    };
+    const go = (i) => snapTo(i, true);
+
+    // Land on the tapped photo. Double rAF so layout is final before we measure.
+    requestAnimationFrame(() => requestAnimationFrame(() => snapTo(cur, false)));
+
+    // Keep the counter in sync as the user swipes/scrolls (ignored while a
+    // programmatic move is still settling).
+    let raf = null;
+    track.addEventListener('scroll', () => {
+        if (settling || raf) return;
+        raf = requestAnimationFrame(() => { raf = null; const i = Math.round(track.scrollLeft / track.clientWidth); if (i !== cur) { cur = i; updateCount(); } });
+    }, { passive: true });
+
+    const close = () => { document.removeEventListener('keydown', onKey); window.removeEventListener('resize', onResize); lb.remove(); };
+    const onKey = (e) => { if (e.key === 'Escape') close(); else if (multi && e.key === 'ArrowLeft') go(cur - 1); else if (multi && e.key === 'ArrowRight') go(cur + 1); };
+    const onResize = () => { if (!document.body.contains(lb)) { window.removeEventListener('resize', onResize); return; } snapTo(cur, false); };
+    document.addEventListener('keydown', onKey);
+    window.addEventListener('resize', onResize);
+
+    lb.querySelector('.hf-viewer-close').addEventListener('click', (e) => { e.stopPropagation(); close(); });
+    // Tapping the dark letterbox (not the photo itself) closes — leaves the photo
+    // free for a long-press without dismissing the viewer.
+    track.addEventListener('click', (e) => { if (e.target === track || (e.target.classList && e.target.classList.contains('hf-viewer-slide'))) close(); });
+    if (multi) {
+        lb.querySelector('.hf-viewer-nav.prev').addEventListener('click', (e) => { e.stopPropagation(); go(cur - 1); });
+        lb.querySelector('.hf-viewer-nav.next').addEventListener('click', (e) => { e.stopPropagation(); go(cur + 1); });
+    }
+
+    // Long-press the photo (touch only) → "Save Image".
+    _hfAttachLongPressSave(track, () => imgs[cur]);
+}
+// Back-compat: single-image callers (e.g. comment photos) still open the viewer.
+function openHomeImgLightbox(src) { openHomeImgViewer(src, 0); }
+
+// Long-press-to-save on touch devices. A steady press (no scroll) on the photo
+// opens a small sheet with "Save Image". We never hijack a swipe: any finger
+// movement cancels the press so horizontal navigation stays smooth.
+function _hfAttachLongPressSave(root, getUrl) {
+    if (!('ontouchstart' in window)) return;   // desktop keeps the native right-click "Save image as"
+    let timer = null, sx = 0, sy = 0;
+    const cancel = () => { if (timer) { clearTimeout(timer); timer = null; } };
+    root.addEventListener('touchstart', (e) => {
+        const t = e.target;
+        if (!t || t.tagName !== 'IMG') return;   // only over the actual photo
+        sx = e.touches[0].clientX; sy = e.touches[0].clientY;
+        cancel();
+        timer = setTimeout(() => { timer = null; _hfShowSaveSheet(getUrl()); }, 500);
+    }, { passive: true });
+    root.addEventListener('touchmove', (e) => {
+        if (Math.abs(e.touches[0].clientX - sx) > 8 || Math.abs(e.touches[0].clientY - sy) > 8) cancel();
+    }, { passive: true });
+    root.addEventListener('touchend', cancel, { passive: true });
+    root.addEventListener('touchcancel', cancel, { passive: true });
+}
+
+function _hfShowSaveSheet(url) {
+    if (!url) return;
+    const sheet = document.createElement('div');
+    sheet.className = 'hf-save-sheet';
+    sheet.innerHTML =
+        '<div class="hf-save-card">' +
+            '<button class="hf-save-opt" data-act="save"><i class="fas fa-download"></i> Save Image</button>' +
+            '<button class="hf-save-opt cancel" data-act="cancel">Cancel</button>' +
+        '</div>';
+    document.body.appendChild(sheet);
+    const done = () => sheet.remove();
+    sheet.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-act]');
+        if (!b) { if (e.target === sheet) done(); return; }
+        if (b.dataset.act === 'save') _hfSaveImage(url);   // runs inside this tap = keeps user activation for share/download
+        done();
+    });
+}
+
+async function _hfSaveImage(url) {
+    let blob = null;
+    const name = (() => { let n = (url.split('/').pop() || 'realmate-photo').split('?')[0]; return /\.(jpe?g|png|webp|gif)$/i.test(n) ? n : n + '.jpg'; })();
+    try { blob = await (await fetch(url, { mode: 'cors' })).blob(); } catch (e) { blob = null; }
+    if (blob) {
+        // Best path on the phone: the native share sheet (iOS shows "Save Image" →
+        // Photos). Needs no plugin; falls back to a direct download on desktop/Android.
+        try {
+            const file = new File([blob], name, { type: blob.type || 'image/jpeg' });
+            if (navigator.canShare && navigator.canShare({ files: [file] }) && navigator.share) {
+                try { await navigator.share({ files: [file] }); } catch (err) { /* user cancelled — do nothing */ }
+                return;
+            }
+            const u = URL.createObjectURL(blob);
+            const a = document.createElement('a'); a.href = u; a.download = name;
+            document.body.appendChild(a); a.click(); a.remove();
+            setTimeout(() => URL.revokeObjectURL(u), 4000);
+            if (window.showToast) showToast('Image saved.', 'success');
+            return;
+        } catch (e) { /* fall through */ }
+    }
+    // Last resort (CORS-blocked fetch, or downloads unsupported): open the image so
+    // the OS long-press "Save to Photos" is available.
+    try { window.open(url, '_blank'); } catch (e) {}
 }
 
 // ══════════════════════════════════════════════════
