@@ -95,6 +95,18 @@ function lmOpenListing(id) {
     var raw = null;
     try { raw = sessionStorage.getItem('lmReturnScroll'); sessionStorage.removeItem('lmReturnScroll'); } catch (e) { return; }
     if (!raw) return;
+    // Only restore when we genuinely came BACK from a listing detail. A stash can
+    // survive an unrelated detour — open a listing (stash set), wander to Feed /
+    // Saved, then click Portal again: that fresh load must NOT inherit the old
+    // position. Consuming it there made the 4s re-assert loop below yank the page
+    // to a stale scroll and fight the user (the desktop "bounce / laggy" scrolling
+    // down from Saved → Portal). The stash is already removed above, so it can't
+    // leak to a later load either; we just don't ACT on it unless the referrer is
+    // the listing detail (a real return).
+    try {
+        var _ref = document.referrer || '';
+        if (_ref.indexOf('listing-detail.html') === -1) return;
+    } catch (e) { return; }
     var data; try { data = JSON.parse(raw); } catch (e) { return; }
     if (!data || !data.y || (Date.now() - (data.t || 0)) > 300000) return;  // only a recent round-trip
     var y = data.y, start = Date.now();
