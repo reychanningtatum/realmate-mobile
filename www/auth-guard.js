@@ -163,6 +163,19 @@ function goBack() {
         console.warn("[AuthGuard] Registration status check error:", e.message);
     }
 
+    // ── iOS push notifications (Phase 1) ────────────────────────────────────
+    // Register this device for APNs against the authenticated user. Only in the
+    // TOP-LEVEL shell (never inside a tab iframe, to avoid duplicate registrations),
+    // only on native, and fully best-effort — a failure here can never affect auth
+    // or any feature. No-op on the web / when the push plugin is absent.
+    try {
+        var _rmTopShell = false;
+        try { _rmTopShell = (window.self === window.top); } catch (e) { _rmTopShell = true; }
+        if (_rmTopShell && window.rmPush && window.rmPush.isNative && session && session.access_token) {
+            window.rmPush.register(session.user.id, session.access_token);
+        }
+    } catch (e) {}
+
     // Session exists — sync user profile into localStorage
     try {
         const storedUser = JSON.parse(localStorage.getItem("user")) || {};
