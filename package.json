@@ -15,6 +15,7 @@
     "@capacitor/core": "^7.0.0",
     "@capacitor/ios": "^7.6.8",
     "@capacitor/preferences": "^7.0.4",
+    "@capacitor/push-notifications": "^7.0.0",
     "@capacitor/status-bar": "^7.0.6",
     "@capgo/capacitor-native-biometric": "^7.6.0"
   }

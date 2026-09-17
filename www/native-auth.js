@@ -115,4 +115,59 @@
       try { if (Pref) await Pref.remove({ key: BIO_HASCREDS_KEY }); } catch (e) {}
     }
   };
+
+  // ── iOS push notifications (APNs) registration ──────────────────────────
+  // Phase 1 of the central push system: after auth is confirmed, ask the OS for
+  // notification permission, register with APNs, and hand the resulting device
+  // token to the push-register Edge Function (which stores it against the signed-in
+  // user via the caller's JWT — no PII, only the opaque token). Pure no-op on web,
+  // when the plugin is missing, or when the user denies permission. It NEVER blocks
+  // or affects auth or any existing feature — fully best-effort, all errors swallowed.
+  var PUSH_REGISTER_URL = 'https://wmegpgrfrtprhuzmgjma.supabase.co/functions/v1/push-register';
+  var PUSH_APIKEY = 'sb_publishable_Rm_fIBDUfu3DEyLj0_bWZw_qEqo8cd4';
+  var _pushWired = false;   // add the plugin listeners only once per app launch
+  var _pushToken = null;    // last APNs token seen this launch
+  var _pushAuth = null;     // last known access token, so a late 'registration' event can still post
+  function _postPushToken(token) {
+    if (!token || !_pushAuth) return;
+    try {
+      fetch(PUSH_REGISTER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'apikey': PUSH_APIKEY, 'Authorization': 'Bearer ' + _pushAuth },
+        body: JSON.stringify({ token: token, platform: 'ios' })
+      }).catch(function () {});
+    } catch (e) {}
+  }
+  window.rmPush = {
+    isNative: isNative,
+    // Call after auth: (userId used only as a presence guard; the token is bound
+    // to the user server-side via accessToken). Safe to call on every shell load.
+    register: async function (userId, accessToken) {
+      var P = plugin('PushNotifications');
+      if (!isNative || !P || !userId || !accessToken) return;
+      _pushAuth = accessToken;
+      try {
+        var perm = null;
+        try { perm = await P.checkPermissions(); } catch (e) {}
+        if (!perm || perm.receive === 'prompt' || perm.receive === 'prompt-with-rationale') {
+          try { perm = await P.requestPermissions(); } catch (e) {}
+        }
+        if (!perm || perm.receive !== 'granted') return;   // respect the user's choice; try again next launch
+
+        if (!_pushWired) {
+          _pushWired = true;
+          try {
+            P.addListener('registration', function (t) {
+              _pushToken = (t && t.value) || null;
+              _postPushToken(_pushToken);
+            });
+          } catch (e) {}
+          try { P.addListener('registrationError', function () {}); } catch (e) {}
+        }
+        try { await P.register(); } catch (e) {}
+        // If a token already arrived earlier this launch, (re)send with the fresh token.
+        if (_pushToken) _postPushToken(_pushToken);
+      } catch (e) {}
+    }
+  };
 })();

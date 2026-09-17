@@ -133,6 +133,31 @@ workflows:
           sed -i '' 's/TARGETED_DEVICE_FAMILY = 1,2;/TARGETED_DEVICE_FAMILY = 1;/g' "$PBXPROJ"
           echo "TARGETED_DEVICE_FAMILY after patch:"
           grep -n "TARGETED_DEVICE_FAMILY" "$PBXPROJ" || true
+      - name: Enable Push Notifications capability (aps-environment entitlement)
+        # Push config, like Info.plist above, is injected at build time because ios/
+        # is regenerated each build (never hand-committed). Writes the App.entitlements
+        # file with the APNs entitlement and points the App target's build configs at
+        # it. REQUIRES the App ID (com.realmate.app) to have "Push Notifications"
+        # enabled in the Apple Developer portal, so the profile fetched by the next
+        # step includes the `aps` capability — otherwise code-signing will fail.
+        # 'production' is the correct aps-environment for App Store / TestFlight builds.
+        script: |
+          ENT=ios/App/App/App.entitlements
+          {
+            echo '<?xml version="1.0" encoding="UTF-8"?>'
+            echo '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">'
+            echo '<plist version="1.0">'
+            echo '<dict>'
+            echo '  <key>aps-environment</key>'
+            echo '  <string>production</string>'
+            echo '</dict>'
+            echo '</plist>'
+          } > "$ENT"
+          # Point the App target at the entitlements file. The 'xcodeproj' gem ships
+          # with CocoaPods (already installed on the CI image); install defensively.
+          gem list -i xcodeproj >/dev/null 2>&1 || sudo gem install xcodeproj --no-document
+          ruby -e "require 'xcodeproj'; p=Xcodeproj::Project.open('ios/App/App.xcodeproj'); t=p.targets.find{|x| x.name=='App'}; raise 'App target not found' unless t; t.build_configurations.each{|c| c.build_settings['CODE_SIGN_ENTITLEMENTS']='App/App.entitlements'}; p.save; puts 'CODE_SIGN_ENTITLEMENTS set for App target'"
+          echo "Entitlements written:"; cat "$ENT"
       - name: Apply App Store signing profiles fetched via the integration
         # Pulls/creates the distribution cert + provisioning profile (team RYT2TFV64G)
         # using the App Store Connect API key, then writes them into the Xcode project.
