@@ -1697,14 +1697,21 @@ window.addEventListener('storage', function (e) {
 
 // ── Reactions (Like / Love / Celebrate / Insightful / Helpful) ──
 const _reactHideTimers = {};
+// Posts where the user JUST removed their reaction: don't resurface the picker
+// (the emoji "suggestions") while the pointer is still on the button — the intent
+// was to remove, not to pick another. One-shot: cleared when the pointer leaves,
+// so a later deliberate hover still opens it normally.
+const _reactPickerSuppressed = {};
 
 function showReactPicker(postId) {
+    if (_reactPickerSuppressed[postId]) return;   // just unreacted — keep suggestions hidden
     clearTimeout(_reactHideTimers[postId]);
     const picker = document.getElementById(`hfpicker-${postId}`);
     if (picker) picker.classList.add('open');
 }
 function scheduleHideReactPicker(postId) {
     clearTimeout(_reactHideTimers[postId]);
+    delete _reactPickerSuppressed[postId];        // pointer left → clear the one-shot suppression
     _reactHideTimers[postId] = setTimeout(() => {
         document.getElementById(`hfpicker-${postId}`)?.classList.remove('open');
     }, 260);
@@ -1830,6 +1837,16 @@ function setReaction(postId, type) {
 async function applyReaction(postId, type) {
     const user = getUser();
     if (!user) { (window.showToast || alert)('Sign in to react.', 'error'); return; }
+
+    // Removing a reaction (unlike): the user's intent is to clear it, so close the
+    // reaction picker and suppress it from re-opening while the pointer is still on
+    // the button — no "suggestions" should pop up after an unlike. The suppression
+    // clears on the next pointer-leave (scheduleHideReactPicker), so a later
+    // deliberate hover still shows the picker.
+    if (!type) {
+        _reactPickerSuppressed[postId] = true;
+        document.getElementById(`hfpicker-${postId}`)?.classList.remove('open');
+    }
 
     // Optimistic UI: show the picked reaction on the button IMMEDIATELY so the
     // selected emoji appears the instant the finger releases — the DB writes
