@@ -1712,8 +1712,19 @@ function _isTouchNoHover() {
 }
 
 function showReactPicker(postId, force) {
-    if (_reactPickerSuppressed[postId]) return;   // just unreacted — keep suggestions hidden
-    if (!force && _isTouchNoHover()) return;       // tap on a phone → plain Like, no picker
+    // A long-press (force) must ALWAYS open the picker — even right after an unlike.
+    // It also CLEARS the one-shot unlike-suppression: on touch there is no mouseleave
+    // to clear it, so without this the picker could never reopen after unliking (the
+    // "after unliking, can only Like — no emoji" bug).
+    if (force) {
+        delete _reactPickerSuppressed[postId];
+        clearTimeout(_reactHideTimers[postId]);
+        const picker = document.getElementById(`hfpicker-${postId}`);
+        if (picker) picker.classList.add('open');
+        return;
+    }
+    if (_reactPickerSuppressed[postId]) return;   // just unreacted (hover) — keep suggestions hidden
+    if (_isTouchNoHover()) return;                 // tap on a phone → plain Like, no picker
     clearTimeout(_reactHideTimers[postId]);
     const picker = document.getElementById(`hfpicker-${postId}`);
     if (picker) picker.classList.add('open');
@@ -1762,6 +1773,7 @@ function _rgHighlightAt(x, y) {
 
 function reactTouchStart(e, postId) {
     const t = (e.touches && e.touches[0]) || e;
+    delete _reactPickerSuppressed[postId];   // a fresh press starts clean (touch has no mouseleave to clear it)
     _rg = { postId: postId, x0: t.clientX, y0: t.clientY, opened: false, moved: false, current: null, timer: null };
     // Suppress text selection / the iOS callout for the whole gesture so dragging
     // across the picker can never select the post body (#3). Cleared on release.
