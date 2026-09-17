@@ -1792,7 +1792,7 @@ function _reactTouchEnd(e) {
         if (e && e.cancelable) e.preventDefault();   // suppress the trailing click
         const picker = document.getElementById('hfpicker-' + g.postId);
         if (picker) picker.querySelectorAll('.rm-hover').forEach(o => o.classList.remove('rm-hover'));
-        if (g.current) applyReaction(g.postId, g.current);   // release over an emoji → pick it
+        if (g.current) applyReaction(g.postId, _reactionToggleType(g.postId, g.current));   // release over an emoji → pick it (same one again = remove)
         if (picker) picker.classList.remove('open');
         // Reset the held flag shortly after (covers the case where the trailing
         // click never fires, so the next tap isn't swallowed by quickReact).
@@ -1813,9 +1813,18 @@ function quickReact(postId) {
     else applyReaction(postId, 'like');        // default
 }
 
+// Toggle semantics: picking the reaction you ALREADY have removes it, so a user
+// can clear their reaction by clicking the same emoji again — no need to open
+// another menu or switch to a different one. Works for every reaction. Returns
+// null (remove) when `type` matches the post's current reaction, else `type`.
+function _reactionToggleType(postId, type) {
+    const p = _homePosts.find(x => x.id == postId);
+    return (p && p.userReaction === type) ? null : type;
+}
+
 function setReaction(postId, type) {
     document.getElementById(`hfpicker-${postId}`)?.classList.remove('open');
-    applyReaction(postId, type);
+    applyReaction(postId, _reactionToggleType(postId, type));
 }
 
 async function applyReaction(postId, type) {
