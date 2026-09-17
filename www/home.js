@@ -1703,8 +1703,17 @@ const _reactHideTimers = {};
 // so a later deliberate hover still opens it normally.
 const _reactPickerSuppressed = {};
 
-function showReactPicker(postId) {
+// True on touch phones/tablets (primary input can't hover). There a single tap
+// synthesizes a mouseenter, so the hover-open must stand down — one tap should
+// just Like the post, not pop the emoji "suggestions". The picker opens only via
+// the long-press gesture (which calls showReactPicker with force=true).
+function _isTouchNoHover() {
+    try { return !!(window.matchMedia && window.matchMedia('(hover: none)').matches); } catch (e) { return false; }
+}
+
+function showReactPicker(postId, force) {
     if (_reactPickerSuppressed[postId]) return;   // just unreacted — keep suggestions hidden
+    if (!force && _isTouchNoHover()) return;       // tap on a phone → plain Like, no picker
     clearTimeout(_reactHideTimers[postId]);
     const picker = document.getElementById(`hfpicker-${postId}`);
     if (picker) picker.classList.add('open');
@@ -1763,7 +1772,7 @@ function reactTouchStart(e, postId) {
         if (!_rg) return;
         _rg.opened = true;
         _reactTouchTimer = 'held';          // tell quickReact to stand down
-        showReactPicker(postId);
+        showReactPicker(postId, true);      // long-press → force the picker open (bypasses the touch guard)
         _rgHighlightAt(_rg.x0, _rg.y0);
     }, 300);
     document.addEventListener('touchmove', _reactTouchMove, { passive: false });
