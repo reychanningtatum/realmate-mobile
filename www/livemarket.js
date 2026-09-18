@@ -3932,28 +3932,28 @@ async function init() {
             try { if (window.RMMatchAlert && RMMatchAlert.getUnseen) _newIds = RMMatchAlert.getUnseen().map(String); } catch (e) {}
             if (_newIds.indexOf(String(_pm)) === -1) _newIds.push(String(_pm));
             _pushFlashIds = new Set(_newIds);
+            // Mark all these matches handled so their badges clear and the in-app
+            // banner won't re-fire for them (requirement: no double-notify).
+            try { if (window.RMMatchAlert && RMMatchAlert.markSeen) RMMatchAlert.markSeen(_newIds); } catch (e) {}
 
-            // Route to the AI Match Engine. selectSegTab(AI_ENGINE) renders the
-            // aggregate match grid AND marks every match seen (handled) → badges
-            // clear, and the in-app banner won't re-fire for these matches.
-            try {
-                var _seg = document.querySelector('.seg-tab[data-seg="AI_ENGINE"]');
-                if (_seg && typeof selectSegTab === 'function') selectSegTab(_seg);
-            } catch (e) {}
-
-            // Scroll to the first highlighted match once its card has rendered.
-            (function _scrollFirst(n) {
-                var el = document.getElementById('lc-' + _newIds[0]);
-                if (el) { try { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {} }
-                else if (n < 25) setTimeout(function () { _scrollFirst(n + 1); }, 200);
+            // Route to the AI MATCH ENGINE view (#matchView: your listing + its
+            // matches), NOT the aggregate "AI Matches" grid. openMatchForListing
+            // resolves my listing that matches the tapped one and opens the engine
+            // scrolled to it; buildListingCard green-flashes every new match in view
+            // via _pushFlashIds. Retry until the listing is loaded into allListings.
+            (function _openEngine(n) {
+                var ready = false;
+                try { ready = (typeof allListings !== 'undefined') && !!allListings.find(function (l) { return String(l.id) === String(_pm); }); } catch (e) {}
+                if (ready) { try { openMatchForListing(_pm); } catch (e) {} }
+                else if (n < 25) { setTimeout(function () { _openEngine(n + 1); }, 200); }
             })(0);
 
-            // The green highlight is temporary: stop re-applying it after a few
-            // seconds and strip it from what's on screen.
+            // The green highlight is temporary: stop re-applying it after a while
+            // and strip it from what's on screen.
             setTimeout(function () {
                 _pushFlashIds = null;
                 try { document.querySelectorAll('.listing-card.match-flash').forEach(function (c) { c.classList.remove('match-flash'); }); } catch (e) {}
-            }, 6000);
+            }, 8000);
         }
     } catch (e) {}
 }
