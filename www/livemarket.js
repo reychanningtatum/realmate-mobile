@@ -2982,9 +2982,14 @@ function applyFilters() {
         });
     } catch(e) { console.warn('FMV error:', e); }
 
-    // MATCHES tab: sort by score; all other tabs: newest first
+    // NEWEST active first everywhere. On the MATCHES tab, a brand-new match must be
+    // the topmost match — recency is the primary sort; match score only breaks ties
+    // between posts of the same age (previously it sorted by score alone, so a newer
+    // match landed below an older high-scoring one).
     if (activeCategory === 'MATCHES') {
-        pool.sort((a, b) => (matchMap.get(b.id)?.matchScore || 0) - (matchMap.get(a.id)?.matchScore || 0));
+        pool.sort((a, b) =>
+            (new Date(b.created_at) - new Date(a.created_at)) ||
+            ((matchMap.get(b.id)?.matchScore || 0) - (matchMap.get(a.id)?.matchScore || 0)));
     } else {
         pool.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     }
@@ -3371,6 +3376,10 @@ function showAllMatches(listingId, scrollToId, noFlash) {
         const { score } = computeMatchScore(parsedMine, parseListing(other));
         return score > 0;
     }).sort((a, b) => {
+        // Newest active match first (a brand-new match is the topmost match); match
+        // score only breaks ties between same-age posts.
+        const byDate = new Date(b.created_at) - new Date(a.created_at);
+        if (byDate) return byDate;
         const sa = computeMatchScore(parsedMine, parseListing(a)).score;
         const sb = computeMatchScore(parsedMine, parseListing(b)).score;
         return sb - sa;
@@ -4248,8 +4257,29 @@ document.addEventListener('click', e => {
     }
 });
 
+// True only when a mouse press STARTED on the backdrop itself. Used so a genuine
+// backdrop click closes the composer, but a text-selection drag that begins inside
+// the textarea and happens to release on the backdrop does NOT — that was closing/
+// resetting the post mid-typing on desktop.
+var _lmBackdropDown = false;
+(function _wireComposerBackdrop() {
+    function wire() {
+        var ov = document.getElementById('postModalOverlay');
+        if (!ov || ov._rmBackdropWired) return;
+        ov._rmBackdropWired = true;
+        ov.addEventListener('mousedown', function (e) { _lmBackdropDown = (e.target === ov); });
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wire);
+    else wire();
+})();
+
 function closePostModal(e) {
-    if (e && e.target !== document.getElementById('postModalOverlay')) return;
+    // A backdrop CLICK closes the composer — but only if the press STARTED on the
+    // backdrop too, so a text-selection drag inside the textarea that releases on the
+    // backdrop does NOT close/reset the post mid-typing (desktop). Non-click callers
+    // (the ✕ button, submit-success) pass no click event and always close.
+    if (e && e.type === 'click' &&
+        (e.target !== document.getElementById('postModalOverlay') || !_lmBackdropDown)) return;
     document.getElementById('postModalOverlay').classList.remove('open');
     resetPostModal();
 }

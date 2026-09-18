@@ -223,9 +223,24 @@ function _syncTopMateButton() {
     }
 }
 
+// Navigate into a user's chat. When embedded in the app shell (Feed → a user's
+// profile → Message), go through the shell's rmOpen so it ALSO activates the Chat
+// bottom-nav tab and shows the Chat frame — a bare location.href only navigates the
+// current (Feed) frame and leaves the navbar highlighting Feed. chat.js reads
+// `openChatWith` from sessionStorage on load and opens the conversation either way.
+function _rmGoChat() {
+    try {
+        if (window.parent && window.parent !== window && typeof window.parent.rmOpen === 'function') {
+            window.parent.rmOpen('chat', 'chat.html');
+            return;
+        }
+    } catch (e) {}
+    location.href = 'chat.html';
+}
+
 async function goToChat(targetUserId, targetName) {
     sessionStorage.setItem('openChatWith', JSON.stringify({ userId: targetUserId, name: targetName }));
-    location.href = 'chat.html';
+    _rmGoChat();
 }
 
 // 🔥 SUPABASE SETUP
@@ -2295,7 +2310,7 @@ function _profileShowSellerMenu(userId, name, img, job) {
                 sub: 'Send a direct message',
                 onClick: () => {
                     sessionStorage.setItem('openChatWith', JSON.stringify({ userId: window._spUserId, name: window._spName }));
-                    location.href = 'chat.html';
+                    _rmGoChat();   // shell-aware: also activates the Chat bottom-nav tab
                 }
             },
             {
