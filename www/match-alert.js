@@ -402,6 +402,19 @@
     window.RMMatchAlert = { recordMatches, noteIncoming, markSeen, getUnseen, refreshBadges };
 
     // ── Boot ──────────────────────────────────────────────────────────────
+    // If the user arrived by TAPPING an AI-match PUSH notification (native-auth.js
+    // stored rm_push_match before routing to the Portal), that match is by
+    // definition already handled — mark it seen NOW, synchronously, BEFORE any
+    // badge/banner logic (recordMatches/noteIncoming) can re-surface it. This is
+    // what stops the push and the in-app banner double-notifying for the SAME
+    // match: enter via the iOS push → the in-app AI-match banner never re-fires
+    // for it. We do NOT clear rm_push_match here — livemarket.js still consumes it
+    // to open the Matches view and green-flash that exact card.
+    try {
+        var _pmSeen = localStorage.getItem('rm_push_match');
+        if (_pmSeen) markSeen(_pmSeen);
+    } catch (e) {}
+
     // Paint whatever the persisted state says right away, then resolve the auth
     // id + own listings and wire realtime.
     refreshBadges();
