@@ -138,6 +138,34 @@
       }).catch(function () {});
     } catch (e) {}
   }
+  // Map a push payload's data → a shell tab, store it, and apply when the shell
+  // is ready. Tabs: home / chat / portal / notifications / me.
+  function _pushNavigate(data) {
+    if (!data) return;
+    var route = data.tab || data.route;
+    var tab = (route === 'chat') ? 'chat'
+      : (route === 'portal') ? 'portal'
+      : (route === 'notifications') ? 'notifications'
+      : (route === 'home' || route === 'feed') ? 'home'
+      : (route === 'me' || route === 'profile') ? 'me' : null;
+    if (!tab) return;
+    try { localStorage.setItem('rm_push_nav', JSON.stringify({ tab: tab })); } catch (e) {}
+    _applyPushNav(0);
+  }
+  function _applyPushNav(tries) {
+    var nav = null;
+    try { nav = JSON.parse(localStorage.getItem('rm_push_nav') || 'null'); } catch (e) {}
+    if (!nav || !nav.tab) return;
+    // rmTab lives on the top-level shell (app.html / app-shell.js).
+    var shell = (typeof window.rmTab === 'function') ? window
+      : (function () { try { return (window.top && typeof window.top.rmTab === 'function') ? window.top : null; } catch (e) { return null; } })();
+    if (shell) {
+      try { localStorage.removeItem('rm_push_nav'); } catch (e) {}
+      try { shell.rmTab(nav.tab); } catch (e) {}
+      return;
+    }
+    if ((tries || 0) < 30) setTimeout(function () { _applyPushNav((tries || 0) + 1); }, 200); // poll ~6s for the shell
+  }
   window.rmPush = {
     isNative: isNative,
     // Call after auth: (userId used only as a presence guard; the token is bound
@@ -163,10 +191,24 @@
             });
           } catch (e) {}
           try { P.addListener('registrationError', function () {}); } catch (e) {}
+          // Tap on a push (lock screen / banner / Notification Center) → deep-link
+          // to the relevant tab. iOS delivers a cold-launch tap here once listeners
+          // are attached, so a stored route is applied as soon as the shell is ready.
+          try {
+            P.addListener('pushNotificationActionPerformed', function (ev) {
+              try { _pushNavigate(ev && ev.notification && ev.notification.data); } catch (e) {}
+            });
+          } catch (e) {}
+          // Foreground receipt: iOS does NOT banner while the app is open, so there's
+          // nothing to suppress; the app's own realtime already updates the UI.
+          try { P.addListener('pushNotificationReceived', function () {}); } catch (e) {}
         }
         try { await P.register(); } catch (e) {}
         // If a token already arrived earlier this launch, (re)send with the fresh token.
         if (_pushToken) _postPushToken(_pushToken);
+        // Apply any deep-link route stored by a cold-launch tap that fired before
+        // the tab shell (window.rmTab) was ready.
+        _applyPushNav(0);
       } catch (e) {}
     }
   };
