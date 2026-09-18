@@ -105,6 +105,28 @@ async function _matesClearStaleAccepted(myId, myName, otherId, otherName) {
     if (err) console.warn('[mates] stale mate_accepted delete failed:', err.message);
 }
 
+// Delete notification rows of the given types for a DIRECTED (sender→recipient)
+// pair — used so a declined request removes its own mate_request card and a
+// re-send purges prior request/declined cards, leaving only the LATEST request.
+// Id-match (rename-proof) with a name fallback for a DB without sender_id.
+// Best-effort — never blocks the relationship action.
+async function _matesDeleteNotifs(types, senderId, senderName, recipientId, recipientName) {
+    const byId = () => _matesDb.from('notifications').delete()
+        .in('type', types).eq('sender_id', senderId).eq('recipient_id', recipientId);
+    const byName = () => _matesDb.from('notifications').delete()
+        .in('type', types).eq('sender_user_name', senderName || '').eq('recipient_user_name', recipientName || '');
+    try {
+        if (senderId && recipientId) {
+            const { error } = await byId();
+            if (error && (error.code === '42703' || /sender_id|recipient_id/i.test(error.message || ''))) {
+                if (senderName && recipientName) await byName();
+            }
+        } else if (senderName && recipientName) {
+            await byName();
+        }
+    } catch (e) { /* best-effort */ }
+}
+
 function _localUser() {
     return JSON.parse(localStorage.getItem('user')) || null;
 }
@@ -471,7 +493,24 @@ async function sendMateRequest(recipientName, recipientImg) {
             recipient_img:  recipientImg || '',
             status: 'pending'
         });
-        if (error) throw error;
+        if (error) {
+            // A duplicate (unique pair) means a concurrent click already created the
+            // request — idempotent: treat as pending, don't insert a second row/notif.
+            if (error.code === '23505' || /duplicate key|already exists|unique constraint/i.test(error.message || '')) {
+                _matesCache[recipientName] = 'pending_sent';
+                if (recipientId) _matesCacheById[recipientId] = 'pending_sent';
+                if (typeof _rmBroadcastRel === 'function') _rmBroadcastRel(null, 'mate');
+                return { success: true };
+            }
+            throw error;
+        }
+
+        // Re-send hygiene: clear any PRIOR request/declined notifications for this
+        // pair so only the LATEST mate_request exists — the recipient never sees a
+        // stale duplicate, and my old "declined" card is cleared. (mate_accepted is
+        // handled by _matesClearStaleAccepted below.)
+        await _matesDeleteNotifs(['mate_request'], myId, me.name, recipientId, recipientName);           // my prior outgoing request(s) on their side
+        await _matesDeleteNotifs(['mate_declined'], recipientId, recipientName, myId, me.name);          // their prior "declined" on my side
 
         // Send notification to recipient. sender_id/recipient_id (in addition
         // to the existing name/picture snapshot) let this notification's
@@ -857,6 +896,11 @@ async function declineMateRequest(requesterName) {
             if (typeof _rmBroadcastRel === 'function') _rmBroadcastRel(null, 'mate');  // sync bus
             return { success: true };
         }
+
+        // Remove the originating mate_request notification from MY side so it
+        // disappears immediately (I declined it) and can never re-sprout Accept/
+        // Decline on a later re-send. (Requester = sender, me = recipient.)
+        await _matesDeleteNotifs(['mate_request'], requesterId, requesterName, myId, me.name);
 
         // Notify the requester that their request was declined (mirrors
         // accept). sender_id/recipient_id let this notification's avatar

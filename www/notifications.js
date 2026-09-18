@@ -333,6 +333,20 @@ function renderNotificationsInterface() {
         filtered = localNotificationsCache.filter(n => n.type === 'mate_request');
     }
 
+    // Collapse duplicate REQUEST cards to the latest per sender: only ONE live
+    // follow_request / mate_request should ever show Accept/Reject for a given
+    // person. The DB cleanup (follows.js/mates.js) keeps this true going forward;
+    // this also hides any duplicates that accumulated before that shipped. The
+    // cache is newest-first, so the first occurrence per (type+sender) is latest.
+    const _seenReq = new Set();
+    filtered = filtered.filter(n => {
+        if (n.type !== 'follow_request' && n.type !== 'mate_request') return true;
+        const key = n.type + '|' + (n.sender_id || n.sender_user_name || '');
+        if (_seenReq.has(key)) return false;
+        _seenReq.add(key);
+        return true;
+    });
+
     if (filtered.length === 0) {
         const emptyText = _notifFilter === 'unread'
             ? "You're all caught up — no unread notifications."
