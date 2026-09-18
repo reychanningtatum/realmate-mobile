@@ -128,6 +128,20 @@
   var _pushWired = false;   // add the plugin listeners only once per app launch
   var _pushToken = null;    // last APNs token seen this launch
   var _pushAuth = null;     // last known access token, so a late 'registration' event can still post
+  // TEMP diagnostic: ping push-register at each stage so we can trace the on-device
+  // registration flow via the push_debug table (there is no other way to observe the
+  // bundled app at runtime). No auth needed for a diag ping. Remove once push works.
+  function _pushDiag(stage, extra) {
+    try {
+      var b = { diag: stage };
+      if (extra) for (var k in extra) b[k] = extra[k];
+      fetch(PUSH_REGISTER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'apikey': PUSH_APIKEY },
+        body: JSON.stringify(b)
+      }).catch(function () {});
+    } catch (e) {}
+  }
   function _postPushToken(token) {
     if (!token || !_pushAuth) return;
     try {
@@ -172,25 +186,29 @@
     // to the user server-side via accessToken). Safe to call on every shell load.
     register: async function (userId, accessToken) {
       var P = plugin('PushNotifications');
-      if (!isNative || !P || !userId || !accessToken) return;
+      _pushDiag('register-called', { hasPlugin: !!P, isNative: isNative, hasUser: !!userId, hasTok: !!accessToken });
+      if (!isNative || !P || !userId || !accessToken) { _pushDiag('register-abort'); return; }
       _pushAuth = accessToken;
       try {
         var perm = null;
         try { perm = await P.checkPermissions(); } catch (e) {}
+        _pushDiag('perm-checked', { receive: (perm && perm.receive) || 'null' });
         if (!perm || perm.receive === 'prompt' || perm.receive === 'prompt-with-rationale') {
           try { perm = await P.requestPermissions(); } catch (e) {}
+          _pushDiag('perm-requested', { receive: (perm && perm.receive) || 'null' });
         }
-        if (!perm || perm.receive !== 'granted') return;   // respect the user's choice; try again next launch
+        if (!perm || perm.receive !== 'granted') { _pushDiag('perm-not-granted', { receive: (perm && perm.receive) || 'null' }); return; }
 
         if (!_pushWired) {
           _pushWired = true;
           try {
             P.addListener('registration', function (t) {
               _pushToken = (t && t.value) || null;
+              _pushDiag('registration-event', { tokenLen: (_pushToken || '').length });
               _postPushToken(_pushToken);
             });
           } catch (e) {}
-          try { P.addListener('registrationError', function () {}); } catch (e) {}
+          try { P.addListener('registrationError', function (e) { _pushDiag('registration-error', { err: String((e && (e.error || e.message)) || e) }); }); } catch (e) {}
           // Tap on a push (lock screen / banner / Notification Center) → deep-link
           // to the relevant tab. iOS delivers a cold-launch tap here once listeners
           // are attached, so a stored route is applied as soon as the shell is ready.
@@ -203,9 +221,13 @@
           // nothing to suppress; the app's own realtime already updates the UI.
           try { P.addListener('pushNotificationReceived', function () {}); } catch (e) {}
         }
-        try { await P.register(); } catch (e) {}
+        _pushDiag('calling-register');
+        try { await P.register(); } catch (e) { _pushDiag('register-throw', { err: String(e && e.message || e) }); }
         // If a token already arrived earlier this launch, (re)send with the fresh token.
         if (_pushToken) _postPushToken(_pushToken);
+        // Safety net: if no 'registration' event has fired a few seconds after
+        // P.register(), record that — it means APNs never handed us a token.
+        setTimeout(function () { if (!_pushToken) _pushDiag('no-token-5s'); }, 5000);
         // Apply any deep-link route stored by a cold-launch tap that fired before
         // the tab shell (window.rmTab) was ready.
         _applyPushNav(0);
