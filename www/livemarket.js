@@ -115,6 +115,7 @@ function lmOpenListing(id) {
     // AFTER we first land on y. So don't stop at the first success — keep
     // re-asserting the saved position (only when we've drifted off it, so we
     // never fight the user) for a short window until it stays put.
+    var stopUserScroll = function () {};
     var timer = setInterval(function () {
         // Batched rendering: the page may not be tall enough to reach the saved
         // position yet — keep rendering pages until it is (or we run out).
@@ -122,9 +123,11 @@ function lmOpenListing(id) {
         if (_lmMaxScrollable() >= y - 4 && Math.abs(_lmScrollNow() - y) > 4) _lmScrollTo(y);
         if (Date.now() - start > 4000) {
             if (_lmMaxScrollable() >= y - 4) _lmScrollTo(y);   // final landing
-            clearInterval(timer);
+            clearInterval(timer); stopUserScroll();
         }
     }, 50);
+    // As soon as the user scrolls, stop re-asserting so we don't fight them (bounce).
+    stopUserScroll = _lmStopRestoreOnUserScroll(function () { clearInterval(timer); });
 })();
 // If the page IS bfcache-restored (scroll already intact), drop the stash so it
 // can't wrongly reposition a later fresh reload (e.g. a pull-to-refresh).
@@ -3376,10 +3379,9 @@ function showAllMatches(listingId, scrollToId, noFlash) {
         const { score } = computeMatchScore(parsedMine, parseListing(other));
         return score > 0;
     }).sort((a, b) => {
-        // Newest active match first (a brand-new match is the topmost match); match
-        // score only breaks ties between same-age posts.
-        const byDate = new Date(b.created_at) - new Date(a.created_at);
-        if (byDate) return byDate;
+        // The AI Match Engine view ranks by MATCH SCORE (best match on top) — this is
+        // intentional and distinct from the aggregate "AI Matches" tab, which is
+        // sorted newest-first (see applyFilters).
         const sa = computeMatchScore(parsedMine, parseListing(a)).score;
         const sb = computeMatchScore(parsedMine, parseListing(b)).score;
         return sb - sa;
@@ -3771,6 +3773,27 @@ function _nudgeScroll(delta) {
     else window.scrollBy(0, delta);
 }
 
+// Cancel a scroll-restore interval the MOMENT the user scrolls, so re-anchoring
+// never fights an active scroll — that fight is the "Portal bounces up/down when I
+// scroll after returning from a listing" bug (desktop especially). We listen to
+// wheel / touchmove / navigation keys (genuine user intent), NOT the 'scroll'
+// event, which our own re-anchor _nudgeScroll would trigger. Returns a cleanup fn
+// the caller also invokes when the interval ends on its own.
+function _lmStopRestoreOnUserScroll(clearFn) {
+    const NAV_KEYS = ['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' ', 'Spacebar'];
+    function remove() {
+        window.removeEventListener('wheel', onScroll, true);
+        window.removeEventListener('touchmove', onScroll, true);
+        window.removeEventListener('keydown', onKey, true);
+    }
+    function onScroll() { try { clearFn(); } catch (e) {} remove(); }
+    function onKey(e) { if (NAV_KEYS.indexOf(e.key) !== -1) onScroll(); }
+    window.addEventListener('wheel', onScroll, { passive: true, capture: true });
+    window.addEventListener('touchmove', onScroll, { passive: true, capture: true });
+    window.addEventListener('keydown', onKey, true);
+    return remove;
+}
+
 // Restore the saved position for the CURRENT section. One-shot: consumed on the
 // first load after Back so a later fresh visit isn't affected. Returns true if a
 // restore was applied. Re-applies across a few frames so late-loading images /
@@ -3789,6 +3812,7 @@ function restorePortalScroll() {
     // until the saved post exists and re-anchor whenever we've DRIFTED off it
     // (only when drifted, so a user already parked on their post is never fought).
     const start = Date.now();
+    let stopUserScroll = () => {};
     const timer = setInterval(() => {
         // The saved post may be beyond the first render batch (or a re-render reset
         // the rendered count) — render pages until the anchor card is present.
@@ -3808,8 +3832,10 @@ function restorePortalScroll() {
             const target = sc ? (s.scrollTop || 0) : (s.winTop || 0);
             if (Math.abs(cur - target) > 3) { if (sc) sc.scrollTop = target; else window.scrollTo(0, target); }
         }
-        if (Date.now() - start > 4000) clearInterval(timer);
+        if (Date.now() - start > 4000) { clearInterval(timer); stopUserScroll(); }
     }, 50);
+    // Stop re-anchoring the instant the user takes over the scroll (no more bounce).
+    stopUserScroll = _lmStopRestoreOnUserScroll(() => clearInterval(timer));
     return true;
 }
 
