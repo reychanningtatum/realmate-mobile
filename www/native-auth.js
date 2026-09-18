@@ -138,30 +138,49 @@
       }).catch(function () {});
     } catch (e) {}
   }
-  // Map a push payload's data → a shell tab, store it, and apply when the shell
-  // is ready. Tabs: home / chat / portal / notifications / me.
+  // Map a push payload → a shell destination and apply it when the shell is ready.
+  // Deep-links to the SPECIFIC item where possible via the shell's rmOpen(tab, url):
+  //   • message  → chat.html?conversation=<id>   (opens that conversation)
+  //   • ai_match → listing-detail.html?id=<id>   (opens that listing, in the me frame)
+  //   • follow / realmate / like / mention → the Notifications tab
+  // Tabs: home / chat / portal / notifications / me.
   function _pushNavigate(data) {
     if (!data) return;
-    var route = data.tab || data.route;
+    // Capacitor hands us the notification's userInfo. Our routing fields are sent at
+    // the top level now, but older payloads nested them under `data` — support both.
+    var d = data;
+    if (d.data && typeof d.data === 'object' && (d.data.route || d.data.tab || d.data.kind || d.data.conversation_id || d.data.listing_id)) d = d.data;
+
+    var route = d.tab || d.route;
     var tab = (route === 'chat') ? 'chat'
       : (route === 'portal') ? 'portal'
       : (route === 'notifications') ? 'notifications'
       : (route === 'home' || route === 'feed') ? 'home'
       : (route === 'me' || route === 'profile') ? 'me' : null;
-    if (!tab) return;
-    try { localStorage.setItem('rm_push_nav', JSON.stringify({ tab: tab })); } catch (e) {}
+
+    // Specific-item deep link (opens the exact conversation / listing in its frame).
+    var openTab = null, openUrl = null;
+    if (d.conversation_id) { openTab = 'chat'; openUrl = 'chat.html?conversation=' + encodeURIComponent(d.conversation_id); }
+    else if (d.listing_id) { openTab = 'me'; openUrl = 'listing-detail.html?id=' + encodeURIComponent(d.listing_id); }
+
+    if (!tab && !openTab) return;
+    try { localStorage.setItem('rm_push_nav', JSON.stringify({ tab: tab, openTab: openTab, openUrl: openUrl })); } catch (e) {}
     _applyPushNav(0);
   }
   function _applyPushNav(tries) {
     var nav = null;
     try { nav = JSON.parse(localStorage.getItem('rm_push_nav') || 'null'); } catch (e) {}
-    if (!nav || !nav.tab) return;
-    // rmTab lives on the top-level shell (app.html / app-shell.js).
+    if (!nav || (!nav.tab && !nav.openTab)) return;
+    // rmTab / rmOpen live on the top-level shell (app.html / app-shell.js).
     var shell = (typeof window.rmTab === 'function') ? window
       : (function () { try { return (window.top && typeof window.top.rmTab === 'function') ? window.top : null; } catch (e) { return null; } })();
     if (shell) {
       try { localStorage.removeItem('rm_push_nav'); } catch (e) {}
-      try { shell.rmTab(nav.tab); } catch (e) {}
+      try {
+        if (nav.openTab && nav.openUrl && typeof shell.rmOpen === 'function') shell.rmOpen(nav.openTab, nav.openUrl);
+        else if (nav.tab) shell.rmTab(nav.tab);
+        else if (nav.openTab) shell.rmTab(nav.openTab);
+      } catch (e) {}
       return;
     }
     if ((tries || 0) < 30) setTimeout(function () { _applyPushNav((tries || 0) + 1); }, 200); // poll ~6s for the shell
