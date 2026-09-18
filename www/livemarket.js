@@ -1952,11 +1952,18 @@ function brainWidget() {
         + `<span class="ai-brain-spark s1"></span><span class="ai-brain-spark s2"></span></span>`;
 }
 
+// Set of listing ids to green-flash because the user just arrived from an AI-match
+// PUSH notification. Applied in buildListingCard so the highlight is re-applied on
+// every grid re-render (applyFilters rebuilds cards), then cleared after a few
+// seconds by the push consume below. null = nothing to flash.
+var _pushFlashIds = null;
+
 function buildListingCard(listing, matchLabel = null, fmvResult = null, matchCount = 0, opts = {}) {
     const localUser = JSON.parse(localStorage.getItem('user') || 'null');
     const card = document.createElement('div');
     card.className = 'listing-card' + (matchLabel ? ' is-match' : '');
     card.id = 'lc-' + listing.id;
+    if (_pushFlashIds && _pushFlashIds.has(String(listing.id))) card.classList.add('match-flash');
 
     // Portal posts show a SINGLE cover photo (or none — demand-side posts like
     // Willing to Buy/Lease often carry no image). The remaining photos are kept on
@@ -3907,39 +3914,46 @@ async function init() {
     try { consumeMatchHighlight(); } catch (e) {}
 
     // Arrived by tapping an "New AI Match" PUSH notification (native-auth.js set
-    // rm_push_match before loading Portal): open the AI Match Engine (the aggregate
+    // rm_push_match before loading Portal): route to the AI Match Engine (aggregate
     // "Matches" tab across ALL my listings) and green-flash EVERY new/unseen match —
-    // one if there's one, all of them if several landed together.
+    // one if there's one, all of them if several landed together. The flash is
+    // applied via buildListingCard (_pushFlashIds) so it survives the tab's
+    // re-render; match-alert.js suppresses its banner while rm_push_match is set.
     try {
         var _pm = localStorage.getItem('rm_push_match');
-        if (_pm) {
-            localStorage.removeItem('rm_push_match');
-            // Capture the unseen set BEFORE switching tabs: selectSegTab(AI_ENGINE)
-            // marks everything seen, which would empty getUnseen(). Include the
-            // specifically-tapped listing as a fallback.
+        if (_pm && _pm !== 'null' && _pm !== 'undefined') {
+            // Clear the markers FIRST so they can never get stuck (a stuck marker
+            // would keep match-alert suppressing its banner). We use the captured
+            // _pm below.
+            try { localStorage.removeItem('rm_push_match'); localStorage.removeItem('rm_push_match_at'); } catch (e) {}
+            // Capture ALL currently new/unseen matches NOW, before selectSegTab
+            // (AI_ENGINE) marks them seen. Include the tapped listing explicitly.
             var _newIds = [];
             try { if (window.RMMatchAlert && RMMatchAlert.getUnseen) _newIds = RMMatchAlert.getUnseen().map(String); } catch (e) {}
-            if (String(_pm) !== 'null' && _newIds.indexOf(String(_pm)) === -1) _newIds.push(String(_pm));
-            // Open the aggregate AI Matches view (same entry match-alert uses).
+            if (_newIds.indexOf(String(_pm)) === -1) _newIds.push(String(_pm));
+            _pushFlashIds = new Set(_newIds);
+
+            // Route to the AI Match Engine. selectSegTab(AI_ENGINE) renders the
+            // aggregate match grid AND marks every match seen (handled) → badges
+            // clear, and the in-app banner won't re-fire for these matches.
             try {
                 var _seg = document.querySelector('.seg-tab[data-seg="AI_ENGINE"]');
                 if (_seg && typeof selectSegTab === 'function') selectSegTab(_seg);
             } catch (e) {}
-            // Once each match card exists in the grid, green-flash it (and scroll to
-            // the first). Retry ~5s for cards that render slightly later.
-            var _scrolled = false;
-            (function _flashNew(n) {
-                var remaining = [];
-                _newIds.forEach(function (id) {
-                    var el = document.getElementById('lc-' + id);
-                    if (el) {
-                        try { el.classList.remove('match-flash'); void el.offsetWidth; el.classList.add('match-flash'); } catch (e) {}
-                        if (!_scrolled) { try { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {} _scrolled = true; }
-                    } else { remaining.push(id); }
-                });
-                _newIds = remaining;
-                if (_newIds.length && n < 25) setTimeout(function () { _flashNew(n + 1); }, 200);
+
+            // Scroll to the first highlighted match once its card has rendered.
+            (function _scrollFirst(n) {
+                var el = document.getElementById('lc-' + _newIds[0]);
+                if (el) { try { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {} }
+                else if (n < 25) setTimeout(function () { _scrollFirst(n + 1); }, 200);
             })(0);
+
+            // The green highlight is temporary: stop re-applying it after a few
+            // seconds and strip it from what's on screen.
+            setTimeout(function () {
+                _pushFlashIds = null;
+                try { document.querySelectorAll('.listing-card.match-flash').forEach(function (c) { c.classList.remove('match-flash'); }); } catch (e) {}
+            }, 6000);
         }
     } catch (e) {}
 }

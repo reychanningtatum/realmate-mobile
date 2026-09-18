@@ -163,9 +163,14 @@
     if (d.conversation_id) {
       openTab = 'chat'; openUrl = 'chat.html?conversation=' + encodeURIComponent(d.conversation_id);
     } else if (d.kind === 'ai_match' && d.listing_id) {
-      // AI match: open the Portal's AI Matches view and green-flash the exact match.
-      // livemarket.js consumes rm_push_match on load → openMatchForListing().
-      try { localStorage.setItem('rm_push_match', String(d.listing_id)); } catch (e) {}
+      // AI match: route to the Portal → AI Match Engine and green-flash the new
+      // match(es). livemarket.js consumes rm_push_match on load; the timestamp lets
+      // match-alert.js suppress its banner for this entry WITHOUT risk of a stuck
+      // flag permanently muting banners (the suppression auto-expires).
+      try {
+        localStorage.setItem('rm_push_match', String(d.listing_id));
+        localStorage.setItem('rm_push_match_at', String(Date.now()));
+      } catch (e) {}
       openTab = 'portal'; openUrl = 'livemarket.html';
     } else if (d.listing_id) {
       openTab = 'me'; openUrl = 'listing-detail.html?id=' + encodeURIComponent(d.listing_id);
