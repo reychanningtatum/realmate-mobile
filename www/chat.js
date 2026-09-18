@@ -623,6 +623,33 @@ function clearConvSearch() {
     renderConvList();
 }
 
+// ===== SCROLL HELPERS =====
+// Is the message list scrolled to (near) the bottom? Used so an incoming message
+// only auto-scrolls when the user is already at the latest — never yanking them
+// down while they're reading older messages.
+function _chatNearBottom(container, px) {
+    if (!container) return true;
+    return (container.scrollHeight - container.scrollTop - container.clientHeight) <= (px == null ? 140 : px);
+}
+// Robustly pin the message list to the bottom. Doing it once synchronously isn't
+// enough: the list is measured before layout settles and before image/attachment
+// bubbles load, so scrollHeight is too small and we land above the latest message.
+// Re-assert across a few frames, and again as each image finishes loading.
+function _chatScrollBottom(container, watchImages) {
+    if (!container) return;
+    const go = () => { container.scrollTop = container.scrollHeight; };
+    go();
+    requestAnimationFrame(go);
+    requestAnimationFrame(() => requestAnimationFrame(go));
+    setTimeout(go, 80);
+    setTimeout(go, 250);
+    if (watchImages) {
+        container.querySelectorAll('img').forEach((img) => {
+            if (!img.complete) img.addEventListener('load', go, { once: true });
+        });
+    }
+}
+
 // ===== OPEN CONVERSATION =====
 async function openConversation(convId) {
     const conv = conversations.find(c => c.id === convId);
@@ -678,7 +705,9 @@ async function openConversation(convId) {
             if (d !== lastDate) { lastDate = d; addDateSep(container, d); }
             addMsgBubble(container, m);
         });
-        container.scrollTop = container.scrollHeight;
+        // Open at the LATEST message. Robust against late-loading images/reflow so
+        // the user never has to scroll down to see the newest chat.
+        _chatScrollBottom(container, true);
     }
 
     markRead(convId);
@@ -934,7 +963,7 @@ async function doSendText(text, convId) {
             const lastD = lastSep.length ? lastSep[lastSep.length - 1].textContent.trim() : '';
             if (d !== lastD) addDateSep(container, d);
             addMsgBubble(container, msg);
-            container.scrollTop = container.scrollHeight;
+            _chatScrollBottom(container, false);
         }
     }
     const conv = conversations.find(c => c.id === convId);
@@ -977,7 +1006,7 @@ async function doSendFile(file, convId) {
         if (container.querySelector('div[style*="text-align"]')) container.innerHTML = '';
         if (!container.querySelector(`[data-msg-id="${msg.id}"]`)) {
             addMsgBubble(container, msg);
-            container.scrollTop = container.scrollHeight;
+            _chatScrollBottom(container, true);   // image/file bubble may load late
         }
     }
     const conv = conversations.find(c => c.id === convId);
@@ -1093,8 +1122,12 @@ function subscribeMessages(convId) {
                 if (document.querySelector(`[data-msg-id="${m.id}"]`)) return;
                 const container = document.getElementById('chatMessages');
                 if (container.querySelector('div[style*="text-align"]')) container.innerHTML = '';
+                // Keep the view pinned to the latest ONLY if the user is already at
+                // the bottom (or it's their own message) — don't yank them down while
+                // they're scrolled up reading older messages. (Capture before append.)
+                const _stick = _chatNearBottom(container) || m.sender_id === currentUser.id;
                 addMsgBubble(container, m);
-                container.scrollTop = container.scrollHeight;
+                if (_stick) _chatScrollBottom(container, true);
                 if (m.sender_id !== currentUser.id) markRead(convId);
                 const conv = conversations.find(c => c.id === convId);
                 if (conv) { conv.lastMessage = m; sortAndRenderConvs(); }
