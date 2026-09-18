@@ -158,10 +158,18 @@
       : (route === 'home' || route === 'feed') ? 'home'
       : (route === 'me' || route === 'profile') ? 'me' : null;
 
-    // Specific-item deep link (opens the exact conversation / listing in its frame).
+    // Specific-item deep link (opens the exact conversation / match in its frame).
     var openTab = null, openUrl = null;
-    if (d.conversation_id) { openTab = 'chat'; openUrl = 'chat.html?conversation=' + encodeURIComponent(d.conversation_id); }
-    else if (d.listing_id) { openTab = 'me'; openUrl = 'listing-detail.html?id=' + encodeURIComponent(d.listing_id); }
+    if (d.conversation_id) {
+      openTab = 'chat'; openUrl = 'chat.html?conversation=' + encodeURIComponent(d.conversation_id);
+    } else if (d.kind === 'ai_match' && d.listing_id) {
+      // AI match: open the Portal's AI Matches view and green-flash the exact match.
+      // livemarket.js consumes rm_push_match on load → openMatchForListing().
+      try { localStorage.setItem('rm_push_match', String(d.listing_id)); } catch (e) {}
+      openTab = 'portal'; openUrl = 'livemarket.html';
+    } else if (d.listing_id) {
+      openTab = 'me'; openUrl = 'listing-detail.html?id=' + encodeURIComponent(d.listing_id);
+    }
 
     if (!tab && !openTab) return;
     try { localStorage.setItem('rm_push_nav', JSON.stringify({ tab: tab, openTab: openTab, openUrl: openUrl })); } catch (e) {}
