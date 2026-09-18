@@ -3907,18 +3907,38 @@ async function init() {
     try { consumeMatchHighlight(); } catch (e) {}
 
     // Arrived by tapping an "New AI Match" PUSH notification (native-auth.js set
-    // rm_push_match before loading Portal): open the AI Matches view for that
-    // listing and green-flash it. Retry briefly in case the new listing isn't in
-    // allListings yet. openMatchForListing() finds my matching listing + flashes.
+    // rm_push_match before loading Portal): open the AI Match Engine (the aggregate
+    // "Matches" tab across ALL my listings) and green-flash EVERY new/unseen match —
+    // one if there's one, all of them if several landed together.
     try {
         var _pm = localStorage.getItem('rm_push_match');
         if (_pm) {
             localStorage.removeItem('rm_push_match');
-            (function _tryPushMatch(n) {
-                var found = false;
-                try { found = (typeof allListings !== 'undefined') && !!allListings.find(function (l) { return String(l.id) === String(_pm); }); } catch (e) {}
-                if (found) { try { openMatchForListing(_pm); } catch (e) {} }
-                else if (n < 20) { setTimeout(function () { _tryPushMatch(n + 1); }, 200); }
+            // Capture the unseen set BEFORE switching tabs: selectSegTab(AI_ENGINE)
+            // marks everything seen, which would empty getUnseen(). Include the
+            // specifically-tapped listing as a fallback.
+            var _newIds = [];
+            try { if (window.RMMatchAlert && RMMatchAlert.getUnseen) _newIds = RMMatchAlert.getUnseen().map(String); } catch (e) {}
+            if (String(_pm) !== 'null' && _newIds.indexOf(String(_pm)) === -1) _newIds.push(String(_pm));
+            // Open the aggregate AI Matches view (same entry match-alert uses).
+            try {
+                var _seg = document.querySelector('.seg-tab[data-seg="AI_ENGINE"]');
+                if (_seg && typeof selectSegTab === 'function') selectSegTab(_seg);
+            } catch (e) {}
+            // Once each match card exists in the grid, green-flash it (and scroll to
+            // the first). Retry ~5s for cards that render slightly later.
+            var _scrolled = false;
+            (function _flashNew(n) {
+                var remaining = [];
+                _newIds.forEach(function (id) {
+                    var el = document.getElementById('lc-' + id);
+                    if (el) {
+                        try { el.classList.remove('match-flash'); void el.offsetWidth; el.classList.add('match-flash'); } catch (e) {}
+                        if (!_scrolled) { try { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {} _scrolled = true; }
+                    } else { remaining.push(id); }
+                });
+                _newIds = remaining;
+                if (_newIds.length && n < 25) setTimeout(function () { _flashNew(n + 1); }, 200);
             })(0);
         }
     } catch (e) {}

@@ -667,3 +667,26 @@ window.onload = async () => {
     }
     window.addEventListener('rm:rel-changed', refreshRel);
 })();
+
+// ── Foreground refresh ───────────────────────────────────────────────────────
+// Realtime only streams events that happen WHILE the app is open and subscribed;
+// a notification that arrived while the app was backgrounded/closed is never
+// replayed. So when the app returns to the foreground (or this tab is re-shown),
+// re-fetch the list once (throttled) so newly-arrived notifications appear without
+// needing an app restart. Best-effort; never throws.
+(function () {
+    var last = 0;
+    async function foregroundRefresh() {
+        if (document.hidden) return;
+        var now = Date.now();
+        if (now - last < 1500) return;   // coalesce rapid visibility flips
+        last = now;
+        try {
+            await fetchNotificationsList();
+            if (typeof renderNotificationsInterface === 'function') renderNotificationsInterface();
+        } catch (e) {}
+    }
+    document.addEventListener('visibilitychange', foregroundRefresh);
+    window.addEventListener('focus', foregroundRefresh);
+    window.addEventListener('pageshow', foregroundRefresh);
+})();
