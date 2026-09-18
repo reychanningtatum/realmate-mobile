@@ -101,6 +101,24 @@ workflows:
         script: |
           if [ ! -d ios ]; then npx cap add ios; fi
           npx cap sync ios
+      - name: Ensure AppDelegate forwards APNs device-token callbacks to Capacitor
+        # The @capacitor/push-notifications plugin only receives the device token if
+        # the app's AppDelegate forwards UIKit's didRegister/didFail callbacks to
+        # Capacitor via NotificationCenter. ios/ is regenerated every build, so we
+        # verify/inject this here (idempotent: only adds the methods if absent).
+        # Without this, PushNotifications 'registration' never fires and no token is
+        # ever stored — exactly the "device_tokens empty" symptom.
+        script: |
+          AD=ios/App/App/AppDelegate.swift
+          if [ ! -f "$AD" ]; then echo "AppDelegate.swift not found at $AD"; exit 1; fi
+          echo "----- AppDelegate.swift (before) -----"; cat "$AD"
+          if grep -q "capacitorDidRegisterForRemoteNotifications" "$AD"; then
+            echo "AppDelegate already forwards APNs registration — no change."
+          else
+            echo "Injecting APNs forwarding methods into AppDelegate.swift"
+            perl -0777 -pi -e 's/\}\s*\z/\n    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {\n        NotificationCenter.default.post(name: .capacitorDidRegisterForRemoteNotifications, object: deviceToken)\n    }\n\n    func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {\n        NotificationCenter.default.post(name: .capacitorDidFailToRegisterForRemoteNotifications, object: error)\n    }\n}\n/' "$AD"
+            echo "----- AppDelegate.swift (after) -----"; cat "$AD"
+          fi
       - name: Generate app icon + splash from assets/ (into the CI-generated ios project)
         # @capacitor/assets writes AppIcon + splash into ios/App/App/Assets.xcassets.
         # Runs AFTER 'npx cap add ios' (the project must exist) and before build.
