@@ -3725,6 +3725,19 @@ function _rmRecentPortalSave() {
     } catch (e) { return false; }
 }
 
+// Did we arrive on the Portal straight from the Feed? On DESKTOP (standalone
+// pages) switching Feed → Portal is a fresh 'navigate', and a recently-saved
+// Portal scroll would otherwise be restored by _rmRecentPortalSave() — its 4s
+// re-assert loop then fights the user's scroll (the "Portal bounces up and down"
+// after clicking Saved Posts → Portal). A Feed→Portal switch should always land
+// at the TOP, never restore. The genuine restore cases (Back from a listing, or
+// returning from Chat/a profile opened FROM the Portal) have a different referrer,
+// so they're unaffected. In the mobile shell the referrer is app.html (not
+// home.html), so this is desktop-only in effect.
+function _cameFromFeed() {
+    try { return (document.referrer || '').indexOf('home.html') !== -1; } catch (e) { return false; }
+}
+
 // Whichever element actually scrolls: .main-content on desktop (it has its own
 // overflow), or the window on mobile (there .main-content lays out at full
 // height and the page itself scrolls). Returns the .main-content element, or
@@ -3882,7 +3895,7 @@ async function init() {
         // feed grid is hidden, so running the feed restore here would anchor to a
         // hidden ledger card and fight that scroll. Skip both restore and goTop.
         // (RM_SCROLL_KEY is left intact for exitMatchView's return-to-ledger.)
-    } else if (_navType() === 'back_forward' || _rmRecentPortalSave()) {
+    } else if (_navType() === 'back_forward' || (_rmRecentPortalSave() && !_cameFromFeed())) {
         if (!restorePortalScroll()) goTop();
     } else {
         try { sessionStorage.removeItem(RM_SCROLL_KEY); } catch (e) {}
@@ -3892,6 +3905,23 @@ async function init() {
     // Arrived here by clicking the AI-match banner? Scroll to + green-flash the
     // exact matched post. No-op when there's no pending highlight.
     try { consumeMatchHighlight(); } catch (e) {}
+
+    // Arrived by tapping an "New AI Match" PUSH notification (native-auth.js set
+    // rm_push_match before loading Portal): open the AI Matches view for that
+    // listing and green-flash it. Retry briefly in case the new listing isn't in
+    // allListings yet. openMatchForListing() finds my matching listing + flashes.
+    try {
+        var _pm = localStorage.getItem('rm_push_match');
+        if (_pm) {
+            localStorage.removeItem('rm_push_match');
+            (function _tryPushMatch(n) {
+                var found = false;
+                try { found = (typeof allListings !== 'undefined') && !!allListings.find(function (l) { return String(l.id) === String(_pm); }); } catch (e) {}
+                if (found) { try { openMatchForListing(_pm); } catch (e) {} }
+                else if (n < 20) { setTimeout(function () { _tryPushMatch(n + 1); }, 200); }
+            })(0);
+        }
+    } catch (e) {}
 }
 
 init();
