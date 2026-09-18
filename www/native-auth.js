@@ -171,6 +171,13 @@
       openTab = 'me'; openUrl = 'listing-detail.html?id=' + encodeURIComponent(d.listing_id);
     }
 
+    // Notifications: force a FRESH reload of the tab (not just reveal the cached
+    // frame). A notification that arrived while the app was backgrounded is missed
+    // by the realtime subscription (realtime only streams live events, never a
+    // backlog), so revealing the stale cached list showed nothing until an app
+    // restart re-fetched. Reloading notifications.html re-runs fetchNotificationsList.
+    if (!openTab && tab === 'notifications') { openTab = 'notifications'; openUrl = 'notifications.html'; }
+
     if (!tab && !openTab) return;
     try { localStorage.setItem('rm_push_nav', JSON.stringify({ tab: tab, openTab: openTab, openUrl: openUrl })); } catch (e) {}
     _applyPushNav(0);
