@@ -52,6 +52,29 @@ async function _followsInsertNotification(payload) {
     if (fallbackError) console.warn('[follows] notification fallback insert failed:', fallbackError.message);
 }
 
+// Delete notification rows of the given types for a DIRECTED (sender→recipient)
+// pair, so a completed or superseded request never lingers as a stale card. This
+// is what keeps "only the latest request shows Accept/Reject": a decline removes
+// its own request notification, and a re-send purges prior ones. Id-match is
+// rename-proof; falls back to name-match on a DB without sender_id/recipient_id.
+// Best-effort — a failure here must never block the relationship action.
+async function _followsDeleteNotifs(types, senderId, senderName, recipientId, recipientName) {
+    const byId = () => _followsDb.from('notifications').delete()
+        .in('type', types).eq('sender_id', senderId).eq('recipient_id', recipientId);
+    const byName = () => _followsDb.from('notifications').delete()
+        .in('type', types).eq('sender_user_name', senderName || '').eq('recipient_user_name', recipientName || '');
+    try {
+        if (senderId && recipientId) {
+            const { error } = await byId();
+            if (error && (error.code === '42703' || /sender_id|recipient_id/i.test(error.message || ''))) {
+                if (senderName && recipientName) await byName();
+            }
+        } else if (senderName && recipientName) {
+            await byName();
+        }
+    } catch (e) { /* best-effort */ }
+}
+
 // Returns { followers: N, following: N }
 async function getFollowCounts(userId) {
     try {
@@ -219,9 +242,22 @@ async function followUser(targetUserId, targetName) {
             status = 'accepted';
             ({ error } = await _followsDb.from('follows').insert(baseRow));
         }
-        if (error) throw error;
+        if (error) {
+            // A duplicate (unique follower_id+following_id) means the follow/request
+            // already exists — rapid double-click or a re-send of a still-live
+            // request. Idempotent: sync the UI, do NOT insert a second notification.
+            if (error.code === '23505' || /duplicate key|already exists|unique constraint/i.test(error.message || '')) {
+                _rmBroadcastRel(targetUserId);
+                return { success: true, status: status, already: true };
+            }
+            throw error;
+        }
 
         const accepted = status === 'accepted';
+        // Re-send hygiene: clear any PRIOR follow request/accepted notifications for
+        // this pair so the target only ever sees the LATEST one (no stale duplicates
+        // that could re-sprout Accept/Reject after a previous decline).
+        await _followsDeleteNotifs(['follow_request', 'follow', 'follow_accepted'], myId, me?.name || '', targetUserId, targetName);
         await _followsInsertNotification({
             type:                   accepted ? 'follow' : 'follow_request',
             sender_id:              myId,
@@ -294,11 +330,23 @@ async function acceptFollowRequest(followerId) {
 }
 async function rejectFollowRequest(followerId) {
     try {
+        const me = _followLocalUser();
         const { data: auth } = await _followsDb.auth.getUser();
         const myId = auth?.user?.id; if (!myId) return { error: 'Not authenticated' };
+        // Capture the follower's snapshot name first (for a rename-safe notification
+        // cleanup fallback), then delete the request row.
+        let followerName = '';
+        try {
+            const { data: r } = await _followsDb.from('follows')
+                .select('follower_name').eq('follower_id', followerId).eq('following_id', myId).maybeSingle();
+            followerName = (r && r.follower_name) || '';
+        } catch (e) {}
         const { error } = await _followsDb.from('follows')
             .delete().eq('follower_id', followerId).eq('following_id', myId);
         if (error) throw error;
+        // Remove the originating follow_request notification so it disappears
+        // immediately and can never re-sprout Accept/Reject on a later re-send.
+        await _followsDeleteNotifs(['follow_request'], followerId, followerName, myId, me?.name || '');
         _rmBroadcastRel(followerId);
         return { success: true };
     } catch (e) { return { error: e.message }; }
