@@ -647,15 +647,32 @@ async function getMyRealmates() {
 
 async function fetchTagCandidates(q) {
     const ql = q.toLowerCase();
-    const mates = await getMyRealmates();
-    if (mates.length) {
-        return mates.filter(m => m.name.toLowerCase().includes(ql)).slice(0, 6)
-                    .map(m => ({ name: m.name, img: m.img || avatarUrl(m.name) }));
+    const out = [];
+    const seen = new Set();
+    const add = (name, img) => {
+        if (!name) return;
+        const key = name.toLowerCase();
+        if (seen.has(key)) return;
+        seen.add(key);
+        out.push({ name: name, img: img || avatarUrl(name) });
+    };
+    // Realmates first (prioritized) — then ANY other matching user, so a post can
+    // tag anyone, not only accepted realmates. Previously, having realmates meant
+    // ONLY realmates were searched, so a letter that matched no realmate showed no
+    // suggestions and non-realmates could never be tagged.
+    try {
+        (await getMyRealmates()).forEach(m => {
+            if (m.name && m.name.toLowerCase().includes(ql)) add(m.name, m.img);
+        });
+    } catch (e) {}
+    if (out.length < 6) {
+        try {
+            const { data } = await _supaHome.from('profiles')
+                .select('full_name, avatar_url').ilike('full_name', `%${q}%`).limit(12);
+            (data || []).forEach(p => add(p.full_name, p.avatar_url));
+        } catch (e) {}
     }
-    // Fallback (no realmates available): search all profiles, like comment mentions
-    const { data } = await _supaHome.from('profiles')
-        .select('full_name, avatar_url').ilike('full_name', `%${q}%`).limit(6);
-    return (data || []).map(p => ({ name: p.full_name, img: p.avatar_url || avatarUrl(p.full_name) }));
+    return out.slice(0, 6);
 }
 
 function onHomePostInput(ta) {
