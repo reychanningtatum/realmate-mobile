@@ -75,7 +75,12 @@ h1,h2,h3 { font-family: 'Inter', sans-serif; }
   margin: 0 auto;
   width: 100%;
 }
-.home-feed-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+/* One consistent vertical gap for the whole Feed column. This matches the
+   post-to-post spacing (.hf-post-card margin-bottom: 18px) so the gap between the
+   Write-a-Post card and the FIRST post is the same as the gap between every
+   subsequent post — previously this flex gap (12/8px) was smaller than the
+   inter-post margin, so the top gap looked tighter than the rest. */
+.home-feed-col { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
 .home-sidebar-col { display: flex; flex-direction: column; gap: 12px; position: sticky; top: 24px; }
 
 /* =========================================
@@ -903,7 +908,7 @@ html[data-theme="light"] .nav-item.active { background: rgba(50,205,50,0.10); co
   .main-content { padding: 12px 12px 80px; overflow: visible; }
   .mobile-bottom-nav { display: flex; }
   .home-layout { grid-template-columns: 1fr; gap: 0; }
-  .home-feed-col { gap: 8px; }
+  .home-feed-col { gap: 18px; }   /* match the 18px post-to-post spacing on mobile too */
   .home-sidebar-col { grid-template-columns: 1fr; margin-top: 8px; }
   .stories-wrap { padding: 12px; margin-bottom: 8px; }
   .story-img-wrap { width: 58px; height: 78px; }
