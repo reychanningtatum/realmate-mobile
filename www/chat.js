@@ -1968,9 +1968,18 @@ function setupMobileKeyboard() {
     function closeKeyboardState() {
         if (!keyboardOpen) return;
         keyboardOpen = false;
+        // Were we at the latest message before the keyboard began dismissing?
+        // Capture BEFORE the height reset changes the metrics, and preserve an
+        // intentional scroll-up (only re-pin if we were already at the bottom).
+        const _msgs = document.getElementById('chatMessages');
+        const _stick = _chatNearBottom(_msgs, 200);
         container.classList.remove('keyboard-open');
         container.style.height = '';
         _notifyShellKeyboard(false);
+        // As the keyboard dismisses (Done/Check tap), the viewport grows back and
+        // can leave the latest message covered — re-pin to the bottom across the
+        // close animation so the newest chat stays fully visible.
+        if (_stick) scrollMessagesToBottom();
     }
 
     // Drive off focus/blur, NOT a viewport-height ratio: under Capacitor's
@@ -1999,7 +2008,11 @@ function setupMobileKeyboard() {
 
 function scrollMessagesToBottom() {
     const msgs = document.getElementById('chatMessages');
-    if (msgs) {
-        requestAnimationFrame(() => { msgs.scrollTop = msgs.scrollHeight; });
-    }
+    if (!msgs) return;
+    // Re-assert across the keyboard open/close animation (~300ms): a single pin
+    // runs before the viewport finishes resizing and lands above the latest.
+    const go = () => { msgs.scrollTop = msgs.scrollHeight; };
+    requestAnimationFrame(go);
+    setTimeout(go, 150);
+    setTimeout(go, 350);
 }
