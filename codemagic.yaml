@@ -117,8 +117,19 @@ workflows:
           else
             echo "Injecting APNs forwarding methods into AppDelegate.swift"
             perl -0777 -pi -e 's/\}\s*\z/\n    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {\n        NotificationCenter.default.post(name: .capacitorDidRegisterForRemoteNotifications, object: deviceToken)\n    }\n\n    func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {\n        NotificationCenter.default.post(name: .capacitorDidFailToRegisterForRemoteNotifications, object: error)\n    }\n}\n/' "$AD"
-            echo "----- AppDelegate.swift (after) -----"; cat "$AD"
           fi
+          # Clear the home-screen APP-ICON BADGE whenever the app becomes active.
+          # Pushes set aps.badge = the unread count; iOS never resets it on its own,
+          # so after the user reads their notifications the red icon badge lingers
+          # ("badge shows but nothing inside"). Inject a reset into the AppDelegate's
+          # existing applicationDidBecomeActive. Idempotent.
+          if grep -q "applicationIconBadgeNumber = 0" "$AD"; then
+            echo "AppDelegate already clears the icon badge — no change."
+          else
+            echo "Injecting icon-badge reset into applicationDidBecomeActive"
+            perl -0777 -pi -e 's/(func applicationDidBecomeActive\(_ application: UIApplication\) \{)/$1\n        application.applicationIconBadgeNumber = 0/' "$AD"
+          fi
+          echo "----- AppDelegate.swift (after) -----"; cat "$AD"
       - name: Generate app icon + splash from assets/ (into the CI-generated ios project)
         # @capacitor/assets writes AppIcon + splash into ios/App/App/Assets.xcassets.
         # Runs AFTER 'npx cap add ios' (the project must exist) and before build.
