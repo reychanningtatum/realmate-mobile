@@ -323,9 +323,16 @@
     // bypasses the realtime round-trip that otherwise left the red alert up for
     // a couple of seconds after the user had already opened the chat.
     window.addEventListener('rm-chat-read', () => refreshChatBadge());
+    // INSTANT notif-badge refresh when notifications are read: notifications.js
+    // dispatches 'rm-notif-read' (viewing the tab, mark-all, or a single row) and
+    // postMessages it up to this shell — recount now instead of waiting on the
+    // realtime round-trip / 60s poll, so the red bell badge clears immediately.
+    window.addEventListener('rm-notif-read', () => refreshNotifBadge());
     window.addEventListener('message', (e) => {
         if (e.origin !== location.origin) return;
-        if (e.data && e.data.type === 'rm-chat-read') refreshChatBadge();
+        if (!e.data) return;
+        if (e.data.type === 'rm-chat-read') refreshChatBadge();
+        if (e.data.type === 'rm-notif-read') refreshNotifBadge();
     });
 
     // Debounced re-check — used by the realtime subscriptions below so a

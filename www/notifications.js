@@ -395,6 +395,27 @@ async function markAllNotificationsAsRead() {
     }
 }
 
+// Nudge the app shell's nav bell badge to recount IMMEDIATELY after we mark
+// notifications read — don't wait for the realtime round-trip or the 60s poll.
+// Mirrors chat.js's 'rm-chat-read' bridge (notif-badge.js listens for both).
+function _signalNotifBadgeRefresh() {
+    try { window.dispatchEvent(new Event('rm-notif-read')); } catch (e) {}
+    try { if (window.parent && window.parent !== window) window.parent.postMessage({ type: 'rm-notif-read' }, location.origin); } catch (e) {}
+}
+
+// Opening/viewing the Notifications tab counts as reading them: mark everything
+// read so the red bell badge clears in real time. Called on first load AND by the
+// app shell every time the Notifications tab is revealed (app-shell.js reveal()),
+// so a cached tab re-open still clears the badge. No-op when nothing is unread, so
+// re-revealing doesn't spam the DB.
+window.rmMarkNotificationsViewed = async function () {
+    try {
+        if (!Array.isArray(localNotificationsCache) || !localNotificationsCache.some(n => !n.is_read)) return;
+        await markAllNotificationsAsRead();
+        _signalNotifBadgeRefresh();
+    } catch (e) {}
+};
+
 /**
  * 🚀 ACTION TRIPPERS: SINGLE ELEMENT READ TRACKING
  */
@@ -408,6 +429,7 @@ async function markSingleNotificationAsRead(id) {
         console.error("[Notif] Mark-read FAILED (check Supabase RLS UPDATE policy):", error.message, error);
         return false;
     }
+    _signalNotifBadgeRefresh();   // clear the bell badge instantly for this read
     return true;
 }
 
@@ -657,6 +679,9 @@ window.onload = async () => {
     ]);
     renderNotificationsInterface();
     setupRealtimeNotificationListener();
+    // Opening the tab = viewing → mark read so the red bell badge clears. (Re-opens
+    // of the cached tab are handled by the shell calling rmMarkNotificationsViewed.)
+    rmMarkNotificationsViewed();
 };
 // ── Live relationship sync ──────────────────────────────────────────────────
 // Keep notification cards in step with the current relationship state. Any
