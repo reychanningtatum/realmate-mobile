@@ -14,7 +14,14 @@ workflows:
     # so no minutes are consumed until you click "Start new build".
     scripts:
       - name: Install JS dependencies (reproducible)
-        script: npm ci
+        # Retry: `sharp` downloads a prebuilt libvips binary from GitHub during
+        # install and that fetch intermittently times out on CI, failing the
+        # whole build. Retry npm ci a few times before giving up.
+        script: |
+          for i in 1 2 3 4; do
+            npm ci && break
+            echo "npm ci failed (attempt $i) — retrying in 15s…"; sleep 15
+          done
       - name: Capacitor sync — regenerate android web assets FROM www/
         # This repopulates android/app/src/main/assets/public from www/.
         # We never hand-maintain those generated files (they are gitignored).
@@ -36,7 +43,14 @@ workflows:
     # No 'triggering:' block => manual start only (no minutes until you click build).
     scripts:
       - name: Install JS dependencies (reproducible)
-        script: npm ci
+        # Retry: `sharp` downloads a prebuilt libvips binary from GitHub during
+        # install and that fetch intermittently times out on CI, failing the
+        # whole build. Retry npm ci a few times before giving up.
+        script: |
+          for i in 1 2 3 4; do
+            npm ci && break
+            echo "npm ci failed (attempt $i) — retrying in 15s…"; sleep 15
+          done
       - name: Generate iOS project in the cloud (Capacitor uses CI's CocoaPods)
         # ios/ is NOT committed; it is generated here where CocoaPods + Xcode exist.
         script: |
@@ -95,7 +109,14 @@ workflows:
           source: true
     scripts:
       - name: Install JS dependencies (reproducible)
-        script: npm ci
+        # Retry: `sharp` downloads a prebuilt libvips binary from GitHub during
+        # install and that fetch intermittently times out on CI, failing the
+        # whole build. Retry npm ci a few times before giving up.
+        script: |
+          for i in 1 2 3 4; do
+            npm ci && break
+            echo "npm ci failed (attempt $i) — retrying in 15s…"; sleep 15
+          done
       - name: Generate iOS project in the cloud (Capacitor uses CI's CocoaPods)
         # ios/ is NOT committed; it is generated here where CocoaPods + Xcode exist.
         script: |
@@ -152,6 +173,17 @@ workflows:
           # Face ID / Touch ID sign-in (capacitor-native-biometric). Without this
           # key iOS hard-crashes the first time BiometricAuth is invoked.
           plist_set NSFaceIDUsageDescription string "Realmate uses Face ID so you can sign in quickly and securely without re-entering your password."
+          # Register the realmate:// custom URL scheme so the welcome-email deep link
+          # (enter.html tries realmate://open) opens THIS app. A URL scheme needs no
+          # entitlement or provisioning-profile capability — unlike Universal Links —
+          # so it can't break code-signing. Info.plist is regenerated each build, so
+          # these Add commands always start from a clean plist.
+          /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes array" "$PLIST" 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:0 dict" "$PLIST" 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:0:CFBundleURLName string com.realmate.app" "$PLIST" 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:0:CFBundleURLSchemes array" "$PLIST" 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:0:CFBundleURLSchemes:0 string realmate" "$PLIST" 2>/dev/null || true
+          echo "----- Info.plist CFBundleURLTypes -----"; /usr/libexec/PlistBuddy -c "Print :CFBundleURLTypes" "$PLIST" || true
       - name: Restrict binary to iPhone only (TARGETED_DEVICE_FAMILY = 1)
         # Capacitor's generated Xcode project defaults to universal (iPhone + iPad = "1,2").
         # Realmate is a phone-first app with no iPad-specific design, so limit the binary
@@ -162,18 +194,18 @@ workflows:
           sed -i '' 's/TARGETED_DEVICE_FAMILY = 1,2;/TARGETED_DEVICE_FAMILY = 1;/g' "$PBXPROJ"
           echo "TARGETED_DEVICE_FAMILY after patch:"
           grep -n "TARGETED_DEVICE_FAMILY" "$PBXPROJ" || true
-      - name: Enable Push Notifications + Associated Domains capabilities (entitlements)
+      - name: Enable Push Notifications capability (aps-environment entitlement)
         # Push config, like Info.plist above, is injected at build time because ios/
         # is regenerated each build (never hand-committed). Writes the App.entitlements
-        # file with the APNs + Associated Domains entitlements and points the App
-        # target's build configs at it. REQUIRES the App ID (com.realmate.app) to have
-        # BOTH "Push Notifications" AND "Associated Domains" enabled in the Apple
-        # Developer portal, so the profile fetched by the next step includes those
-        # capabilities — otherwise code-signing will fail.
+        # file with the APNs entitlement and points the App target's build configs at
+        # it. REQUIRES the App ID (com.realmate.app) to have "Push Notifications"
+        # enabled in the Apple Developer portal, so the profile fetched by the next
+        # step includes the `aps` capability — otherwise code-signing will fail.
         # 'production' is the correct aps-environment for App Store / TestFlight builds.
-        # applinks:realmate.onrender.com makes the welcome-email "Enter Realmate" link
-        # (https://realmate.onrender.com/enter.html) open THIS app instead of Safari,
-        # validated against the apple-app-site-association file hosted on that domain.
+        # NOTE: the welcome-email "Enter Realmate" deep link opens the app via a custom
+        # URL scheme (realmate://, registered in Info.plist above), NOT Universal Links —
+        # so NO associated-domains entitlement is needed here (which keeps signing simple
+        # and avoids the App-ID-capability/provisioning-profile dance).
         script: |
           ENT=ios/App/App/App.entitlements
           {
@@ -183,10 +215,6 @@ workflows:
             echo '<dict>'
             echo '  <key>aps-environment</key>'
             echo '  <string>production</string>'
-            echo '  <key>com.apple.developer.associated-domains</key>'
-            echo '  <array>'
-            echo '    <string>applinks:realmate.onrender.com</string>'
-            echo '  </array>'
             echo '</dict>'
             echo '</plist>'
           } > "$ENT"
