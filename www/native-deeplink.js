@@ -21,10 +21,20 @@
     var m = url.match(/[?&]token_hash=([^&]+)/);
     if (!m) return false;
     if (!/type=recovery/i.test(url) && !/realmate:\/\/reset/i.test(url)) return false;
-    // Already sitting on a recovery URL — let script.js handle it; don't loop.
-    if (location.search.indexOf('token_hash=') >= 0) return true;
     var th;
     try { th = decodeURIComponent(m[1]); } catch (e) { th = m[1]; }
+    // Route each token exactly ONCE. getLaunchUrl() keeps returning the same
+    // launch URL for the whole app session, and script.js STRIPS ?token_hash from
+    // the URL right after reading it — so we cannot use location.search to tell
+    // "already handled". Without this guard we'd navigate again after the strip,
+    // reload index.html, and re-run verifyOtp on the now-spent one-time token,
+    // wiping the reset modal. The flag makes the handoff fire only once.
+    try {
+      if (sessionStorage.getItem('rm_reset_routed') === th) return true;
+      sessionStorage.setItem('rm_reset_routed', th);
+    } catch (e) {}
+    // Already sitting on a recovery URL (warm/reloaded) — let script.js handle it.
+    if (location.search.indexOf('token_hash=') >= 0) return true;
     location.replace('index.html?token_hash=' + encodeURIComponent(th) + '&type=recovery');
     return true;
   }
