@@ -571,7 +571,9 @@
   /* ── Auth Toast — replaces alert()/confirm() in the password reset flow ── */
   .auth-toast-container {
     position: fixed;
-    top: 20px;
+    /* Drop below the status bar / notch so the toast is never clipped at the very
+       top (env inset is 0 on desktop, so this is a no-op there). */
+    top: calc(20px + env(safe-area-inset-top, 0px));
     left: 50%;
     transform: translateX(-50%);
     z-index: 10050;
@@ -606,7 +608,7 @@
   .auth-toast:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
 
   @media (max-width: 480px) {
-    .auth-toast-container { top: 12px; width: calc(100% - 24px); }
+    .auth-toast-container { top: calc(12px + env(safe-area-inset-top, 0px)); width: calc(100% - 24px); }
   }
 
   @keyframes loginShake {
