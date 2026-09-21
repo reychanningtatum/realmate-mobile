@@ -397,6 +397,7 @@
 
 <div class="modal" id="updatePasswordModal">
   <div class="modal-content">
+    <button type="button" aria-label="Cancel password reset" onclick="closeResetPasswordModal()" style="position:absolute; top:16px; right:16px; width:34px; height:34px; padding:0; border:none; background:#f1f5f9; color:#64748b; border-radius:50%; font-size:22px; line-height:34px; text-align:center; cursor:pointer;">&times;</button>
     <h3>Reset Your Password</h3>
     <p style="font-size: 13px; color: #64748b; margin-bottom: 25px; line-height: 1.4; font-weight: 500;">Enter and confirm a new password for your account.</p>
     <div class="input-group"><label class="label">New Password</label><div style="position:relative;"><input type="password" id="newPassword" autocomplete="new-password" placeholder="••••••••"><i class="fas fa-eye right" style="top: 13px;" onclick="togglePassword('newPassword', this)"></i></div></div>
