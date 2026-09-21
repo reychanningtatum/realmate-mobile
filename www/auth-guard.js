@@ -163,6 +163,27 @@ function goBack() {
         console.warn("[AuthGuard] Registration status check error:", e.message);
     }
 
+    // Ban gate — a banned member is signed out and blocked on every authed page,
+    // even if they already had a live session when the admin banned them. The
+    // rm_blocked flag (set AFTER clear so it survives) lets the login page explain
+    // why. A missing 'banned' column (migration not run) is treated as not banned.
+    try {
+        const { data: prof } = await _sb
+            .from('profiles')
+            .select('banned')
+            .eq('id', session.user.id)
+            .maybeSingle();
+        if (prof && prof.banned === true) {
+            await _sb.auth.signOut();
+            localStorage.clear();
+            try { localStorage.setItem('rm_blocked', 'banned'); } catch (e) {}
+            (window.top || window).location.href = "index.html";
+            return;
+        }
+    } catch (e) {
+        console.warn("[AuthGuard] Ban check error:", e.message);
+    }
+
     // ── iOS push notifications (Phase 1) ────────────────────────────────────
     // Register this device for APNs against the authenticated user. Only in the
     // TOP-LEVEL shell (never inside a tab iframe, to avoid duplicate registrations),

@@ -328,17 +328,13 @@ async function confirmDeactivate(){
   }
   btn.disabled=true; btn.textContent='Deactivating…'; if(status) status.textContent='Deactivating your account…';
   try{
-    var au = await _supabase.auth.getUser();
-    var user = au && au.data && au.data.user;
-    if(!user) throw new Error('You are not signed in.');
-    var reactivateAt = noAuto ? null : new Date(Date.now() + days*86400000).toISOString();
-    var { error } = await _supabase.from('profiles').update({
-      deactivated: true,
-      deactivated_at: new Date().toISOString(),
-      reactivate_at: reactivateAt,
-      deactivation_reason: reason
-    }).eq('id', user.id);
+    // Go through the edge function so the profile is updated AND the branded
+    // "account deactivated" email is sent server-side (the client can't send mail).
+    var { data, error } = await _supabase.functions.invoke('deactivate-account', {
+      body: { days: days, noAuto: noAuto, reason: reason }
+    });
     if(error) throw error;
+    if(data && data.ok===false) throw new Error('Could not deactivate. Please try again.');
     if(status) status.textContent = noAuto
       ? 'Your account is deactivated. Log in anytime to reactivate it.'
       : ('Your account is deactivated. It will reactivate in '+days+' day'+(days>1?'s':'')+' — or the moment you log in.');

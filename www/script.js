@@ -119,6 +119,15 @@ async function _rmHydrateSession(tokenKey) {
 }
 
 window.addEventListener('load', () => {
+    // Bounced here by the ban gate (auth-guard.js) while holding a live session —
+    // tell the user why, then clear the one-shot flag.
+    try {
+        if (localStorage.getItem('rm_blocked') === 'banned') {
+            localStorage.removeItem('rm_blocked');
+            showAuthToast("Your account has been suspended. Contact information.realmate@gmail.com if you think this is a mistake.", "error", null, 10000);
+        }
+    } catch (e) {}
+
     const hash = window.location.hash || "";
     // An expired/invalid link redirects back with an error in the hash
     // instead of a recovery token — surface that instead of doing nothing.
@@ -663,6 +672,22 @@ async function login(){
       }
       return;
     }
+
+    // Ban gate — a suspended member can never sign in (checked before the
+    // deactivation auto-reactivation below, so a banned account is never revived).
+    // A missing 'banned' column (migration not run) is treated as not banned.
+    try {
+      const { data: bprof, error: berr } = await window.supabaseClient
+        .from('profiles').select('banned').eq('id', authUser.id).maybeSingle();
+      if (!berr && bprof && bprof.banned === true) {
+        await window.supabaseClient.auth.signOut();
+        showLoginError(
+          "Your account has been suspended and can no longer sign in. If you believe this is a mistake, please contact information.realmate@gmail.com.",
+          "Account Suspended"
+        );
+        return;
+      }
+    } catch (e) { /* banned column absent — treat as not banned */ }
 
     // Logging in AUTOMATICALLY reactivates a DEACTIVATED account (the user was
     // told this when they deactivated). Guarded in its own try/catch and a
