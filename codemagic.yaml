@@ -162,14 +162,18 @@ workflows:
           sed -i '' 's/TARGETED_DEVICE_FAMILY = 1,2;/TARGETED_DEVICE_FAMILY = 1;/g' "$PBXPROJ"
           echo "TARGETED_DEVICE_FAMILY after patch:"
           grep -n "TARGETED_DEVICE_FAMILY" "$PBXPROJ" || true
-      - name: Enable Push Notifications capability (aps-environment entitlement)
+      - name: Enable Push Notifications + Associated Domains capabilities (entitlements)
         # Push config, like Info.plist above, is injected at build time because ios/
         # is regenerated each build (never hand-committed). Writes the App.entitlements
-        # file with the APNs entitlement and points the App target's build configs at
-        # it. REQUIRES the App ID (com.realmate.app) to have "Push Notifications"
-        # enabled in the Apple Developer portal, so the profile fetched by the next
-        # step includes the `aps` capability — otherwise code-signing will fail.
+        # file with the APNs + Associated Domains entitlements and points the App
+        # target's build configs at it. REQUIRES the App ID (com.realmate.app) to have
+        # BOTH "Push Notifications" AND "Associated Domains" enabled in the Apple
+        # Developer portal, so the profile fetched by the next step includes those
+        # capabilities — otherwise code-signing will fail.
         # 'production' is the correct aps-environment for App Store / TestFlight builds.
+        # applinks:realmate.onrender.com makes the welcome-email "Enter Realmate" link
+        # (https://realmate.onrender.com/enter.html) open THIS app instead of Safari,
+        # validated against the apple-app-site-association file hosted on that domain.
         script: |
           ENT=ios/App/App/App.entitlements
           {
@@ -179,6 +183,10 @@ workflows:
             echo '<dict>'
             echo '  <key>aps-environment</key>'
             echo '  <string>production</string>'
+            echo '  <key>com.apple.developer.associated-domains</key>'
+            echo '  <array>'
+            echo '    <string>applinks:realmate.onrender.com</string>'
+            echo '  </array>'
             echo '</dict>'
             echo '</plist>'
           } > "$ENT"
