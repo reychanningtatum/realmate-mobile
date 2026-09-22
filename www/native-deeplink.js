@@ -18,6 +18,25 @@
   function routeFromUrl(url) {
     if (!url) return false;
     url = String(url);
+
+    // realmate://resubmit?token=... — the "Submit my documents" email link.
+    // Load index.html with ?resubmit=<token> so the upload card opens on the
+    // app's login screen (script.js handleResubmitFlow). Routed exactly once,
+    // for the same reason as the recovery token below.
+    if (/realmate:\/\/resubmit/i.test(url)) {
+      var rt = url.match(/[?&]token=([^&]+)/);
+      if (!rt) return false;
+      var tok;
+      try { tok = decodeURIComponent(rt[1]); } catch (e) { tok = rt[1]; }
+      try {
+        if (sessionStorage.getItem('rm_resubmit_routed') === tok) return true;
+        sessionStorage.setItem('rm_resubmit_routed', tok);
+      } catch (e) {}
+      if (location.search.indexOf('resubmit=') >= 0) return true;
+      location.replace('index.html?resubmit=' + encodeURIComponent(tok));
+      return true;
+    }
+
     var m = url.match(/[?&]token_hash=([^&]+)/);
     if (!m) return false;
     if (!/type=recovery/i.test(url) && !/realmate:\/\/reset/i.test(url)) return false;

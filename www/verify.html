@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en" style="background:#080f1a">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Opening realmate…</title>
+  <!--
+    Deep-link bridge for the "Submit my documents" button in the verification
+    email. On a device with the realmate app installed, this opens the app via
+    its custom scheme (realmate://resubmit?token=…) so the upload card opens on
+    the app's login screen. Everyone else falls back to the web app, which shows
+    the same card. Using a URL scheme (not Universal Links) keeps this
+    independent of iOS provisioning. The token is a capability token, not PII.
+  -->
+  <style>
+    html,body{margin:0;height:100%;background:#080f1a;color:#e8f0ea;
+      font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+      display:flex;align-items:center;justify-content:center;text-align:center}
+    .wrap{padding:24px}
+    .word{font-size:34px;font-weight:800;letter-spacing:-0.5px}
+    .word span{color:#22c55e}
+    .spin{width:34px;height:34px;margin:26px auto 0;border-radius:50%;
+      border:3px solid rgba(255,255,255,.15);border-top-color:#22c55e;
+      animation:sp .8s linear infinite}
+    @keyframes sp{to{transform:rotate(360deg)}}
+    .msg{margin-top:20px;font-size:15px;color:#9fb0a6}
+    .link{display:inline-block;margin-top:22px;color:#22c55e;text-decoration:none;
+      font-weight:600;font-size:15px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="word">realmate<span>.</span></div>
+    <div class="spin" role="status" aria-label="Loading"></div>
+    <div class="msg">Opening realmate…</div>
+    <a class="link" id="webLink" href="/index.html">Continue on the web &rarr;</a>
+  </div>
+  <script>
+    (function () {
+      var q = new URLSearchParams(location.search);
+      var token = q.get('resubmit');
+      // No token → just go to the web app.
+      if (!token) { location.replace('/index.html'); return; }
+
+      var webUrl = '/index.html?resubmit=' + encodeURIComponent(token);
+      document.getElementById('webLink').setAttribute('href', webUrl);
+
+      var done = false;
+      function goWeb() { if (!done) { done = true; location.replace(webUrl); } }
+      // If the native app opens, the tab is backgrounded/hidden — don't also
+      // send them to the web app.
+      document.addEventListener('visibilitychange', function () { if (document.hidden) done = true; });
+      window.addEventListener('pagehide', function () { done = true; });
+      // Try to hand off to the installed app via its custom scheme.
+      try { location.href = 'realmate://resubmit?token=' + encodeURIComponent(token); } catch (e) {}
+      // Still here after a moment → app isn't installed (or desktop) → web app.
+      setTimeout(goWeb, 1600);
+    })();
+  </script>
+</body>
+</html>

@@ -40,7 +40,7 @@ window.supabaseClient.auth.onAuthStateChange((event) => {
 (async function attemptAutoLogin() {
     if (!document.getElementById("loginBtn")) return;         // login page only
     var h = location.hash || "", q = location.search || "";
-    if (h.includes("type=recovery") || h.includes("error=") || q.includes("token_hash")) return;
+    if (h.includes("type=recovery") || h.includes("error=") || q.includes("token_hash") || q.includes("resubmit")) return;
     if (localStorage.getItem("rm_remember") === "0") return;  // user opted out
     function reveal() { document.documentElement.classList.remove("rm-autologin"); }
     // Show the login form AND, if the user turned on Face ID and we have saved
@@ -176,6 +176,88 @@ window.addEventListener('load', () => {
     }
     openResetPasswordModal();
 })();
+
+// ── Resubmit verification docs: ?resubmit=<token> ───────────────────────
+// A "documents requested" applicant (pre-approval, no session) taps the email
+// button and lands here to re-upload their ID. The one-time token identifies
+// their registration_reviews row; the file goes to the same verification-docs
+// bucket, then the resubmit-documents Edge Function (service_role) flips the
+// row back into the admin queue. See supabase/functions/resubmit-documents.
+let _resubmitToken = null;
+let _resubmitFile = null;
+
+(async function handleResubmitFlow() {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get("resubmit");
+    if (!token) return;
+    history.replaceState(null, "", window.location.pathname); // keep the token out of history
+    _resubmitToken = token;
+    try {
+        const { data, error } = await window.supabaseClient.functions.invoke('resubmit-documents', { body: { action: 'validate', token } });
+        if (error || !data || !data.ok) {
+            showAuthToast((data && data.error) || "This link is invalid or has expired. Please contact support.", "error");
+            return;
+        }
+        const forEl = document.getElementById('resubmitFor');
+        if (forEl && data.email) forEl.textContent = 'For account ' + data.email;
+        const modal = document.getElementById('resubmitDocsModal');
+        if (modal) modal.style.display = 'flex';
+    } catch (e) {
+        showAuthToast("Couldn't open the upload form. Please try again.", "error");
+    }
+})();
+
+function handleResubmitFileSelect(input) {
+    const file = input.files && input.files[0];
+    const nameEl = document.getElementById('resubmitFileName');
+    const btn = document.getElementById('resubmitBtn');
+    const err = document.getElementById('resubmitFileError');
+    if (err) { err.style.display = 'none'; err.textContent = ''; }
+    if (!file) { _resubmitFile = null; if (nameEl) nameEl.textContent = 'Choose file'; if (btn) btn.disabled = true; return; }
+    const check = _validateAlveoFile(file);
+    if (!check.ok) {
+        _resubmitFile = null; input.value = '';
+        if (nameEl) nameEl.textContent = 'Choose file';
+        if (btn) btn.disabled = true;
+        if (err) { err.textContent = check.message; err.style.display = 'block'; }
+        return;
+    }
+    _resubmitFile = file;
+    if (nameEl) nameEl.textContent = file.name;
+    if (btn) btn.disabled = false;
+}
+
+async function submitResubmit() {
+    if (!_resubmitFile || !_resubmitToken) return;
+    const btn = document.getElementById('resubmitBtn');
+    const btnText = document.getElementById('resubmitBtnText');
+    const err = document.getElementById('resubmitFileError');
+    if (err) err.style.display = 'none';
+    if (btn) btn.disabled = true;
+    if (btnText) btnText.textContent = 'Uploading…';
+    try {
+        const folder = (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}_${Math.random().toString(36).slice(2)}`);
+        const path = `${folder}/${Date.now()}_${_resubmitFile.name.replace(/\s/g, '_')}`;
+        const { error: upErr } = await window.supabaseClient.storage
+            .from('verification-docs').upload(path, _resubmitFile, { contentType: _resubmitFile.type });
+        if (upErr) throw new Error('upload');
+        const { data, error } = await window.supabaseClient.functions.invoke('resubmit-documents', { body: { action: 'submit', token: _resubmitToken, path } });
+        if (error || !data || !data.ok) throw new Error((data && data.error) || 'submit');
+        document.getElementById('resubmitForm').style.display = 'none';
+        document.getElementById('resubmitDone').style.display = 'block';
+    } catch (e) {
+        const msg = (e && e.message && e.message !== 'upload' && e.message !== 'submit') ? e.message : "Something went wrong. Please try again.";
+        if (err) { err.textContent = msg; err.style.display = 'block'; }
+        if (btn) btn.disabled = false;
+        if (btnText) btnText.textContent = 'Submit for Review';
+    }
+}
+
+function closeResubmitModal() {
+    const modal = document.getElementById('resubmitDocsModal');
+    if (modal) modal.style.display = 'none';
+    _resubmitToken = null; _resubmitFile = null;
+}
 
 // ── Auth Toast — replaces alert()/confirm() across the password reset flow ──
 function escAuth(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
