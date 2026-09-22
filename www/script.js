@@ -847,7 +847,7 @@ async function forgotPassword() {
     // scanners (Trellix/FireEye, etc.) flag as suspicious — a redirect
     // through a loopback address is never legitimate for a real recipient.
     const { error } = await window.supabaseClient.auth.resetPasswordForEmail(emailToReset, {
-      redirectTo: "https://realmate.onrender.com/index.html",
+      redirectTo: "https://realmate.ph/index.html",
     });
     if (error) {
       showAuthToast(_friendlyAuthError(error, "Could not send the reset link. Please try again."), "error");
