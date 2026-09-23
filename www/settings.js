@@ -205,7 +205,10 @@ function toggleSettingsPassword(inputId, iconEl) {
 function logout() {
     try { _supabase.auth.signOut(); } catch (e) {}
     localStorage.clear();
-    location.href = "index.html";
+    // Settings runs inside the app-shell's content iframe; navigate the TOP
+    // window so the whole shell (and its bottom nav bar) is torn down, not just
+    // this iframe — otherwise the login page shows WITH the nav bar over it.
+    (window.top || window).location.href = "index.html";
 }
 
 /**
@@ -289,7 +292,7 @@ async function confirmDeleteAccount(){
     if(status) status.textContent='Your account has been deleted.';
     try { await _supabase.auth.signOut(); } catch(e){}
     localStorage.clear();
-    setTimeout(function(){ location.href='marketing.html'; }, 1200);
+    setTimeout(function(){ (window.top || window).location.href='marketing.html'; }, 1200);
   }catch(err){
     console.error('[Settings] confirmDeleteAccount:', err);
     if(status) status.textContent=(err && err.message) ? err.message : 'Could not delete account. Please try again.';
@@ -340,7 +343,7 @@ async function confirmDeactivate(){
       : ('Your account is deactivated. It will reactivate in '+days+' day'+(days>1?'s':'')+' — or the moment you log in.');
     try{ await _supabase.auth.signOut(); }catch(e){}
     localStorage.clear();
-    setTimeout(function(){ location.href='marketing.html'; }, 1800);
+    setTimeout(function(){ (window.top || window).location.href='marketing.html'; }, 1800);
   }catch(err){
     console.error('[Settings] confirmDeactivate:', err);
     var missing = err && err.message && /column|schema cache|does not exist|42703/i.test(err.message);
