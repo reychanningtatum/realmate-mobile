@@ -306,12 +306,12 @@
 <div class="modal" id="termsModal">
     <div class="modal-content" style="max-width: 800px; padding: 0; overflow: hidden;">
         <div style="padding: 20px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; background: #fff;">
-            <h3 style="margin: 0; font-family: 'Playfair Display'; color: var(--primary);">Full Legal Agreement</h3>
+            <h3 style="margin: 0; font-family: 'Playfair Display'; color: var(--primary);">Legal Agreement — Terms of Use, Privacy Policy &amp; Disclaimer</h3>
             <span class="close-btn" onclick="closeTerms()" style="position: static;">&times;</span>
         </div>
         <iframe src="terms.html" style="width: 100%; height: 60vh; border: none;" id="termsFrame"></iframe>
         <div style="padding: 20px; background: #f8fafc; border-top: 1px solid #eee; text-align: center;">
-            <button class="btn" style="width: auto; padding: 10px 30px;" onclick="closeTerms()">I Acknowledge and Accept All Sections</button>
+            <button class="btn" style="width: auto; padding: 10px 30px;" onclick="closeTerms()">I Acknowledge and Accept the Terms, Privacy Policy &amp; Disclaimer</button>
         </div>
     </div>
 </div>
@@ -376,7 +376,7 @@
     </div>
     <div class="checkbox-group locked" id="checkboxArea">
         <input type="checkbox" id="termsCheckbox" onchange="toggleRegButton()" disabled>
-        <label id="checkboxLabel">You must <b onclick="openTerms()" style="color: var(--primary); text-decoration: underline; cursor: pointer;">Review the Legal Terms</b> first.</label>
+        <label id="checkboxLabel">You must <b onclick="openTerms()" style="color: var(--primary); text-decoration: underline; cursor: pointer;">Review the Legal Terms</b> first — this includes the Terms of Use, Privacy Policy, and Disclaimer.</label>
     </div>
     <button class="btn" id="regBtn" onclick="registerUser()" disabled><span id="btnText">Create Account</span></button>
   </div>
@@ -456,7 +456,7 @@
 <script src="native-auth.js?v=10"></script>
 <script src="native-deeplink.js?v=3"></script>
 <script src="vendor/supabase-js.min.js?v=2.112.3"></script>
-<script src="script.js?v=20260926a"></script>
+<script src="script.js?v=20260926b"></script>
 <script>
   // Arrived from marketing's "Get Started" / "Join realmate": open the Create Account
   // modal directly. (Sign In leaves this flag unset and simply shows the login form.)
