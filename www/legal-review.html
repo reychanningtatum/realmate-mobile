@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>realmate — Legal Terms (Full Review)</title>
+    <link rel="stylesheet" href="vendor/googlefonts/fonts.css?v=1">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            line-height: 1.8;
+            color: #334155;
+            padding: 24px 28px 40px;
+            max-width: 900px;
+            margin: auto;
+            background: #ffffff;
+        }
+        .legal-header { border-bottom: 3px solid #32cd32; margin-bottom: 28px; padding-bottom: 16px; }
+        h1 { font-size: 22px; color: #0f172a; margin: 0; text-transform: uppercase; }
+        h2 { color: #0f172a; font-size: 15px; margin-top: 32px; text-decoration: underline; }
+        h3 { font-size: 14px; color: #1e293b; margin-top: 20px; }
+        p, li { font-size: 13px; text-align: justify; margin-bottom: 14px; }
+        .clause-number { font-weight: 700; color: #111; }
+        .highlight { background: #f0fdf4; padding: 2px 5px; border-radius: 4px; font-weight: 600; }
+        .warning-box { border: 1px solid #e2e8f0; padding: 18px; background: #f8fafc; margin: 22px 0; border-radius: 6px; }
+        .warning-box p:last-child { margin-bottom: 0; }
+        .review-note { border: 1px solid #fde68a; background: #fffbeb; padding: 14px 16px; border-radius: 6px; font-size: 12px; color: #92400e; margin: 18px 0; }
+        table { width: 100%; border-collapse: collapse; margin: 18px 0; font-size: 12px; }
+        th, td { border: 1px solid #e2e8f0; padding: 9px 11px; text-align: left; vertical-align: top; }
+        th { background: #f0fdf4; color: #0f172a; font-weight: 700; }
+        ul { list-style: square; padding-left: 20px; }
+        a { color: #16a34a; }
+        /* Table of contents for the combined review. */
+        .lr-toc { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; padding: 16px 18px; margin-bottom: 8px; }
+        .lr-toc h2 { margin: 0 0 8px; font-size: 13px; text-decoration: none; text-transform: uppercase; letter-spacing: .04em; color: #166534; }
+        .lr-toc ol { margin: 0; padding-left: 18px; }
+        .lr-toc li { font-size: 13px; margin-bottom: 4px; }
+        .lr-toc a { font-weight: 600; text-decoration: none; }
+        .lr-toc a:hover { text-decoration: underline; }
+        /* Divider between documents. */
+        .lr-doc { padding-top: 8px; }
+        .lr-divider { border: 0; border-top: 2px dashed #cbd5e1; margin: 40px 0 8px; }
+        .lr-loading { color: #64748b; font-size: 13px; padding: 20px 0; }
+        .lr-error { color: #b91c1c; font-size: 13px; }
+        .footer-stamp { margin-top: 44px; padding-top: 24px; border-top: 1px solid #cbd5e1; font-size: 11px; color: #94a3b8; text-align: center; }
+    </style>
+</head>
+<body>
+
+<div class="lr-toc" id="lrToc">
+    <h2>Legal Terms — Full Review</h2>
+    <p style="font-size:12px;color:#166534;margin:0 0 8px;">These are all the documents that apply to your realmate account. Please read them before you acknowledge and accept.</p>
+    <ol>
+        <li><a href="#doc-terms">Terms of Use &amp; User Agreement</a></li>
+        <li><a href="#doc-privacy">Privacy Policy</a></li>
+        <li><a href="#doc-disclaimer">Disclaimer &amp; Non-Affiliation Notice</a></li>
+        <li><a href="#doc-consent">Data Privacy Consent Notice</a></li>
+    </ol>
+</div>
+
+<div id="lrContent">
+    <p class="lr-loading">Loading the legal documents…</p>
+</div>
+
+<div class="footer-stamp">
+    END OF LEGAL TERMS<br>
+    © 2026 REALMATE. ALL RIGHTS RESERVED.
+</div>
+
+<script>
+(function () {
+    // The four documents that make up the realmate legal terms, shown here as one
+    // continuous scroll. Content is fetched live from the same source files used
+    // everywhere else, so this review never drifts out of sync with them.
+    var DOCS = [
+        { id: 'doc-terms',      url: 'terms.html' },
+        { id: 'doc-privacy',    url: 'privacy.html' },
+        { id: 'doc-disclaimer', url: 'disclaimer.html' },
+        { id: 'doc-consent',    url: 'consent.html' }
+    ];
+
+    // Pull just the readable content out of a legal page: drop the Back control,
+    // any scripts, and the per-page footer stamp (we add one combined footer).
+    function extractBody(html) {
+        var doc = new DOMParser().parseFromString(html, 'text/html');
+        doc.querySelectorAll('.back, .rm-back, script, .footer-stamp').forEach(function (el) { el.remove(); });
+        return doc.body.innerHTML;
+    }
+
+    async function render() {
+        var container = document.getElementById('lrContent');
+        try {
+            var parts = await Promise.all(DOCS.map(function (d) {
+                return fetch(d.url, { cache: 'no-store' }).then(function (r) {
+                    if (!r.ok) throw new Error(d.url + ' -> ' + r.status);
+                    return r.text();
+                });
+            }));
+            var html = '';
+            parts.forEach(function (raw, i) {
+                if (i > 0) html += '<hr class="lr-divider">';
+                html += '<section class="lr-doc" id="' + DOCS[i].id + '">' + extractBody(raw) + '</section>';
+            });
+            container.innerHTML = html;
+        } catch (e) {
+            container.innerHTML = '<div class="warning-box"><p class="lr-error"><strong>We couldn’t load the documents here.</strong></p>' +
+                '<p style="margin-bottom:0;">You can read the Terms of Use, Privacy Policy, Disclaimer, and Data Privacy Consent Notice any time from <strong>Settings → Legal</strong>. By creating an account you agree to those documents.</p></div>';
+        }
+    }
+    render();
+})();
+</script>
+
+</body>
+</html>
