@@ -94,6 +94,9 @@
   .modal-box .m-hl{color:var(--primary);font-weight:700;}
 
   /* nav */
+  /* Desktop: transparent wrapper — the statement + nav lay out exactly as before
+     (statement scrolls away, nav sticks). Mobile turns it into a fixed topbar. */
+  .mtopbar{display:contents;}
   nav{position:sticky;top:env(safe-area-inset-top);z-index:50;backdrop-filter:blur(14px);
     background:rgba(6,12,22,0.72);border-bottom:1px solid rgba(255,255,255,0.06);}
   .nav-in{display:flex;align-items:center;justify-content:space-between;height:66px;}
@@ -453,7 +456,12 @@
   @media(max-width:860px){
     .desktop-only{display:none!important;}
     .nav-in{height:60px;}
-    /* Logo scrolls with the page on mobile instead of sticking to the top. */
+    /* Fixed mobile topbar: the statement (.announce) + logo (.nav) stay pinned to
+       the top of the screen while the page scrolls underneath. The content's top
+       padding is set to this bar's height in JS (rmSyncTopbar), since the
+       statement can wrap to two lines on narrow screens. */
+    .mtopbar{display:block;position:fixed;top:0;left:0;right:0;z-index:60;}
+    .announce{padding-top:calc(9px + env(safe-area-inset-top));}
     nav{position:static;}
     /* On mobile the sticky bottom bar carries Sign In + Get Started, so the
        top nav is just the logo — avoids a redundant Get Started at the top. */
@@ -527,11 +535,27 @@
 
 <div class="content">
 
-  <!-- Exclusivity announcement (immediately visible, clickable) -->
-  <button class="announce" type="button" onclick="rmOpenExcl()" aria-haspopup="dialog">
-    <i class="fas fa-lock"></i> A private platform for real estate professionals — currently open to the Alveo sales community
-    <i class="fas fa-circle-info ann-i"></i>
-  </button>
+  <div class="mtopbar">
+    <!-- Exclusivity announcement (immediately visible, clickable) -->
+    <button class="announce" type="button" onclick="rmOpenExcl()" aria-haspopup="dialog">
+      <i class="fas fa-lock"></i> A private platform for real estate professionals — currently open to the Alveo sales community
+      <i class="fas fa-circle-info ann-i"></i>
+    </button>
+    <!-- Nav -->
+    <nav>
+      <div class="wrap nav-in">
+        <a class="brand" onclick="rmTop()"><img src="images/realmate2.png" alt="realmate"></a>
+        <div class="nav-links">
+          <span class="lk desktop-only" onclick="rmScroll('how')">How it works</span>
+          <span class="lk desktop-only" onclick="rmScroll('features')">Features</span>
+          <span class="lk desktop-only" onclick="rmScroll('why')">Why realmate</span>
+          <span class="lk desktop-only" onclick="rmScroll('team')">About</span>
+          <span class="lk" onclick="rmSignIn()">Sign In</span>
+          <button class="btn btn-primary btn-sm" onclick="rmStart()">Get Started <i class="fas fa-arrow-right"></i></button>
+        </div>
+      </div>
+    </nav>
+  </div>
 
   <!-- Exclusivity / non-affiliation modal -->
   <div class="modal-ov" id="exclModal" onclick="if(event.target===this) rmCloseExcl()">
@@ -543,21 +567,6 @@
       <p class="m-disc">realmate is an independent platform and is not affiliated with, owned by, operated by, sponsored by, or endorsed by Alveo Land Corp., Ayala Land, Inc., or their affiliates. Choosing to serve the Alveo sales community does not make realmate an official Alveo system or channel. All company and development names are referenced for professional context only. <a href="disclaimer.html" style="color:#32cd32;font-weight:600;">Read the full Disclaimer</a>.</p>
     </div>
   </div>
-
-  <!-- Nav -->
-  <nav>
-    <div class="wrap nav-in">
-      <a class="brand" onclick="rmTop()"><img src="images/realmate2.png" alt="realmate"></a>
-      <div class="nav-links">
-        <span class="lk desktop-only" onclick="rmScroll('how')">How it works</span>
-        <span class="lk desktop-only" onclick="rmScroll('features')">Features</span>
-        <span class="lk desktop-only" onclick="rmScroll('why')">Why realmate</span>
-        <span class="lk desktop-only" onclick="rmScroll('team')">About</span>
-        <span class="lk" onclick="rmSignIn()">Sign In</span>
-        <button class="btn btn-primary btn-sm" onclick="rmStart()">Get Started <i class="fas fa-arrow-right"></i></button>
-      </div>
-    </div>
-  </nav>
 
   <!-- Hero -->
   <header class="hero">
@@ -943,6 +952,22 @@
     if(c) c.addEventListener('animationend', reset, { once:true });
     setTimeout(reset, 900);
   }}catch(e){} })();
+
+  // Desktop browser Back: leaving to the login/create-account page adds
+  // body.rm-leaving, which raises the opaque #rmLeaveCover over the whole page.
+  // When the browser restores this page from its bfcache (Back button), scripts
+  // don't re-run and that class is still set — so the marketing page shows only
+  // the blank dark cover. Clear the leave curtain on every pageshow so the full
+  // page is restored without a refresh, no matter how many times the user goes
+  // back and forth. Native app is skipped (it never returns here via browser Back).
+  window.addEventListener('pageshow', function(){
+    try {
+      if (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) return;
+      document.body.classList.remove('rm-leaving');
+      var c = document.getElementById('rmLeaveCover');
+      if (c) { c.style.animation=''; c.style.opacity=''; c.style.visibility=''; }
+    } catch (e) {}
+  });
   // Get Started / Join realmate → the Create Account page (login page opens its
   // register modal via the rm_show_register flag). Sign In → the Login page.
   function rmStart(){ try{ sessionStorage.setItem('rm_show_register','1'); }catch(e){} rmGoLogin(); }
@@ -964,9 +989,63 @@
     clearTimeout(window._rmToastT); window._rmToastT = setTimeout(function(){ t.classList.remove('show'); }, 3000);
   }
 
-  // In-page navigation
-  function rmScroll(id){ var el=document.getElementById(id); if(el) el.scrollIntoView({behavior:'smooth',block:'start'}); }
+  // In-page navigation. On DESKTOP the navbar is sticky (position:sticky, ~66px)
+  // and overlaps the top of the page, so a plain scrollIntoView left the section
+  // title hidden behind it. Scroll so the title clears the navbar by a small,
+  // consistent gap — measuring the TITLE element itself (not the section box) so
+  // it lands the same for every section regardless of that section's own top
+  // padding or split-centered layout. On MOBILE the navbar is static (it scrolls
+  // away) and these links are hidden, so keep the original behavior untouched.
+  function rmScroll(id){
+    var el = document.getElementById(id);
+    if(!el) return;
+    if(!(window.matchMedia && window.matchMedia('(min-width:861px)').matches)){
+      el.scrollIntoView({behavior:'smooth',block:'start'}); return; // mobile: unchanged
+    }
+    var nav = document.querySelector('nav');
+    var navH = nav ? Math.round(nav.getBoundingClientRect().height) : 66;
+    var GAP = 20;
+    var title = el.querySelector('.eyebrow, h2') || el;
+    var y = title.getBoundingClientRect().top + window.pageYOffset - navH - GAP;
+    // The reveal-in animation starts the title translated DOWN (translateY), and
+    // its rect includes that offset. Subtract the current translateY so we aim at
+    // the title's FINAL resting position — otherwise it settles a little under the
+    // navbar once the reveal finishes. (Leaves the reveal animation itself intact.)
+    var host = title.closest ? title.closest('.reveal') : null;
+    if (host) {
+      try {
+        var tf = getComputedStyle(host).transform;
+        var m = tf && tf.indexOf('matrix(') === 0 ? tf.slice(7, -1).split(',') : null;
+        if (m && m.length === 6) y -= (parseFloat(m[5]) || 0); // matrix(a,b,c,d,e,f): f = translateY
+      } catch (e) {}
+    }
+    window.scrollTo({ top: Math.max(0, Math.round(y)), behavior:'smooth' });
+  }
   function rmTop(){ window.scrollTo({top:0,behavior:'smooth'}); }
+
+  // Mobile only: the topbar (statement + logo) is position:fixed, so it no longer
+  // takes space in the flow. Pad the content down by the bar's real height so the
+  // page scrolls UNDERNEATH it with no gap and nothing peeks above the statement.
+  // The statement can wrap to two lines, so measure at runtime and re-measure on
+  // resize / orientation change. Desktop reverts to the CSS safe-area padding.
+  function rmSyncTopbar(){
+    try{
+      var bar=document.querySelector('.mtopbar'), content=document.querySelector('.content');
+      if(!bar||!content) return;
+      if(window.matchMedia && window.matchMedia('(max-width:860px)').matches){
+        content.style.paddingTop = Math.round(bar.getBoundingClientRect().height) + 'px';
+      } else {
+        content.style.paddingTop = '';
+      }
+    }catch(e){}
+  }
+  window.addEventListener('load', rmSyncTopbar);
+  window.addEventListener('resize', rmSyncTopbar);
+  window.addEventListener('orientationchange', function(){ setTimeout(rmSyncTopbar, 60); });
+  if(document.readyState!=='loading') rmSyncTopbar();
+  else document.addEventListener('DOMContentLoaded', rmSyncTopbar);
+  // Fonts/layout can settle after first paint and change the statement height.
+  setTimeout(rmSyncTopbar, 200); setTimeout(rmSyncTopbar, 600);
 
   // Exclusivity / non-affiliation modal
   function rmOpenExcl(){ document.getElementById('exclModal').classList.add('open'); }
