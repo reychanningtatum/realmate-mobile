@@ -548,8 +548,12 @@
   font-size: 14px;
   line-height: 1.45;
   position: relative;
-  word-wrap: break-word;
-  overflow-wrap: break-word;
+  /* `anywhere` (not `break-word`) also shrinks the min-content width, so a long
+     unbroken string wraps down inside the flex row instead of forcing a
+     sideways scrollbar. min-width:0 lets the flex item shrink below that word. */
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  min-width: 0;
   max-width: 100%;
 }
 

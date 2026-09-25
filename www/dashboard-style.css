@@ -1088,8 +1088,12 @@ html[data-theme="dark"] .input-field-legacy-hint i { color: #f59e0b; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* MEDIA QUERIES */
-@media (max-width: 900px) {
-    .sidebar { display: none; }
+/* The 240px sidebar eats into the content width, so the 3-column profile
+   (240 + 1fr + 280) crushes the middle column well before the viewport reaches
+   900px. Collapse to a single ordered stream up to 1200px; the sidebar itself
+   only hides at <=900 (below), so 901-1200 keeps the sidebar with a stacked
+   profile. */
+@media (max-width: 1200px) {
     .profile-layout { grid-template-columns: 1fr; }
     /* Collapse the 3 columns into one properly-ordered stream */
     .profile-left-col, .profile-main-col, .profile-side-col { display: contents; }
@@ -1122,6 +1126,12 @@ html[data-theme="dark"] .input-field-legacy-hint i { color: #f59e0b; }
     /* Only the active section's panel is shown; the others collapse out. */
     .profile-tab-panel { display: none; }
     .profile-tab-panel.tab-active { display: block; }
+}
+
+/* Sidebar hides only once we're truly in mobile territory; between 901-1200 it
+   stays visible alongside the stacked profile above. */
+@media (max-width: 900px) {
+    .sidebar { display: none; }
 }
 
 @media (max-width: 600px) {
