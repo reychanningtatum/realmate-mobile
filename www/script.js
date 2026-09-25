@@ -99,7 +99,7 @@ async function bioSignIn() {
         var id = document.getElementById("loginIdentifier"), pw = document.getElementById("password");
         if (id) id.value = creds.username;
         if (pw) pw.value = creds.password;
-        login();
+        login({ fromBio: true });
     } catch (e) { /* stay on the form; password login remains available */ }
 }
 
@@ -683,7 +683,19 @@ function handleLoginSubmit(e) {
   return false;
 }
 
-async function login(){
+// Forget the saved Face ID sign-in: the stored account is gone or its password
+// is stale, so drop the Keychain credentials + the enabled flag and hide the
+// button so it stops suggesting a deleted/invalid account.
+async function _rmBioForget(){
+  try { if (window.rmBio && window.rmBio.setEnabled) await window.rmBio.setEnabled(false); } catch (e) {}
+  try { if (window.rmBio && window.rmBio.clearCredentials) await window.rmBio.clearCredentials(); } catch (e) {}
+  var btn = document.getElementById("bioLoginBtn"); if (btn) btn.style.display = "none";
+  var id = document.getElementById("loginIdentifier"); if (id) id.value = "";
+  var pw = document.getElementById("password"); if (pw) pw.value = "";
+}
+
+async function login(opts){
+  const fromBio = !!(opts && opts.fromBio);
   const loginBtn = document.getElementById("loginBtn");
   if (loginBtn && loginBtn.disabled) return;   // guard against double-submit
   const loginBtnText = document.getElementById("loginBtnText");
@@ -710,7 +722,12 @@ async function login(){
         .eq('username', identifier)
         .maybeSingle();
       if (!legacyUser) {
-        showLoginError("No account found with that username.");
+        if (fromBio) {
+          await _rmBioForget();
+          showLoginError("That saved account no longer exists. Face ID sign-in has been reset — please sign in with your password.");
+        } else {
+          showLoginError("No account found with that username.");
+        }
         return;
       }
       emailToLogin = legacyUser.email;
@@ -722,7 +739,15 @@ async function login(){
     });
 
     if (error) {
-      const msg = error.message.toLowerCase().includes("invalid")
+      const lower = error.message.toLowerCase();
+      if (fromBio && lower.includes("invalid")) {
+        // The saved account was deleted (or its password changed) — the stored
+        // Keychain credentials are stale, so forget them instead of re-suggesting.
+        await _rmBioForget();
+        showLoginError("Your saved Face ID sign-in is no longer valid and has been reset. Please sign in with your password.");
+        return;
+      }
+      const msg = lower.includes("invalid")
         ? "Incorrect email or password. Please try again."
         : error.message;
       showLoginError(msg);
