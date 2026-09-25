@@ -368,16 +368,54 @@ function togglePassword(id, icon){
 }
 
 function openRegister(){ document.getElementById("registerModal").style.display="flex" }
-function closeRegister(){ document.getElementById("registerModal").style.display="none" }
+// Closing the Create Account modal (× , outside click, or after submit) resets the
+// legal acknowledgment so the user must review the terms again next time.
+function closeRegister(){ document.getElementById("registerModal").style.display="none"; resetTermsAcknowledgment(); }
+
+// ── Legal acknowledgment gating ──────────────────────────────────────────────
+// The "I Acknowledge" button stays locked until the user has scrolled to the very
+// bottom of the combined review (legal-review.html posts 'rm-legal-reviewed').
+function lockTermsAccept(){
+    const b = document.getElementById("termsAcceptBtn");
+    if (b){ b.disabled = true; b.style.opacity = ".5"; b.style.cursor = "not-allowed"; }
+    const h = document.getElementById("termsScrollHint");
+    if (h) h.style.display = "block";
+}
+function unlockTermsAccept(){
+    const b = document.getElementById("termsAcceptBtn");
+    if (b){ b.disabled = false; b.style.opacity = ""; b.style.cursor = "pointer"; }
+    const h = document.getElementById("termsScrollHint");
+    if (h) h.style.display = "none";
+}
+// Revert the legal checkbox to its unreviewed state (unchecked, disabled, relocked
+// label + accept button) so the user has to Review the Legal Terms again.
+function resetTermsAcknowledgment(){
+    const checkbox = document.getElementById("termsCheckbox");
+    const checkboxArea = document.getElementById("checkboxArea");
+    const checkboxLabel = document.getElementById("checkboxLabel");
+    if (checkbox){ checkbox.checked = false; checkbox.disabled = true; }
+    if (checkboxArea) checkboxArea.classList.add("locked");
+    if (checkboxLabel) checkboxLabel.innerHTML = 'You must <b onclick="openTerms()" style="color: var(--primary); text-decoration: underline; cursor: pointer;">Review the Legal Terms</b> first — this covers the Terms of Use, Privacy Policy, Disclaimer, and Data Privacy Consent Notice.';
+    lockTermsAccept();
+    if (typeof toggleRegButton === "function") toggleRegButton();
+}
+// Close the review WITHOUT accepting (the × or an outside click on the review).
+function dismissTerms(){ document.getElementById("termsModal").style.display = "none"; }
+// legal-review.html tells us (same-origin postMessage) when the user has read to
+// the bottom — or when the content is short enough to need no scrolling.
+window.addEventListener("message", function(e){
+    if (e && e.data === "rm-legal-reviewed") unlockTermsAccept();
+});
 function closeRegistrationPending(){ document.getElementById("registrationPendingModal").style.display="none" }
 function openPurpose() { document.getElementById("purposeModal").style.display = "flex"; }
 function closePurpose() { document.getElementById("purposeModal").style.display = "none"; }
 
 // 🔥 UPDATED: OPEN TERMS AND REFRESH IFRAME
-function openTerms() { 
-    document.getElementById("termsModal").style.display = "flex"; 
+function openTerms() {
+    document.getElementById("termsModal").style.display = "flex";
+    lockTermsAccept(); // fresh review — user must scroll to the bottom again
     const iframe = document.getElementById("termsFrame");
-    if(iframe) iframe.src = iframe.src; // Reloads the frame
+    if(iframe) iframe.src = iframe.src; // Reloads the frame (re-runs the scroll gate)
 }
 
 function closeTerms() { 
@@ -1372,6 +1410,6 @@ window.onclick = function(event) {
     let termsModal = document.getElementById("termsModal");
     let registerModal = document.getElementById("registerModal");
     if (event.target == purposeModal) purposeModal.style.display = "none";
-    if (event.target == termsModal) closeTerms();
-    if (event.target == registerModal) registerModal.style.display = "none";
+    if (event.target == termsModal) dismissTerms();
+    if (event.target == registerModal) closeRegister();
 }

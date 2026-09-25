@@ -87,6 +87,27 @@
         return doc.body.innerHTML;
     }
 
+    // Tell the parent registration modal the user has read to the bottom so it can
+    // enable the "I Acknowledge" button. Fires once.
+    var notified = false;
+    function notifyReviewed() {
+        if (notified) return;
+        notified = true;
+        try { if (window.parent && window.parent !== window) window.parent.postMessage('rm-legal-reviewed', '*'); } catch (e) {}
+    }
+    function atBottom() {
+        var el = document.documentElement;
+        return (window.innerHeight + window.scrollY) >= (el.scrollHeight - 8);
+    }
+    // Watch for the user reaching the very bottom. If the content is short enough
+    // that no scrolling is needed, unlock immediately.
+    function watchScroll() {
+        if (atBottom()) { notifyReviewed(); return; }
+        window.addEventListener('scroll', function () {
+            if (atBottom()) notifyReviewed();
+        }, { passive: true });
+    }
+
     async function render() {
         var container = document.getElementById('lrContent');
         try {
@@ -106,6 +127,8 @@
             container.innerHTML = '<div class="warning-box"><p class="lr-error"><strong>We couldn’t load the documents here.</strong></p>' +
                 '<p style="margin-bottom:0;">You can read the Terms of Use, Privacy Policy, Disclaimer, and Data Privacy Consent Notice any time from <strong>Settings → Legal</strong>. By creating an account you agree to those documents.</p></div>';
         }
+        // Let the layout settle, then set up the scroll gate.
+        setTimeout(watchScroll, 60);
     }
     render();
 })();
