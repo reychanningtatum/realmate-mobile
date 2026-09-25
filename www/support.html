@@ -26,6 +26,10 @@
   .status.err{ color:#dc2626; }
   .foot{ margin-top:26px; font-size:13px; color:var(--sub); text-align:center; }
   .foot a{ color:var(--grn-d); text-decoration:none; font-weight:600; }
+  .back{ display:inline-flex; align-items:center; gap:6px; margin-bottom:18px; font-size:14px;
+    color:var(--grn-d); text-decoration:none; font-weight:600; cursor:pointer;
+    -webkit-tap-highlight-color:transparent; }
+  .back:hover{ opacity:.75; }
   @media (prefers-color-scheme:dark){
     :root{ --ink:#e2e8f0; --sub:#94a3b8; --line:#1e293b; --bg:#0b1220; --card:#0f172a; }
     input,select,textarea{ background:#0b1220; }
@@ -34,6 +38,7 @@
 </head>
 <body>
   <div class="wrap">
+    <a class="back" href="#" onclick="return supportBack()"><span aria-hidden="true">&larr;</span> Back</a>
     <div class="brand">realmate<span style="color:var(--grn-d)">.</span></div>
     <h1>Support</h1>
     <p class="lede">Have a question, found a problem, or need help with your account? Send us a message and we'll reply to the email you provide.</p>
@@ -120,6 +125,24 @@
         }
       });
     })();
+  </script>
+  <script>
+    // Support is opened from Settings, so Back returns there. Inside the app
+    // shell the tab iframe holds the Settings -> Support history, so defer to the
+    // shell's rmBack (a single history.back() on the sub-page) — it returns to
+    // Settings, never the previous tab or the marketing page. Standalone web
+    // falls back to normal history.
+    function supportBack() {
+      try {
+        if (window.self !== window.top && window.parent && typeof window.parent.rmBack === 'function') {
+          window.parent.rmBack();
+          return false;
+        }
+      } catch (e) {}
+      if (window.history.length > 1) window.history.back();
+      else window.location.href = 'settings.html';
+      return false;
+    }
   </script>
 </body>
 </html>

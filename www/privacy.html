@@ -33,7 +33,7 @@
 </head>
 <body>
 
-<a class="back" href="marketing.html">&larr; Back to realmate</a>
+<a class="back" href="#" onclick="return legalBack()">&larr; Back</a>
 
 <div class="legal-header">
     <h1>Privacy Policy &amp; Privacy Notice</h1>
@@ -84,6 +84,26 @@
     © 2026 REALMATE. ALL RIGHTS RESERVED.<br>
     <a href="privacy.html">Privacy Policy</a> &nbsp;|&nbsp; <a href="terms.html">Terms of Use</a> &nbsp;|&nbsp; <a href="disclaimer.html">Disclaimer</a>
 </div>
+
+<script>
+  // Back = return to wherever this page was opened FROM (e.g. Settings), never a
+  // hardcoded destination. Inside the app shell the tab iframe holds the real
+  // history (Settings -> Privacy), so defer to the shell's rmBack (a single
+  // history.back() on the sub-page) — it returns to Settings and never walks the
+  // shared history back to the marketing page. Standalone web falls back to
+  // normal history, then the landing page only if there's nothing to go back to.
+  function legalBack() {
+    try {
+      if (window.self !== window.top && window.parent && typeof window.parent.rmBack === 'function') {
+        window.parent.rmBack();
+        return false;
+      }
+    } catch (e) {}
+    if (window.history.length > 1) window.history.back();
+    else window.location.href = 'marketing.html';
+    return false;
+  }
+</script>
 
 </body>
 </html>
