@@ -25,9 +25,18 @@
         .warning-box { border: 1px solid #e2e8f0; padding: 20px; background: #f8fafc; margin: 30px 0; }
         .footer-stamp { margin-top: 60px; padding-top: 30px; border-top: 1px solid #cbd5e1; font-size: 11px; color: #94a3b8; text-align: center; }
         ul { list-style: square; padding-left: 20px; }
+        /* Back control — matches the realmate legal-page look (green accent). */
+        .rm-back { display: inline-flex; align-items: center; gap: 8px; margin-bottom: 28px;
+            padding: 9px 16px; font-family: inherit; font-size: 13px; font-weight: 600;
+            color: #16a34a; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px;
+            cursor: pointer; text-decoration: none; -webkit-tap-highlight-color: transparent; }
+        .rm-back:hover { background: #dcfce7; }
+        .rm-back:active { background: #bbf7d0; }
     </style>
 </head>
 <body>
+
+<button type="button" class="rm-back" id="rmBackBtn" onclick="rmGoBack()"><span aria-hidden="true">&larr;</span> Back</button>
 
 <div class="legal-header">
     <h1>Master Terms of Service & End-User License Agreement (EULA)</h1>
@@ -37,7 +46,7 @@
 <p><strong>IMPORTANT NOTICE:</strong> THIS IS A LEGALLY BINDING AGREEMENT. BY PROCEEDING TO CREATE AN ACCOUNT ON THE REALMATE PLATFORM, YOU ARE HEREBY CERTIFYING THAT YOU HAVE READ, COMPREHENDED, AND VOLUNTARILY ACCEPTED THE TERMS SET FORTH IN THIS <span class="highlight">9-SECTION MASTER AGREEMENT</span>.</p>
 
 <div class="warning-box">
-    <strong>DISCLAIMER OF AGENCY:</strong> realmate is a technology service provider and is NOT a real estate brokerage. The platform founders—<span class="highlight">Reychan Bernaldez, Jaztin Pumaren, Danniel Libor, Mark Hequibal, and Eris Dungug</span>—do not represent users in real estate transactions and assume no fiduciary duties.
+    <strong>DISCLAIMER OF AGENCY:</strong> realmate is a technology service provider and is NOT a real estate brokerage. The platform founders—<span class="highlight">Reychan Bernaldez, John Edward Ang, Danniel Libor, Eris Dungug, Jaztin Pumaren, and Mark Hequibal</span>—do not represent users in real estate transactions and assume no fiduciary duties.
 </div>
 
 <div class="warning-box">
@@ -51,7 +60,7 @@
 
 <h2>SECTION 1: DEFINITIONS AND INTERPRETATIONS</h2>
 <p><span class="clause-number">1.1. "Platform"</span> refers to the realmate web application, its proprietary AI matching engine, database schemas, and associated frontend/backend code architectures.</p>
-<p><span class="clause-number">1.2. "Founders"</span> refers specifically to the core development and management group: Reychan Bernaldez, Jaztin Pumaren, Danniel Libor, Mark Hequibal, and Eris Dungug.</p>
+<p><span class="clause-number">1.2. "Founders"</span> refers specifically to the core development and management group: Reychan Bernaldez, John Edward Ang, Danniel Libor, Eris Dungug, Jaztin Pumaren, and Mark Hequibal.</p>
 <p><span class="clause-number">1.3. "Marketplace Data"</span> refers to any property listings, pricing models, location metadata, or client-derived information uploaded by the User.</p>
 <p><span class="clause-number">1.4. "AI Matching Logic"</span> refers to the proprietary algorithms used to calculate deal-relevancy scores between disparate datasets.</p>
 
@@ -85,7 +94,7 @@
 <p><span class="clause-number">6.2. Commission Disputes:</span> The Founders will NOT intervene in commission-split disputes between users. Users are encouraged to sign separate "Co-Brokerage Agreements" before sharing sensitive client details found through an AI match.</p>
 
 <h2>SECTION 7: INDEMNIFICATION AND LEGAL DEFENSE</h2>
-<p><span class="clause-number">7.1. Hold Harmless:</span> The User agrees to indemnify, defend, and hold harmless <span class="highlight">Reychan Bernaldez, Jaztin Pumaren, Danniel Libor, Mark Hequibal, and Eris Dungug</span> from any and all third-party claims, lawsuits, or damages (including legal fees) arising from the User's misuse of the platform or violation of local real estate laws.</p>
+<p><span class="clause-number">7.1. Hold Harmless:</span> The User agrees to indemnify, defend, and hold harmless <span class="highlight">Reychan Bernaldez, John Edward Ang, Danniel Libor, Eris Dungug, Jaztin Pumaren, and Mark Hequibal</span> from any and all third-party claims, lawsuits, or damages (including legal fees) arising from the User's misuse of the platform or violation of local real estate laws.</p>
 <p><span class="clause-number">7.2. Damages Cap:</span> To the maximum extent permitted by law, the total liability of the Founders for any claim arising out of these terms shall be limited to the amount the user paid to use the services (or PHP 1,000 if the service was accessed for free).</p>
 
 <h2>SECTION 8: GOVERNING LAW AND ARBITRATION</h2>
@@ -102,6 +111,21 @@
     <a href="privacy.html" style="color:#16a34a;text-decoration:none;">Privacy Policy</a> &nbsp;|&nbsp; <a href="terms.html" style="color:#16a34a;text-decoration:none;">Terms of Use</a> &nbsp;|&nbsp; <a href="disclaimer.html" style="color:#16a34a;text-decoration:none;">Disclaimer</a><br>
     AUTHOR: R. BERNALDEZ | AUDIT: E. DUNGUG
 </div>
+
+<script>
+    // Return the user to wherever they came from. If there's no history to go
+    // back to (opened directly), fall back to the marketing landing page.
+    function rmGoBack() {
+        if (window.history.length > 1) { window.history.back(); }
+        else { window.location.href = 'marketing.html'; }
+    }
+    // This page is also embedded in the registration modal's iframe (index.html);
+    // a Back button makes no sense there, so only show it as a full page.
+    if (window.self !== window.top) {
+        var _b = document.getElementById('rmBackBtn');
+        if (_b) _b.style.display = 'none';
+    }
+</script>
 
 </body>
 </html>

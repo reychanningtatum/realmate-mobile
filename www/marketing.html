@@ -404,7 +404,9 @@
   .why p{margin:0;font-size:13.5px;color:var(--muted);}
 
   /* team / founders */
-  .team-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:16px;margin-top:44px;}
+  .team-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:16px;margin-top:44px;}
+  /* Narrow desktop / tablet: 6 across gets cramped — use a balanced 3×2 grid. */
+  @media(min-width:861px) and (max-width:1080px){ .team-grid{grid-template-columns:repeat(3,1fr);} }
   .member{background:var(--card);border:1px solid var(--card-border);border-radius:18px;
     padding:28px 16px;text-align:center;transition:border-color .2s,background .2s,transform .2s;}
   .member:hover{border-color:rgba(50,205,50,0.28);background:rgba(50,205,50,0.045);transform:translateY(-4px);}
@@ -842,11 +844,12 @@
         <p class="sub">A multi-disciplinary founding team building the AI matching network for real estate professionals.</p>
       </div>
       <div class="team-grid">
-        <div class="member reveal"><div class="m-av">RB</div><div class="m-nm">Reychan Bernaldez</div><div class="m-ro">Co-Founder · Product &amp; Growth</div></div>
-        <div class="member reveal"><div class="m-av">ED</div><div class="m-nm">Eris Dungug</div><div class="m-ro">Co-Founder · Sales &amp; Technology</div></div>
-        <div class="member reveal"><div class="m-av">DL</div><div class="m-nm">Danniel Libor</div><div class="m-ro">Co-Founder · Software Engineer</div></div>
-        <div class="member reveal"><div class="m-av">JP</div><div class="m-nm">Jaztin Pumaren</div><div class="m-ro">Co-Founder · QA &amp; Testing</div></div>
-        <div class="member reveal"><div class="m-av">MH</div><div class="m-nm">Mark Hequibal</div><div class="m-ro">Co-Founder · Marketing</div></div>
+        <div class="member reveal"><div class="m-av">RB</div><div class="m-nm">Reychan Bernaldez</div><div class="m-ro">CEO &amp; Founder</div></div>
+        <div class="member reveal"><div class="m-av">JA</div><div class="m-nm">John Edward Ang</div><div class="m-ro">Chief Marketing Officer</div></div>
+        <div class="member reveal"><div class="m-av">DL</div><div class="m-nm">Danniel Libor</div><div class="m-ro">Chief Technology Officer</div></div>
+        <div class="member reveal"><div class="m-av">ED</div><div class="m-nm">Eris Dungug</div><div class="m-ro">Head of Growth</div></div>
+        <div class="member reveal"><div class="m-av">JP</div><div class="m-nm">Jaztin Pumaren</div><div class="m-ro">Head of Quality Assurance</div></div>
+        <div class="member reveal"><div class="m-av">MH</div><div class="m-nm">Mark Hequibal</div><div class="m-ro">Head of Brand &amp; Marketing</div></div>
       </div>
     </div>
   </section>
