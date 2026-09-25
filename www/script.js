@@ -760,12 +760,9 @@ async function login(opts){
     let emailToLogin = identifier;
 
     if (!identifier.includes("@")) {
-      const { data: legacyUser } = await window.supabaseClient
-        .from('Users')
-        .select('email')
-        .eq('username', identifier)
-        .maybeSingle();
-      if (!legacyUser) {
+      // Log in by USERNAME (case-insensitive) — resolve it to the account email.
+      const foundEmail = await _emailForUsername(identifier);
+      if (!foundEmail) {
         if (fromBio) {
           await _rmBioForget();
           showLoginError("That saved account no longer exists. Face ID sign-in has been reset — please sign in with your password.");
@@ -774,7 +771,7 @@ async function login(opts){
         }
         return;
       }
-      emailToLogin = legacyUser.email;
+      emailToLogin = foundEmail;
     }
 
     const { data, error } = await window.supabaseClient.auth.signInWithPassword({
@@ -977,12 +974,8 @@ async function forgotPassword() {
   try {
     let emailToReset = identifier;
     if (!identifier.includes("@")) {
-        const { data } = await window.supabaseClient
-            .from('Users')
-            .select('email')
-            .eq('username', identifier)
-            .maybeSingle();
-        if (data && data.email) emailToReset = data.email;
+        const foundEmail = await _emailForUsername(identifier);
+        if (foundEmail) emailToReset = foundEmail;
         else {
             showAuthToast("We couldn't find an account with that email or username.", "error");
             return;
@@ -1123,6 +1116,40 @@ let _usernameCheckTimer = null;
 // pattern — otherwise e.g. "eris_" could match unrelated usernames.
 function _escapeIlike(s) { return s.replace(/[%_]/g, ch => '\\' + ch); }
 
+// Resolve a username to its account email, CASE-INSENSITIVELY, across the
+// current source of truth (profiles) and the legacy Users table. Returns the
+// email or null. Used for login and password reset so "Sayr", "sayr", and
+// "SAYR" all reach the same account. limit(1) (not maybeSingle) avoids a
+// multi-row error if legacy data ever holds a case-variant duplicate.
+async function _emailForUsername(username) {
+  const u = _escapeIlike(String(username).trim());
+  if (!u) return null;
+  try {
+    const { data } = await window.supabaseClient.from('profiles').select('email').ilike('username', u).limit(1);
+    if (data && data[0] && data[0].email) return data[0].email;
+  } catch (e) {}
+  try {
+    const { data } = await window.supabaseClient.from('Users').select('email').ilike('username', u).limit(1);
+    if (data && data[0] && data[0].email) return data[0].email;
+  } catch (e) {}
+  return null;
+}
+
+// Is a username already taken (case-insensitively), checking both tables?
+async function _usernameTaken(username) {
+  const u = _escapeIlike(String(username).trim());
+  if (!u) return false;
+  try {
+    const { data } = await window.supabaseClient.from('profiles').select('id').ilike('username', u).limit(1);
+    if (data && data.length) return true;
+  } catch (e) {}
+  try {
+    const { data } = await window.supabaseClient.from('Users').select('username').ilike('username', u).limit(1);
+    if (data && data.length) return true;
+  } catch (e) {}
+  return false;
+}
+
 function setUsernameChecking() {
   const input = document.getElementById("regUsername");
   const status = document.getElementById("usernameStatus");
@@ -1164,19 +1191,16 @@ async function checkUsernameAvailability() {
   setUsernameChecking(); // safe to call even if already showing "Checking…"
 
   const status = document.getElementById("usernameStatus");
-  // Case-insensitive exact match via ILIKE (no % / _ left unescaped), so
-  // "Eris", "eris", and "ERIS" are all treated as the same username.
-  const { data } = await window.supabaseClient
-    .from('Users')
-    .select('username')
-    .ilike('username', _escapeIlike(username))
-    .maybeSingle();
+  // Case-insensitive check across BOTH the current (profiles) and legacy (Users)
+  // tables, so "Eris", "eris", and "ERIS" are all treated as the same username
+  // and a capitalization-only variant of an existing name is caught as taken.
+  const taken = await _usernameTaken(username);
 
   // If the user kept typing while this query was in flight, its result is
   // stale — bail out rather than show a status for text that's no longer there.
   if (input.value.trim().toLowerCase() !== usernameLower) return;
 
-  _usernameAvailable = !data;
+  _usernameAvailable = !taken;
   input.classList.toggle("error", !_usernameAvailable);
   if (status) {
     if (_usernameAvailable) {
@@ -1297,7 +1321,10 @@ async function registerUser(){
 
     const userId = signUpData?.user?.id;
     if (userId) {
-      await window.supabaseClient.from('profiles').upsert({ id: userId, alveo_id_file: path });
+      // Persist the username on the profile so it's findable at login (case-
+      // insensitively) and by the taken-username check — not just in auth
+      // metadata, which the client can't query.
+      await window.supabaseClient.from('profiles').upsert({ id: userId, username, alveo_id_file: path });
 
       // Queues the account for admin review — account_status defaults to
       // 'Pending Approval' at the DB level (registration-approval-migration.sql).
