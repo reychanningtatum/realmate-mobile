@@ -1833,7 +1833,15 @@ function toggleMsgTimestamp(row) {
 
     document.querySelectorAll('.chat-msg-tap-ts.visible').forEach(el => el.classList.remove('visible'));
 
-    if (!wasOpen) ts.classList.add('visible');
+    if (!wasOpen) {
+        ts.classList.add('visible');
+        // The timestamp adds height below the message. For the last message it
+        // would land under the input bar, so nudge it into view — block:'nearest'
+        // only scrolls when it's actually clipped, leaving other messages put.
+        requestAnimationFrame(() => {
+            try { ts.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (_) { ts.scrollIntoView(false); }
+        });
+    }
 }
 
 document.addEventListener('click', (e) => {
