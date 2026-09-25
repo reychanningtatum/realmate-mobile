@@ -367,14 +367,33 @@ function togglePassword(id, icon){
   }
 }
 
-function openRegister(){ document.getElementById("registerModal").style.display="flex" }
-// Closing the Create Account modal (× , outside click, or after submit) resets the
-// legal acknowledgment so the user must review the terms again next time.
-function closeRegister(){ document.getElementById("registerModal").style.display="none"; resetTermsAcknowledgment(); }
+// Whether the user has completed the legal review (scrolled to the bottom and
+// pressed "I acknowledge and accept" in the full agreement). Drives the whole
+// Create Account flow: before it's true the primary button reads "Review Legal
+// Terms" and the acceptance checkbox is hidden; after it's true the checkbox
+// appears and the button becomes "Create Account".
+let _legalAccepted = false;
 
-// ── Legal acknowledgment gating ──────────────────────────────────────────────
-// The "I Acknowledge" button stays locked until the user has scrolled to the very
-// bottom of the combined review (legal-review.html posts 'rm-legal-reviewed').
+function openRegister(){ document.getElementById("registerModal").style.display="flex"; resetLegalFlow(); }
+// Closing the Create Account modal (× , outside click, or after submit) resets the
+// legal-review flow so the user must review + accept again next time.
+function closeRegister(){ document.getElementById("registerModal").style.display="none"; resetLegalFlow(); }
+
+// The primary button is dual-purpose. Before acceptance it opens the legal review;
+// after acceptance it submits the registration.
+function handleRegPrimary(){
+    if (!_legalAccepted){ openTerms(); return; }
+    registerUser();
+}
+function setRegPrimaryLabel(text){
+    const t = document.getElementById("btnText");
+    if (t) t.textContent = text;
+}
+
+// ── Legal review gating ──────────────────────────────────────────────────────
+// The "I acknowledge and accept" button inside the full agreement stays locked
+// until the user has scrolled to the very bottom (legal-review.html posts
+// 'rm-legal-reviewed' — never on a timer or merely on open).
 function lockTermsAccept(){
     const b = document.getElementById("termsAcceptBtn");
     if (b){ b.disabled = true; b.style.opacity = ".5"; b.style.cursor = "not-allowed"; }
@@ -387,20 +406,22 @@ function unlockTermsAccept(){
     const h = document.getElementById("termsScrollHint");
     if (h) h.style.display = "none";
 }
-// Revert the legal checkbox to its unreviewed state (unchecked, disabled, relocked
-// label + accept button) so the user has to Review the Legal Terms again.
-function resetTermsAcknowledgment(){
+// Reset the entire legal-review + acceptance state: no acceptance, checkbox hidden
+// and unchecked, review accept button re-locked, primary button back to "Review
+// Legal Terms". Used on open, on Create Account close, and on the review's ×.
+function resetLegalFlow(){
+    _legalAccepted = false;
     const checkbox = document.getElementById("termsCheckbox");
     const checkboxArea = document.getElementById("checkboxArea");
-    const checkboxLabel = document.getElementById("checkboxLabel");
-    if (checkbox){ checkbox.checked = false; checkbox.disabled = true; }
-    if (checkboxArea) checkboxArea.classList.add("locked");
-    if (checkboxLabel) checkboxLabel.innerHTML = 'You must <b onclick="openTerms()" style="color: var(--primary); text-decoration: underline; cursor: pointer;">Review the Legal Terms</b> first — this covers the Terms of Use, Privacy Policy, Disclaimer, and Data Privacy Consent Notice.';
+    if (checkbox) checkbox.checked = false;
+    if (checkboxArea) checkboxArea.style.display = "none";
     lockTermsAccept();
+    setRegPrimaryLabel("Review Legal Terms");
     if (typeof toggleRegButton === "function") toggleRegButton();
 }
-// Close the review WITHOUT accepting (the × or an outside click on the review).
-function dismissTerms(){ document.getElementById("termsModal").style.display = "none"; }
+// The × / outside click on the legal agreement resets EVERYTHING (requirement:
+// the user must go through the agreement again; no scroll/acceptance carries over).
+function dismissTerms(){ document.getElementById("termsModal").style.display = "none"; resetLegalFlow(); }
 // legal-review.html tells us (same-origin postMessage) when the user has read to
 // the bottom — or when the content is short enough to need no scrolling.
 window.addEventListener("message", function(e){
@@ -418,27 +439,33 @@ function openTerms() {
     if(iframe) iframe.src = iframe.src; // Reloads the frame (re-runs the scroll gate)
 }
 
-function closeTerms() { 
-    document.getElementById("termsModal").style.display = "none"; 
+// Accept action — only reachable once the review accept button is unlocked (i.e.
+// the user scrolled to the very bottom). Closes the agreement, reveals the now-
+// enabled checkbox, and flips the primary button to "Create Account".
+function closeTerms() {
+    document.getElementById("termsModal").style.display = "none";
+    _legalAccepted = true;
     const checkbox = document.getElementById("termsCheckbox");
     const checkboxArea = document.getElementById("checkboxArea");
-    const checkboxLabel = document.getElementById("checkboxLabel");
-    if (checkbox) {
-        checkbox.disabled = false;
-        checkboxArea.classList.remove("locked");
-        checkboxLabel.innerHTML = 'I have read and agree to the <b>Terms of Use, Privacy Policy, Disclaimer, and Data Privacy Consent Notice</b>, and I consent to the collection and processing of my personal information and the professional sharing of listing data within the realmate network, as described in those documents.';
-    }
+    if (checkboxArea) checkboxArea.style.display = "";
+    if (checkbox) { checkbox.disabled = false; checkbox.checked = true; }
+    setRegPrimaryLabel("Create Account");
+    toggleRegButton();
 }
 
-// Single gate for the Create Account button — it must stay disabled unless
-// BOTH: terms accepted and username confirmed available (not taken, not still
-// pending a check). The Alveo ID is OPTIONAL (Guideline 5.1.1) so it is NOT
-// part of this gate.
+// Single gate for the primary button.
+//  • Before legal acceptance: the button reads "Review Legal Terms" and is always
+//    clickable (it opens the agreement).
+//  • After acceptance: the button reads "Create Account" and is enabled only when
+//    the acceptance checkbox is ticked AND the username is confirmed available.
+// The Alveo ID is OPTIONAL (Guideline 5.1.1) so it is NOT part of this gate.
 function toggleRegButton() {
     const checkbox = document.getElementById("termsCheckbox");
     const regBtn = document.getElementById("regBtn");
+    if (!regBtn) return;
+    if (!_legalAccepted) { regBtn.disabled = false; return; }
     const usernameOk = _usernameAvailable === true;
-    regBtn.disabled = !(checkbox.checked && usernameOk);
+    regBtn.disabled = !(checkbox && checkbox.checked && usernameOk);
 }
 
 // ── Alveo ID upload ──────────────────────────────────────────
