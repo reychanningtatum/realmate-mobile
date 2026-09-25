@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>realmate — Cookie &amp; Tracking Notice</title>
+    <meta name="description" content="How realmate uses cookies, local storage, and similar technologies. realmate uses only essential storage and does not use third-party advertising trackers.">
+    <link rel="icon" href="images/realmate2.png">
+    <link rel="stylesheet" href="vendor/googlefonts/fonts.css?v=1">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            line-height: 1.8;
+            color: #334155;
+            padding: 60px;
+            max-width: 900px;
+            margin: auto;
+            background: #ffffff;
+        }
+        .legal-header { border-bottom: 3px solid #32cd32; margin-bottom: 40px; padding-bottom: 20px; }
+        h1 { font-size: 24px; color: #0f172a; margin: 0; text-transform: uppercase; }
+        h2 { color: #0f172a; font-size: 16px; margin-top: 40px; text-decoration: underline; }
+        h3 { font-size: 14px; color: #1e293b; margin-top: 20px; }
+        p, li { font-size: 13px; text-align: justify; margin-bottom: 15px; }
+        .clause-number { font-weight: 700; color: #111; }
+        .highlight { background: #f0fdf4; padding: 2px 5px; border-radius: 4px; font-weight: 600; }
+        .warning-box { border: 1px solid #e2e8f0; padding: 20px; background: #f8fafc; margin: 24px 0; border-radius: 6px; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 12px; }
+        th, td { border: 1px solid #e2e8f0; padding: 10px 12px; text-align: left; vertical-align: top; }
+        th { background: #f0fdf4; color: #0f172a; font-weight: 700; }
+        ul { list-style: square; padding-left: 20px; }
+        .footer-stamp { margin-top: 60px; padding-top: 30px; border-top: 1px solid #cbd5e1; font-size: 11px; color: #94a3b8; text-align: center; }
+        .footer-stamp a { color: #16a34a; text-decoration: none; }
+        .back { display:inline-block; margin-bottom: 24px; font-size: 12px; color: #16a34a; text-decoration: none; font-weight: 600; }
+    </style>
+</head>
+<body>
+
+<a class="back" href="#" onclick="return legalBack()">&larr; Back</a>
+
+<div class="legal-header">
+    <h1>Cookie &amp; Tracking Notice</h1>
+    <p>Document Ref: RM-COOKIES-2026-V1 &nbsp;|&nbsp; Effective Date: September 26, 2026 &nbsp;|&nbsp; Last Updated: September 26, 2026</p>
+</div>
+
+<p>This Notice explains how <strong>realmate</strong> uses cookies, local storage, session storage, and similar technologies (together, "storage technologies") on the web and mobile Platform. It forms part of, and should be read together with, our <a href="privacy.html">Privacy Policy</a> and <a href="terms.html">Terms of Use</a>.</p>
+
+<div class="warning-box">
+    <strong>SUMMARY:</strong> realmate uses only <strong>essential</strong> storage technologies needed to keep you signed in, remember your preferences, and make core features work. We do <strong>not</strong> use third-party advertising cookies, and we do not sell your data for advertising.
+</div>
+
+<h2>SECTION 1: WHAT THESE TECHNOLOGIES ARE</h2>
+<p>Storage technologies are small pieces of data placed on your device or held by your browser or app. They let the Platform recognize your session, keep settings, and operate reliably. On our mobile app, similar data may be held in the app's local storage and, where you enable it, in secure device storage for keeping you signed in.</p>
+
+<h2>SECTION 2: WHAT WE USE AND WHY</h2>
+<table>
+    <tr><th>Category</th><th>Purpose</th><th>Essential?</th></tr>
+    <tr><td>Authentication &amp; session</td><td>Keep you securely signed in and maintain your session across pages and app screens.</td><td>Yes</td></tr>
+    <tr><td>Preferences</td><td>Remember choices such as onboarding state, filters, and interface settings.</td><td>Yes</td></tr>
+    <tr><td>Security &amp; integrity</td><td>Help detect and prevent fraud, abuse, and unauthorized access.</td><td>Yes</td></tr>
+    <tr><td>Functionality</td><td>Enable core features such as notifications, matching, and messaging.</td><td>Yes</td></tr>
+</table>
+<p>We do not use storage technologies for third-party advertising or cross-site advertising profiles.</p>
+
+<h2>SECTION 3: ANALYTICS</h2>
+<p>Where we measure how the Platform is used to keep it working and improve it, we do so in a limited, privacy-respecting way and do not use this information for third-party advertising. Any analytics processing is described in our <a href="privacy.html">Privacy Policy</a>.</p>
+
+<h2>SECTION 4: MANAGING STORAGE TECHNOLOGIES</h2>
+<p>Because the storage we use is essential to how the Platform operates, there is no separate advertising opt-out to configure. You can still:</p>
+<ul>
+    <li>Clear your browser's cookies and local storage, or your app data, through your browser or device settings; and</li>
+    <li>Sign out to end your session.</li>
+</ul>
+<p>Clearing essential storage may sign you out and reset preferences, and some features may not work correctly until the storage is re-created.</p>
+
+<h2>SECTION 5: CHANGES</h2>
+<p>We may update this Notice from time to time. Material changes will be reflected on this page with an updated "Last Updated" date.</p>
+
+<h2>SECTION 6: CONTACT</h2>
+<p>For questions about this Notice, contact realmate at <span class="highlight">support@realmate.ph</span>.</p>
+
+<div class="footer-stamp">
+    © 2026 REALMATE. ALL RIGHTS RESERVED.<br>
+    <a href="privacy.html">Privacy Policy</a> &nbsp;|&nbsp; <a href="terms.html">Terms of Use</a> &nbsp;|&nbsp; <a href="disclaimer.html">Disclaimer</a>
+</div>
+
+<script>
+  // Back = return to wherever this page was opened FROM. Inside the app shell the
+  // tab iframe holds the history, so defer to the shell's rmBack; standalone web
+  // falls back to normal history, then the landing page.
+  function legalBack() {
+    try {
+      if (window.self !== window.top && window.parent && typeof window.parent.rmBack === 'function') {
+        window.parent.rmBack();
+        return false;
+      }
+    } catch (e) {}
+    if (window.history.length > 1) window.history.back();
+    else window.location.href = 'marketing.html';
+    return false;
+  }
+</script>
+
+</body>
+</html>
