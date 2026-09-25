@@ -3,6 +3,19 @@ window.supabaseClient = window.supabase.createClient(
     "sb_publishable_Rm_fIBDUfu3DEyLj0_bWZw_qEqo8cd4"
 );
 
+// One-time reset of the biometric-offer guard. The old "Enable Face ID?" offer
+// used window.confirm(), which is a silent no-op inside the Capacitor WebView —
+// so rm_bio_prompted got set on the very first sign-in without the user ever
+// seeing a prompt, permanently blocking enrolment. Clear it once so the new
+// in-app offer (_bioEnablePrompt) can appear for anyone who hasn't actually
+// turned biometrics on. Runs everywhere but only matters in the native app.
+try {
+  if (!localStorage.getItem("rm_bio_prompt_reset_v2")) {
+    localStorage.removeItem("rm_bio_prompted");
+    localStorage.setItem("rm_bio_prompt_reset_v2", "1");
+  }
+} catch (e) {}
+
 // ── Password recovery link handling ──────────────────
 // Supabase's client processes the #access_token=...&type=recovery hash (or
 // an #error=...&error_description=... hash for an expired/invalid link)
