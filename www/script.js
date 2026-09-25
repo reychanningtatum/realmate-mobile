@@ -388,7 +388,7 @@ function closeTerms() {
     if (checkbox) {
         checkbox.disabled = false;
         checkboxArea.classList.remove("locked");
-        checkboxLabel.innerHTML = 'I have read and agree to the <b><a href="terms.html" target="_blank" style="color:var(--primary);">Terms of Use</a></b>, <b><a href="privacy.html" target="_blank" style="color:var(--primary);">Privacy Policy</a></b>, and <b><a href="disclaimer.html" target="_blank" style="color:var(--primary);">Disclaimer</a></b>, and consent to the professional sharing of listing data within the realmate network as described in those documents.';
+        checkboxLabel.innerHTML = 'I have read and agree to the <b><a href="terms.html" target="_blank" style="color:var(--primary);">Terms of Use</a></b>, <b><a href="privacy.html" target="_blank" style="color:var(--primary);">Privacy Policy</a></b>, and <b><a href="disclaimer.html" target="_blank" style="color:var(--primary);">Disclaimer</a></b>, and I consent to the collection and processing of my personal information, and the professional sharing of listing data within the realmate network, as described in the <b><a href="consent.html" target="_blank" style="color:var(--primary);">Data Privacy Consent Notice</a></b>.';
     }
 }
 

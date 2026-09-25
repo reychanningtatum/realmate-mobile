@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>realmate — Data Privacy Consent Notice</title>
+    <meta name="description" content="The data privacy consent notice presented when you create a realmate account, in accordance with the Philippine Data Privacy Act of 2012 (RA 10173).">
+    <link rel="icon" href="images/realmate2.png">
+    <link rel="stylesheet" href="vendor/googlefonts/fonts.css?v=1">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            line-height: 1.8;
+            color: #334155;
+            padding: 60px;
+            max-width: 900px;
+            margin: auto;
+            background: #ffffff;
+        }
+        .legal-header { border-bottom: 3px solid #32cd32; margin-bottom: 40px; padding-bottom: 20px; }
+        h1 { font-size: 24px; color: #0f172a; margin: 0; text-transform: uppercase; }
+        h2 { color: #0f172a; font-size: 16px; margin-top: 40px; text-decoration: underline; }
+        h3 { font-size: 14px; color: #1e293b; margin-top: 20px; }
+        p, li { font-size: 13px; text-align: justify; margin-bottom: 15px; }
+        .clause-number { font-weight: 700; color: #111; }
+        .highlight { background: #f0fdf4; padding: 2px 5px; border-radius: 4px; font-weight: 600; }
+        .warning-box { border: 1px solid #e2e8f0; padding: 20px; background: #f8fafc; margin: 24px 0; border-radius: 6px; }
+        .warning-box p:last-child { margin-bottom: 0; }
+        ul { list-style: square; padding-left: 20px; }
+        .footer-stamp { margin-top: 60px; padding-top: 30px; border-top: 1px solid #cbd5e1; font-size: 11px; color: #94a3b8; text-align: center; }
+        .footer-stamp a { color: #16a34a; text-decoration: none; }
+        .back { display:inline-block; margin-bottom: 24px; font-size: 12px; color: #16a34a; text-decoration: none; font-weight: 600; }
+    </style>
+</head>
+<body>
+
+<a class="back" href="#" onclick="return legalBack()">&larr; Back</a>
+
+<div class="legal-header">
+    <h1>Data Privacy Consent Notice</h1>
+    <p>Document Ref: RM-CONSENT-2026-V1 &nbsp;|&nbsp; Effective Date: September 26, 2026 &nbsp;|&nbsp; Last Updated: September 26, 2026</p>
+</div>
+
+<p>This Consent Notice is presented when you create a realmate account. It summarizes how we process your personal information under the <span class="highlight">Philippine Data Privacy Act of 2012 (Republic Act No. 10173)</span> so that your consent is informed. It should be read together with our full <a href="privacy.html">Privacy Policy</a> and <a href="terms.html">Terms of Use</a>. Where this summary and the Privacy Policy differ in detail, the Privacy Policy governs.</p>
+
+<div class="warning-box">
+    <strong>YOUR CONSENT:</strong> By creating an account and ticking the acknowledgment at registration, you confirm that you have read and understood this Notice and consent to realmate collecting and processing your personal information as described here and in the <a href="privacy.html">Privacy Policy</a>.
+</div>
+
+<h2>SECTION 1: WHAT WE COLLECT</h2>
+<ul>
+    <li><strong>Account &amp; profile data</strong> — username, name, professional role, email, and optional details such as phone number, birthday, gender, and profile photo;</li>
+    <li><strong>Verification data</strong> — Alveo ID information and any identification document you choose to upload for approval;</li>
+    <li><strong>Listings &amp; activity</strong> — the listings, requirements, messages, and requests you create; and</li>
+    <li><strong>Technical &amp; usage data</strong> — device, log, and usage information used for security and to run the service.</li>
+</ul>
+
+<h2>SECTION 2: WHY WE PROCESS IT</h2>
+<ul>
+    <li>To create, verify, approve, and manage your account and eligibility;</li>
+    <li>To operate Nexus, our automated matching and property-intelligence engine;</li>
+    <li>To enable connections, messaging, and notifications between verified users;</li>
+    <li>To keep the Platform secure and to prevent fraud and abuse; and</li>
+    <li>To comply with legal obligations.</li>
+</ul>
+
+<h2>SECTION 3: SHARING</h2>
+<p>Your profile and the listings you post are <strong>visible to and may be matched with other verified users</strong> — this peer-to-peer visibility is the core function of the Platform. We also share data with service providers (such as hosting, authentication, email, and push-notification providers) that process it on our behalf, and we may disclose data where required by law. We do <strong>not</strong> sell your personal information. See the <a href="privacy.html">Privacy Policy</a> for details, including providers that may process data outside the Philippines.</p>
+
+<h2>SECTION 4: CLIENT DATA</h2>
+<p>If you enter another person's personal data (for example, a buyer's or seller's), you confirm that you have obtained their consent as required by the Data Privacy Act before doing so.</p>
+
+<h2>SECTION 5: YOUR RIGHTS</h2>
+<p>You have the right to be informed, to access, to rectify, to object, to erasure or blocking, to data portability, to damages, and to lodge a complaint with the National Privacy Commission. Where processing is based on consent, <strong>you may withdraw it at any time</strong>; withdrawal does not affect processing already carried out, and some data may still be processed on another lawful basis or retained where the law requires. To exercise your rights, contact us using the details below.</p>
+
+<h2>SECTION 6: CONTACT</h2>
+<p>For any privacy request or concern, contact realmate at <span class="highlight">support@realmate.ph</span>. You may also contact the National Privacy Commission (privacy.gov.ph).</p>
+
+<div class="footer-stamp">
+    © 2026 REALMATE. ALL RIGHTS RESERVED.<br>
+    <a href="privacy.html">Privacy Policy</a> &nbsp;|&nbsp; <a href="terms.html">Terms of Use</a> &nbsp;|&nbsp; <a href="disclaimer.html">Disclaimer</a>
+</div>
+
+<script>
+  // Back = return to wherever this page was opened FROM. Inside the app shell the
+  // tab iframe holds the history, so defer to the shell's rmBack; standalone web
+  // falls back to normal history, then the landing page.
+  function legalBack() {
+    try {
+      if (window.self !== window.top && window.parent && typeof window.parent.rmBack === 'function') {
+        window.parent.rmBack();
+        return false;
+      }
+    } catch (e) {}
+    if (window.history.length > 1) window.history.back();
+    else window.location.href = 'marketing.html';
+    return false;
+  }
+</script>
+
+</body>
+</html>
