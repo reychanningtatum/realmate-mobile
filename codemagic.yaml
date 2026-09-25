@@ -232,7 +232,14 @@ workflows:
           cd ios/App
           LATEST_BUILD_NUMBER=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID" 2>/dev/null || true)
           if [ -z "$LATEST_BUILD_NUMBER" ]; then LATEST_BUILD_NUMBER=0; fi
-          agvtool new-version -all $(($LATEST_BUILD_NUMBER + 1))
+          NEXT=$(($LATEST_BUILD_NUMBER + 1))
+          # Guard against the TestFlight-processing race: get-latest-testflight-build-number
+          # returns a STALE value while Apple is still processing a just-uploaded build, so
+          # two builds pushed close together compute the same number and Apple rejects the
+          # duplicate. Codemagic's BUILD_NUMBER is monotonic and unique per build, so never
+          # go below it — guaranteeing a strictly increasing, collision-free build number.
+          if [ -n "$BUILD_NUMBER" ] && [ "$BUILD_NUMBER" -gt "$NEXT" ]; then NEXT=$BUILD_NUMBER; fi
+          agvtool new-version -all $NEXT
       - name: Build signed IPA (Release configuration, device / iphoneos)
         # build-ipa archives for a real device (iphoneos, NOT iphonesimulator)
         # and exports a signed .ipa using the applied App Store profile.
