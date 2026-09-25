@@ -251,6 +251,13 @@ async function saveBiometricPref(isOn) {
             }
         }
         await window.rmBio.setEnabled(isOn);
+        // Record the explicit choice so auto-enable-on-login respects a user who
+        // deliberately turned biometrics OFF here (and clears it when they turn
+        // it back on).
+        try {
+            if (isOn) localStorage.removeItem('rm_bio_optout');
+            else localStorage.setItem('rm_bio_optout', '1');
+        } catch (e) {}
         const t = await window.rmBio.typeName();
         if (isOn) {
             // Credentials are captured at sign-in time (we don't have the password

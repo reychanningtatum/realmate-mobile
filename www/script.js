@@ -916,24 +916,21 @@ async function login(opts){
       sessionStorage.setItem("rm_session", "1");
     } catch (e) {}
 
-    // Biometric login (native only). If already enabled, refresh the stored
-    // Keychain credentials so a future Face ID sign-in stays current (e.g. after
-    // a password change). Otherwise offer to enable it once — declining is
-    // remembered so we never nag again (still available later in Settings).
-    // Credentials are stored ONLY in the iOS Keychain, never in plain text.
+    // Biometric login (native only). Auto-enable Face ID / Touch ID after a
+    // successful password sign-in on a capable device, so the shortcut "just
+    // works" next time instead of depending on a prompt the WebView may swallow.
+    // The credential is stored ONLY in the iOS Keychain (never plain text), and
+    // it's fully reversible in Settings — turning it off there sets rm_bio_optout
+    // so we don't re-enable against the user's choice. When already enabled we
+    // just refresh the stored credential (e.g. after a password change).
     try {
       if (window.rmBio && window.rmBio.isNative && (await window.rmBio.available())) {
         if (await window.rmBio.isEnabled()) {
           await window.rmBio.saveCredentials(identifier, password);
-        } else if (!localStorage.getItem("rm_bio_prompted")) {
-          var _bt = await window.rmBio.typeName();
-          // In-app modal, not window.confirm() (which is a no-op in the WebView).
-          var _accept = await _bioEnablePrompt(_bt);
-          localStorage.setItem("rm_bio_prompted", "1"); // only after they actually answered
-          if (_accept) {
-            await window.rmBio.setEnabled(true);
-            await window.rmBio.saveCredentials(identifier, password);
-          }
+        } else if (localStorage.getItem("rm_bio_optout") !== "1") {
+          await window.rmBio.setEnabled(true);
+          await window.rmBio.saveCredentials(identifier, password);
+          try { var _bt = await window.rmBio.typeName(); showAuthToast("Sign in with " + _bt + " is on — manage it anytime in Settings.", "success", null, 5000); } catch (e) {}
         }
       }
     } catch (e) {}
