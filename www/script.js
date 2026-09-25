@@ -56,11 +56,17 @@ window.supabaseClient.auth.onAuthStateChange((event) => {
     if (h.includes("type=recovery") || h.includes("error=") || q.includes("token_hash") || q.includes("resubmit")) return;
     if (localStorage.getItem("rm_remember") === "0") return;  // user opted out
     function reveal() { document.documentElement.classList.remove("rm-autologin"); }
-    // Show the login form AND, if the user turned on Face ID and we have saved
-    // credentials, reveal the "Sign in with Face ID" shortcut. Biometrics is only
-    // ever a sign-in OPTION here — never a gate when reopening a live session.
+    // Show the login form AND, if the user turned Face ID ON, reveal the "Sign in
+    // with Face ID" shortcut. We key this on isEnabled() alone (not also on cached
+    // credentials): enabling in Settings sets the flag but can't capture the
+    // password, so requiring saved creds meant the button never appeared until a
+    // later password sign-in. If creds aren't stored yet, bioSignIn() falls back
+    // to the password form with a clear message, and the first password sign-in
+    // stores them. A forgotten/deleted account has isEnabled() false, so the
+    // button stays hidden there. Biometrics is only ever a sign-in OPTION here —
+    // never a gate when reopening a live session.
     async function revealWithBio() {
-        try { if (window.rmBio && await window.rmBio.isEnabled() && await window.rmBio.hasCredentials()) _rmShowBioLogin(); } catch (e) {}
+        try { if (window.rmBio && await window.rmBio.isEnabled()) _rmShowBioLogin(); } catch (e) {}
         reveal();
     }
     // Came from the marketing page (tapped Get Started / Sign In): show the login
