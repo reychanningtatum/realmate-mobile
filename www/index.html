@@ -395,6 +395,24 @@
   </div>
 </div>
 
+<!-- Native-only: offer to enable Face ID / Touch ID after a successful sign-in.
+     Uses an in-app modal because window.confirm() is suppressed in the WebView. -->
+<div class="modal" id="bioEnableModal">
+  <div class="modal-content" style="max-width:400px;text-align:center;">
+    <div style="width:64px;height:64px;border-radius:50%;background:#f0fdf4;color:#16a34a;display:flex;align-items:center;justify-content:center;font-size:30px;margin:0 auto 18px;">
+      <i class="fas fa-fingerprint"></i>
+    </div>
+    <h3 id="bioEnableTitle" style="text-align:center;">Enable biometric sign-in?</h3>
+    <p id="bioEnableMsg" style="font-size:13px;color:#64748b;line-height:1.6;font-weight:500;margin-bottom:22px;">
+      Sign in faster next time. Your password is never stored — it stays in your device's secure keychain.
+    </p>
+    <div style="display:flex;gap:10px;">
+      <button class="btn" style="flex:1;background:#f1f5f9;color:#334155;" onclick="__bioEnableResolve && __bioEnableResolve(false)">Not now</button>
+      <button class="btn" style="flex:1;" onclick="__bioEnableResolve && __bioEnableResolve(true)">Enable</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal" id="updatePasswordModal">
   <div class="modal-content">
     <button type="button" aria-label="Cancel password reset" onclick="closeResetPasswordModal()" style="position:absolute; top:16px; right:16px; width:34px; height:34px; padding:0; border:none; background:#f1f5f9; color:#64748b; border-radius:50%; font-size:22px; line-height:34px; text-align:center; cursor:pointer;">&times;</button>
@@ -438,7 +456,7 @@
 <script src="native-auth.js?v=10"></script>
 <script src="native-deeplink.js?v=3"></script>
 <script src="vendor/supabase-js.min.js?v=2.112.3"></script>
-<script src="script.js?v=20260925a"></script>
+<script src="script.js?v=20260925b"></script>
 <script>
   // Arrived from marketing's "Get Started" / "Join realmate": open the Create Account
   // modal directly. (Sign In leaves this flag unset and simply shows the login form.)

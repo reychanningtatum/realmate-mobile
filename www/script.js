@@ -689,9 +689,34 @@ function handleLoginSubmit(e) {
 async function _rmBioForget(){
   try { if (window.rmBio && window.rmBio.setEnabled) await window.rmBio.setEnabled(false); } catch (e) {}
   try { if (window.rmBio && window.rmBio.clearCredentials) await window.rmBio.clearCredentials(); } catch (e) {}
+  // Re-allow the enable offer so the user can turn Face ID back on for a valid
+  // account the next time they sign in with their password.
+  try { localStorage.removeItem("rm_bio_prompted"); } catch (e) {}
   var btn = document.getElementById("bioLoginBtn"); if (btn) btn.style.display = "none";
   var id = document.getElementById("loginIdentifier"); if (id) id.value = "";
   var pw = document.getElementById("password"); if (pw) pw.value = "";
+}
+
+// In-app "Enable Face ID?" confirmation (returns a Promise<boolean>). Replaces
+// window.confirm(), which silently returns false inside the Capacitor WebView.
+function _bioEnablePrompt(typeName){
+  return new Promise(function(resolve){
+    var m = document.getElementById("bioEnableModal");
+    if (!m) { resolve(false); return; }
+    var t = typeName || "biometrics";
+    var title = document.getElementById("bioEnableTitle");
+    if (title) title.textContent = "Enable " + t + "?";
+    var msg = document.getElementById("bioEnableMsg");
+    if (msg) msg.textContent = "Sign in faster next time with " + t + ". Your password is never stored — it stays in your device's secure keychain.";
+    var done = false;
+    window.__bioEnableResolve = function(v){
+      if (done) return; done = true;
+      m.style.display = "none";
+      window.__bioEnableResolve = null;
+      resolve(!!v);
+    };
+    m.style.display = "flex";
+  });
 }
 
 async function login(opts){
@@ -882,9 +907,11 @@ async function login(opts){
         if (await window.rmBio.isEnabled()) {
           await window.rmBio.saveCredentials(identifier, password);
         } else if (!localStorage.getItem("rm_bio_prompted")) {
-          localStorage.setItem("rm_bio_prompted", "1");
           var _bt = await window.rmBio.typeName();
-          if (window.confirm("Enable " + _bt + " for faster sign-in next time?")) {
+          // In-app modal, not window.confirm() (which is a no-op in the WebView).
+          var _accept = await _bioEnablePrompt(_bt);
+          localStorage.setItem("rm_bio_prompted", "1"); // only after they actually answered
+          if (_accept) {
             await window.rmBio.setEnabled(true);
             await window.rmBio.saveCredentials(identifier, password);
           }
