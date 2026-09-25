@@ -527,6 +527,7 @@
 /* Message Bubble */
 .chat-msg-row {
   display: flex;
+  flex-wrap: wrap;            /* lets the tapped timestamp drop onto its own line */
   align-items: flex-end;
   gap: 8px;
   max-width: 70%;
@@ -662,10 +663,16 @@
 /* Tap-to-reveal timestamp (Messenger-style) */
 .chat-msg-tap-ts {
   display: none;
+  /* Full-width, ordered AFTER the bubble, so revealing it drops the timestamp
+     directly below the message instead of pushing the bubble toward the middle.
+     order:1 puts it on its own wrapped line under the bubble (which stays order:0). */
+  order: 1;
+  flex: 0 0 100%;
+  width: 100%;
   text-align: center;
   font-size: 11px;
   color: var(--chat-sub);
-  padding: 4px 0 6px;
+  padding: 2px 0 0;
   opacity: 0;
   transition: opacity 0.2s ease;
   pointer-events: none;
@@ -676,6 +683,10 @@
   display: block;
   opacity: 1;
 }
+/* Sit the timestamp under the message on its own side (not centered), so it
+   reads as belonging to that bubble. */
+.chat-msg-row.own .chat-msg-tap-ts { text-align: right; }
+.chat-msg-row.other .chat-msg-tap-ts { text-align: left; }
 
 /* Read Receipt (no persistent time) */
 .chat-msg-meta {
