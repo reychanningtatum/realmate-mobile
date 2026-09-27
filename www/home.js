@@ -649,12 +649,16 @@ async function fetchTagCandidates(q) {
     const ql = q.toLowerCase();
     const out = [];
     const seen = new Set();
-    const add = (name, img) => {
+    // `former` = the FORMER name that matched, set only when a renamed user is
+    // found by an old name — so the suggestion can show "· formerly <old name>"
+    // while still carrying the CURRENT name (which is what actually gets
+    // inserted). Dedupe by account id so a user never appears twice.
+    const add = (id, name, img, former) => {
         if (!name) return;
-        const key = name.toLowerCase();
+        const key = id ? ('id:' + id) : ('nm:' + name.toLowerCase());
         if (seen.has(key)) return;
         seen.add(key);
-        out.push({ name: name, img: img || avatarUrl(name) });
+        out.push({ id: id || null, name: name, img: img || avatarUrl(name), former: former || null });
     };
     // Realmates first (prioritized) — then ANY other matching user, so a post can
     // tag anyone, not only accepted realmates. Previously, having realmates meant
@@ -662,17 +666,38 @@ async function fetchTagCandidates(q) {
     // suggestions and non-realmates could never be tagged.
     try {
         (await getMyRealmates()).forEach(m => {
-            if (m.name && m.name.toLowerCase().includes(ql)) add(m.name, m.img);
+            if (m.name && m.name.toLowerCase().includes(ql)) add(m.id, m.name, m.img, null);
         });
     } catch (e) {}
+    // Match on the CURRENT name.
     if (out.length < 6) {
         try {
             const { data } = await _supaHome.from('profiles')
-                .select('full_name, avatar_url').ilike('full_name', `%${q}%`).limit(12);
-            (data || []).forEach(p => add(p.full_name, p.avatar_url));
+                .select('id, full_name, avatar_url').ilike('full_name', `%${q}%`).limit(12);
+            (data || []).forEach(p => add(p.id, p.full_name, p.avatar_url, null));
+        } catch (e) {}
+    }
+    // Also match on a FORMER name so a renamed user stays taggable by the name
+    // others knew them by. former_names is a newline-joined list of past names;
+    // the suggestion shows the current name and flags the matched former one.
+    if (out.length < 6) {
+        try {
+            const { data } = await _supaHome.from('profiles')
+                .select('id, full_name, avatar_url, former_names').ilike('former_names', `%${q}%`).limit(12);
+            (data || []).forEach(p => {
+                const matched = (p.former_names || '').split('\n').map(s => s.trim()).find(s => s.toLowerCase().includes(ql)) || null;
+                add(p.id, p.full_name, p.avatar_url, matched);
+            });
         } catch (e) {}
     }
     return out.slice(0, 6);
+}
+
+// Shared inner markup for a mention-suggestion row: the current name, plus a
+// muted "· formerly <old name>" note when the user was matched by a former name.
+function _mentionItemInner(c) {
+    const former = c.former ? ` <span class="hf-mention-former">· formerly ${safeText(c.former)}</span>` : '';
+    return `<img loading="lazy" decoding="async" src="${c.img}"><span>${safeText(c.name)}${former}</span>`;
 }
 
 function onHomePostInput(ta) {
@@ -686,8 +711,7 @@ function onHomePostInput(ta) {
         const box = document.getElementById('homePostMention');
         if (!box || !cands.length) { hideHomePostMention(); return; }
         box.innerHTML = cands.map(c =>
-            `<div class="hf-mention-item" onclick="pickHomePostTag('${c.name.replace(/'/g, "\\'")}')">
-                <img loading="lazy" decoding="async" src="${c.img}"><span>${safeText(c.name)}</span></div>`).join('');
+            `<div class="hf-mention-item" onclick="pickHomePostTag('${c.name.replace(/'/g, "\\'")}')">${_mentionItemInner(c)}</div>`).join('');
         box.style.display = 'block';
     }, 200);
 }
@@ -1141,7 +1165,7 @@ function buildHomePostCard(post, stats) {
                 <div class="hf-comment-avatar" id="hfcavatar-${post.id}"></div>
                 <div class="hf-comment-box">
                     <input type="text" class="hf-comment-input" id="hfcinput-${post.id}" placeholder="Write a comment… @ to tag"
-                        onkeydown="if(event.key==='Enter') submitHomeComment('${post.id}')" oninput="onCommentInput('${post.id}', this)">
+                        onkeydown="if(event.key==='Enter') submitHomeComment('${post.id}')" oninput="onCommentInput('${post.id}', this)" onblur="closeEmojiPickerOnBlur('hfcinput-${post.id}')">
                     <button type="button" class="hf-cinput-tool" title="Emoji" onclick="openEmojiPicker('hfcinput-${post.id}', this)"><i class="far fa-face-smile"></i></button>
                     <label class="hf-cinput-tool" title="Add photo" for="hfcphoto-${post.id}"><i class="far fa-image"></i></label>
                     <input type="file" id="hfcphoto-${post.id}" hidden accept="image/*" onchange="stageCommentPhoto('${post.id}', this)">
@@ -2735,15 +2759,34 @@ function openEmojiPicker(targetId, anchorEl) {
     _emojiTargetId = targetId;
     document.getElementById('emojiGrid').innerHTML = EMOJIS.map(e => `<button type="button" onclick="insertEmoji('${e}')">${e}</button>`).join('');
     const r = anchorEl.getBoundingClientRect();
+    picker.style.display = 'block'; // show first so offsetWidth is measurable
     picker.style.top = `${window.scrollY + r.bottom + 6}px`;
-    picker.style.left = `${Math.max(8, window.scrollX + r.left - 120)}px`;
-    picker.style.display = 'block';
+    // Keep the WHOLE picker inside the viewport — clamp the RIGHT edge too (not
+    // just the left), so it never runs off the right of a narrow phone screen.
+    const vw = document.documentElement.clientWidth;
+    const pw = picker.offsetWidth;
+    const margin = 8;
+    let left = r.left - 120;                    // preferred: nudged left of the emoji button
+    left = Math.min(left, vw - pw - margin);    // don't overflow the right edge
+    left = Math.max(margin, left);              // don't overflow the left edge
+    picker.style.left = `${window.scrollX + left}px`;
     const close = e => {
         if (!picker.contains(e.target) && e.target !== anchorEl && !anchorEl.contains(e.target)) {
             picker.style.display = 'none'; document.removeEventListener('click', close);
         }
     };
     setTimeout(() => document.addEventListener('click', close), 10);
+}
+// When the reply input loses focus — e.g. the keyboard's Check/Done button, or a
+// tap outside — close the emoji picker for that input so it never floats in the
+// wrong place after the keyboard collapses. Tapping inside the picker does NOT
+// blur the input (the picker prevents default on mousedown), so this fires only
+// on a genuine dismissal, not while the user is picking emojis.
+function closeEmojiPickerOnBlur(inputId) {
+    if (_emojiTargetId !== inputId) return;
+    const picker = document.getElementById('emojiPicker');
+    if (picker) picker.style.display = 'none';
+    _emojiTargetId = null;
 }
 function insertEmoji(e) {
     const el = document.getElementById(_emojiTargetId);
@@ -2770,8 +2813,7 @@ function onCommentInput(postId, input) {
         const cands = await fetchTagCandidates(q);
         const box = document.getElementById(`hfmention-${postId}`);
         if (!box || !cands.length) { hideMentionBox(postId); return; }
-        box.innerHTML = cands.map(c => `<div class="hf-mention-item" onclick="pickMention('${postId}','${c.name.replace(/'/g,"\\'")}')">
-            <img loading="lazy" decoding="async" src="${c.img}"><span>${safeText(c.name)}</span></div>`).join('');
+        box.innerHTML = cands.map(c => `<div class="hf-mention-item" onclick="pickMention('${postId}','${c.name.replace(/'/g,"\\'")}')">${_mentionItemInner(c)}</div>`).join('');
         box.style.display = 'block';
     }, 200);
 }
@@ -2799,8 +2841,7 @@ function onReplyInput(parentId, input) {
         const cands = await fetchTagCandidates(q);
         const box = document.getElementById(`hf-rmention-${parentId}`);
         if (!box || !cands.length) { hideReplyMentionBox(parentId); return; }
-        box.innerHTML = cands.map(c => `<div class="hf-mention-item" onclick="pickReplyMention('${parentId}','${c.name.replace(/'/g,"\\'")}')">
-            <img loading="lazy" decoding="async" src="${c.img}"><span>${safeText(c.name)}</span></div>`).join('');
+        box.innerHTML = cands.map(c => `<div class="hf-mention-item" onclick="pickReplyMention('${parentId}','${c.name.replace(/'/g,"\\'")}')">${_mentionItemInner(c)}</div>`).join('');
         box.style.display = 'block';
     }, 200);
 }

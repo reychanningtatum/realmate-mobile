@@ -1045,6 +1045,21 @@ async function forgotPassword() {
             showAuthToast("We couldn't find an account with that email or username.", "error");
             return;
         }
+    } else {
+        // Email entered directly. Reject an invalid format, and — crucially — only
+        // send a reset link when an account is actually REGISTERED with this email.
+        // Supabase's resetPasswordForEmail reports success for ANY address (to
+        // avoid enumeration), so without this a link is "sent" to unregistered /
+        // fake emails (e.g. the tite@puke.com report).
+        if (!isValidEmail(emailToReset)) {
+            showAuthToast("Please enter a valid email address.", "error");
+            return;
+        }
+        const exists = await _accountExistsForEmail(emailToReset);
+        if (!exists) {
+            showAuthToast("We couldn't find an account registered with that email.", "error");
+            return;
+        }
     }
     // Hardcoded to the real production URL, never window.location.origin —
     // this value gets embedded in an actual email that may be opened from
@@ -1200,6 +1215,39 @@ async function _emailForUsername(username) {
   return null;
 }
 
+// Ask the validate-email edge function whether this address's domain can receive
+// mail (MX/A lookup — impossible in the browser). Returns false ONLY when the
+// server positively determines it's undeliverable; returns true on any error or
+// if the function isn't reachable/deployed (FAIL-OPEN — never block a real signup
+// on an outage). Registration stays fully functional even before the function is
+// deployed; the gate simply activates once it is.
+async function _isEmailDeliverable(email) {
+  try {
+    const { data, error } = await window.supabaseClient.functions.invoke('validate-email', { body: { email } });
+    if (error) return true;                         // missing / errored → fail-open
+    if (data && data.deliverable === false) return false;
+    return true;
+  } catch (e) { return true; }                      // network error → fail-open
+}
+
+// Does an account exist with this EMAIL (case-insensitively), across profiles +
+// legacy Users? Mirrors _emailForUsername so password reset only fires for a
+// real, registered account. (Supabase's resetPasswordForEmail otherwise reports
+// success for any address — "sending" a link to unregistered / fake emails.)
+async function _accountExistsForEmail(email) {
+  const e = _escapeIlike(String(email).trim());
+  if (!e) return false;
+  try {
+    const { data } = await window.supabaseClient.from('profiles').select('id').ilike('email', e).limit(1);
+    if (data && data.length) return true;
+  } catch (err) {}
+  try {
+    const { data } = await window.supabaseClient.from('Users').select('email').ilike('email', e).limit(1);
+    if (data && data.length) return true;
+  } catch (err) {}
+  return false;
+}
+
 // Is a username already taken (case-insensitively), checking both tables?
 async function _usernameTaken(username) {
   const u = _escapeIlike(String(username).trim());
@@ -1327,6 +1375,16 @@ async function registerUser(){
   if (!isValidEmail(email)) {
     validateEmail(document.getElementById("regEmail"));
     showRegToast("Please enter a valid email address.", "error");
+    return;
+  }
+  // Deliverability check — reject fake / undeliverable domains (e.g. tite@puke.com)
+  // whose domain can't receive mail. FAIL-OPEN: only blocks when the server can
+  // POSITIVELY confirm the domain is undeliverable; any network/function error (or
+  // the function not being deployed yet) lets registration proceed as normal.
+  const deliverable = await _isEmailDeliverable(email);
+  if (deliverable === false) {
+    validateEmail(document.getElementById("regEmail"));
+    showRegToast("That email address doesn't appear to be a working, deliverable email. Please use a valid email you can access.", "error");
     return;
   }
   // Alveo ID is OPTIONAL (Guideline 5.1.1) — only validate it if one was attached.

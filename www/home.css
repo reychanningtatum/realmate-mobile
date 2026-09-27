@@ -1307,12 +1307,14 @@ html[data-theme="dark"] .hf-poll-opt:not(.voted):hover { background: #161f36; }
 .hf-mention-item:hover { background: #f0f2f5; }
 .hf-mention-item img { width: 26px; height: 26px; border-radius: 50%; object-fit: cover; }
 .hf-mention-item span { font-size: 13px; font-weight: 600; color: var(--text-main); }
+.hf-mention-former { font-weight: 500; color: var(--text-soft, #8a9099); font-size: 12px; }
 /* Composer tag-a-realmate dropdown sits flush under the textarea */
 #homePostMention { margin: 6px 0 2px 0; max-height: 240px; overflow-y: auto; }
 
 /* Emoji picker */
 .emoji-picker {
   position: absolute; z-index: 100000; width: 268px; padding: 10px;
+  box-sizing: border-box; max-width: calc(100vw - 16px);
   background: var(--white); border: 1px solid var(--border); border-radius: 12px;
   box-shadow: 0 12px 32px rgba(0,0,0,0.18);
 }

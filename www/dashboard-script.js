@@ -1813,6 +1813,10 @@ async function saveProfile() {
     const btn = document.getElementById('saveProfileBtn');
     if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Saving...'; }
 
+    // Capture the CURRENT display name before overwriting it, so a rename can be
+    // remembered in former_names (others can still @-tag this account by the name
+    // they knew — see fetchTagCandidates in home.js).
+    const _prevName = (user.name || '').trim();
     user.name = document.getElementById("editName").value;
     // If there's no real uploaded photo, regenerate the initials placeholder
     // from the name just typed above — without this, saving right after a
@@ -1882,9 +1886,26 @@ async function saveProfile() {
                         return;
                     }
                 }
+                // If the display name changed, append the OLD name to former_names
+                // (newline-joined) so the account stays discoverable/taggable by it.
+                // undefined => leave the column untouched (upsert skips it).
+                let _formerNamesUpdate;
+                try {
+                    const _newName = (user.name || '').trim();
+                    if (_prevName && _newName && _prevName.toLowerCase() !== _newName.toLowerCase()) {
+                        const { data: _prof } = await _supabase.from('profiles').select('former_names').eq('id', authUser.id).single();
+                        const list = (_prof?.former_names || '').split('\n').map(s => s.trim()).filter(Boolean);
+                        const lower = new Set(list.map(s => s.toLowerCase()));
+                        if (!lower.has(_prevName.toLowerCase())) list.push(_prevName);
+                        // The new current name is not a "former" name — drop it if present.
+                        _formerNamesUpdate = list.filter(s => s.toLowerCase() !== _newName.toLowerCase()).join('\n');
+                    }
+                } catch (_) {}
+
                 const { error } = await _supabase.from('profiles').upsert({
                     id: authUser.id,
                     full_name: user.name,
+                    ...(_formerNamesUpdate !== undefined ? { former_names: _formerNamesUpdate } : {}),
                     username: user.username,
                     nickname: user.nickname || null,
                     // Positions were removed from Realmate — always clear any

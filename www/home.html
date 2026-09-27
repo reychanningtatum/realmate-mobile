@@ -7,12 +7,12 @@
   <title>realmate | Home</title>
   <link rel="stylesheet" href="vendor/fontawesome/css/all.min.css?v=6.5.0">
   <link rel="stylesheet" href="vendor/googlefonts/fonts.css?v=1">
-  <link rel="stylesheet" href="home.css?v=20260919a">
+  <link rel="stylesheet" href="home.css?v=20260928b">
   <link rel="stylesheet" href="customer-service.css?v=2">
   <link rel="stylesheet" href="block-report.css?v=20260823bp">
   <script src="theme.js?v=20260812a"></script>
   <script src="toast.js?v=20260819a"></script>
-  <script src="featureFlags.js?v=20260830c"></script>
+  <script src="featureFlags.js?v=20260925b"></script>
   <script src="search-history.js?v=20260912d"></script>
 <link rel="stylesheet" href="safe-area.css?v=20260915d">
 <script>if(window.self!==window.top)document.documentElement.classList.add("rm-embedded");</script>
@@ -264,7 +264,10 @@
 </div>
 
 <!-- Reusable Emoji Picker -->
-<div id="emojiPicker" class="emoji-picker" style="display:none;">
+<!-- onmousedown preventDefault: tapping an emoji must NOT blur the reply input,
+     so the picker stays open across multiple picks and the input's blur-close
+     (keyboard Done) only fires on a genuine dismissal. -->
+<div id="emojiPicker" class="emoji-picker" style="display:none;" onmousedown="event.preventDefault()">
   <div class="emoji-grid" id="emojiGrid"></div>
 </div>
 
@@ -327,14 +330,14 @@
 <script src="rm-sound.js?v=20260831a"></script>
 <script src="follows.js?v=20260918b"></script>
 <script src="privacy.js?v=20260831a"></script>
-<script src="home.js?v=20260919a"></script>
+<script src="home.js?v=20260928b"></script>
 <script src="deactivation.js?v=20260831a"></script>
 <script src="block-report.js?v=20260829f"></script>
 <script src="congrats.js?v=20260810b"></script>
 <script src="location-engine.js?v=20260809b"></script>
 <script src="match-engine.js?v=20260821p1"></script>
 <script src="developers.js?v=36"></script>
-<script src="rm-track.js?v=2"></script>
+<script src="rm-track.js?v=3"></script>
 <script src="match-alert.js?v=20260918b"></script>
 <script src="notif-badge.js?v=15"></script>
 <!-- Mobile Bottom Navigation -->

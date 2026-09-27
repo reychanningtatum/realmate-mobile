@@ -6,7 +6,7 @@
   <title>realmate | Admin</title>
   <link rel="stylesheet" href="vendor/fontawesome/css/all.min.css?v=6.5.0">
   <link rel="stylesheet" href="vendor/googlefonts/fonts.css?v=1">
-  <link rel="stylesheet" href="admin.css?v=32">
+  <link rel="stylesheet" href="admin.css?v=65">
 </head>
 <body>
 
@@ -66,20 +66,24 @@
 
   <div class="admin-sidebar">
     <img src="images/realmate2.png" class="sb-logo">
-    <div class="sb-label">Admin Panel <span id="adminWhoami" class="admin-whoami"></span></div>
+    <div class="sb-brandwrap">
+      <div class="sb-label">Admin Panel</div>
+      <span id="adminWhoami" class="admin-whoami"></span>
+    </div>
     <nav class="sb-nav">
       <!-- HIDDEN — features removed from the app (Market Pulse Video, Market Report PDF, Top Producers).
            Panels + JS loaders are commented out below; uncomment all to restore. -->
       <div class="sb-item active" data-tab="registrations" tabindex="0" role="button" onclick="switchTab('registrations', this)"><i class="fas fa-user-check"></i> Registrations</div>
-      <div class="sb-item" data-tab="sold" tabindex="0" role="button" onclick="switchTab('sold', this)"><i class="fas fa-handshake"></i> Sold Records</div>
+      <div class="sb-item" data-tab="sold" tabindex="0" role="button" onclick="switchTab('sold', this)"><i class="fas fa-handshake"></i> Deals Closed</div>
       <div class="sb-item" data-tab="users" tabindex="0" role="button" onclick="switchTab('users', this)"><i class="fas fa-users"></i> Users</div>
       <div class="sb-item" data-tab="analytics" tabindex="0" role="button" onclick="switchTab('analytics', this)"><i class="fas fa-chart-column"></i> Analytics</div>
       <div class="sb-item" data-tab="reports" tabindex="0" role="button" onclick="switchTab('reports', this)"><i class="fas fa-flag"></i> Reports</div>
       <div class="sb-item" data-tab="support" tabindex="0" role="button" onclick="switchTab('support', this)"><i class="fas fa-headset"></i> Support</div>
       <div class="sb-item sb-employees" data-tab="employees" style="display:none;" tabindex="0" role="button" onclick="switchTab('employees', this)"><i class="fas fa-user-shield"></i> Employees</div>
       <div class="sb-item" data-tab="intelligence" tabindex="0" role="button" onclick="switchTab('intelligence', this)"><i class="fas fa-brain"></i> Nexus</div>
-      <div class="sb-item" data-tab="security" tabindex="0" role="button" onclick="switchTab('security', this)"><i class="fas fa-shield-alt"></i> Change Password</div>
+      <div class="sb-item" data-tab="security" tabindex="0" role="button" onclick="switchTab('security', this)"><i class="fas fa-gear"></i> Settings</div>
     </nav>
+    <div class="sb-tagline">Connecting People to<br>A Better Tomorrow.</div>
     <div class="sb-logout" tabindex="0" role="button" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Exit Admin</div>
   </div>
 
@@ -92,24 +96,53 @@
       <img src="images/realmate2.png" class="sb-logo" style="margin:0;">
       <button class="mnd-close" onclick="closeMobileDrawer()" aria-label="Close menu">&times;</button>
     </div>
-    <div class="sb-label" style="padding:0; margin:20px 0 12px;">Admin Panel <span class="admin-whoami"></span></div>
+    <div class="sb-brandwrap" style="margin:18px 0 14px;">
+      <div class="sb-label">Admin Panel</div>
+      <span class="admin-whoami"></span>
+    </div>
     <nav class="sb-nav">
       <!-- HIDDEN — features removed from the app (Market Pulse Video, Market Report PDF, Top Producers).
            Panels + JS loaders are commented out below; uncomment all to restore. -->
       <div class="sb-item active" data-tab="registrations" tabindex="0" role="button" onclick="switchTab('registrations', this)"><i class="fas fa-user-check"></i> Registrations</div>
-      <div class="sb-item" data-tab="sold" tabindex="0" role="button" onclick="switchTab('sold', this)"><i class="fas fa-handshake"></i> Sold Records</div>
+      <div class="sb-item" data-tab="sold" tabindex="0" role="button" onclick="switchTab('sold', this)"><i class="fas fa-handshake"></i> Deals Closed</div>
       <div class="sb-item" data-tab="users" tabindex="0" role="button" onclick="switchTab('users', this)"><i class="fas fa-users"></i> Users</div>
       <div class="sb-item" data-tab="analytics" tabindex="0" role="button" onclick="switchTab('analytics', this)"><i class="fas fa-chart-column"></i> Analytics</div>
       <div class="sb-item" data-tab="reports" tabindex="0" role="button" onclick="switchTab('reports', this)"><i class="fas fa-flag"></i> Reports</div>
       <div class="sb-item" data-tab="support" tabindex="0" role="button" onclick="switchTab('support', this)"><i class="fas fa-headset"></i> Support</div>
       <div class="sb-item sb-employees" data-tab="employees" style="display:none;" tabindex="0" role="button" onclick="switchTab('employees', this)"><i class="fas fa-user-shield"></i> Employees</div>
       <div class="sb-item" data-tab="intelligence" tabindex="0" role="button" onclick="switchTab('intelligence', this)"><i class="fas fa-brain"></i> Nexus</div>
-      <div class="sb-item" data-tab="security" tabindex="0" role="button" onclick="switchTab('security', this)"><i class="fas fa-shield-alt"></i> Change Password</div>
+      <div class="sb-item" data-tab="security" tabindex="0" role="button" onclick="switchTab('security', this)"><i class="fas fa-gear"></i> Settings</div>
     </nav>
     <div class="sb-logout" tabindex="0" role="button" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Exit Admin</div>
   </div>
 
   <div class="admin-main">
+
+    <!-- Top-right identity chip + profile dropdown (desktop) — populated by applyIdentityUI() -->
+    <div class="admin-userchip" id="adminUserChip">
+      <div class="auc-bell" aria-hidden="true"><i class="fas fa-bell"></i></div>
+      <div class="auc-profile">
+        <button type="button" class="auc-id" onclick="toggleProfileMenu(event)" aria-haspopup="true">
+          <div class="auc-avatar" id="aucAvatar">RM</div>
+          <div class="auc-text">
+            <div class="auc-name" id="aucName">Admin</div>
+            <div class="auc-role" id="aucRole">Access</div>
+          </div>
+          <i class="fas fa-chevron-down auc-caret"></i>
+        </button>
+        <div class="auc-menu" id="aucMenu" role="menu">
+          <div class="auc-menu-head">
+            <div class="auc-avatar" id="aucMenuAvatar">RM</div>
+            <div class="auc-text">
+              <div class="auc-name" id="aucMenuName">Admin</div>
+              <div class="auc-role" id="aucMenuRole">Access</div>
+            </div>
+          </div>
+          <button type="button" class="auc-menu-item" role="menuitem" onclick="goTab('security');closeProfileMenu()"><i class="fas fa-shield-alt"></i> Change Password</button>
+          <button type="button" class="auc-menu-item auc-menu-danger" role="menuitem" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Exit Admin</button>
+        </div>
+      </div>
+    </div>
 
     <!-- Mobile top bar -->
     <div class="mobile-admin-topbar">
@@ -258,22 +291,46 @@
         <p>Review new sign-ups, verify their uploaded Alveo ID, then approve or reject the account.</p>
       </div>
 
-      <div class="admin-card" style="margin-bottom:20px;">
-        <div class="reg-status-row">
-          <div class="form-field reg-status-field">
-            <label class="field-label">Status</label>
-            <select id="regFilterStatus" class="reg-select" onchange="loadRegistrations()">
+      <!-- Summary stat cards — real counts + month-over-month trend (loadRegStats). -->
+      <div class="stat-grid" id="regStatGrid"></div>
+
+      <!-- Filter bar (reference layout: Status · Search · Date Range · actions) -->
+      <div class="admin-card reg-filterbar">
+        <div class="flt-row">
+          <div class="flt-field">
+            <label class="flt-label">Status</label>
+            <select id="regFilterStatus" class="flt-ctl" onchange="loadRegistrations()">
               <option value="Pending Approval" selected>Pending Approval</option>
               <option value="Approved">Approved</option>
               <option value="Rejected">Rejected</option>
               <option value="All">All</option>
             </select>
           </div>
-          <button type="button" class="btn-cancel-sm" id="regAdvancedToggleBtn" onclick="toggleAdvancedFilters()"><i class="fas fa-sliders-h"></i> Search Filters</button>
+          <div class="flt-field flt-grow">
+            <label class="flt-label">Search</label>
+            <div class="flt-search">
+              <i class="fas fa-magnifying-glass"></i>
+              <input type="search" id="regQuickSearch" class="flt-ctl" placeholder="Search name, email, or phone…" oninput="renderRegistrations()">
+            </div>
+          </div>
+          <div class="flt-field">
+            <label class="flt-label">Date Range</label>
+            <select id="regDateRange" class="flt-ctl" onchange="applyRegDateRange()">
+              <option value="all">All Dates</option>
+              <option value="today">Today</option>
+              <option value="7">Last 7 days</option>
+              <option value="30">Last 30 days</option>
+              <option value="month">This month</option>
+            </select>
+          </div>
+          <div class="flt-actions">
+            <button type="button" class="btn-ghost" id="regAdvancedToggleBtn" onclick="toggleAdvancedFilters()"><i class="fas fa-filter"></i> More Filters</button>
+            <button type="button" class="btn-ghost" onclick="resetRegistrationFilters()">Clear</button>
+            <button type="button" class="btn-save" onclick="loadRegistrations()"><i class="fas fa-magnifying-glass"></i> Search</button>
+          </div>
         </div>
 
-        <!-- Hidden by default — pending review needs no search. Useful for
-             digging through Approved/Rejected history. -->
+        <!-- Advanced filters — revealed by "More Filters". -->
         <div class="reg-filter-grid" id="regAdvancedFilters" style="display:none;">
           <div class="form-field">
             <label class="field-label">Registered From</label>
@@ -310,8 +367,8 @@
         </div>
       </div>
 
-      <div class="admin-card">
-        <div class="card-section-title"><i class="fas fa-users"></i> Registrations</div>
+      <!-- Data table (header + rows + pagination all rendered into #registrationsList) -->
+      <div class="admin-card reg-table-card">
         <div id="registrationsList"><div class="loading-row"><i class="fas fa-spinner fa-spin"></i> Loading…</div></div>
       </div>
     </div>
@@ -319,9 +376,12 @@
     <!-- Sold Records Tab -->
     <div id="tab-sold" class="admin-tab">
       <div class="tab-header">
-        <h2>Sold Records</h2>
+        <h2>Deals Closed</h2>
         <p>A permanent history of every completed transaction, separated by category. Each record is saved the moment the seller confirms the sale — kept here even after the listing is auto-deleted 24 hours later. Amounts are the peso figure highlighted on each listing.</p>
       </div>
+
+      <!-- Summary stat cards — real totals per category + month-over-month trend. -->
+      <div class="stat-grid" id="soldStatGrid"></div>
 
       <!-- Sales totals: category × time period. Computed live from the records. -->
       <div class="admin-card" style="margin-bottom:20px;">
@@ -363,17 +423,22 @@
     <div id="tab-users" class="admin-tab">
       <div class="tab-header">
         <h2>Users</h2>
-        <p>Every registered account.</p>
+        <p>Every registered account, plus deactivation and deletion records.</p>
       </div>
 
       <div class="admin-card" style="margin-bottom:20px;">
-        <div class="url-input-row">
-          <input type="text" id="usersSearchInput" placeholder="Search by name, username, or email…" oninput="filterUsers()">
+        <div class="uv-tabs" role="tablist">
+          <button type="button" class="uv-tab active" data-view="all" role="tab" onclick="setUsersView('all')"><i class="fas fa-users"></i> All Users</button>
+          <button type="button" class="uv-tab" data-view="deactivated" role="tab" onclick="setUsersView('deactivated')"><i class="fas fa-user-slash"></i> Deactivated</button>
+          <button type="button" class="uv-tab" data-view="deleted" role="tab" onclick="setUsersView('deleted')"><i class="fas fa-user-xmark"></i> Deleted</button>
+        </div>
+        <div class="url-input-row" style="margin-top:14px;">
+          <input type="text" id="usersSearchInput" placeholder="Search by name, username, or email…" oninput="filterUsersView()">
         </div>
       </div>
 
-      <div class="admin-card">
-        <div class="card-section-title"><i class="fas fa-users"></i> All Users</div>
+      <!-- Data table (header + rows + pagination rendered into #usersList) -->
+      <div class="admin-card reg-table-card">
         <div id="usersList"><div class="loading-row"><i class="fas fa-spinner fa-spin"></i> Loading…</div></div>
       </div>
     </div>
@@ -387,6 +452,9 @@
         <h2>Analytics</h2>
         <p>Core growth &amp; engagement metrics, computed live from realmate's database. Periods are Asia/Manila, calendar-day aligned and cumulative (Today ⊆ 7 Days ⊆ 30 Days).</p>
       </div>
+
+      <!-- Summary cards (hero + 4 metric cards with real trends + sparklines). -->
+      <div id="analyticsSummary"></div>
 
       <div class="admin-card">
         <div class="analytics-head">
@@ -405,14 +473,12 @@
         <h2>Reports</h2>
         <p>User reports of posts, chats, and listings (App Store Guideline 1.2). Review each and act — mark reviewed, dismiss, or remove the content.</p>
       </div>
-      <div class="admin-card">
-        <div class="analytics-head">
-          <div class="card-section-title" style="margin:0;"><i class="fas fa-flag"></i> Reported Content <span id="reportsOpenBadge"></span></div>
-          <button type="button" class="eb eb-neutral" onclick="loadReports()"><i class="fas fa-rotate-right"></i> Refresh</button>
-        </div>
-        <div class="analytics-scroll">
-          <div id="reportsTable"><div class="loading-row"><i class="fas fa-spinner fa-spin"></i> Loading…</div></div>
-        </div>
+      <!-- Summary stat cards (Open / Reviewed / Dismissed / Deleted). -->
+      <div class="stat-grid" id="reportsSummary"></div>
+
+      <!-- Reported content: filters + table + pagination rendered into #reportsTable. -->
+      <div class="admin-card reg-table-card">
+        <div id="reportsTable"><div class="loading-row"><i class="fas fa-spinner fa-spin"></i> Loading…</div></div>
       </div>
     </div>
 
@@ -424,6 +490,8 @@
         </div>
         <button type="button" class="eb eb-neutral" onclick="loadSupport()"><i class="fas fa-rotate-right"></i> Refresh</button>
       </div>
+      <!-- Summary stat cards (Total / New / Handling / Done for the active division). -->
+      <div class="stat-grid" id="supSummary"></div>
       <div id="supportDivisions"><div class="loading-row"><i class="fas fa-spinner fa-spin"></i> Loading…</div></div>
     </div>
 
@@ -435,10 +503,10 @@
       </div>
       <div class="admin-card">
         <div class="card-section-title" style="margin:0 0 12px;"><i class="fas fa-paper-plane"></i> Invite an employee</div>
-        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
-          <input type="email" id="inviteEmail" placeholder="employee@email.com" style="flex:1;min-width:220px;padding:9px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:14px;">
-          <input type="text" id="inviteUsername" placeholder="username (optional)" style="min-width:160px;padding:9px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:14px;">
-          <button class="gate-btn" style="width:auto;padding:10px 18px;margin:0;" onclick="sendInvite()"><i class="fas fa-paper-plane"></i> Send Invite</button>
+        <div class="emp-invite-row">
+          <input type="email" id="inviteEmail" placeholder="employee@email.com">
+          <input type="text" id="inviteUsername" placeholder="username (optional)">
+          <button class="btn-save" onclick="sendInvite()"><i class="fas fa-paper-plane"></i> Send Invite</button>
         </div>
         <div id="inviteResult" style="margin-top:10px;font-size:13px;color:#64748b;"></div>
       </div>
@@ -464,93 +532,234 @@
          Edge Function (service role). Dormant during bug-testing: shows Nexus OFF
          and zeroed volumes until a founder activates a stage. -->
     <div id="tab-intelligence" class="admin-tab">
-      <div class="tab-header">
-        <h2>Nexus</h2>
-        <p>What realmate is learning through Nexus. Private, aggregated observation of the intelligence engine.</p>
-      </div>
 
-      <!-- Always-visible dataset label so real-user behaviour is never mistaken for synthetic. -->
-      <div id="intelDatasetBanner" style="display:none;padding:12px 16px;border-radius:12px;font-weight:800;letter-spacing:.4px;margin-bottom:16px;"></div>
-
-      <div class="admin-card" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
-        <div class="card-section-title" style="margin:0;"><i class="fas fa-server"></i> Environment</div>
-        <div style="display:flex;align-items:center;gap:10px;">
-          <span id="nexusEnvBadge" class="intel-badge intel-off">—</span>
-          <select id="nexusEnvSelect" onchange="setNexusEnv(this.value)" style="padding:8px 12px;border:1px solid #cbd5e1;border-radius:10px;font-weight:700;color:#334155;">
-            <option value="production">Production</option>
-            <option value="testing">Testing</option>
-          </select>
+      <!-- Hero -->
+      <div class="nx-hero">
+        <div class="nx-hero-veil"></div>
+        <div class="nx-hero-inner">
+          <div class="nx-hero-badge"><i class="fas fa-diagram-project"></i></div>
+          <div class="nx-hero-text">
+            <h2 class="nx-hero-title">Nexus</h2>
+            <p class="nx-hero-lead">What realmate is learning through Nexus.</p>
+            <p class="nx-hero-sub">Private, aggregated observation of the intelligence engine.</p>
+          </div>
+          <div class="nx-hero-tagline">Real Estate<br>Intelligence<br>For a Smarter<br>Tomorrow</div>
         </div>
       </div>
 
-      <div class="admin-card" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
-        <div class="card-section-title" style="margin:0;"><i class="fas fa-layer-group"></i> Dataset</div>
-        <div style="display:flex;align-items:center;gap:10px;">
-          <span id="nexusDatasetBadge" class="intel-badge intel-off">—</span>
-          <select id="nexusDatasetSelect" onchange="setNexusDataset(this.value)" style="padding:8px 12px;border:1px solid #cbd5e1;border-radius:10px;font-weight:700;color:#334155;">
-            <option value="synthetic">Synthetic Data (benchmark)</option>
-            <option value="realuser">realmate Test Users</option>
-          </select>
+      <!-- ═══ Nexus Unified Engine (spec §20/§27) — control plane ═══ -->
+      <div class="admin-card" id="nexusUnifiedCard" style="margin-top:16px;">
+        <div class="card-section-title"><i class="fas fa-network-wired"></i> Nexus Engine — Unified Control</div>
+        <div id="nexusUnifiedBody"><div class="intel-empty">Loading Nexus control plane…</div></div>
+      </div>
+
+      <!-- Market Intelligence (stock-market evaluation, spec §8) -->
+      <div class="admin-card" id="nexusMarketCard" style="margin-top:16px;">
+        <div class="card-section-title"><i class="fas fa-chart-line"></i> Market Intelligence <span style="font-weight:600;color:#94a3b8;font-size:12px;">(supply/demand · sentiment · FMV — like a stock market)</span></div>
+        <div id="nexusMarketBody"><div class="intel-empty">Loading market intelligence…</div></div>
+      </div>
+
+      <!-- Fair Market Value (ADMIN-ONLY, spec §9/§22) -->
+      <div class="admin-card" id="nexusFmvCard" style="margin-top:16px;">
+        <div class="card-section-title"><i class="fas fa-scale-balanced"></i> Fair Market Value <span style="font-weight:600;color:#94a3b8;font-size:12px;">(admin-only estimate — not an appraisal)</span></div>
+        <div id="nexusFmvBody"><div class="intel-empty">Loading FMV…</div></div>
+      </div>
+
+      <!-- Advanced founder controls toggle (reveals raw engine controls below) -->
+      <div style="display:flex;justify-content:flex-end;margin-top:16px;">
+        <button class="nx-bm-btn" onclick="toggleBenchmarkDetails()"><span id="nxBmBtnLabel">Show advanced controls</span> <i class="fas fa-arrow-right"></i></button>
+      </div>
+
+      <!-- Nexus Engine Status -->
+      <div class="admin-card nx-card">
+        <div class="nx-card-head">
+          <div class="nx-card-ic nx-ic-blue"><i class="fas fa-wave-square"></i></div>
+          <div class="nx-card-htext"><div class="nx-card-title">NEXUS ENGINE STATUS</div><div class="nx-card-sub">Real-time status of the intelligence engine.</div></div>
+          <div class="nx-engine-control" id="nxEngineControl"></div>
+        </div>
+        <div class="nx-status-row">
+          <div class="nx-online" id="nxOnlineBox">
+            <span class="nx-online-dot"></span>
+            <div><div class="nx-online-title" id="nxOnlineTitle">Online</div><div class="nx-online-sub" id="nxOnlineSub">Nexus is running normally</div></div>
+          </div>
+          <div class="nx-kpis" id="nxKpis"></div>
         </div>
       </div>
 
-      <div class="admin-card" id="intelRealUsersCard" style="display:none;">
-        <div class="card-section-title"><i class="fas fa-user-shield"></i> realmate Test Users</div>
-        <div id="intelRealUsers"><div class="loading-row">—</div></div>
+      <!-- Data Volume -->
+      <div class="admin-card nx-card">
+        <div class="nx-card-head">
+          <div class="nx-card-ic"><i class="fas fa-database"></i></div>
+          <div class="nx-card-htext"><div class="nx-card-title">DATA VOLUME</div><div class="nx-card-sub">Volume of data processed by Nexus.</div></div>
+          <span class="nx-datepill"><i class="far fa-calendar"></i> <span id="nxDateRange">—</span></span>
+        </div>
+        <div class="nx-vol-grid">
+          <div class="nx-vol-chart" id="nxVolChart"></div>
+          <div class="nx-vol-side">
+            <div class="nx-vol-side-label">Total Records Processed</div>
+            <div class="nx-vol-side-num" id="nxVolTotal">—</div>
+            <div class="nx-vol-side-trend" id="nxVolTrend"></div>
+            <div class="nx-vol-side-spark" id="nxVolSpark"></div>
+          </div>
+        </div>
       </div>
 
-      <div class="admin-card">
-        <div class="card-section-title"><i class="fas fa-brain"></i> Nexus Engine Status</div>
-        <div id="intelStatus"><div class="loading-row"><i class="fas fa-spinner fa-spin"></i> Loading…</div></div>
+      <!-- Market & Preference Trends -->
+      <div class="admin-card nx-card">
+        <div class="nx-card-head">
+          <div class="nx-card-ic"><i class="fas fa-chart-line"></i></div>
+          <div class="nx-card-htext"><div class="nx-card-title">MARKET &amp; PREFERENCE TRENDS</div><div class="nx-card-sub">Top locations, unit types, and buyer preferences based on Nexus observations.</div></div>
+        </div>
+        <div class="nx-trends-grid">
+          <div class="nx-trend-col"><div class="nx-trend-head"><i class="fas fa-location-dot"></i> Top Locations</div><div id="nxTrendLoc"></div></div>
+          <div class="nx-trend-col"><div class="nx-trend-head"><i class="fas fa-building"></i> Top Unit Types</div><div id="nxTrendUnit"></div></div>
+          <div class="nx-trend-col"><div class="nx-trend-head"><i class="fas fa-star"></i> Top Buyer Preferences</div><div id="nxTrendPref"></div></div>
+        </div>
       </div>
 
-      <div class="admin-card">
-        <div class="card-section-title"><i class="fas fa-database"></i> Data Volume</div>
-        <div id="intelCounts"><div class="loading-row">—</div></div>
-      </div>
+      <!-- Founder / benchmark details (collapsible; preserves all engine controls) -->
+      <div id="nxDetails" style="display:none;">
+        <div class="admin-card" id="intelRealUsersCard" style="display:none;">
+          <div class="card-section-title"><i class="fas fa-user-shield"></i> realmate Test Users</div>
+          <div id="intelRealUsers"><div class="loading-row">—</div></div>
+        </div>
 
-      <div class="admin-card">
-        <div class="card-section-title"><i class="fas fa-chart-line"></i> Market &amp; Preference Trends</div>
-        <div id="intelTrends"><div class="loading-row">—</div></div>
-      </div>
+        <div class="admin-card">
+          <div class="card-section-title"><i class="fas fa-sliders"></i> Engine Controls &amp; Stage Activation</div>
+          <div id="intelStatus"><div class="loading-row"><i class="fas fa-spinner fa-spin"></i> Loading…</div></div>
+        </div>
 
-      <div class="admin-card">
-        <div class="card-section-title"><i class="fas fa-building"></i> Developer &amp; Project Intelligence</div>
-        <div id="intelEntities"><div class="loading-row">—</div></div>
-      </div>
+        <div class="admin-card">
+          <div class="card-section-title"><i class="fas fa-database"></i> Data Volume — raw counts</div>
+          <div id="intelCounts"><div class="loading-row">—</div></div>
+        </div>
 
-      <div class="admin-card">
-        <div class="card-section-title"><i class="fas fa-bullseye"></i> Matching &amp; Recommendation Performance</div>
-        <div id="intelPerformance"><div class="loading-row">—</div></div>
-      </div>
+        <div class="admin-card">
+          <div class="card-section-title"><i class="fas fa-building"></i> Developer &amp; Project Intelligence</div>
+          <div id="intelEntities"><div class="loading-row">—</div></div>
+        </div>
 
-      <div class="admin-card">
-        <div class="card-section-title"><i class="fas fa-lightbulb"></i> Dataset Enrichment Suggestions</div>
-        <div id="intelEnrichment"><div class="loading-row">—</div></div>
+        <div class="admin-card">
+          <div class="card-section-title"><i class="fas fa-bullseye"></i> Matching &amp; Recommendation Performance</div>
+          <div id="intelPerformance"><div class="loading-row">—</div></div>
+        </div>
+
+        <div class="admin-card">
+          <div class="card-section-title"><i class="fas fa-lightbulb"></i> Dataset Enrichment Suggestions</div>
+          <div id="intelEnrichment"><div class="loading-row">—</div></div>
+        </div>
       </div>
     </div>
 
     <!-- Security Tab -->
     <div id="tab-security" class="admin-tab">
+      <style>
+        .set-layout{display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap;}
+        .set-nav{flex:0 0 280px;max-width:280px;padding:12px;}
+        .set-nav-group{font-size:11px;font-weight:800;letter-spacing:.06em;color:#94a3b8;padding:12px 10px 6px;}
+        .set-nav-item{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:none;border:0;border-radius:10px;padding:10px 12px;cursor:pointer;color:#334155;transition:background .15s;}
+        .set-nav-item:hover{background:#f1f5f9;}
+        .set-nav-item.active{background:#2563eb;color:#fff;}
+        .set-nav-item.active .set-nav-s{color:#dbeafe;}
+        .set-nav-item i{width:18px;text-align:center;font-size:14px;}
+        .set-nav-t{font-weight:700;font-size:13px;}
+        .set-nav-s{font-size:11px;color:#94a3b8;}
+        .set-content{flex:1;min-width:320px;}
+        .set-pw-card{margin-bottom:16px;}
+        .set-pw-head{display:flex;align-items:flex-start;gap:12px;margin-bottom:16px;}
+        .set-pw-ic{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;flex:0 0 40px;}
+        .set-pw-ic.emp{background:#dbeafe;color:#2563eb;}
+        .set-pw-ic.master{background:#ede9fe;color:#7c3aed;}
+        .set-pw-title{font-weight:800;font-size:15px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+        .set-pw-sub{font-size:12px;color:#64748b;margin-top:2px;}
+        .set-badge{font-size:10px;font-weight:800;letter-spacing:.04em;padding:2px 8px;border-radius:20px;}
+        .set-badge-blue{background:#dbeafe;color:#1d4ed8;}
+        .set-badge-purple{background:#ede9fe;color:#6d28d9;}
+        .set-pw-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;}
+        .set-pw-grid .form-field.full{grid-column:1 / -1;max-width:calc(50% - 7px);}
+        @media(max-width:640px){.set-pw-grid{grid-template-columns:1fr;}.set-pw-grid .form-field.full{max-width:100%;}}
+        .set-reqs{background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;margin-bottom:14px;display:grid;grid-template-columns:1fr 1fr;gap:6px 18px;}
+        .set-reqs .rq{font-size:12px;color:#64748b;display:flex;align-items:center;gap:7px;}
+        .set-reqs .rq.ok{color:#16a34a;}
+        .set-reqs .rq i{font-size:11px;}
+        .set-reqs-title{grid-column:1/-1;font-weight:700;font-size:12px;color:#334155;display:flex;align-items:center;gap:7px;}
+        .set-locknote{font-size:12px;color:#92400e;background:#fef3c7;border:1px solid #fde68a;border-radius:8px;padding:8px 12px;margin-bottom:12px;}
+        .btn-master{background:#7c3aed;}
+      </style>
       <div class="tab-header">
-        <h2>Change Password</h2>
-        <p>Update the admin password. You'll need to use the new password next time you log in.</p>
+        <h2>Settings</h2>
+        <p>Manage your account preferences, security, and system settings.</p>
       </div>
-      <div class="admin-card" style="max-width:440px;">
-        <div class="form-field" style="margin-bottom:16px;">
-          <label class="field-label">Current Password</label>
-          <input type="password" id="secCurrent" placeholder="Enter current password">
+      <div class="set-layout">
+        <!-- Left sub-nav -->
+        <div class="admin-card set-nav">
+          <div class="set-nav-group">SETTINGS</div>
+          <button type="button" class="set-nav-item" data-sec="profile" onclick="settingsSub('profile',this)"><i class="fas fa-user-circle"></i><div><div class="set-nav-t">Profile</div><div class="set-nav-s">Your account information</div></div></button>
+          <button type="button" class="set-nav-item active" data-sec="password" onclick="settingsSub('password',this)"><i class="fas fa-lock"></i><div><div class="set-nav-t">Change Password</div><div class="set-nav-s">Update your password</div></div></button>
+          <button type="button" class="set-nav-item" data-sec="security" onclick="settingsSub('security',this)"><i class="fas fa-shield-halved"></i><div><div class="set-nav-t">Security</div><div class="set-nav-s">Login history and security settings</div></div></button>
+          <button type="button" class="set-nav-item" data-sec="notifications" onclick="settingsSub('notifications',this)"><i class="fas fa-bell"></i><div><div class="set-nav-t">Notifications</div><div class="set-nav-s">Email and in-app preferences</div></div></button>
+          <button type="button" class="set-nav-item" data-sec="appearance" onclick="settingsSub('appearance',this)"><i class="fas fa-palette"></i><div><div class="set-nav-t">Appearance</div><div class="set-nav-s">Theme and display settings</div></div></button>
+          <div class="set-nav-group settings-master-only">SYSTEM (MASTER ONLY)</div>
+          <button type="button" class="set-nav-item settings-master-only" data-sec="team" onclick="settingsSub('team',this)"><i class="fas fa-users-gear"></i><div><div class="set-nav-t">Team Management</div><div class="set-nav-s">Manage employee accounts</div></div></button>
+          <button type="button" class="set-nav-item settings-master-only" data-sec="system" onclick="settingsSub('system',this)"><i class="fas fa-sliders"></i><div><div class="set-nav-t">System Settings</div><div class="set-nav-s">Platform configuration</div></div></button>
+          <button type="button" class="set-nav-item settings-master-only" data-sec="audit" onclick="settingsSub('audit',this)"><i class="fas fa-clipboard-list"></i><div><div class="set-nav-t">Audit Logs</div><div class="set-nav-s">Track system activities</div></div></button>
         </div>
-        <div class="form-field" style="margin-bottom:16px;">
-          <label class="field-label">New Password</label>
-          <input type="password" id="secNew" placeholder="Enter new password">
+
+        <!-- Right content -->
+        <div class="set-content">
+          <!-- Change Password -->
+          <div class="set-panel" id="set-panel-password">
+            <div style="margin-bottom:16px;"><h3 style="margin:0;font-size:18px;display:flex;align-items:center;gap:10px;"><i class="fas fa-lock" style="color:#2563eb;"></i> Change Password</h3><p style="margin:4px 0 0;color:#64748b;font-size:13px;">Update your password for secure access to the admin panel.</p></div>
+
+            <!-- Employee Password -->
+            <div class="admin-card set-pw-card" id="setEmpCard">
+              <div class="set-pw-head"><span class="set-pw-ic emp"><i class="fas fa-user"></i></span><div><div class="set-pw-title">Employee Password <span class="set-badge set-badge-blue">YOUR ACCOUNT</span></div><div class="set-pw-sub">This password is for your employee account. Used when you log in as an employee (limited access).</div></div></div>
+              <div class="set-pw-grid">
+                <div class="form-field"><label class="field-label">Current Password</label><input type="password" id="empCurrent" placeholder="Enter current password"></div>
+                <div class="form-field"><label class="field-label">New Password</label><input type="password" id="empNew" placeholder="Enter new password" oninput="_pwReqUpdate('emp')"></div>
+                <div class="form-field full"><label class="field-label">Confirm New Password</label><input type="password" id="empConfirm" placeholder="Repeat new password"></div>
+              </div>
+              <div class="set-reqs" id="empReqs">
+                <div class="set-reqs-title"><i class="fas fa-circle-info"></i> Password Requirements</div>
+                <div class="rq" data-rq="len"><i class="fas fa-circle"></i> At least 8 characters</div>
+                <div class="rq" data-rq="num"><i class="fas fa-circle"></i> Include at least one number</div>
+                <div class="rq" data-rq="case"><i class="fas fa-circle"></i> Include uppercase and lowercase letters</div>
+                <div class="rq" data-rq="special"><i class="fas fa-circle"></i> Include at least one special character (e.g. !@#$%)</div>
+              </div>
+              <button class="btn-save" onclick="changeEmployeePassword()"><i class="fas fa-key"></i> Update Employee Password</button>
+              <div id="empStatus" class="status-msg" style="display:none;margin-top:12px;"></div>
+            </div>
+
+            <!-- Master Admin Password -->
+            <div class="admin-card set-pw-card" id="setMasterCard">
+              <div class="set-pw-head"><span class="set-pw-ic master"><i class="fas fa-crown"></i></span><div><div class="set-pw-title">Master Admin Password <span class="set-badge set-badge-purple">MASTER ONLY</span></div><div class="set-pw-sub">This password is for the master admin account. Used when you log in with full administrative access.</div></div></div>
+              <div class="set-locknote" id="masterLockNote" style="display:none;"><i class="fas fa-lock"></i> Master only — sign in as the Master Admin to change this password.</div>
+              <div class="set-pw-grid">
+                <div class="form-field"><label class="field-label">Current Password</label><input type="password" id="masterCurrent" placeholder="Enter current password"></div>
+                <div class="form-field"><label class="field-label">New Password</label><input type="password" id="masterNew" placeholder="Enter new password" oninput="_pwReqUpdate('master')"></div>
+                <div class="form-field full"><label class="field-label">Confirm New Password</label><input type="password" id="masterConfirm" placeholder="Repeat new password"></div>
+              </div>
+              <div class="set-reqs" id="masterReqs">
+                <div class="set-reqs-title"><i class="fas fa-circle-info"></i> Password Requirements</div>
+                <div class="rq" data-rq="len"><i class="fas fa-circle"></i> At least 8 characters</div>
+                <div class="rq" data-rq="num"><i class="fas fa-circle"></i> Include at least one number</div>
+                <div class="rq" data-rq="case"><i class="fas fa-circle"></i> Include uppercase and lowercase letters</div>
+                <div class="rq" data-rq="special"><i class="fas fa-circle"></i> Include at least one special character (e.g. !@#$%)</div>
+              </div>
+              <button class="btn-save btn-master" id="masterUpdateBtn" onclick="changeMasterPassword()"><i class="fas fa-key"></i> Update Master Password</button>
+              <div id="masterStatus" class="status-msg" style="display:none;margin-top:12px;"></div>
+            </div>
+          </div>
+
+          <!-- Placeholder panels (design shell) -->
+          <div class="set-panel" id="set-panel-profile" style="display:none;"><div class="admin-card"><div class="intel-empty"><i class="fas fa-user-circle"></i> Profile settings — coming soon.</div></div></div>
+          <div class="set-panel" id="set-panel-security" style="display:none;"><div class="admin-card"><div class="intel-empty"><i class="fas fa-shield-halved"></i> Login history &amp; security settings — coming soon.</div></div></div>
+          <div class="set-panel" id="set-panel-notifications" style="display:none;"><div class="admin-card"><div class="intel-empty"><i class="fas fa-bell"></i> Notification preferences — coming soon.</div></div></div>
+          <div class="set-panel" id="set-panel-appearance" style="display:none;"><div class="admin-card"><div class="intel-empty"><i class="fas fa-palette"></i> Appearance &amp; theme — coming soon.</div></div></div>
+          <div class="set-panel" id="set-panel-team" style="display:none;"><div class="admin-card"><div class="intel-empty"><i class="fas fa-users-gear"></i> Team management lives in the <b>Employees</b> tab. A settings view is coming soon.</div></div></div>
+          <div class="set-panel" id="set-panel-system" style="display:none;"><div class="admin-card"><div class="intel-empty"><i class="fas fa-sliders"></i> System settings — coming soon.</div></div></div>
+          <div class="set-panel" id="set-panel-audit" style="display:none;"><div class="admin-card"><div class="intel-empty"><i class="fas fa-clipboard-list"></i> Audit logs — coming soon.</div></div></div>
         </div>
-        <div class="form-field" style="margin-bottom:20px;">
-          <label class="field-label">Confirm New Password</label>
-          <input type="password" id="secConfirm" placeholder="Repeat new password">
-        </div>
-        <button class="btn-save" onclick="changePassword()"><i class="fas fa-key"></i> Update Password</button>
-        <div id="secStatus" class="status-msg" style="display:none; margin-top:12px;"></div>
       </div>
     </div>
 
@@ -603,13 +812,51 @@
         <button type="button" class="reg-chip" onclick="pickRejectReason('Uploaded Alveo ID is unclear.')">Unclear ID</button>
         <button type="button" class="reg-chip" onclick="pickRejectReason('Invalid Alveo ID.')">Invalid ID</button>
         <button type="button" class="reg-chip" onclick="pickRejectReason('Unable to verify registration.')">Unable to verify</button>
+        <button type="button" class="reg-chip" onclick="pickRejectReason('Please resubmit a clear, valid PRC, DHSUD, or Alveo ID.')">Needs valid docs</button>
         <button type="button" class="reg-chip" onclick="pickRejectReason('Other.')">Other</button>
       </div>
+      <p class="reg-meta" style="margin-top:10px;">“Request Documents” asks the applicant to resubmit a valid PRC / DHSUD / Alveo ID (a friendlier email than a hard rejection).</p>
     </div>
     <div class="rm-modal-foot">
       <button class="btn-cancel-sm" onclick="closeRejectModal()">Cancel</button>
-      <button class="btn-save reg-confirm-reject" onclick="confirmReject()"><i class="fas fa-ban"></i> Reject Registration</button>
+      <button class="btn-save" style="background:#16a34a;" onclick="confirmReject('request-docs')"><i class="fas fa-id-card"></i> Request Documents</button>
+      <button class="btn-save reg-confirm-reject" onclick="confirmReject('reject')"><i class="fas fa-ban"></i> Reject Registration</button>
     </div>
+  </div>
+</div>
+
+<div class="rm-modal-overlay" id="banReasonOverlay" style="display:none;" role="dialog" aria-modal="true" aria-label="Ban account">
+  <div class="rm-modal-box">
+    <div class="rm-modal-head">
+      <span>Suspend Account</span>
+      <span class="rm-modal-close" role="button" tabindex="0" aria-label="Cancel" onclick="closeBanModal()">&times;</span>
+    </div>
+    <div class="rm-modal-body">
+      <p class="reg-meta" style="margin-bottom:10px;">The member is emailed and blocked from signing in immediately. You can unban them anytime.</p>
+      <label class="field-label">Reason (optional — included in the email)</label>
+      <textarea id="banReasonInput" class="reg-reason-textarea" rows="4" placeholder="Enter suspension reason (optional)"></textarea>
+      <div class="reg-reason-chips">
+        <button type="button" class="reg-chip" onclick="pickBanReason('Violation of Realmate community guidelines.')">Guidelines violation</button>
+        <button type="button" class="reg-chip" onclick="pickBanReason('Fraudulent or misleading activity.')">Fraud / misleading</button>
+        <button type="button" class="reg-chip" onclick="pickBanReason('Spam or abusive behavior.')">Spam / abuse</button>
+        <button type="button" class="reg-chip" onclick="pickBanReason('Invalid or falsified credentials.')">Invalid credentials</button>
+      </div>
+    </div>
+    <div class="rm-modal-foot">
+      <button class="btn-cancel-sm" onclick="closeBanModal()">Cancel</button>
+      <button class="btn-save reg-confirm-reject" onclick="confirmBan()"><i class="fas fa-ban"></i> Suspend Account</button>
+    </div>
+  </div>
+</div>
+
+<!-- Analytics drill-down: the actual users behind a metric+period cell -->
+<div class="rm-modal-overlay" id="analyticsUsersOverlay" style="display:none;" role="dialog" aria-modal="true" aria-label="Users in this metric">
+  <div class="rm-modal-box">
+    <div class="rm-modal-head">
+      <span id="auTitle">Users</span>
+      <span class="rm-modal-close" role="button" tabindex="0" aria-label="Close" onclick="closeAnalyticsUsers()">&times;</span>
+    </div>
+    <div class="rm-modal-body" id="auBody"></div>
   </div>
 </div>
 
@@ -617,6 +864,6 @@
 <script src="vendor/supabase-js.min.js?v=2.112.3"></script>
 <script src="price-parser.js?v=20260812a"></script>
 <script src="nexus-env.js?v=2"></script>
-<script src="admin.js?v=47"></script>
+<script src="admin.js?v=20260928b"></script>
 </body>
 </html>
