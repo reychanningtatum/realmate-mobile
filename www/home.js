@@ -1779,11 +1779,15 @@ function _applyPostEdit(id, content, mediaPatch) {
         }
     } catch (e) {}
     const card = document.getElementById('hfpost-' + id); if (!card) return;
-    let el = card.querySelector('.hf-post-text');
+    // Scope selectors to the post's OWN text/media, NOT the nested .hf-shared-embed
+    // (a share card embeds the original, which has its own .hf-post-text/.hf-post-media).
+    // Without this, editing/patching a share wiped the EMBEDDED original's content.
+    const _own = sel => Array.from(card.querySelectorAll(sel)).find(x => !x.closest('.hf-shared-embed'));
+    let el = _own('.hf-post-text');
     if (content && content.length) {
         if (!el) {
             el = document.createElement('div'); el.className = 'hf-post-text';
-            const anchor = card.querySelector('.hf-album-title') || card.querySelector('.hf-post-header');
+            const anchor = _own('.hf-album-title') || _own('.hf-post-header');
             if (anchor && anchor.parentNode) anchor.parentNode.insertBefore(el, anchor.nextSibling); else card.appendChild(el);
         }
         el.innerHTML = (typeof linkifyContent === 'function') ? linkifyContent(content) : content;
@@ -1793,17 +1797,50 @@ function _applyPostEdit(id, content, mediaPatch) {
     if (mediaPatch && typeof buildPostMedia === 'function') {
         const mp = post || { media_urls: mediaPatch.media_urls, media_url: mediaPatch.media_url, media_type: mediaPatch.media_type };
         const html = buildPostMedia(mp);
-        let mediaEl = card.querySelector('.hf-post-media');
+        let mediaEl = _own('.hf-post-media');
         if (html) {
             if (mediaEl) { mediaEl.outerHTML = html; }
             else {
                 const tmp = document.createElement('div'); tmp.innerHTML = html;
                 const node = tmp.firstElementChild;
-                const anchor = card.querySelector('.hf-post-text') || card.querySelector('.hf-post-header');
+                const anchor = _own('.hf-post-text') || _own('.hf-post-header');
                 if (node) { if (anchor && anchor.parentNode) anchor.parentNode.insertBefore(node, anchor.nextSibling); else card.appendChild(node); }
             }
         } else if (mediaEl) { mediaEl.remove(); }
     }
+    // Keep SHARES of this post in sync: a shared post embeds the original via
+    // shared_post_id and renders it from _sharedOriginals[originalId]. Update that
+    // cached original (text + media) and re-render every visible share's embed, so an
+    // edit to the original reflects in existing shares instead of leaving them stale
+    // or blank. Without this, shares kept old data / showed only the author header.
+    _syncSharesOfOriginal(id, content, mediaPatch);
+}
+
+// Update the cached shared-original and re-render the embed inside every share card
+// that references this original id. Safe no-op if there are no shares of it on screen.
+function _syncSharesOfOriginal(originalId, content, mediaPatch) {
+    try {
+        if (typeof _sharedOriginals === 'undefined' || !_sharedOriginals) return;
+        const so = _sharedOriginals[originalId];
+        if (!so) return;               // no cached original with author info — don't fabricate one
+        so.content = content;
+        if (mediaPatch) {
+            so.media_urls = mediaPatch.media_urls || [];
+            so.media_url  = mediaPatch.media_url || null;
+            so.media_type = mediaPatch.media_type || null;
+            so.post_type  = mediaPatch.post_type || so.post_type;
+        }
+        if (!Array.isArray(_homePosts) || typeof buildSharedEmbed !== 'function') return;
+        _homePosts.filter(p => p && String(p.shared_post_id) === String(originalId)).forEach(share => {
+            const scard = document.getElementById('hfpost-' + share.id);
+            const embed = scard && scard.querySelector('.hf-shared-embed');
+            if (!embed) return;
+            const tmp = document.createElement('div');
+            tmp.innerHTML = buildSharedEmbed(so);
+            const node = tmp.firstElementChild;
+            if (node) embed.replaceWith(node);
+        });
+    } catch (e) {}
 }
 window.addEventListener('storage', function (e) {
     if (e.key === 'rm_post_deleted' && e.newValue) {
@@ -2850,10 +2887,11 @@ function renderActiveFilter() {
 const EMOJIS = ['😀','😂','😍','🥰','😎','🤩','😅','😭','😊','👍','👏','🙌','🙏','💪','🔥','✨','🎉','🎊','❤️','💚','💙','💜','🏠','🏡','🏢','🏗️','🔑','📈','💰','🤝','👀','💡','⭐','✅','🌟','🥂','🍾','📌','📷','🌆'];
 let _emojiTargetId = null;
 function openEmojiPicker(targetId, anchorEl) {
-    // Mobile: use the bottom-sheet emoji picker (emoji-picker.js) instead of the
-    // floating popover — it's a proper sheet pinned to the bottom, above the nav,
-    // with a drag handle, search and category tabs. Toggle if already open here.
-    if (_isTouchNoHover() && window.RMEmojiSheet) {
+    // Both desktop AND mobile use the bottom-sheet emoji picker (emoji-picker.js) —
+    // a proper sheet/card with a drag handle, search and category tabs. Toggle it if
+    // it's already open. The old floating popover below is only a fallback if the
+    // component failed to load.
+    if (window.RMEmojiSheet) {
         if (RMEmojiSheet.isOpen()) RMEmojiSheet.close(); else RMEmojiSheet.open(targetId);
         return;
     }

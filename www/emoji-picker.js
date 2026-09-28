@@ -58,11 +58,18 @@
     st.textContent = `
     #rmEmojiSheet{position:fixed;left:0;right:0;bottom:0;z-index:99999;background:#fff;
       border-radius:20px 20px 0 0;box-shadow:0 -10px 30px rgba(0,0,0,.16);
-      display:flex;flex-direction:column;max-height:56vh;
+      display:flex;flex-direction:column;height:40vh;max-height:340px;min-height:264px;
       padding-bottom:env(safe-area-inset-bottom,0px);
       transform:translateY(110%);transition:transform .22s cubic-bezier(.32,.72,0,1);
       will-change:transform;touch-action:none;}
     #rmEmojiSheet.open{transform:translateY(0);}
+    /* Desktop: same card, centred and capped so it reads as a floating card. */
+    @media (min-width:769px){
+      #rmEmojiSheet{left:50%;right:auto;width:420px;max-width:calc(100vw - 32px);bottom:16px;
+        border-radius:18px;height:auto;max-height:380px;
+        transform:translateX(-50%) translateY(120%);box-shadow:0 18px 44px rgba(15,23,42,.22);}
+      #rmEmojiSheet.open{transform:translateX(-50%) translateY(0);}
+    }
     .rmes-handle{width:40px;height:5px;border-radius:3px;background:#d1d5db;margin:8px auto 4px;flex:0 0 auto;}
     .rmes-search{flex:0 0 auto;margin:6px 14px 10px;display:flex;align-items:center;gap:8px;
       background:#f1f5f9;border-radius:12px;padding:10px 14px;}
@@ -183,8 +190,29 @@
     // the slide-up WITHOUT relying on requestAnimationFrame (which can be throttled).
     void sheet.offsetHeight;
     sheet.classList.add('open');
+    // Keep the comment/reply typebox visible ABOVE the sheet (never covered): if the
+    // input sits below the sheet's top edge, scroll it up just above the sheet.
+    setTimeout(() => _revealTargetAboveSheet(), 60);
     // Defer so the opening tap doesn't immediately trigger the outside-close.
     setTimeout(() => document.addEventListener('click', _outsideClose), 10);
+  }
+
+  function _revealTargetAboveSheet() {
+    const el = _target && document.getElementById(_target);
+    const sheet = document.getElementById('rmEmojiSheet');
+    if (!el || !sheet) return;
+    const sheetTop = sheet.getBoundingClientRect().top;
+    const r = el.getBoundingClientRect();
+    const overlap = r.bottom - (sheetTop - 12);   // px the input is hidden behind the sheet
+    if (overlap <= 0) return;                       // already visible
+    // Scroll the nearest scrollable ancestor (Feed sometimes scrolls the window).
+    let node = el.parentElement, scroller = null;
+    while (node && node !== document.body) {
+      const oy = getComputedStyle(node).overflowY;
+      if ((oy === 'auto' || oy === 'scroll') && node.scrollHeight > node.clientHeight + 4) { scroller = node; break; }
+      node = node.parentElement;
+    }
+    try { if (scroller) scroller.scrollTop += overlap; else window.scrollBy(0, overlap); } catch (_) {}
   }
 
   function close() {

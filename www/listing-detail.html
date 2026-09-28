@@ -277,8 +277,8 @@
       .ld-actionbar{ left:240px; }
     }
   </style>
-  <script src="featureFlags.js?v=20260830c"></script>
-<link rel="stylesheet" href="safe-area.css?v=20260828b">
+  <script src="featureFlags.js?v=20260925b"></script>
+<link rel="stylesheet" href="safe-area.css?v=20260915d">
 <script>if(window.self!==window.top)document.documentElement.classList.add("rm-embedded");</script>
 </head>
 <body>
@@ -356,7 +356,7 @@
 <script src="location-engine.js?v=20260809b"></script>
 <script src="match-engine.js?v=20260821p1"></script>
 <script src="developers.js?v=36"></script>
-<script src="rm-track.js?v=2"></script>
+<script src="rm-track.js?v=3"></script>
 <script src="match-alert.js?v=20260918b"></script>
 <script src="notif-badge.js?v=15"></script>
 <script>
@@ -1074,18 +1074,27 @@ async function loadListing(){
   `;
 
   // Bottom action bar
+  // Load the LIVE realmate relationship first — mates.js's mateButtonHtml reads
+  // getMateStatus() off _matesCache, which is otherwise empty on this page, so the
+  // button wrongly showed "Add as realmate" even when the two users are already
+  // realmates. Await the cache so the initial render reflects the real relationship.
+  if (typeof loadMatesCache === 'function') { try { await loadMatesCache(); } catch(e){} }
   const bar = document.getElementById('ldActionBar');
   if(isAnon || isOwner){
     bar.style.display = 'none';
   } else if(isSold){
     // Sold units are off the market — no Send Offer, but you can still connect
     // with the seller.
-    bar.innerHTML = `<button class="ld-btn-ghost ld-btn-sold${ldIsWilling(listing.category)?' ld-btn-sold-willing':''}" disabled><i class="fas fa-check-circle"></i> ${safeText(ldCompletionText(listing.category))}</button>${mateButtonHtml(name,'ld-mate')}`;
+    bar.innerHTML = `<button class="ld-btn-ghost ld-btn-sold${ldIsWilling(listing.category)?' ld-btn-sold-willing':''}" disabled><i class="fas fa-check-circle"></i> ${safeText(ldCompletionText(listing.category))}</button><span id="ldMateSlot">${mateButtonHtml(name,'ld-mate')}</span>`;
     bar.style.display = 'flex';
   } else {
-    bar.innerHTML = `<button class="ld-btn-ghost" onclick="sendOfferLd(this)"><i class="fas fa-handshake"></i> Send Offer</button>${mateButtonHtml(name,'ld-mate')}`;
+    bar.innerHTML = `<button class="ld-btn-ghost" onclick="sendOfferLd(this)"><i class="fas fa-handshake"></i> Send Offer</button><span id="ldMateSlot">${mateButtonHtml(name,'ld-mate')}</span>`;
     bar.style.display = 'flex';
   }
+  // Keep the button synced with the LIVE relationship: re-render it whenever the
+  // mates table changes (either user accepts/sends/cancels), and when returning to
+  // the page. Uses the same source of truth (mates table) as everywhere else.
+  if (!isAnon && !isOwner) ldWatchMateStatus(name);
 
   // Restore pinned state (shared with the Portal's 'rm_pinned' store)
   try{
@@ -1274,6 +1283,43 @@ function navLdLightbox(dir){
   document.getElementById('ldLbImg').src = imgs[_ldLbIdx];
   const count = document.getElementById('ldLbCount');
   if(count) count.textContent = `${_ldLbIdx+1} / ${imgs.length}`;
+}
+
+// ── Live realmate-relationship sync for the mate button ──────────────────────
+// Re-render #ldMateSlot from the current cache, and keep it synced with the LIVE
+// mates table (realtime) + when the user returns to the page — so if the two users
+// are (or become) realmates, Listing Detail reflects it immediately.
+function ldRenderMateSlot(ownerName){
+  const slot = document.getElementById('ldMateSlot');
+  if (slot && typeof mateButtonHtml === 'function') slot.innerHTML = mateButtonHtml(ownerName, 'ld-mate');
+}
+let _ldMateChannel = null;
+async function ldWatchMateStatus(ownerName){
+  const onChange = async () => {
+    try { if (typeof loadMatesCache === 'function') await loadMatesCache(); } catch(e){}
+    ldRenderMateSlot(ownerName);
+  };
+  try {
+    if (_ldMateChannel) { try { _sb.removeChannel(_ldMateChannel); } catch(e){} _ldMateChannel = null; }
+    const { data } = await _sb.auth.getUser();
+    const myId = data?.user?.id;
+    if (myId) {
+      _ldMateChannel = _sb.channel('ld-mates-' + myId)
+        .on('postgres_changes', { event:'*', schema:'public', table:'mates', filter:'requester_id=eq.'+myId }, onChange)
+        .on('postgres_changes', { event:'*', schema:'public', table:'mates', filter:'recipient_id=eq.'+myId }, onChange)
+        .subscribe();
+    }
+  } catch(e){}
+  // Returning to the page (e.g. accepted the request elsewhere) → re-check.
+  if (!ldWatchMateStatus._bound) {
+    ldWatchMateStatus._bound = true;
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        const n = window._ldListing && window._ldListing.user_name;
+        if (n) onChange();
+      }
+    });
+  }
 }
 
 document.addEventListener('DOMContentLoaded', loadListing);
