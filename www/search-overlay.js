@@ -70,11 +70,45 @@
         try { me = JSON.parse(localStorage.getItem('user') || '{}') || {}; } catch (e) {}
         return `so_${_soHistoryContext() || 'other'}_search_history_${me.id || 'anon'}`;
     }
+    // Account-store bucket (no uid — the row's user_id scopes it). See search-sync.js.
+    function _soBucket() { return `so_${_soHistoryContext() || 'other'}`; }
+    // Stable identity for cross-device merge/dedupe: type + id.
+    function _soKeyOf(e) {
+        var t = (e && e.type) || 'query';
+        var id = (e && e.id != null && e.id !== '') ? e.id : (e && e.label) || '';
+        return t + ':' + String(id).toLowerCase();
+    }
+    // Cross-device bookkeeping: throttle the pull to once per open; let an in-flight
+    // pull skip its merge-write if the user changed the list meanwhile.
+    let _soSyncedAt = 0, _soMutatedAt = 0;
+    const SO_SYNC_TTL = 5000;
     function getSearchHistory() {
         try { return JSON.parse(localStorage.getItem(_soHistoryKey())) || []; } catch (e) { return []; }
     }
     function saveSearchHistory(list) {
-        try { localStorage.setItem(_soHistoryKey(), JSON.stringify(list.slice(0, SO_HISTORY_MAX))); } catch (e) {}
+        const capped = list.slice(0, SO_HISTORY_MAX);
+        try { localStorage.setItem(_soHistoryKey(), JSON.stringify(capped)); } catch (e) {}
+        // Mirror up to the account so other devices see this change.
+        _soMutatedAt = Date.now();
+        try { if (window.RMSearchSync) window.RMSearchSync.push(_soBucket(), capped); } catch (e) {}
+    }
+    // Pull the account copy, merge into the local cache, persist the merge back up,
+    // then cb(). Throttled to once per open; never resurrects a just-removed entry.
+    function _soSyncOnce(cb) {
+        cb = cb || function () {};
+        const sync = window.RMSearchSync;
+        if (!_soHistoryContext() || !sync || !sync.enabled()) { cb(); return; }
+        const now = Date.now();
+        if (_soSyncedAt && (now - _soSyncedAt) < SO_SYNC_TTL) { cb(); return; }
+        _soSyncedAt = now;
+        const startedAt = now, bucket = _soBucket();
+        sync.pull(bucket).then(function (remote) {
+            if (_soMutatedAt > startedAt) { sync.push(bucket, getSearchHistory()); cb(); return; }
+            const merged = sync.merge(remote, getSearchHistory(), _soKeyOf).slice(0, SO_HISTORY_MAX);
+            try { localStorage.setItem(_soHistoryKey(), JSON.stringify(merged)); } catch (e) {}
+            sync.push(bucket, merged);
+            cb();
+        }, function () { cb(); });
     }
     // A history entry remembers WHAT was actually selected — a profile
     // (type:'profile', id: user_id) or a specific listing (type:'listing',
@@ -82,6 +116,7 @@
     // can navigate straight back to that exact result.
     function addToSearchHistory(item) {
         if (!item || item.id == null || !item.label) return;
+        item = Object.assign({}, item, { ts: Date.now() });   // recency, for cross-device merge
         const list = getSearchHistory().filter(x => !(x.type === item.type && String(x.id) === String(item.id)));
         list.unshift(item);
         saveSearchHistory(list);
@@ -530,6 +565,15 @@
     function openOverlay() {
         overlay.classList.add('open');
         setTimeout(() => document.getElementById('soInput').focus(), 50);
+        // Pull account-synced history (searches from other devices); refresh the
+        // empty state only if the user hasn't started typing yet.
+        _soSyncOnce(function () {
+            const inp = document.getElementById('soInput');
+            if (inp && !inp.value.trim()) {
+                const res = document.getElementById('soResults');
+                if (res) res.innerHTML = renderEmptyState();
+            }
+        });
     }
     function closeOverlay() {
         overlay.classList.remove('open');

@@ -10,7 +10,7 @@
   <script src="native-auth.js?v=10"></script>
   <script src="vendor/supabase-js.min.js?v=2.112.3"></script>
 <script src="auth-guard.js?v=20260922a"></script>
-  <link rel="stylesheet" href="livemarket.css?v=20260912f">
+  <link rel="stylesheet" href="livemarket.css?v=20260926a">
   <link rel="stylesheet" href="mobile-back.css">
   <link rel="stylesheet" href="block-report.css?v=20260823bp">
   <!-- Account/seller options sheet — tapping a Portal post's user (avatar/name)
@@ -20,9 +20,10 @@
   <script src="account-menu.js?v=20260810a"></script>
   <script src="theme.js?v=20260812a"></script>
   <script src="toast.js?v=20260819a"></script>
-  <script src="featureFlags.js?v=20260830c"></script>
-  <script src="search-history.js?v=20260912d"></script>
-<link rel="stylesheet" href="safe-area.css?v=20260828b">
+  <script src="featureFlags.js?v=20260925b"></script>
+  <script src="search-sync.js?v=20260928a"></script>
+  <script src="search-history.js?v=20260928a"></script>
+<link rel="stylesheet" href="safe-area.css?v=20260915d">
 <script>if(window.self!==window.top)document.documentElement.classList.add("rm-embedded");</script>
 <!-- Returning from a listing detail INTO the AI Match Engine (rm_matchCtx set): show
      the Match Engine chrome from the very first paint so the user never sees the
@@ -282,7 +283,7 @@ html.rm-inmatch .rm-ptr{display:none!important}</style>
           <span class="lm-details-hint">Required for For Sale / Rent / Lease</span></div>
 
         <div class="lm-field">
-          <label class="lm-field-label" for="lmPrice">Price <span class="lm-req">*</span></label>
+          <label class="lm-field-label" for="lmPrice">Price <span class="lm-opt">opt</span></label>
           <div class="lm-price-row">
             <input type="number" inputmode="numeric" min="0" step="1000" id="lmPrice" class="lm-input" placeholder="e.g. 12500000">
             <div class="lm-seg" id="lmPricePeriod" data-period="total">
@@ -293,7 +294,7 @@ html.rm-inmatch .rm-ptr{display:none!important}</style>
         </div>
 
         <div class="lm-field">
-          <label class="lm-field-label">Unit type <span class="lm-req">*</span></label>
+          <label class="lm-field-label">Unit type <span class="lm-opt">opt</span></label>
           <div class="lm-unit-chips" id="lmUnitTypes">
             <button type="button" class="lm-unit-chip" data-unit="Studio">Studio</button>
             <button type="button" class="lm-unit-chip" data-unit="1BR">1BR</button>
@@ -309,7 +310,7 @@ html.rm-inmatch .rm-ptr{display:none!important}</style>
         </div>
 
         <div class="lm-field lm-suggest-wrap">
-          <label class="lm-field-label" for="lmLocationCity">Location (city) <span class="lm-req">*</span></label>
+          <label class="lm-field-label" for="lmLocationCity">Location (city) <span class="lm-opt">opt</span></label>
           <input type="text" id="lmLocationCity" class="lm-input" placeholder="Search city or CBD…" autocomplete="off" data-canon="">
           <div class="lm-suggest-menu" id="lmLocCityMenu" hidden></div>
         </div>
@@ -454,10 +455,11 @@ html.rm-inmatch .rm-ptr{display:none!important}</style>
   <script src="location-engine.js?v=20260809b"></script>
   <script src="match-engine.js?v=20260821p1"></script>
 <script src="developers.js?v=36"></script>
-<script src="rm-track.js?v=2"></script>
+<script src="rm-track.js?v=3"></script>
+  <script src="nexus-rank.js?v=20260925a"></script>
   <script src="block-report.js?v=20260829f"></script>
   <script src="deactivation.js?v=20260831a"></script>
-  <script src="livemarket.js?v=20260918f"></script>
+  <script src="livemarket.js?v=20260925d"></script>
   <script src="match-alert.js?v=20260918b"></script>
   <script src="notif-badge.js?v=15"></script>
   <script src="pull-refresh.js?v=20260915b"></script>

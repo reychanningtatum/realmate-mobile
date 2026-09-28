@@ -13,12 +13,18 @@
 // 'query' rows. No DB/migration needed. Exposes window.RMSearchHistory.
 (function () {
   var CAP = 12;
+  // Cross-device sync bookkeeping (see search-sync.js). _syncedAt throttles the
+  // account pull to once per open; _mutatedAt lets an in-flight pull skip its
+  // merge-write if the user changed the list meanwhile (so a just-removed entry
+  // can't be resurrected). Both keyed by scope.
+  var _syncedAt = {}, _mutatedAt = {}, SYNC_TTL = 5000;
 
   function currentUid() {
     try { var u = JSON.parse(localStorage.getItem('user') || 'null'); return (u && u.id) ? String(u.id) : 'anon'; }
     catch (e) { return 'anon'; }
   }
   function storeKey(scope) { return 'rm_shist_' + scope + '_' + currentUid(); }
+  function bucketOf(scope) { return 'rm_shist_' + scope; }   // account-store bucket (no uid)
 
   // Stable identity for dedupe/removal: type + id (entities) or type + label (queries).
   function keyOf(e) {
@@ -38,7 +44,11 @@
     } catch (e) { return []; }
   }
   function write(scope, arr) {
-    try { localStorage.setItem(storeKey(scope), JSON.stringify(arr.slice(0, CAP))); } catch (e) {}
+    var capped = arr.slice(0, CAP);
+    try { localStorage.setItem(storeKey(scope), JSON.stringify(capped)); } catch (e) {}
+    // Mirror the write up to the account so other devices see it.
+    _mutatedAt[scope] = Date.now();
+    try { if (window.RMSearchSync) window.RMSearchSync.push(bucketOf(scope), capped); } catch (e) {}
   }
 
   // Initials for the CSS avatar fallback (no external service needed).
@@ -84,7 +94,8 @@
         id:    (entry.id != null ? String(entry.id) : undefined),
         label: (entry.label || '').toString().trim(),
         sub:   (entry.sub || '').toString().trim() || undefined,
-        img:   entry.img || undefined
+        img:   entry.img || undefined,
+        ts:    Date.now()        // recency, for cross-device merge ordering
       };
       if (!entry.label && entry.type !== 'post') return;   // nothing to show
       var k = keyOf(entry);
@@ -96,6 +107,30 @@
     remove: function (scope, key) {
       write(scope, read(scope).filter(function (e) { return keyOf(e) !== key; }));
     },
-    clear: function (scope) { write(scope, []); }
+    clear: function (scope) { write(scope, []); },
+    // Pull the account copy, merge it into the local cache, and persist the merge
+    // back up — so this device shows searches made on other devices. Throttled to
+    // once per SYNC_TTL (i.e. once per "open"), and it never resurrects an entry the
+    // user removed while the pull was in flight. cb(mergedList) runs when done (also
+    // synchronously when sync is unavailable/throttled). Safe to call on focus.
+    sync: function (scope, cb) {
+      cb = cb || function () {};
+      var sync = window.RMSearchSync;
+      if (!sync || !sync.enabled()) { cb(read(scope)); return; }
+      var now = Date.now();
+      if (_syncedAt[scope] && (now - _syncedAt[scope]) < SYNC_TTL) { cb(read(scope)); return; }
+      _syncedAt[scope] = now;
+      var startedAt = now;
+      sync.pull(bucketOf(scope)).then(function (remote) {
+        // User changed the list during the pull → keep local, push it, don't merge.
+        if (_mutatedAt[scope] && _mutatedAt[scope] > startedAt) {
+          sync.push(bucketOf(scope), read(scope)); cb(read(scope)); return;
+        }
+        var merged = sync.merge(remote, read(scope), keyOf).slice(0, CAP);
+        try { localStorage.setItem(storeKey(scope), JSON.stringify(merged)); } catch (e) {}
+        sync.push(bucketOf(scope), merged);
+        cb(merged);
+      }, function () { cb(read(scope)); });
+    }
   };
 })();

@@ -1568,13 +1568,16 @@ async function confirmHomeDelete() {
 // patch this view's card in place, and broadcast so the SAME post updates on the
 // other view (Feed <-> Profile shell iframes) with no manual refresh.
 let _editPostId = null;
-// Photo editing state for the post editor. _editExistingMedia = the post's kept
-// existing photo URLs; _editNewFiles = newly added File objects; _editPhotoEditable
-// = whether THIS post supports photo add/remove (photo/text posts, not video/poll).
+// Media editing state for the post editor. _editExistingMedia = the post's kept
+// existing media as {url,type:'image'|'video'} items; _editNewFiles = newly added
+// File objects (images and/or a video); _editMediaEditable = whether THIS post
+// supports media add/remove (any post except polls). Photos AND videos can be added
+// or removed; on save the set is resolved to the same either-video-or-photos model
+// the composer and feed renderer already use (see submitHomePost / buildPostMedia).
 let _editExistingMedia = [];
 let _editNewFiles = [];
-let _editPhotoEditable = false;
-const HOME_EDIT_MAX_PHOTOS = 10;
+let _editMediaEditable = false;
+const HOME_EDIT_MAX_MEDIA = 10;
 function _ensureHomeEditModal() {
     let m = document.getElementById('homeEditModal');
     if (m) return m;
@@ -1588,9 +1591,9 @@ function _ensureHomeEditModal() {
             '<textarea id="homeEditText" style="width:100%;flex:1 1 auto;min-height:200px;border:1.5px solid #e2e8f0;border-radius:12px;padding:14px;font:16px/1.6 inherit;color:#0f172a;resize:none;box-sizing:border-box;" placeholder="Edit your post"></textarea>' +
             '<div id="homeEditPhotos" style="margin-top:14px;display:none;flex:0 0 auto;">' +
               '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">' +
-                '<span style="font-size:11px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.04em;">Photos</span>' +
-                '<label for="homeEditFile" style="font-size:14px;font-weight:700;color:#0ea5e9;cursor:pointer;"><i class="far fa-image"></i> Add photos</label>' +
-                '<input type="file" id="homeEditFile" accept="image/*" multiple hidden onchange="onEditPhotosPicked(this)">' +
+                '<span style="font-size:11px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.04em;">Photos &amp; videos</span>' +
+                '<label for="homeEditFile" style="font-size:14px;font-weight:700;color:#0ea5e9;cursor:pointer;"><i class="far fa-image"></i> Add photos/videos</label>' +
+                '<input type="file" id="homeEditFile" accept="image/*,video/*" multiple hidden onchange="onEditPhotosPicked(this)">' +
               '</div>' +
               '<div id="homeEditPhotoGrid" style="display:flex;flex-wrap:wrap;gap:8px;"></div>' +
             '</div>' +
@@ -1612,53 +1615,67 @@ function openEditPost(postId) {
     document.getElementById('homeEditText').value = (post && post.content) || '';
     document.getElementById('homeEditSaveBtn').onclick = saveEditPost;
 
-    // Photo add/remove is offered for photo & text posts — NOT video or poll posts
-    // (those keep text-only editing so their media is never accidentally dropped).
-    const isVideo = !!(post && post.media_type === 'video');
-    const isPoll  = !!(post && post.poll);
-    _editPhotoEditable = !!post && !isVideo && !isPoll;
+    // Media add/remove is offered for every post EXCEPT polls. It shows exactly the
+    // media the post currently displays (a video post → its video; otherwise its
+    // photos) as removable tiles, and lets the user add more photos/videos.
+    const isPoll = !!(post && post.poll);
+    _editMediaEditable = !!post && !isPoll;
     _editExistingMedia = [];
     _editNewFiles = [];
-    if (_editPhotoEditable) {
-        _editExistingMedia = (Array.isArray(post.media_urls) && post.media_urls.length)
-            ? post.media_urls.filter(Boolean)
-            : (post.media_url ? [post.media_url] : []);
+    if (_editMediaEditable) {
+        if (post.media_type === 'video' && post.media_url) {
+            _editExistingMedia = [{ url: post.media_url, type: 'video' }];
+        } else {
+            const urls = (Array.isArray(post.media_urls) && post.media_urls.length)
+                ? post.media_urls.filter(Boolean)
+                : (post.media_url ? [post.media_url] : []);
+            _editExistingMedia = urls.map(u => ({ url: u, type: 'image' }));
+        }
     }
     const photoSec = document.getElementById('homeEditPhotos');
-    if (photoSec) photoSec.style.display = _editPhotoEditable ? 'block' : 'none';
+    if (photoSec) photoSec.style.display = _editMediaEditable ? 'block' : 'none';
     _renderEditPhotoGrid();
 
     m.style.display = 'flex';
     setTimeout(function () { var t = document.getElementById('homeEditText'); if (t) t.focus(); }, 50);
 }
-// Render the editor's photo thumbnails: kept existing photos first, then new files.
+// Render the editor's media thumbnails: kept existing media first, then new files.
+// Each tile shows an image or a (muted, poster-like) video, with a remove button.
 function _renderEditPhotoGrid() {
     const grid = document.getElementById('homeEditPhotoGrid');
     if (!grid) return;
     grid.innerHTML = '';
-    const tile = (onRemove) => {
+    // Build a tile for the given kind ('image'|'video'); returns the media element
+    // (an <img> or <video>) so the caller can set its src.
+    const tile = (kind, onRemove) => {
         const d = document.createElement('div');
         d.style.cssText = 'position:relative;width:72px;height:72px;border-radius:10px;overflow:hidden;border:1px solid #e2e8f0;background:#f1f5f9;';
-        d.innerHTML = '<img style="width:100%;height:100%;object-fit:cover;">' +
-            '<button type="button" aria-label="Remove photo" style="position:absolute;top:2px;right:2px;width:20px;height:20px;border:none;border-radius:50%;background:rgba(15,23,42,.75);color:#fff;font-size:12px;line-height:1;cursor:pointer;">&times;</button>';
+        const mediaTag = kind === 'video'
+            ? '<video muted playsinline preload="metadata" style="width:100%;height:100%;object-fit:cover;"></video>' +
+              '<span style="position:absolute;left:3px;bottom:3px;color:#fff;font-size:11px;text-shadow:0 1px 2px rgba(0,0,0,.6);pointer-events:none;"><i class="fas fa-play"></i></span>'
+            : '<img style="width:100%;height:100%;object-fit:cover;">';
+        d.innerHTML = mediaTag +
+            '<button type="button" aria-label="Remove media" style="position:absolute;top:2px;right:2px;width:20px;height:20px;border:none;border-radius:50%;background:rgba(15,23,42,.75);color:#fff;font-size:12px;line-height:1;cursor:pointer;">&times;</button>';
         d.querySelector('button').onclick = onRemove;
         grid.appendChild(d);
-        return d.querySelector('img');
+        return d.querySelector(kind === 'video' ? 'video' : 'img');
     };
-    _editExistingMedia.forEach((url, i) => {
-        const im = tile(() => { _editExistingMedia.splice(i, 1); _renderEditPhotoGrid(); });
-        im.src = url;
+    _editExistingMedia.forEach((item, i) => {
+        const el = tile(item.type, () => { _editExistingMedia.splice(i, 1); _renderEditPhotoGrid(); });
+        el.src = item.url;
     });
     _editNewFiles.forEach((file, j) => {
-        const im = tile(() => { _editNewFiles.splice(j, 1); _renderEditPhotoGrid(); });
-        const r = new FileReader(); r.onload = e => { im.src = e.target.result; }; r.readAsDataURL(file);
+        const isVideo = (file.type || '').startsWith('video/');
+        const el = tile(isVideo ? 'video' : 'image', () => { _editNewFiles.splice(j, 1); _renderEditPhotoGrid(); });
+        if (isVideo) { el.src = URL.createObjectURL(file); }
+        else { const r = new FileReader(); r.onload = e => { el.src = e.target.result; }; r.readAsDataURL(file); }
     });
 }
-// File-input handler: append newly chosen photos (capped at the max total).
+// File-input handler: append newly chosen photos/videos (capped at the max total).
 function onEditPhotosPicked(input) {
     const chosen = Array.from(input.files || []);
-    const room = Math.max(0, HOME_EDIT_MAX_PHOTOS - _editExistingMedia.length - _editNewFiles.length);
-    if (chosen.length > room) (window.showToast || function(){})('Up to ' + HOME_EDIT_MAX_PHOTOS + ' photos — extras skipped.', 'info');
+    const room = Math.max(0, HOME_EDIT_MAX_MEDIA - _editExistingMedia.length - _editNewFiles.length);
+    if (chosen.length > room) (window.showToast || function(){})('Up to ' + HOME_EDIT_MAX_MEDIA + ' items — extras skipped.', 'info');
     _editNewFiles = _editNewFiles.concat(chosen.slice(0, room));
     input.value = '';
     _renderEditPhotoGrid();
@@ -1677,25 +1694,31 @@ async function saveEditPost() {
         const patch = { content: text };
         try { if (typeof extractHashtags === 'function') patch.hashtags = extractHashtags(text); } catch (e) {}
 
-        // Photo posts: upload any new photos, combine with the kept existing ones,
-        // and persist the full media set (additions AND removals, including
-        // clearing every photo — which turns the post back into a text post).
+        // Upload any newly added files, combine with the kept existing media, then
+        // persist the set (additions AND removals, including clearing everything —
+        // which turns the post back into a text post). The set is resolved to the
+        // SAME either-video-or-photos model the composer uses (submitHomePost) and
+        // the feed renders (buildPostMedia): if a video is present it becomes a video
+        // post (single video), otherwise a photo post with the kept/added images.
         let mediaPatch = null;
-        if (_editPhotoEditable) {
-            const newUrls = [];
+        if (_editMediaEditable) {
+            const uploaded = [];   // {url, type}
             for (let i = 0; i < _editNewFiles.length; i++) {
                 const file = _editNewFiles[i];
-                const ext  = (file.name.split('.').pop() || 'jpg');
+                const isVideo = (file.type || '').startsWith('video/');
+                const ext  = (file.name.split('.').pop() || (isVideo ? 'mp4' : 'jpg'));
                 const path = `posts/${Date.now()}_${i}.${ext}`;
                 const { error: upErr } = await _supaHome.storage.from('images').upload(path, file, { upsert: true });
                 if (upErr) throw upErr;
-                newUrls.push(_supaHome.storage.from('images').getPublicUrl(path).data.publicUrl);
+                uploaded.push({ url: _supaHome.storage.from('images').getPublicUrl(path).data.publicUrl, type: isVideo ? 'video' : 'image' });
             }
-            const finalMedia = _editExistingMedia.concat(newUrls);
-            patch.media_urls = finalMedia.length ? finalMedia : null;
-            patch.media_url  = finalMedia[0] || null;
-            patch.media_type = finalMedia.length ? 'image' : null;
-            patch.post_type  = finalMedia.length ? 'photo' : 'text';
+            const finalItems = _editExistingMedia.concat(uploaded);
+            const videoUrl   = (finalItems.find(it => it.type === 'video') || {}).url || null;
+            const imageUrls  = finalItems.filter(it => it.type === 'image').map(it => it.url);
+            patch.media_url  = videoUrl || imageUrls[0] || null;
+            patch.media_type = videoUrl ? 'video' : (imageUrls[0] ? 'image' : null);
+            patch.media_urls = videoUrl ? [] : imageUrls;   // renderer ignores media_urls for a video post
+            patch.post_type  = videoUrl ? 'video' : (imageUrls.length ? 'photo' : 'text');
             mediaPatch = { media_urls: patch.media_urls, media_url: patch.media_url, media_type: patch.media_type, post_type: patch.post_type };
         }
 
@@ -2810,11 +2833,19 @@ function openEmojiPicker(targetId, anchorEl) {
     picker.style.position = 'fixed';
     picker.style.display = 'block'; // show first so offset dimensions are measurable
     const r = anchorEl.getBoundingClientRect();
-    const vw = document.documentElement.clientWidth;
-    const vh = window.innerHeight;
-    const pw = picker.offsetWidth;
-    const ph = picker.offsetHeight;
     const margin = 8;
+    // ACTUAL visible box. The app-shell iframe's LAYOUT viewport is wider/taller
+    // than the visible screen, so documentElement.clientWidth / window.innerHeight
+    // over-report — the right-edge clamp then computes an off-screen bound and the
+    // picker overflows. visualViewport reports what's really on screen; take the
+    // smaller of the two so we always clamp to the visible area.
+    const vv = window.visualViewport;
+    const vw = Math.min(document.documentElement.clientWidth || 9999, vv ? vv.width : 9999);
+    const vh = Math.min(window.innerHeight || 9999, vv ? vv.height : 9999);
+    // Never let the picker itself be wider than the visible screen.
+    picker.style.maxWidth = `${Math.round(vw - margin * 2)}px`;
+    const pw = picker.offsetWidth;   // measured AFTER the max-width cap
+    const ph = picker.offsetHeight;
     // Horizontal: keep the WHOLE picker on-screen (clamp right edge AND left).
     let left = Math.min(r.left - 120, vw - pw - margin);
     left = Math.max(margin, left);
@@ -3192,7 +3223,11 @@ function onHomeSearch(q) {
 
 // Focusing the empty search box shows the user's Recent searches.
 function onHomeSearchFocus() {
-    if (!(document.getElementById('homeSearchInput').value || '').trim()) renderFeedRecent();
+    if (!(document.getElementById('homeSearchInput').value || '').trim()) {
+        renderFeedRecent();
+        // Pull account-synced history (searches made on other devices), then re-render.
+        if (window.RMSearchHistory && RMSearchHistory.sync) RMSearchHistory.sync('feed', renderFeedRecent);
+    }
 }
 
 // Enter commits the term to the persistent Feed history, then searches.

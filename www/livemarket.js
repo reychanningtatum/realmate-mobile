@@ -163,6 +163,10 @@ function isWillingCategory(category) {
 }
 
 function buildFMVBadge(fmvResult) {
+    // FMV is ADMIN-ONLY (Nexus spec §9 / §22): the user-facing FMV badge is
+    // intentionally suppressed. The robust Nexus FMV lives in the Admin panel.
+    // Reversible: set window.NEXUS_USER_FMV = true to re-expose FMV to users.
+    if (!window.NEXUS_USER_FMV) return '';
     if (!fmvResult) return '';
     try {
         const { fmvFormatted, diffStr } = formatFMV(fmvResult);
@@ -2498,6 +2502,11 @@ let activeSearchQuery = '';
 // runs solely on Enter or when a suggestion is clicked (executeSearch).
 function onSearchInput() {
     const q = (document.getElementById('searchInput')?.value || '').trim();
+    // On focus / empty input, pull the account-synced Recent searches (made on
+    // other devices), then re-render the list in place.
+    if (!q && window.RMSearchHistory && RMSearchHistory.sync) {
+        RMSearchHistory.sync('portal', () => renderPortalSuggest(''));
+    }
     renderPortalSuggest(q);
 }
 
@@ -2996,6 +3005,19 @@ function applyFilters() {
     } else {
         pool.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     }
+    // Nexus personalization re-rank (spec §6): reorder the ALREADY-ELIGIBLE matches
+    // by behavioural relevance to the current user. Gated by NEXUS_ENGINE +
+    // NEXUS_MATCH_RANKING (both OFF by default). It NEVER changes membership — the
+    // hard eligibility gates in match-engine.js are untouched (§7) — and any error
+    // falls back to the sort above (§21).
+    if (activeCategory === 'MATCHES') {
+        try {
+            if (window.NexusRank && NexusRank.isEnabled()) {
+                const ranked = NexusRank.reorder(pool.slice(), l => (matchMap.get(l.id)?.matchScore || 0));
+                if (Array.isArray(ranked) && ranked.length === pool.length) { pool.length = 0; for (const x of ranked) pool.push(x); }
+            }
+        } catch (e) { /* fallback: keep the existing order */ }
+    }
     // Render in BATCHES so the Portal never builds every listing at once. Building
     // all cards + their images + completion-sash geometry in one synchronous burst
     // was spiking hard enough to crash the iOS web view's content process — which
@@ -3386,6 +3408,15 @@ function showAllMatches(listingId, scrollToId, noFlash) {
         const sb = computeMatchScore(parsedMine, parseListing(b)).score;
         return sb - sa;
     });
+    // Nexus personalization re-rank (spec §6) — same rules as the aggregate tab:
+    // reorder the already-eligible matches by behavioural relevance. Hard gates
+    // untouched (§7); graceful fallback on any error (§21).
+    try {
+        if (window.NexusRank && NexusRank.isEnabled()) {
+            const _ranked = NexusRank.reorder(matches.slice(), l => computeMatchScore(parsedMine, parseListing(l)).score);
+            if (Array.isArray(_ranked) && _ranked.length === matches.length) { matches.length = 0; for (const _x of _ranked) matches.push(_x); }
+        }
+    } catch (e) { /* fallback: keep score-desc order */ }
     // Viewing a listing's AI Match Engine list = checking those matches → clear
     // their badges (this listing's matches, threshold-consistent with the badge).
     try {
@@ -4002,6 +4033,9 @@ let lmSelectedCat = null;
 let lmSelectedUnitType = null;
 const lmIsSupply      = cat => cat === 'FOR SALE' || cat === 'FOR RENT' || cat === 'FOR LEASE';
 const lmDefaultPeriod = cat => (cat === 'FOR RENT' || cat === 'FOR LEASE' || cat === 'WILLING TO RENT' || cat === 'WILLING TO LEASE') ? 'monthly' : 'total';
+// Auto-derive bedrooms from the chosen unit type (Studio→0, "NBR"→N) so the user
+// enters one less field. Non-bedroom unit types (Lot, Office, …) → null.
+const lmBedsFromUnit = u => { if (!u) return null; const t = String(u).trim().toUpperCase(); if (t === 'STUDIO') return 0; const m = t.match(/^(\d+)\s*BR$/); return m ? parseInt(m[1], 10) : null; };
 const lmStructuredOn  = () => (typeof window.isFeatureEnabled === 'function') ? window.isFeatureEnabled('structuredComposer') : true;
 const _lmNum = id => { const v = parseFloat((document.getElementById(id)?.value||'').replace(/,/g,'')); return isNaN(v)?null:v; };
 const _lmInt = id => { const v = parseInt((document.getElementById(id)?.value||'').replace(/,/g,''),10); return isNaN(v)?null:v; };
@@ -4022,17 +4056,16 @@ function lmCollectStructured(){
     location_area:_lmTxt('lmLocationArea'),
     project:proj,
     developer:_lmTxt('lmDeveloper')||((window.RM_DEVELOPERS&&proj)?RM_DEVELOPERS.getDeveloper(proj):null),
-    bedrooms:_lmInt('lmBedrooms'), bathrooms:_lmInt('lmBathrooms'),
+    bedrooms:(_lmInt('lmBedrooms')!=null?_lmInt('lmBedrooms'):lmBedsFromUnit(lmSelectedUnitType)), bathrooms:_lmInt('lmBathrooms'),
     floor_area_sqm:_lmNum('lmFloorArea'), parking:_lmInt('lmParking'),
     furnishing:_lmTxt('lmFurnishing'), turnover_status:_lmTxt('lmTurnover'), floor_level:_lmInt('lmFloorLevel'),
   });
 }
 function lmValidateStructured(s){
   if(!lmStructuredOn()) return null;
-  if(lmIsSupply(lmSelectedCat)){
-    const miss=[]; if(s.price==null||s.price<=0) miss.push('Price'); if(!s.location_city) miss.push('Location'); if(!s.unit_type) miss.push('Unit type');
-    if(miss.length) return 'Please add: '+miss.join(', ')+'.';
-  }
+  // Structured fields are ALL OPTIONAL — Nexus/FMV must never block a normal
+  // realmate listing. We only reject values that are actually invalid (negative
+  // or NaN); empty is always allowed. Nexus simply uses whatever data exists.
   const checks=[['price','Price'],['bedrooms','Beds'],['bathrooms','Baths'],['floor_area_sqm','Sqm'],['parking','Parking'],['floor_level','Floor']];
   for(const kv of checks){ const k=kv[0], l=kv[1]; if(s[k]!=null && (isNaN(s[k])||s[k]<0)) return l+' must be a valid number.'; }
   return null;
