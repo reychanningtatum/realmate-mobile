@@ -130,7 +130,7 @@ html.rm-inmatch .rm-ptr{display:none!important}</style>
       <div style="display:flex; gap:8px; align-items:center; flex-wrap:nowrap; padding:0 6px;">
         <div class="search-wrap" style="flex:1; min-width:160px; position:relative;">
           <i class="fas fa-search"></i>
-          <input type="text" id="searchInput" placeholder="Search listings, agents, locations…" autocomplete="off" oninput="onSearchInput()" onfocus="onSearchInput()" onkeydown="if(event.key==='Enter'){event.preventDefault();executeSearch();}">
+          <input type="text" id="searchInput" placeholder="Search listings, agents, locations…" autocomplete="off" oninput="onSearchInput()" onfocus="onSearchInput()" onblur="onPortalSearchBlur()" onkeydown="if(event.key==='Enter'){event.preventDefault();executeSearch();}">
           <div id="portalSuggest" class="portal-suggest"></div>
         </div>
         <button class="btn-post-listing" onclick="openPostModal()">
@@ -459,7 +459,7 @@ html.rm-inmatch .rm-ptr{display:none!important}</style>
   <script src="nexus-rank.js?v=20260925a"></script>
   <script src="block-report.js?v=20260829f"></script>
   <script src="deactivation.js?v=20260831a"></script>
-  <script src="livemarket.js?v=20260925d"></script>
+  <script src="livemarket.js?v=20260928a"></script>
   <script src="match-alert.js?v=20260918b"></script>
   <script src="notif-badge.js?v=15"></script>
   <script src="pull-refresh.js?v=20260915b"></script>

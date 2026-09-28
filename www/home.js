@@ -2834,20 +2834,24 @@ function openEmojiPicker(targetId, anchorEl) {
     picker.style.display = 'block'; // show first so offset dimensions are measurable
     const r = anchorEl.getBoundingClientRect();
     const margin = 8;
-    // ACTUAL visible box. The app-shell iframe's LAYOUT viewport is wider/taller
-    // than the visible screen, so documentElement.clientWidth / window.innerHeight
-    // over-report — the right-edge clamp then computes an off-screen bound and the
-    // picker overflows. visualViewport reports what's really on screen; take the
-    // smaller of the two so we always clamp to the visible area.
+    // Viewport width is UNRELIABLE inside the app-shell iframe (WKWebView reports a
+    // layout width wider than the visible screen for BOTH clientWidth AND
+    // visualViewport), which is why every viewport-math attempt still overflowed on
+    // device. Instead, anchor the picker's RIGHT edge to the emoji button's right
+    // edge — the button is always fully on-screen, so getBoundingClientRect() gives
+    // a trustworthy on-screen x. Right-aligning to it guarantees the picker can
+    // never run past the right edge, regardless of any viewport misreport.
     const vv = window.visualViewport;
     const vw = Math.min(document.documentElement.clientWidth || 9999, vv ? vv.width : 9999);
     const vh = Math.min(window.innerHeight || 9999, vv ? vv.height : 9999);
-    // Never let the picker itself be wider than the visible screen.
-    picker.style.maxWidth = `${Math.round(vw - margin * 2)}px`;
+    // Safety width cap (only bites on very narrow screens; anchor-right-align below
+    // is what actually prevents right-edge overflow).
+    picker.style.maxWidth = `${Math.max(240, Math.round(vw - margin * 2))}px`;
     const pw = picker.offsetWidth;   // measured AFTER the max-width cap
     const ph = picker.offsetHeight;
-    // Horizontal: keep the WHOLE picker on-screen (clamp right edge AND left).
-    let left = Math.min(r.left - 120, vw - pw - margin);
+    // Horizontal: right-align to the anchor (safe on-screen bound), and also honor
+    // the viewport clamp if it happens to be tighter; floor at the left margin.
+    let left = Math.min(r.right - pw, vw - pw - margin);
     left = Math.max(margin, left);
     // Vertical: below the button, but flip above it when there isn't room below.
     let top = r.bottom + 6;
@@ -3393,7 +3397,29 @@ function subscribeToFeed() {
             // if it is actually on the home feed (a harmless no-op otherwise).
             { event: 'DELETE', schema: 'public', table: 'forum_posts' },
             (payload) => { handleDeletedPost(payload.old); })
+        .on('postgres_changes',
+            // Live edits: a post's text/media changed (here or on another device/user).
+            // Re-render that card in place so edits — including newly added photos or
+            // videos — show immediately for everyone, no manual refresh.
+            { event: 'UPDATE', schema: 'public', table: 'forum_posts' },
+            (payload) => { handleEditedPost(payload.new); })
         .subscribe();
+}
+
+// Remote (or same-user, another tab/device) edit — re-render the card's text +
+// media from the fresh row. No-op if the post isn't on this feed. Postgres_changes
+// delivers UPDATE to the editor's own client too, so this also guarantees the
+// editor sees their change even if the optimistic in-place patch missed anything.
+function handleEditedPost(row) {
+    if (!row || row.id == null) return;
+    if (!document.getElementById('hfpost-' + row.id)) return;   // not on this feed
+    const media = {
+        media_urls: Array.isArray(row.media_urls) ? row.media_urls : [],
+        media_url:  row.media_url || null,
+        media_type: row.media_type || null,
+        post_type:  row.post_type
+    };
+    try { _applyPostEdit(String(row.id), row.content || '', media); } catch (e) {}
 }
 
 // Remote deletion (another device/user removed a post) — drop its card and cache

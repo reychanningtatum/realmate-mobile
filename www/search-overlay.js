@@ -481,8 +481,24 @@
 
         const soInput = document.getElementById('soInput');
         soInput.addEventListener('input', onInput);
-        // Enter (or the mobile keyboard "search"/return key) runs the search immediately.
-        soInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); searchNow(); } });
+        // Enter / the mobile keyboard "search"/return (or "check") key: run the search
+        // if something was typed; if the box is EMPTY (user just dismissed the keyboard
+        // while looking at Recent searches), close the whole overlay instead.
+        soInput.addEventListener('keydown', e => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                if ((soInput.value || '').trim()) searchNow();
+                else closeOverlay();
+            }
+        });
+        // Dismissing the keyboard (its "check"/Done) blurs the input. If nothing was
+        // typed, close the overlay too — but defer so a tap on a result/recent row runs
+        // its own handler first (those navigate + closeOverlay themselves).
+        soInput.addEventListener('blur', () => {
+            setTimeout(() => {
+                if (overlay.classList.contains('open') && !(soInput.value || '').trim()) closeOverlay();
+            }, 150);
+        });
         document.addEventListener('keydown', e => { if (e.key === 'Escape') closeOverlay(); });
 
         wireUniversalInputs();

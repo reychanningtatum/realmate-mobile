@@ -2517,6 +2517,7 @@ function executeSearch() {
     activeSearchQuery = raw.toLowerCase();
     if (raw && window.RMSearchHistory) RMSearchHistory.add('portal', raw);   // persist recent
     closePortalSuggest();
+    document.getElementById('searchInput')?.blur();   // dismiss the keyboard on the "check"/search key
     // Feed is a hidden/reserved tab; if somehow active, land the results in the
     // Live Market list. selectSegTab() re-runs applyFilters with the term already
     // committed above, so the switch alone shows the results.
@@ -2657,6 +2658,12 @@ function portalSuggestPost(i) {
 function closePortalSuggest() {
     const box = document.getElementById('portalSuggest');
     if (box) { box.classList.remove('open'); }
+}
+// Dismissing the keyboard (its "check"/Done) blurs the search box — close the
+// Recent-searches dropdown too. Deferred so a tap on a suggestion/recent row runs
+// its own handler first (those close the dropdown + navigate themselves).
+function onPortalSearchBlur() {
+    setTimeout(closePortalSuggest, 150);
 }
 
 // ── Portal recent-searches (persistent, per-user) ──────────────────────────
@@ -5497,6 +5504,9 @@ async function handleAddMateFromLocked() {
     function evaluate() {
         const y = getScrollY();
         const dy = y - lastY;
+        // Any real scroll closes the Recent-searches dropdown so it doesn't hang over
+        // the feed; it only reopens on a fresh focus of the search box (not on scroll-up).
+        if (Math.abs(dy) >= DOWN_DELTA) closePortalSuggest();
         if (y <= TOP_ZONE) setMinimized(false);
         else if (dy >= DOWN_DELTA && y > MIN_AFTER) setMinimized(true);
         // Scrolling up leaves the bar minimized on purpose — only a FAB tap (or
