@@ -1304,7 +1304,8 @@ html[data-theme="dark"] .hf-poll-opt:not(.voted):hover { background: #161f36; }
   margin: 0 0 10px 44px; background: var(--white); box-shadow: 0 6px 18px rgba(0,0,0,0.08);
 }
 .hf-mention-item { display: flex; align-items: center; gap: 9px; padding: 8px 12px; cursor: pointer; }
-.hf-mention-item:hover { background: #f0f2f5; }
+.hf-mention-item:hover,
+.hf-mention-item.hf-mention-active { background: #f0f2f5; }
 .hf-mention-item img { width: 26px; height: 26px; border-radius: 50%; object-fit: cover; }
 .hf-mention-item span { font-size: 13px; font-weight: 600; color: var(--text-main); }
 .hf-mention-former { font-weight: 500; color: var(--text-soft, #8a9099); font-size: 12px; }
@@ -1426,6 +1427,7 @@ html[data-theme="dark"] .home-album-title { background: #0f172a; color: #f1f5f9;
 html[data-theme="dark"] .trending-row:hover,
 html[data-theme="dark"] .memory-row:hover,
 html[data-theme="dark"] .hf-mention-item:hover,
+html[data-theme="dark"] .hf-mention-item.hf-mention-active,
 html[data-theme="dark"] .emoji-grid button:hover,
 html[data-theme="dark"] .hf-comment-tool:hover { background: #243044; }
 

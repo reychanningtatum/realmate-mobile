@@ -700,6 +700,49 @@ function _mentionItemInner(c) {
     return `<img loading="lazy" decoding="async" src="${c.img}"><span>${safeText(c.name)}${former}</span>`;
 }
 
+// ── Desktop keyboard navigation for @mention suggestions ─────────────────────
+// Arrow Up/Down move the highlight; Enter selects the highlighted user (by
+// invoking its existing click handler, so the CURRENT name is inserted) and does
+// NOT submit while a suggestion is open. DESKTOP ONLY — on touch devices
+// _isTouchNoHover() short-circuits, so mobile keeps its current behavior (Enter
+// submits, no highlight). Returns true when it handled the key (caller then
+// skips submit). Mouse/click selection is untouched.
+function _setMentionActive(items, idx) {
+    items.forEach((el, i) => el.classList.toggle('hf-mention-active', i === idx));
+    if (items[idx]) items[idx].scrollIntoView({ block: 'nearest' });
+}
+function _mentionKeyNav(e, box) {
+    if (_isTouchNoHover()) return false;                       // desktop only
+    if (!box || box.style.display !== 'block') return false;
+    const items = Array.from(box.querySelectorAll('.hf-mention-item'));
+    if (!items.length) return false;
+    const idx = items.findIndex(el => el.classList.contains('hf-mention-active'));
+    if (e.key === 'ArrowDown') { e.preventDefault(); _setMentionActive(items, idx < 0 ? 0 : (idx + 1) % items.length); return true; }
+    if (e.key === 'ArrowUp')   { e.preventDefault(); _setMentionActive(items, idx <= 0 ? items.length - 1 : idx - 1); return true; }
+    if (e.key === 'Enter')     { e.preventDefault(); e.stopPropagation(); items[idx >= 0 ? idx : 0].click(); return true; }
+    if (e.key === 'Escape')    { e.preventDefault(); box.style.display = 'none'; box.innerHTML = ''; return true; }
+    return false;
+}
+// Default-highlight the first suggestion (desktop) right after a box (re)renders,
+// so Enter tags it immediately and the selection is visible.
+function _afterMentionRender(box) {
+    if (_isTouchNoHover() || !box) return;
+    const first = box.querySelector('.hf-mention-item');
+    if (first) first.classList.add('hf-mention-active');
+}
+// Per-input keydown: try mention nav first; only fall through to submit when no
+// suggestion consumed the key. Composer is a textarea (Enter = newline), so it
+// has no submit fallthrough.
+function onHomePostKeydown(e) { _mentionKeyNav(e, document.getElementById('homePostMention')); }
+function onCommentKeydown(e, postId) {
+    if (_mentionKeyNav(e, document.getElementById(`hfmention-${postId}`))) return;
+    if (e.key === 'Enter') submitHomeComment(postId);
+}
+function onReplyKeydown(e, postId, parentId) {
+    if (_mentionKeyNav(e, document.getElementById(`hf-rmention-${parentId}`))) return;
+    if (e.key === 'Enter') submitFeedReply(postId, parentId);
+}
+
 function onHomePostInput(ta) {
     const m = ta.value.slice(0, ta.selectionStart).match(/@([\p{L}0-9_. ]{0,30})$/u);
     if (!m) { hideHomePostMention(); return; }
@@ -713,6 +756,7 @@ function onHomePostInput(ta) {
         box.innerHTML = cands.map(c =>
             `<div class="hf-mention-item" onclick="pickHomePostTag('${c.name.replace(/'/g, "\\'")}')">${_mentionItemInner(c)}</div>`).join('');
         box.style.display = 'block';
+        _afterMentionRender(box);
     }, 200);
 }
 
@@ -1165,7 +1209,7 @@ function buildHomePostCard(post, stats) {
                 <div class="hf-comment-avatar" id="hfcavatar-${post.id}"></div>
                 <div class="hf-comment-box">
                     <input type="text" class="hf-comment-input" id="hfcinput-${post.id}" placeholder="Write a comment… @ to tag"
-                        onkeydown="if(event.key==='Enter') submitHomeComment('${post.id}')" oninput="onCommentInput('${post.id}', this)" onblur="closeEmojiPickerOnBlur('hfcinput-${post.id}')">
+                        onkeydown="onCommentKeydown(event, '${post.id}')" oninput="onCommentInput('${post.id}', this)" onblur="closeEmojiPickerOnBlur('hfcinput-${post.id}')">
                     <button type="button" class="hf-cinput-tool" title="Emoji" onclick="openEmojiPicker('hfcinput-${post.id}', this)"><i class="far fa-face-smile"></i></button>
                     <label class="hf-cinput-tool" title="Add photo" for="hfcphoto-${post.id}"><i class="far fa-image"></i></label>
                     <input type="file" id="hfcphoto-${post.id}" hidden accept="image/*" onchange="stageCommentPhoto('${post.id}', this)">
@@ -2174,7 +2218,7 @@ async function loadHomeComments(postId) {
                 <div class="hf-reply-field-wrap">
                     <input type="text" class="hf-reply-field" id="hffreply-${p.id}" placeholder="Write a reply…"
                         oninput="onReplyInput('${p.id}', this)"
-                        onkeydown="if(event.key==='Enter') submitFeedReply('${postId}','${p.id}')">
+                        onkeydown="onReplyKeydown(event, '${postId}', '${p.id}')">
                     <button type="button" class="hf-reply-emoji" onclick="openEmojiPicker('hffreply-${p.id}', this)"><i class="far fa-face-smile"></i></button>
                 </div>
                 <button class="hf-reply-send" onclick="submitFeedReply('${postId}','${p.id}')"><i class="fas fa-paper-plane"></i></button>
@@ -2758,18 +2802,28 @@ function openEmojiPicker(targetId, anchorEl) {
     if (picker.style.display === 'block' && _emojiTargetId === targetId) { picker.style.display = 'none'; return; }
     _emojiTargetId = targetId;
     document.getElementById('emojiGrid').innerHTML = EMOJIS.map(e => `<button type="button" onclick="insertEmoji('${e}')">${e}</button>`).join('');
+    // Position FIXED to the viewport, not absolute. #emojiPicker lives inside
+    // .main-content (overflow-y:auto + side padding, and a sidebar offset on
+    // desktop), so absolute positioning was measured from the wrong origin and
+    // clipped by that scroll container — hence the mobile overflow and the
+    // desktop mis-placement. Fixed + viewport coords is immune to all of that.
+    picker.style.position = 'fixed';
+    picker.style.display = 'block'; // show first so offset dimensions are measurable
     const r = anchorEl.getBoundingClientRect();
-    picker.style.display = 'block'; // show first so offsetWidth is measurable
-    picker.style.top = `${window.scrollY + r.bottom + 6}px`;
-    // Keep the WHOLE picker inside the viewport — clamp the RIGHT edge too (not
-    // just the left), so it never runs off the right of a narrow phone screen.
     const vw = document.documentElement.clientWidth;
+    const vh = window.innerHeight;
     const pw = picker.offsetWidth;
+    const ph = picker.offsetHeight;
     const margin = 8;
-    let left = r.left - 120;                    // preferred: nudged left of the emoji button
-    left = Math.min(left, vw - pw - margin);    // don't overflow the right edge
-    left = Math.max(margin, left);              // don't overflow the left edge
-    picker.style.left = `${window.scrollX + left}px`;
+    // Horizontal: keep the WHOLE picker on-screen (clamp right edge AND left).
+    let left = Math.min(r.left - 120, vw - pw - margin);
+    left = Math.max(margin, left);
+    // Vertical: below the button, but flip above it when there isn't room below.
+    let top = r.bottom + 6;
+    if (top + ph > vh - margin && r.top - ph - 6 >= margin) top = r.top - ph - 6;
+    top = Math.max(margin, Math.min(top, vh - ph - margin));
+    picker.style.left = `${left}px`;
+    picker.style.top = `${top}px`;
     const close = e => {
         if (!picker.contains(e.target) && e.target !== anchorEl && !anchorEl.contains(e.target)) {
             picker.style.display = 'none'; document.removeEventListener('click', close);
@@ -2815,6 +2869,7 @@ function onCommentInput(postId, input) {
         if (!box || !cands.length) { hideMentionBox(postId); return; }
         box.innerHTML = cands.map(c => `<div class="hf-mention-item" onclick="pickMention('${postId}','${c.name.replace(/'/g,"\\'")}')">${_mentionItemInner(c)}</div>`).join('');
         box.style.display = 'block';
+        _afterMentionRender(box);
     }, 200);
 }
 function pickMention(postId, name) {
@@ -2843,6 +2898,7 @@ function onReplyInput(parentId, input) {
         if (!box || !cands.length) { hideReplyMentionBox(parentId); return; }
         box.innerHTML = cands.map(c => `<div class="hf-mention-item" onclick="pickReplyMention('${parentId}','${c.name.replace(/'/g,"\\'")}')">${_mentionItemInner(c)}</div>`).join('');
         box.style.display = 'block';
+        _afterMentionRender(box);
     }, 200);
 }
 function pickReplyMention(parentId, name) {
