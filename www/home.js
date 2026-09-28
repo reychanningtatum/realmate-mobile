@@ -554,6 +554,7 @@ function togglePollBuilder() {
 
 function collapseCreatePost() {
     _homePostType = '';
+    if (window.RMEmojiSheet) RMEmojiSheet.close();   // close the mobile emoji sheet with the composer
     document.getElementById('createPostExpanded').style.display = 'none';
     document.getElementById('postTypeBadge').style.display = 'none';
     document.querySelector('.create-post-top').style.display = '';
@@ -590,15 +591,33 @@ function linkifyContent(text) {
     let html = safeText(text);
     html = html.replace(/#([\p{L}0-9_]{2,40})/gu,
         (m, tag) => `<a class="hf-hashtag" onclick="filterByHashtag('${tag.toLowerCase()}')">#${tag}</a>`);
-    // @mentions — capture multi-word capitalized names (e.g. "@Mark Zuckerberg")
+    // @mentions — capture multi-word capitalized names (e.g. "@Mark Zuckerberg").
+    // Clicking a mention opens that user's PROFILE directly (desktop + mobile).
+    // stopPropagation so a parent card/click handler can't swallow the tap (that was
+    // why desktop mentions appeared "not clickable").
     html = html.replace(/@(\p{L}[\p{L}0-9_]*(?:\s\p{Lu}[\p{L}0-9_]*){0,3})/gu,
-        (m, name) => `<a class="hf-mention" onclick="mentionSearch('${name.trim().replace(/'/g, "\\'")}')">@${name}</a>`);
+        (m, name) => `<a class="hf-mention" onclick="event.stopPropagation(); openMentionProfile('${name.trim().replace(/'/g, "\\'")}')">@${name}</a>`);
     return html;
 }
 
-function mentionSearch(name) {
-    const input = document.getElementById('homeSearchInput');
-    if (input) { input.value = name; onHomeSearch(name); input.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+// Open an @mentioned user's profile directly (both desktop and mobile) instead of
+// running a search. Resolves the typed display name to the account id — exact
+// current name first, then a former name (renamed users) — then routes to the
+// profile page via rmGoProfile (which the app shell handles on mobile).
+async function openMentionProfile(name) {
+    name = (name || '').trim();
+    if (!name) return;
+    let id = null;
+    try {
+        const r = await _supaHome.from('profiles').select('id').ilike('full_name', name).limit(1);
+        id = (r.data && r.data[0]) ? r.data[0].id : null;
+        if (!id) {
+            const r2 = await _supaHome.from('profiles').select('id').ilike('former_names', '%' + name + '%').limit(1);
+            id = (r2.data && r2.data[0]) ? r2.data[0].id : null;
+        }
+    } catch (e) {}
+    if (id) rmGoProfile(String(id), name);
+    else (window.showToast || function () {})('Couldn’t open that profile.', 'info');
 }
 
 // ══════════════════════════════════════════════════
@@ -2351,6 +2370,7 @@ async function submitFeedReply(postId, parentId) {
     field.value = '';
     hideReplyMentionBox(parentId);
     closeEmojiPickerOnBlur('hffreply-' + parentId);   // send closes the picker; no refocus (no keyboard)
+    if (window.RMEmojiSheet) RMEmojiSheet.close();   // and the mobile bottom sheet
 
     const { data: authData } = await _supaHome.auth.getUser();
     await _supaHome.from('forum_comments').insert({
@@ -2428,6 +2448,7 @@ async function submitHomeComment(postId) {
     input.value = '';
     hideMentionBox(postId);
     closeEmojiPickerOnBlur('hfcinput-' + postId);   // send closes the picker; no refocus (no keyboard)
+    if (window.RMEmojiSheet) RMEmojiSheet.close();   // and the mobile bottom sheet
 
     let mediaUrl = null;
     if (photo) {
@@ -2786,7 +2807,7 @@ function setFeedFilter(type, value) {
             }
         } catch (e) {}
     }
-    document.getElementById('navSaved')?.classList.toggle('active', type === 'saved');
+    document.getElementById('rmSideSaved')?.classList.toggle('active', type === 'saved');
     // Close the avatar "Me" menu if the tap came from there
     document.getElementById('navMenu')?.classList.remove('open');
     renderActiveFilter();
@@ -2829,6 +2850,13 @@ function renderActiveFilter() {
 const EMOJIS = ['😀','😂','😍','🥰','😎','🤩','😅','😭','😊','👍','👏','🙌','🙏','💪','🔥','✨','🎉','🎊','❤️','💚','💙','💜','🏠','🏡','🏢','🏗️','🔑','📈','💰','🤝','👀','💡','⭐','✅','🌟','🥂','🍾','📌','📷','🌆'];
 let _emojiTargetId = null;
 function openEmojiPicker(targetId, anchorEl) {
+    // Mobile: use the bottom-sheet emoji picker (emoji-picker.js) instead of the
+    // floating popover — it's a proper sheet pinned to the bottom, above the nav,
+    // with a drag handle, search and category tabs. Toggle if already open here.
+    if (_isTouchNoHover() && window.RMEmojiSheet) {
+        if (RMEmojiSheet.isOpen()) RMEmojiSheet.close(); else RMEmojiSheet.open(targetId);
+        return;
+    }
     const picker = document.getElementById('emojiPicker');
     if (!picker) return;
     if (picker.style.display === 'block' && _emojiTargetId === targetId) { picker.style.display = 'none'; return; }

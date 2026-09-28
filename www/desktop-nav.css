@@ -1,0 +1,40 @@
+/* desktop-nav.css — Desktop navigation redesign (loaded LAST, desktop-only).
+   Brings the mobile-style floating bottom navbar (Feed | Chat | Portal | Notifications
+   | Me) onto desktop and pairs it with the slimmed 4-item left sidebar. Every rule is
+   gated to >=769px so the mobile navigation is completely untouched. */
+
+@media (min-width: 769px) {
+  /* ---- Floating bottom navbar (reuses the .mobile-bottom-nav markup) ---- */
+  .mobile-bottom-nav {
+    display: flex !important;
+    position: fixed;
+    left: 240px;                 /* clear the 240px left sidebar */
+    right: 0;
+    bottom: 22px;
+    margin: 0 auto;              /* centre within the area right of the sidebar */
+    width: auto;
+    max-width: 560px;
+    height: 68px;
+    background: #ffffff;
+    border: 1px solid #eef2f7;
+    border-top: 1px solid #eef2f7;
+    border-radius: 28px;
+    box-shadow: 0 14px 36px rgba(15, 23, 42, 0.14);
+    padding: 0 30px;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 1000;
+  }
+  html[data-theme="dark"] .mobile-bottom-nav { background: #0f172a; border-color: #1e293b; }
+
+  /* Hide items that are intentionally not in the desktop bottom bar (Forum/realmates
+     shortcuts that are display:none on mobile too — keep them hidden here). */
+  .mobile-bottom-nav .mob-nav-item[style*="display:none"],
+  .mobile-bottom-nav .mob-nav-item[style*="display: none"] { display: none !important; }
+
+  /* Keep page content clear of the floating bar (it must not cover content). */
+  .main-content { padding-bottom: 118px !important; }
+
+  /* The slim left sidebar keeps its width; nothing else needed — the HTML now holds
+     only Saved / My realmates / Customer Service / Settings (+ Sign Out). */
+}

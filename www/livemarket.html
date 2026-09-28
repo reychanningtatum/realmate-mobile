@@ -34,21 +34,22 @@
 /* In the AI Match Engine, pull-to-refresh must NOT show the "Loading Portal" pill
    over the title — it shows the Scanning state in the body instead (see onRefresh). */
 html.rm-inmatch .rm-ptr{display:none!important}</style>
+  <link rel="stylesheet" href="desktop-nav.css?v=20260928a">
 </head>
 <body>
 
 <!-- Sidebar -->
 <div class="sidebar">
-  <div class="brand"><img src="images/realmate2.png" onclick="location.href='home.html'"></div>
-  <div class="nav-item" onclick="location.href='home.html'"><i class="fas fa-border-all"></i><span>Feed</span></div>
-  <div class="nav-item" onclick="location.href='dashboard.html'"><i class="fas fa-user-tie"></i><span>Profile</span></div>
-  <div class="nav-item active" style="cursor:pointer" onclick="portalHome()"><i class="fas fa-globe"></i><span>Portal</span></div>
-  <div class="nav-item" onclick="location.href='analytics.html'" style="display:none"><i class="fas fa-chart-area"></i><span>Analytics</span></div>
-  <div class="nav-item" onclick="location.href='forum.html'" style="display:none"><i class="fas fa-bullhorn"></i><span>Forum</span></div>
-  <div class="nav-item" onclick="location.href='chat.html'"><i class="fas fa-comment-dots"></i> <span>Chat</span></div>
-  <div class="nav-item" onclick="location.href='notifications.html'"><i class="fas fa-bell"></i><span>Notifications</span></div>
-    <div class="nav-item" onclick="location.href='settings.html'"><i class="fas fa-cog"></i><span>Settings</span></div>
-  <div style="margin-top:auto"><div class="nav-item" onclick="logout()"><i class="fas fa-sign-out-alt"></i><span>Sign Out</span></div></div>
+  <div class="brand">
+    <img src="images/realmate2.png" onclick="location.href='home.html'">
+  </div>
+  <div class="nav-item" id="rmSideSaved" onclick="location.href='home.html?view=saved'"><i class="fas fa-bookmark"></i> <span>Saved</span></div>
+  <div class="nav-item" onclick="location.href='realmates.html'"><i class="fas fa-user-group"></i> <span>My realmates</span></div>
+  <div class="nav-item" onclick="openCustomerService()"><i class="fas fa-headset"></i> <span>Customer Service</span></div>
+  <div class="nav-item" onclick="location.href='settings.html'"><i class="fas fa-cog"></i> <span>Settings</span></div>
+  <div style="margin-top:auto;">
+    <div class="nav-item" onclick="logout()"><i class="fas fa-sign-out-alt"></i> <span>Sign Out</span></div>
+  </div>
 </div>
 
 <!-- Main -->
