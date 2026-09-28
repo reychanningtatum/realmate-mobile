@@ -58,12 +58,31 @@ function savePortalNotifsPref(isOn) {
    NOT localStorage. is_public / public_follow default false (Private +
    approval-required). See privacy-following-migration.sql + RMPriv.
    ============================================================ */
+// Resolve the signed-in user's id WITHOUT depending on a network auth.getUser()
+// call. On mobile (WKWebView) getUser() can transiently return null when its token
+// refresh can't reach the network, which previously made privacy saves fail with a
+// bogus "not authenticated". The id we need for `.eq('id', …)` is already in the
+// locally-persisted session and the cached `user` object; the _supabase client still
+// attaches the persisted JWT to the request, so RLS passes. getSession() is local
+// (no network); the cached `user.id` is the final fallback.
+async function _privacyUid() {
+    try {
+        const { data } = await _supabase.auth.getSession();
+        const uid = data && data.session && data.session.user && data.session.user.id;
+        if (uid) return uid;
+    } catch (e) {}
+    try {
+        const u = JSON.parse(localStorage.getItem('user') || 'null');
+        if (u && u.id) return String(u.id);
+    } catch (e) {}
+    return null;
+}
 async function loadPrivacyToggles() {
     try {
-        const { data: { user: authUser } } = await _supabase.auth.getUser();
-        if (!authUser) return;
+        const uid = await _privacyUid();
+        if (!uid) return;
         const { data } = await _supabase.from('profiles')
-            .select('is_public, public_follow').eq('id', authUser.id).maybeSingle();
+            .select('is_public, public_follow').eq('id', uid).maybeSingle();
         const pub = document.getElementById('togglePublicAccount');
         const pf  = document.getElementById('togglePublicFollow');
         if (pub) pub.checked = !!(data && data.is_public);
@@ -72,8 +91,8 @@ async function loadPrivacyToggles() {
 }
 async function _savePrivacyField(field, val, msg, toggleId) {
     try {
-        const { data: { user: authUser } } = await _supabase.auth.getUser();
-        if (!authUser) throw new Error('not authenticated');
+        const uid = await _privacyUid();
+        if (!uid) throw new Error('not authenticated');
         // UPDATE the existing profile row — NOT upsert. The profile always exists for a
         // signed-in user, and an upsert is an INSERT…ON CONFLICT: it would need INSERT
         // RLS permission AND a value for every NOT NULL column (email, username, …), so a
@@ -82,7 +101,7 @@ async function _savePrivacyField(field, val, msg, toggleId) {
         // needs UPDATE permission and touches just this one boolean.
         const patch = {}; patch[field] = !!val;
         const { data, error } = await _supabase.from('profiles')
-            .update(patch).eq('id', authUser.id).select(field).maybeSingle();
+            .update(patch).eq('id', uid).select(field).maybeSingle();
         if (error) throw error;
         // RLS can silently filter an UPDATE to zero rows (no error, no row back) — treat
         // that as a failure so the UI never claims a save that didn't persist.

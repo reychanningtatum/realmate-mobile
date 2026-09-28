@@ -56,6 +56,16 @@
   width: 100%; box-sizing: border-box; padding: 11px 13px; font-size: 16px; color: #0f172a;
   border: 1px solid #d9e0ea; border-radius: 11px; background: #fff; font-family: inherit;
 }
+/* Category is a <select>: replace the native arrow (which sat flush against the
+   right border) with a custom chevron that has proper right-edge spacing, and
+   reserve room so the selected text never collides with it. Consistent across
+   browsers; the native picker still opens on tap/click. */
+select.cs-input {
+  -webkit-appearance: none; -moz-appearance: none; appearance: none;
+  padding-right: 40px; cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='M1 1.5 6 6.5 11 1.5' stroke='%2364748b' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 14px center;
+}
 .cs-photo-btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 14px;
   border: 1px dashed #cbd5e1; border-radius: 11px; background: #f8fafc; color: #475569;
   font-size: 14px; font-weight: 700; cursor: pointer; }

@@ -3309,6 +3309,12 @@ async function sendBirthdayGreeting(name) {
 // ══════════════════════════════════════════════════
 
 let _homeSearchTimer = null;
+// True only while the search box is focused. The Recent-searches panel is an
+// in-flow dropdown that must appear ONLY while the user is actively in the search
+// box — never docked in the feed body. This flag gates renderFeedRecent so a late
+// account-sync callback (which resolves after the user has tapped away) can't
+// resurrect the panel once it's been closed.
+let _homeSearchActive = false;
 
 function onHomeSearch(q) {
     document.getElementById('homeSearchClear').style.display = q ? 'flex' : 'none';
@@ -3322,11 +3328,25 @@ function onHomeSearch(q) {
 
 // Focusing the empty search box shows the user's Recent searches.
 function onHomeSearchFocus() {
+    _homeSearchActive = true;
     if (!(document.getElementById('homeSearchInput').value || '').trim()) {
         renderFeedRecent();
         // Pull account-synced history (searches made on other devices), then re-render.
         if (window.RMSearchHistory && RMSearchHistory.sync) RMSearchHistory.sync('feed', renderFeedRecent);
     }
+}
+// Leaving the search box (blur / keyboard dismissed) closes the Recent-searches
+// panel — same pattern as Portal's onPortalSearchBlur. Deferred so a tap on a
+// recent row runs its own handler (navigate) before the panel is hidden.
+function onHomeSearchBlur() {
+    _homeSearchActive = false;
+    setTimeout(function () {
+        if (_homeSearchActive) return;   // refocused in the meantime
+        const el = document.getElementById('homeSearchResults');
+        const inp = document.getElementById('homeSearchInput');
+        // Keep it open only if the user is mid-query (typed text still present).
+        if (el && !((inp && inp.value) || '').trim()) el.classList.remove('visible');
+    }, 180);
 }
 
 // Enter commits the term to the persistent Feed history, then searches.
@@ -3378,7 +3398,9 @@ function renderFeedRecent() {
         </div>`;
     });
     resultsEl.innerHTML = h;
-    resultsEl.classList.add('visible');
+    // Show ONLY while the search box is focused — never docked in the feed body.
+    if (_homeSearchActive) resultsEl.classList.add('visible');
+    else resultsEl.classList.remove('visible');
 }
 // Tapping a recent entry re-opens the actual person/post the user clicked before.
 function feedRecentClick(idx) {
