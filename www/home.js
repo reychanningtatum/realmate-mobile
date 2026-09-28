@@ -3352,6 +3352,14 @@ function _feedJsEsc(s) {
 function _rsAttr(s) {
     return String(s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
+// Real-time: another tab/iframe/device changed the Feed recent-search list — re-render
+// live if the recent panel is currently showing (no refresh needed).
+window.addEventListener('rmsh-remote', function (e) {
+    if (e && e.detail && e.detail.scope === 'feed') {
+        const res = document.getElementById('homeSearchResults');
+        if (res && res.classList.contains('visible')) { try { renderFeedRecent(); } catch (_) {} }
+    }
+});
 function renderFeedRecent() {
     const resultsEl = document.getElementById('homeSearchResults');
     if (!resultsEl) return;

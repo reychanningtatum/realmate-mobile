@@ -133,4 +133,18 @@
       }, function () { cb(read(scope)); });
     }
   };
+
+  // Real-time: when another tab/iframe/device changes an 'rm_shist_<scope>' bucket,
+  // write it into this device's cache and let the UI (home.js / livemarket.js) re-render
+  // live. Writes localStorage DIRECTLY (not via write()) so it doesn't loop back out.
+  try {
+    if (window.RMSearchSync && window.RMSearchSync.onRemote) {
+      window.RMSearchSync.onRemote(function (bucket, entries) {
+        if (!bucket || bucket.indexOf('rm_shist_') !== 0) return;
+        var scope = bucket.slice('rm_shist_'.length);
+        try { localStorage.setItem(storeKey(scope), JSON.stringify((entries || []).slice(0, CAP))); } catch (e) {}
+        try { window.dispatchEvent(new CustomEvent('rmsh-remote', { detail: { scope: scope } })); } catch (e) {}
+      });
+    }
+  } catch (e) {}
 })();

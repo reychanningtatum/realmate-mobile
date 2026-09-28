@@ -751,4 +751,22 @@
     function escAttr(s) {
         return esc(s).replace(/"/g,'&quot;').replace(/'/g,'&#39;');
     }
+
+    // Real-time: when another tab/iframe/device changes THIS page's overlay history
+    // bucket, update the local cache and re-render the open overlay live (no refresh).
+    try {
+        if (window.RMSearchSync && window.RMSearchSync.onRemote) {
+            window.RMSearchSync.onRemote(function (bucket, entries) {
+                if (bucket !== _soBucket()) return;
+                try { localStorage.setItem(_soHistoryKey(), JSON.stringify((entries || []).slice(0, SO_HISTORY_MAX))); } catch (e) {}
+                try {
+                    const inp = document.getElementById('soInput');
+                    if (overlay && overlay.classList.contains('open') && (!inp || !inp.value.trim())) {
+                        const res = document.getElementById('soResults');
+                        if (res) res.innerHTML = renderEmptyState();
+                    }
+                } catch (e) {}
+            });
+        }
+    } catch (e) {}
 })();

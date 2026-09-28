@@ -20,6 +20,11 @@
   var KEY_ = 'sb_publishable_Rm_fIBDUfu3DEyLj0_bWZw_qEqo8cd4';
   var CAP = 20;                 // stored per bucket; UI caps lower on its own
   var _sb = null, _readyP = null, _timers = {};
+  // Real-time fan-out: instant same-device propagation (BroadcastChannel, across
+  // tabs AND app-shell iframes) + cross-device via Supabase Realtime. _handlers get
+  // (bucket, entries) whenever a change arrives from ANOTHER context/device.
+  var _handlers = [], _bc = null, _rtInited = false;
+  try { _bc = ('BroadcastChannel' in window) ? new BroadcastChannel('rm-search-sync') : null; } catch (e) { _bc = null; }
 
   function uid() {
     try { var u = JSON.parse(localStorage.getItem('user') || 'null'); return (u && u.id) ? String(u.id) : null; }
@@ -61,9 +66,56 @@
     return out;
   }
 
+  // Dispatch a remote change to every registered handler.
+  function emit(bucket, entries) {
+    if (!bucket) return;
+    var e = Array.isArray(entries) ? entries : [];
+    _handlers.forEach(function (h) { try { h(bucket, e); } catch (_) {} });
+  }
+  // BroadcastChannel: another tab/iframe (same device, same user) changed a bucket.
+  if (_bc) _bc.onmessage = function (ev) {
+    var d = ev && ev.data;
+    if (d && d.bucket && String(d.uid) === String(uid())) emit(d.bucket, d.entries || []);
+  };
+  // localStorage 'storage' events are a fallback for browsers without BroadcastChannel
+  // (they fire in OTHER same-origin tabs/iframes when a search-history key changes).
+  try {
+    window.addEventListener('storage', function (ev) {
+      if (!ev || !ev.key) return;
+      var m = ev.key.match(/^rm_shist_([a-z]+)_(.+)$/) || ev.key.match(/^so_([a-z]+)_search_history_(.+)$/);
+      if (!m) return;
+      var isOverlay = ev.key.indexOf('_search_history_') !== -1;
+      var bucket = (isOverlay ? 'so_' : 'rm_shist_') + m[1];
+      if (String(m[2]) !== String(uid())) return;
+      var entries = []; try { entries = JSON.parse(ev.newValue || '[]') || []; } catch (_) {}
+      emit(bucket, entries);
+    });
+  } catch (e) {}
+  // Cross-device: subscribe to this user's search_history rows (best-effort; needs the
+  // table in the supabase_realtime publication). Idempotent, lazy, once.
+  function initRealtime() {
+    if (_rtInited) return; var id = uid(); if (!id) return; _rtInited = true;
+    ready().then(function (sb) {
+      if (!sb || !sb.channel) return;
+      try {
+        sb.channel('search_history_' + id)
+          .on('postgres_changes',
+            { event: '*', schema: 'public', table: 'search_history', filter: 'user_id=eq.' + id },
+            function (payload) {
+              var row = (payload && payload.new) || (payload && payload.old) || {};
+              var entries = (payload && payload.new && payload.new.entries) || [];
+              if (row.bucket) emit(row.bucket, Array.isArray(entries) ? entries : []);
+            })
+          .subscribe();
+      } catch (e) {}
+    });
+  }
+
   window.RMSearchSync = {
     merge: merge,
     enabled: function () { return !!uid() && !!client(); },
+    // Register a handler h(bucket, entries) fired on real-time remote changes.
+    onRemote: function (h) { if (typeof h === 'function') { _handlers.push(h); initRealtime(); } },
     // Fetch the account's stored entries for a bucket. Resolves [] on any miss.
     pull: function (bucket) {
       var id = uid();
@@ -80,6 +132,8 @@
     push: function (bucket, entries) {
       var id = uid();
       if (!id) return;
+      // Instant same-device fan-out to other tabs/iframes (no wait for the DB round-trip).
+      if (_bc) { try { _bc.postMessage({ uid: id, bucket: bucket, entries: (entries || []).slice(0, CAP) }); } catch (e) {} }
       clearTimeout(_timers[bucket]);
       _timers[bucket] = setTimeout(function () {
         ready().then(function (sb) {

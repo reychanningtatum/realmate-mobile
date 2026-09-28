@@ -2540,6 +2540,14 @@ function listingMatchesQuery(l, q) {
 }
 
 // ── Portal search suggestions (people + posts, Portal-scoped) ───────────────
+// Real-time: another tab/iframe/device changed the Portal recent-search list —
+// re-render live if the Recent dropdown is currently open (no refresh needed).
+window.addEventListener('rmsh-remote', function (e) {
+    if (e && e.detail && e.detail.scope === 'portal') {
+        const box = document.getElementById('portalSuggest');
+        if (box && box.classList.contains('open')) { try { renderPortalSuggest(''); } catch (_) {} }
+    }
+});
 function renderPortalSuggest(q) {
     const box = document.getElementById('portalSuggest');
     if (!box) return;

@@ -926,11 +926,14 @@ async function declineMateRequest(requesterName) {
 }
 
 // Render the correct button label/state for a given user
-function mateButtonHtml(userName, btnClass = 'btn-mate') {
+function mateButtonHtml(userName, btnClass = 'btn-mate', userId) {
     const me = _localUser();
     if (!me || me.name === userName) return ''; // don't show for self
 
-    const status = getMateStatus(userName);
+    // Pass userId when the caller has it (e.g. Listing Detail): getMateStatus checks
+    // the id-keyed cache first, so the relationship is correct even if the other user
+    // renamed since the request (a name-only lookup would miss and show "Add as Mate").
+    const status = getMateStatus(userName, userId);
     if (status === 'accepted') {
         const safe = userName.replace(/'/g, "\\'");
         return `<button class="${btnClass} mate-status-mates" onclick="handleRemoveMate(this,'${safe}')">

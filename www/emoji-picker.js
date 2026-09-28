@@ -89,7 +89,18 @@
     .rmes-grid button{border:none;background:none;font-size:26px;line-height:1;padding:6px 0;cursor:pointer;
       border-radius:8px;}
     .rmes-grid button:active{background:#f1f5f9;}
-    .rmes-empty{grid-column:1/-1;text-align:center;color:#94a3b8;font-size:13px;padding:24px 0;}`;
+    .rmes-empty{grid-column:1/-1;text-align:center;color:#94a3b8;font-size:13px;padding:24px 0;}
+    /* Mobile input preview + delete (fixed above the grid). Hidden on desktop. */
+    .rmes-input{flex:0 0 auto;display:flex;align-items:center;gap:8px;margin:0 12px 8px;
+      background:#f1f5f9;border-radius:12px;padding:6px 6px 6px 12px;min-height:42px;}
+    .rmes-preview{flex:1;min-width:0;overflow-x:auto;white-space:nowrap;font-size:22px;line-height:1.4;
+      color:#0f172a;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+    .rmes-preview::-webkit-scrollbar{display:none;}
+    .rmes-preview:empty::before{content:'Your emojis appear here';font-size:13px;color:#94a3b8;}
+    .rmes-del{flex:0 0 auto;width:44px;height:34px;border:none;border-radius:9px;background:#e2e8f0;
+      color:#334155;font-size:17px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+    .rmes-del:active{background:#cbd5e1;transform:scale(.95);}
+    @media (min-width:769px){ .rmes-input{display:none;} }`;
     document.head.appendChild(st);
   }
 
@@ -104,6 +115,11 @@
         '<input id="rmesSearch" type="text" placeholder="Search emojis…" autocomplete="off" ' +
         'autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="text"></div>' +
       '<div class="rmes-tabs" id="rmesTabs"></div>' +
+      // MOBILE-ONLY input preview + Delete/Backspace, fixed directly above the grid
+      // (hidden on desktop via CSS). Shows the emojis being entered into the comment/
+      // reply box so the user sees them, and Delete removes the last one.
+      '<div class="rmes-input"><div class="rmes-preview" id="rmesPreview"></div>' +
+        '<button type="button" class="rmes-del" id="rmesDel" aria-label="Delete last emoji"><i class="fas fa-delete-left"></i></button></div>' +
       '<div class="rmes-grid" id="rmesGrid"></div>';
     // Tapping anywhere on the sheet chrome must not blur/focus the comment box
     // (which would pop the keyboard); the search input is the one exception.
@@ -123,6 +139,9 @@
 
     // Search
     sheet.querySelector('#rmesSearch').addEventListener('input', renderGrid);
+
+    // Delete / backspace — remove the last emoji (grapheme) from the target input.
+    sheet.querySelector('#rmesDel').addEventListener('click', deleteLast);
 
     // Swipe-down on the handle area closes.
     let startY = null;
@@ -166,6 +185,36 @@
     if (!el) return;
     el.value = (el.value || '') + emoji;
     try { el.dispatchEvent(new Event('input', { bubbles: true })); } catch (_) {}
+    updatePreview();
+  }
+
+  // Split into grapheme clusters so a multi-codepoint emoji (variation selector,
+  // ZWJ sequence, skin tone…) is deleted as ONE unit, not one code point at a time.
+  function graphemes(str) {
+    try {
+      if (window.Intl && Intl.Segmenter) {
+        return [...new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(str)].map(s => s.segment);
+      }
+    } catch (_) {}
+    return Array.from(str || '');
+  }
+  // Delete the last emoji/character from the target input (no focus / no keyboard).
+  function deleteLast() {
+    const el = _target && document.getElementById(_target);
+    if (!el || !(el.value || '').length) return;
+    const g = graphemes(el.value); g.pop();
+    el.value = g.join('');
+    try { el.dispatchEvent(new Event('input', { bubbles: true })); } catch (_) {}
+    updatePreview();
+  }
+  // Mirror the target input's current value into the sheet's preview strip (mobile),
+  // scrolled to show the most recent characters.
+  function updatePreview() {
+    const pv = document.getElementById('rmesPreview');
+    if (!pv) return;
+    const el = _target && document.getElementById(_target);
+    pv.textContent = (el && el.value) || '';
+    try { pv.scrollLeft = pv.scrollWidth; } catch (_) {}
   }
 
   // Close when tapping outside the sheet (the feed, the comment box — which then
@@ -185,6 +234,7 @@
     const search = document.getElementById('rmesSearch');
     if (search) search.value = '';
     renderTabs(); renderGrid();
+    updatePreview();
     const grid = document.getElementById('rmesGrid'); if (grid) grid.scrollTop = 0;
     // Force a reflow so the closed transform is committed, then open — this animates
     // the slide-up WITHOUT relying on requestAnimationFrame (which can be throttled).
