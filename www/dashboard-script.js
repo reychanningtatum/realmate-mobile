@@ -660,17 +660,69 @@ function _deepLinkToListings() {
     // just leave the visitor at the top of the profile.
     if (card && card.style.display !== 'none') switchProfileTab('listings');
 
-    // Keep the profile header at the top: make sure nothing left the page scrolled
-    // down. A one-shot reset (no observers/timers) so it never fights the visitor.
+    // RETURNING from a listing detail opened off THIS profile's listings? Restore the
+    // exact scroll instead of jumping to the top (see lmOpenListing + listing-detail
+    // goBack). Otherwise keep the header at the top as before.
+    let restore = null;
     try {
-        window.scrollTo(0, 0);
-        document.querySelectorAll('.main-content').forEach(el => { el.scrollTop = 0; });
+        const r = JSON.parse(sessionStorage.getItem('ldProfileScrollRestore') || 'null');
+        const me = params.get('user_id') || (typeof _viewUserId !== 'undefined' ? _viewUserId : '') || '';
+        if (r && String(r.userId) === String(me || '') && (Date.now() - (r.t || 0) < 300000) && r.y > 0) {
+            restore = r; sessionStorage.removeItem('ldProfileScrollRestore');
+        }
     } catch (e) {}
+
+    if (restore) {
+        _restoreProfileListingsScroll(restore.y);
+    } else {
+        try {
+            window.scrollTo(0, 0);
+            document.querySelectorAll('.main-content').forEach(el => { el.scrollTop = 0; });
+        } catch (e) {}
+    }
 
     // Drop the flag so a later refresh or back-navigation stays put.
     params.delete('view');
     const qs = params.toString();
     history.replaceState(null, '', location.pathname + (qs ? '?' + qs : ''));
+}
+
+// Re-assert the scroll for a short window because the profile + its listings render
+// in batches after load; stops if the visitor scrolls themselves. Handles whichever
+// element is the real scroller (window on mobile, .main-content on desktop). The
+// "Loading Listings" cover (added synchronously in dashboard.html <head>) stays up
+// until the content is tall enough AND the scroll has landed, so the profile top is
+// never revealed first; then it fades out.
+function _restoreProfileListingsScroll(y) {
+    let cancelled = false, revealed = false;
+    const apply = () => {
+        try { window.scrollTo(0, y); } catch (e) {}
+        document.querySelectorAll('.main-content').forEach(el => {
+            if (el.scrollHeight > el.clientHeight) { try { el.scrollTop = y; } catch (e) {} }
+        });
+    };
+    const canReach = () => {
+        if (document.documentElement.scrollHeight >= y + window.innerHeight - 4) return true;
+        return Array.from(document.querySelectorAll('.main-content')).some(el => el.scrollHeight >= y + el.clientHeight - 4);
+    };
+    const reveal = () => {
+        if (revealed) return; revealed = true;
+        apply();
+        try { clearTimeout(window.__rmListingsLoaderTimer); } catch (e) {}
+        const el = document.getElementById('rmListingsLoader');
+        if (el) { el.style.opacity = '0'; setTimeout(() => { try { el.remove(); } catch (e) {} }, 220); }
+    };
+    const onUser = () => { cancelled = true; reveal(); };
+    setTimeout(() => { window.addEventListener('wheel', onUser, { passive: true }); window.addEventListener('touchmove', onUser, { passive: true }); }, 250);
+    apply();
+    let n = 0;
+    const iv = setInterval(() => {
+        apply();
+        if (canReach()) reveal();          // content tall enough + scrolled → drop the loader
+        if (cancelled || ++n > 40) { reveal(); clearInterval(iv); }   // ~3s safety
+    }, 75);
+    // Belt-and-suspenders: never let the loader linger past 3s even if height never settles.
+    setTimeout(() => { reveal(); clearInterval(iv); window.removeEventListener('wheel', onUser); window.removeEventListener('touchmove', onUser); }, 3000);
 }
 
 function toggleBioExpand() {

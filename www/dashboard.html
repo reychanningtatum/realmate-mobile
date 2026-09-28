@@ -4,6 +4,32 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <style id="rm-flash-guard">html{background-color:#f4f7fa}</style>
+  <!-- Returning from a listing detail opened off THIS profile's listings: cover the
+       page with a "Loading Listings" state from the FIRST paint so the profile top
+       never flashes before we restore the exact listings scroll. Shown synchronously
+       here (before body/content), removed by dashboard-script after the scroll lands.
+       A safety timeout removes it so it can never stick. -->
+  <script>
+  (function(){
+    try {
+      var r = JSON.parse(sessionStorage.getItem('ldProfileScrollRestore') || 'null');
+      var view = new URLSearchParams(location.search).get('view');
+      if (!(r && r.y > 0 && view === 'listings')) return;
+      var st = document.createElement('style');
+      // Cover ONLY the main content area — sit above content (incl. the profile
+      // topbar, z-index 200) but BELOW the bottom navbar (z-index 1000), and start
+      // after the 240px left sidebar on desktop — so both navbars stay visible and
+      // functional during loading.
+      st.textContent = '#rmListingsLoader{position:fixed;top:0;left:0;right:0;bottom:0;z-index:900;background:#f4f7fa;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;transition:opacity .2s}@media(min-width:769px){#rmListingsLoader{left:240px}}#rmListingsLoader .rm-ll-spin{width:38px;height:38px;border-radius:50%;border:3px solid #e2e8f0;border-top-color:#32cd32;animation:rmLLspin .8s linear infinite}#rmListingsLoader .rm-ll-txt{font-size:15px;font-weight:700;color:#0f172a}@keyframes rmLLspin{to{transform:rotate(360deg)}}';
+      (document.head || document.documentElement).appendChild(st);
+      var d = document.createElement('div');
+      d.id = 'rmListingsLoader';
+      d.innerHTML = '<div class="rm-ll-spin"></div><div class="rm-ll-txt">Loading Listings</div>';
+      document.documentElement.appendChild(d);
+      window.__rmListingsLoaderTimer = setTimeout(function(){ var el=document.getElementById('rmListingsLoader'); if(el) el.remove(); }, 6000);
+    } catch (e) {}
+  })();
+  </script>
   <title>realmate | Professional Dashboard</title>
   <link rel="stylesheet" href="vendor/fontawesome/css/all.min.css?v=6.5.0">
   <link rel="stylesheet" href="vendor/cropperjs/cropper.min.css?v=1.6.1">
@@ -606,11 +632,11 @@
 <script src="location-engine.js?v=20260809b"></script>
 <script src="match-engine.js?v=20260821p1"></script>
 <script src="developers.js?v=36"></script>
-<script src="livemarket.js?v=20260928b"></script>
+<script src="livemarket.js?v=20260928d"></script>
 <script src="privacy.js?v=20260831a"></script>
 <script src="deactivation.js?v=20260831a"></script>
-<script src="dashboard-script.js?v=20260928a"></script>
-<script src="emoji-picker.js?v=20260928c"></script>
+<script src="dashboard-script.js?v=20260928c"></script>
+<script src="emoji-picker.js?v=20260928d"></script>
 <script src="home.js?v=20260928l"></script>
 <script src="block-report.js?v=20260829f"></script>
 <script src="congrats.js?v=20260810b"></script>

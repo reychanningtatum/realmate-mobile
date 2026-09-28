@@ -40,7 +40,7 @@
       if (!Array.isArray(a)) return [];
       return a
         .map(function (e) { return (typeof e === 'string') ? { type: 'query', label: e } : e; })
-        .filter(function (e) { return e && (e.label || e.type === 'post'); });
+        .filter(function (e) { return e && (e.label || e.type === 'post' || e.type === 'listing'); });
     } catch (e) { return []; }
   }
   function write(scope, arr) {
@@ -62,6 +62,48 @@
   // Encode a URL so it is safe inside a single-quoted CSS url('...') in a style attr.
   function cssUrl(u) { return String(u || '').replace(/[\\'"()\s]/g, encodeURIComponent); }
 
+  // ── One-time migration: fold the pre-unification Feed/Portal history into the
+  // shared 'recent' bucket, so existing recents appear (and sync) after the switch to
+  // a single list. Normalizes legacy types: 'profile'→'person', and Portal's listings
+  // (stored as 'post') → 'listing'. Pulls the ACCOUNT copies so it works on a device
+  // whose local legacy cache is empty (e.g. desktop). Runs once per user.
+  function _normLegacy(e, fromBucket) {
+    if (!e) return null;
+    var t = e.type || 'query';
+    if (t === 'profile') t = 'person';
+    if (fromBucket === 'rm_shist_portal' && t === 'post') t = 'listing';   // Portal 'post' == listing
+    return { type: t, id: e.id, label: e.label, sub: e.sub, img: e.img, src: e.src, ts: e.ts || 0 };
+  }
+  function migrateRecent(done) {
+    done = done || function () {};
+    var sync = window.RMSearchSync;
+    var flag = 'rm_recent_migrated_' + currentUid();
+    if (!sync || !sync.enabled() || currentUid() === 'anon') { done(); return; }
+    try { if (localStorage.getItem(flag) === '1') { done(); return; } } catch (e) {}
+    // CRITICAL: pull the account 'recent' too and MERGE it in — otherwise this
+    // device's one-time migration would OVERWRITE the account row and wipe items
+    // other devices already added (the bug that broke cross-device sync).
+    var buckets = ['rm_shist_recent', 'rm_shist_portal', 'so_feed', 'rm_shist_feed'];
+    Promise.all(buckets.map(function (b) {
+      return sync.pull(b).then(function (r) { return { b: b, r: r || [] }; }, function () { return { b: b, r: [] }; });
+    })).then(function (results) {
+      var acc = read('recent');   // local
+      results.forEach(function (x) {
+        (x.r || []).forEach(function (e) {
+          // 'rm_shist_recent' entries are already in the unified shape; only legacy
+          // buckets need normalizing (profile→person, Portal 'post'→listing).
+          var n = (x.b === 'rm_shist_recent') ? e : _normLegacy(e, x.b);
+          if (n) acc.push(n);
+        });
+      });
+      var merged = sync.merge(acc, [], keyOf).slice(0, CAP);
+      try { localStorage.setItem(storeKey('recent'), JSON.stringify(merged)); } catch (e) {}
+      sync.push('rm_shist_recent', merged);
+      try { localStorage.setItem(flag, '1'); } catch (e) {}
+      done();
+    }, function () { done(); });
+  }
+
   window.RMSearchHistory = {
     keyOf: keyOf,
     initials: initials,
@@ -76,8 +118,8 @@
         var layer = e.img ? '<span class="rs-av-img" style="background-image:url(\'' + cssUrl(e.img) + '\')"></span>' : '';
         return '<span class="rs-av"><span class="rs-av-ini">' + escHtml(initials(e.label)) + '</span>' + layer + '</span>';
       }
-      if (e && e.type === 'post') {
-        var picon = opts.postIcon || 'fa-store';
+      if (e && (e.type === 'post' || e.type === 'listing')) {
+        var picon = opts.postIcon || (e.type === 'listing' ? 'fa-house' : 'fa-file-lines');
         var tlayer = e.img ? '<span class="rs-thumb-img" style="background-image:url(\'' + cssUrl(e.img) + '\')"></span>' : '';
         return '<span class="rs-thumb"><span class="rs-thumb-ic"><i class="fas ' + picon + '"></i></span>' + tlayer + '</span>';
       }
@@ -95,9 +137,10 @@
         label: (entry.label || '').toString().trim(),
         sub:   (entry.sub || '').toString().trim() || undefined,
         img:   entry.img || undefined,
+        src:   entry.src || undefined,   // feed-post source ('home'|'forum') so it re-opens correctly
         ts:    Date.now()        // recency, for cross-device merge ordering
       };
-      if (!entry.label && entry.type !== 'post') return;   // nothing to show
+      if (!entry.label && entry.type !== 'post' && entry.type !== 'listing') return;   // nothing to show
       var k = keyOf(entry);
       var arr = read(scope).filter(function (e) { return keyOf(e) !== k; });
       arr.unshift(entry);
@@ -113,7 +156,17 @@
     // once per SYNC_TTL (i.e. once per "open"), and it never resurrects an entry the
     // user removed while the pull was in flight. cb(mergedList) runs when done (also
     // synchronously when sync is unavailable/throttled). Safe to call on focus.
+    migrateRecent: migrateRecent,
     sync: function (scope, cb) {
+      cb = cb || function () {};
+      // First time syncing the unified list, fold in legacy Feed/Portal history.
+      if (scope === 'recent') {
+        migrateRecent(function () { RMSearchHistory._syncCore(scope, cb); });
+        return;
+      }
+      this._syncCore(scope, cb);
+    },
+    _syncCore: function (scope, cb) {
       cb = cb || function () {};
       var sync = window.RMSearchSync;
       if (!sync || !sync.enabled()) { cb(read(scope)); return; }

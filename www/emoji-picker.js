@@ -70,7 +70,10 @@
         transform:translateX(-50%) translateY(120%);box-shadow:0 18px 44px rgba(15,23,42,.22);}
       #rmEmojiSheet.open{transform:translateX(-50%) translateY(0);}
     }
-    .rmes-handle{width:40px;height:5px;border-radius:3px;background:#d1d5db;margin:8px auto 4px;flex:0 0 auto;}
+    /* Visible bar stays 40x5 (background-clip:content-box); the transparent padding
+       enlarges the tap target so the handle is easy to tap to close. */
+    .rmes-handle{width:40px;height:5px;border-radius:3px;background:#d1d5db;margin:4px auto 2px;flex:0 0 auto;
+      padding:8px 26px;box-sizing:content-box;background-clip:content-box;cursor:pointer;}
     .rmes-search{flex:0 0 auto;margin:6px 14px 10px;display:flex;align-items:center;gap:8px;
       background:#f1f5f9;border-radius:12px;padding:10px 14px;}
     .rmes-search i{color:#94a3b8;font-size:15px;}
@@ -142,6 +145,11 @@
 
     // Delete / backspace — remove the last emoji (grapheme) from the target input.
     sheet.querySelector('#rmesDel').addEventListener('click', deleteLast);
+
+    // Tapping the drag handle closes the sheet (in addition to the swipe-down below).
+    // close() keeps the input's text/emojis intact and never focuses it (no keyboard).
+    const handle = sheet.querySelector('.rmes-handle');
+    if (handle) { handle.style.cursor = 'pointer'; handle.addEventListener('click', close); }
 
     // Swipe-down on the handle area closes.
     let startY = null;

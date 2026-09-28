@@ -65,61 +65,36 @@
         if (IS_NOTIF_PAGE) return 'notifications';
         return null;
     }
-    function _soHistoryKey() {
-        let me = {};
-        try { me = JSON.parse(localStorage.getItem('user') || '{}') || {}; } catch (e) {}
-        return `so_${_soHistoryContext() || 'other'}_search_history_${me.id || 'anon'}`;
+    // UNIFIED store: the Feed overlay shares ONE recent-search list with the Portal
+    // (RMSearchHistory scope 'recent'); forum/notifications keep their own scope.
+    // RMSearchHistory provides account sync + real-time (BroadcastChannel/Supabase),
+    // so an item added/removed here shows up on the Portal (and other devices) live.
+    function _soScope() {
+        const c = _soHistoryContext();
+        if (c === 'feed') return 'recent';   // shared with Portal
+        return c;                            // 'forum' | 'notifications' | null
     }
-    // Account-store bucket (no uid — the row's user_id scopes it). See search-sync.js.
-    function _soBucket() { return `so_${_soHistoryContext() || 'other'}`; }
-    // Stable identity for cross-device merge/dedupe: type + id.
-    function _soKeyOf(e) {
-        var t = (e && e.type) || 'query';
-        var id = (e && e.id != null && e.id !== '') ? e.id : (e && e.label) || '';
-        return t + ':' + String(id).toLowerCase();
-    }
-    // Cross-device bookkeeping: throttle the pull to once per open; let an in-flight
-    // pull skip its merge-write if the user changed the list meanwhile.
-    let _soSyncedAt = 0, _soMutatedAt = 0;
-    const SO_SYNC_TTL = 5000;
     function getSearchHistory() {
-        try { return JSON.parse(localStorage.getItem(_soHistoryKey())) || []; } catch (e) { return []; }
+        try { return (_soScope() && window.RMSearchHistory) ? RMSearchHistory.list(_soScope()) : []; }
+        catch (e) { return []; }
     }
-    function saveSearchHistory(list) {
-        const capped = list.slice(0, SO_HISTORY_MAX);
-        try { localStorage.setItem(_soHistoryKey(), JSON.stringify(capped)); } catch (e) {}
-        // Mirror up to the account so other devices see this change.
-        _soMutatedAt = Date.now();
-        try { if (window.RMSearchSync) window.RMSearchSync.push(_soBucket(), capped); } catch (e) {}
-    }
-    // Pull the account copy, merge into the local cache, persist the merge back up,
-    // then cb(). Throttled to once per open; never resurrects a just-removed entry.
+    // Pull + merge the account copy, then cb(); real-time keeps it fresh afterwards.
     function _soSyncOnce(cb) {
         cb = cb || function () {};
-        const sync = window.RMSearchSync;
-        if (!_soHistoryContext() || !sync || !sync.enabled()) { cb(); return; }
-        const now = Date.now();
-        if (_soSyncedAt && (now - _soSyncedAt) < SO_SYNC_TTL) { cb(); return; }
-        _soSyncedAt = now;
-        const startedAt = now, bucket = _soBucket();
-        sync.pull(bucket).then(function (remote) {
-            if (_soMutatedAt > startedAt) { sync.push(bucket, getSearchHistory()); cb(); return; }
-            const merged = sync.merge(remote, getSearchHistory(), _soKeyOf).slice(0, SO_HISTORY_MAX);
-            try { localStorage.setItem(_soHistoryKey(), JSON.stringify(merged)); } catch (e) {}
-            sync.push(bucket, merged);
-            cb();
-        }, function () { cb(); });
+        const scope = _soScope();
+        if (scope && window.RMSearchHistory && RMSearchHistory.sync) RMSearchHistory.sync(scope, function () { cb(); });
+        else cb();
     }
-    // A history entry remembers WHAT was actually selected — a profile
-    // (type:'profile', id: user_id) or a specific listing (type:'listing',
-    // id: listing_id) — not just the text that was typed, so reopening it
-    // can navigate straight back to that exact result.
+    // Save the ACTUAL selected entity (account / feed post / listing), not the typed
+    // text. Normalizes 'profile' → 'person' for the shared store.
     function addToSearchHistory(item) {
         if (!item || item.id == null || !item.label) return;
-        item = Object.assign({}, item, { ts: Date.now() });   // recency, for cross-device merge
-        const list = getSearchHistory().filter(x => !(x.type === item.type && String(x.id) === String(item.id)));
-        list.unshift(item);
-        saveSearchHistory(list);
+        const scope = _soScope();
+        if (!scope || !window.RMSearchHistory) return;
+        RMSearchHistory.add(scope, {
+            type: item.type === 'profile' ? 'person' : (item.type || 'query'),
+            id: item.id, label: item.label, sub: item.sub, img: item.img, src: item.src
+        });
     }
     // Initials for the CSS avatar fallback (no external service needed).
     function soInitials(label) {
@@ -135,7 +110,7 @@
     // glyph, and a ui-avatars placeholder is treated as "no photo"); a listing/
     // query shows an icon.
     function soHistoryMedia(item) {
-        if (item.type === 'profile') {
+        if (item.type === 'person' || item.type === 'profile') {
             var realImg = (item.img && item.img.indexOf('ui-avatars.com') === -1) ? item.img : '';
             var layer = realImg ? `<span class="so-hist-av-img" style="background-image:url('${soCssUrl(realImg)}')"></span>` : '';
             return `<span class="so-hist-av"><span class="so-hist-av-ini">${esc(soInitials(item.label))}</span>${layer}</span>`;
@@ -174,20 +149,25 @@
     window.__openHistoryItem = function (i) {
         const item = getSearchHistory()[i];
         if (!item) return;
+        // A typed query re-runs the search in place; an entity opens itself.
+        if (item.type === 'query') {
+            const so = document.getElementById('soInput');
+            if (so) { so.value = item.label || ''; searchNow(); }
+            return;
+        }
         closeOverlay();
         if (item.type === 'post') { _soOpenPost(item.id, item.src); return; }
         location.href = item.type === 'listing'
             ? 'listing-detail.html?id=' + item.id
-            : 'dashboard.html?user_id=' + item.id;
+            : 'dashboard.html?user_id=' + item.id;   // person/profile
     };
     window.__removeHistoryItem = function (i) {
-        const list = getSearchHistory();
-        list.splice(i, 1);
-        saveSearchHistory(list);
+        const item = getSearchHistory()[i];
+        if (item && window.RMSearchHistory) RMSearchHistory.remove(_soScope(), RMSearchHistory.keyOf(item));
         document.getElementById('soResults').innerHTML = renderEmptyState();
     };
     window.__clearSearchHistory = function () {
-        saveSearchHistory([]);
+        if (window.RMSearchHistory) RMSearchHistory.clear(_soScope());
         document.getElementById('soResults').innerHTML = renderEmptyState();
     };
 
@@ -752,21 +732,17 @@
         return esc(s).replace(/"/g,'&quot;').replace(/'/g,'&#39;');
     }
 
-    // Real-time: when another tab/iframe/device changes THIS page's overlay history
-    // bucket, update the local cache and re-render the open overlay live (no refresh).
+    // Real-time: RMSearchHistory (via search-sync) writes the incoming entries to the
+    // cache and fires 'rmsh-remote' with the scope. If it's the scope this overlay
+    // shows and the overlay is open on the recent list, re-render live (no refresh).
     try {
-        if (window.RMSearchSync && window.RMSearchSync.onRemote) {
-            window.RMSearchSync.onRemote(function (bucket, entries) {
-                if (bucket !== _soBucket()) return;
-                try { localStorage.setItem(_soHistoryKey(), JSON.stringify((entries || []).slice(0, SO_HISTORY_MAX))); } catch (e) {}
-                try {
-                    const inp = document.getElementById('soInput');
-                    if (overlay && overlay.classList.contains('open') && (!inp || !inp.value.trim())) {
-                        const res = document.getElementById('soResults');
-                        if (res) res.innerHTML = renderEmptyState();
-                    }
-                } catch (e) {}
-            });
-        }
+        window.addEventListener('rmsh-remote', function (e) {
+            if (!e || !e.detail || e.detail.scope !== _soScope()) return;
+            const inp = document.getElementById('soInput');
+            if (overlay && overlay.classList.contains('open') && (!inp || !inp.value.trim())) {
+                const res = document.getElementById('soResults');
+                if (res) res.innerHTML = renderEmptyState();
+            }
+        });
     } catch (e) {}
 })();

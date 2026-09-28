@@ -54,6 +54,19 @@ function _lmMaxScrollable() {
     return Math.max(w, m);
 }
 function lmOpenListing(id) {
+    // Opened from a USER'S PROFILE listings (Feed→profile→listings, or Portal→View
+    // Profile→listings)? Remember that origin + scroll so Back returns to the SAME
+    // profile listings at the SAME position — not the profile top or the previous tab.
+    // Only set on the profile page, so Portal-grid and AI-Match back flows are untouched.
+    try {
+        if (/dashboard\.html/i.test(location.pathname)) {
+            const pu = new URLSearchParams(location.search).get('user_id') || (window._viewUserId || window._spUserId || '');
+            let y = window.pageYOffset || document.documentElement.scrollTop || 0;
+            const mc = document.querySelector('.main-content');
+            if (mc && mc.scrollTop > y) y = mc.scrollTop;
+            sessionStorage.setItem('ldProfileReturn', JSON.stringify({ userId: String(pu || ''), y: y, t: Date.now() }));
+        }
+    } catch (e) {}
     // Inside a listing's AI-Match view, Back must return to THAT match view landing
     // on the exact post we opened. Record which card in rm_matchCtx so the view's
     // own scroll-to (showAllMatches _toMatch) targets it, and DON'T also stash the
@@ -2505,7 +2518,7 @@ function onSearchInput() {
     // On focus / empty input, pull the account-synced Recent searches (made on
     // other devices), then re-render the list in place.
     if (!q && window.RMSearchHistory && RMSearchHistory.sync) {
-        RMSearchHistory.sync('portal', () => renderPortalSuggest(''));
+        RMSearchHistory.sync('recent', () => renderPortalSuggest(''));
     }
     renderPortalSuggest(q);
 }
@@ -2515,7 +2528,7 @@ function onSearchInput() {
 function executeSearch() {
     const raw = (document.getElementById('searchInput')?.value || '').trim();
     activeSearchQuery = raw.toLowerCase();
-    if (raw && window.RMSearchHistory) RMSearchHistory.add('portal', raw);   // persist recent
+    if (raw && window.RMSearchHistory) RMSearchHistory.add('recent', raw);   // persist recent
     closePortalSuggest();
     document.getElementById('searchInput')?.blur();   // dismiss the keyboard on the "check"/search key
     // Feed is a hidden/reserved tab; if somehow active, land the results in the
@@ -2543,7 +2556,7 @@ function listingMatchesQuery(l, q) {
 // Real-time: another tab/iframe/device changed the Portal recent-search list —
 // re-render live if the Recent dropdown is currently open (no refresh needed).
 window.addEventListener('rmsh-remote', function (e) {
-    if (e && e.detail && e.detail.scope === 'portal') {
+    if (e && e.detail && e.detail.scope === 'recent') {
         const box = document.getElementById('portalSuggest');
         if (box && box.classList.contains('open')) { try { renderPortalSuggest(''); } catch (_) {} }
     }
@@ -2556,7 +2569,7 @@ function renderPortalSuggest(q) {
     // of live suggestions. Each is re-runnable, individually removable, and there's
     // a Clear all. Persistent + per-user via RMSearchHistory.
     if (!q) {
-        const hist = (window.RMSearchHistory ? RMSearchHistory.list('portal') : []);
+        const hist = (window.RMSearchHistory ? RMSearchHistory.list('recent') : []);
         window.__portalRecent = hist;
         if (!hist.length) { box.classList.remove('open'); box.innerHTML = ''; return; }
         let rh = `<div class="ps-section ps-section-recent">Recent searches<button class="ps-clear-all" onclick="event.stopPropagation(); portalClearRecent()">Clear all</button></div>`;
@@ -2639,7 +2652,7 @@ function portalSuggestPerson(i) {
     const p = (window.__portalSuggest?.people || [])[i];
     if (!p || !p.id) return;
     // Save the PERSON the user opened (with their avatar), not the typed text.
-    if (window.RMSearchHistory) RMSearchHistory.add('portal', { type: 'person', id: p.id, label: p.name || 'Member', sub: p.job, img: p.img || '' });
+    if (window.RMSearchHistory) RMSearchHistory.add('recent', { type: 'person', id: p.id, label: p.name || 'Member', sub: p.job, img: p.img || '' });
     closePortalSuggest();
     const me = JSON.parse(localStorage.getItem('user') || 'null');
     location.href = (me && String(me.id) === String(p.id))
@@ -2657,7 +2670,7 @@ function portalSuggestPost(i) {
         const thumb = (l.image_urls && l.image_urls[0]) || l.image_url || l.cover_image_url || '';
         const snippet = (l.content || '').replace(/\s+/g, ' ').trim().slice(0, 60) || (l.category || 'Listing');
         const poster = (l.user_name && !l.is_anonymous) ? l.user_name : 'Anonymous';
-        RMSearchHistory.add('portal', { type: 'post', id: l.id, label: snippet, sub: poster, img: thumb });
+        RMSearchHistory.add('recent', { type: 'listing', id: l.id, label: snippet, sub: poster, img: thumb });
     }
     closePortalSuggest();
     lmOpenListing(l.id);
@@ -2680,12 +2693,19 @@ function onPortalSearchBlur() {
 function portalRecentClick(idx) {
     const e = (window.__portalRecent || [])[idx];
     if (!e) return;
-    closePortalSuggest();
+    // Unified recent list (shared with Feed): route each entity to itself —
+    // person → profile, listing → its detail, FEED post → the Feed post, query → re-run.
     if (e.type === 'person' && e.id) {
+        closePortalSuggest();
         const me = JSON.parse(localStorage.getItem('user') || 'null');
         location.href = (me && String(me.id) === String(e.id)) ? 'dashboard.html' : 'dashboard.html?user_id=' + encodeURIComponent(e.id);
-    } else if (e.type === 'post' && e.id != null) {
+    } else if (e.type === 'listing' && e.id != null) {
+        closePortalSuggest();
         lmOpenListing(e.id);
+    } else if (e.type === 'post' && e.id != null) {
+        closePortalSuggest();
+        try { localStorage.setItem('route_target_post_id', String(e.id)); } catch (_) {}
+        location.href = (e.src === 'forum') ? 'forum.html' : 'home.html';
     } else {
         const inp = document.getElementById('searchInput');
         if (inp) inp.value = e.label || '';
@@ -2693,11 +2713,11 @@ function portalRecentClick(idx) {
     }
 }
 function portalDelRecentKey(key) {
-    if (window.RMSearchHistory) RMSearchHistory.remove('portal', key);
+    if (window.RMSearchHistory) RMSearchHistory.remove('recent', key);
     renderPortalSuggest('');   // re-render the recent list in place
 }
 function portalClearRecent() {
-    if (window.RMSearchHistory) RMSearchHistory.clear('portal');
+    if (window.RMSearchHistory) RMSearchHistory.clear('recent');
     renderPortalSuggest('');
 }
 

@@ -1346,6 +1346,29 @@ async function ldWatchMateStatus(ownerName){
   }
 }
 
+// Origin-aware Back: if this listing was opened from a user's PROFILE listings
+// (Feed→profile→listings, or Portal→View Profile→listings), Back returns to that
+// profile's Listings at the exact scroll — not the profile top, not the previous tab.
+// Other flows (Portal Live Market grid, AI Match Engine) have no ldProfileReturn, so
+// they fall through to the normal goBack (shell rmBack / history) unchanged.
+(function(){
+  const _origGoBack = window.goBack;
+  window.goBack = function(){
+    try {
+      const ret = JSON.parse(sessionStorage.getItem('ldProfileReturn') || 'null');
+      if (ret && ret.userId != null && ret.userId !== '') {
+        sessionStorage.removeItem('ldProfileReturn');
+        sessionStorage.setItem('ldProfileScrollRestore', JSON.stringify({ userId: ret.userId, y: ret.y || 0, t: Date.now() }));
+        const url = 'dashboard.html?user_id=' + encodeURIComponent(ret.userId) + '&view=listings';
+        if (window.self !== window.top && window.parent && typeof window.parent.rmOpen === 'function') { window.parent.rmOpen('me', url); return; }
+        location.href = url; return;
+      }
+    } catch(e){}
+    return (typeof _origGoBack === 'function') ? _origGoBack()
+      : (window.history.length > 1 ? window.history.back() : (window.location.href = 'home.html'));
+  };
+})();
+
 document.addEventListener('DOMContentLoaded', loadListing);
 </script>
 <link rel="stylesheet" href="customer-service.css?v=2">
