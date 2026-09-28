@@ -30,21 +30,53 @@
     try { var u = JSON.parse(localStorage.getItem('user') || 'null'); return (u && u.id) ? String(u.id) : null; }
     catch (e) { return null; }
   }
+  // The access token the app's MAIN Supabase client keeps fresh in localStorage
+  // (sb-<ref>-auth-token, flat or under { currentSession }). We authenticate every
+  // request with THIS token rather than letting our own client manage a session.
+  function _storedToken() {
+    try {
+      var raw = localStorage.getItem('sb-wmegpgrfrtprhuzmgjma-auth-token');
+      if (!raw) return null;
+      var j = JSON.parse(raw);
+      var s = (j && j.currentSession) ? j.currentSession : j;
+      return (s && s.access_token) ? s.access_token : null;
+    } catch (e) { return null; }
+  }
+  // Push the current token to the realtime socket so postgres_changes pass RLS.
+  // Safe to call repeatedly (e.g. after the main client refreshes the token).
+  function _reauthRealtime() {
+    try { if (_sb && _sb.realtime && _storedToken()) _sb.realtime.setAuth(_storedToken()); } catch (e) {}
+  }
   function client() {
     if (_sb) return _sb;
     if (!window.supabase || !window.supabase.createClient) return null;
-    // Reuses the session persisted under the default storage key, so requests are
-    // authenticated as the current user and RLS (auth.uid() = user_id) passes.
-    try { _sb = window.supabase.createClient(URL_, KEY_); } catch (e) { _sb = null; }
+    // CRITICAL: authenticate via the `accessToken` callback — it returns the MAIN
+    // client's already-refreshed token for every PostgREST/realtime call. The old
+    // code let THIS client manage its own GoTrue session (getSession), which, with
+    // multiple GoTrueClient instances under one storage key, could lose a cold-start
+    // race and stay anonymous forever — so pull() returned [] for EVERY bucket and
+    // realtime got no events (RLS rejects anon). accessToken has no session to race
+    // and never contends on refresh-token rotation (it only READS the token).
+    try {
+      _sb = window.supabase.createClient(URL_, KEY_, {
+        accessToken: function () { return Promise.resolve(_storedToken()); }
+      });
+      _reauthRealtime();
+    } catch (e) { _sb = null; }
     return _sb;
   }
-  // Ensure the persisted session is loaded before the first DB call, so the user's
-  // JWT is attached (otherwise the request is anon and RLS rejects it).
+  // accessToken authenticates per-request, so the client is usable as soon as it
+  // exists — no getSession/setSession handshake to await.
+  // CRITICAL: never CACHE a null client. This module is loaded BEFORE
+  // vendor/supabase-js on several pages, so the first ready()/initRealtime() (fired
+  // synchronously when search-history.js registers its onRemote handler) runs while
+  // window.supabase is still undefined → client() returns null. Caching that null
+  // (the old bug) made pull() return [] for every bucket forever, with no request.
+  // We only cache _readyP once a real client exists; otherwise we retry next call.
   function ready() {
-    if (_readyP) return _readyP;
     var sb = client();
-    if (!sb) { _readyP = Promise.resolve(null); return _readyP; }
-    _readyP = sb.auth.getSession().then(function () { return sb; }, function () { return sb; });
+    if (!sb) return Promise.resolve(null);
+    if (!_readyP) _readyP = Promise.resolve(sb);
     return _readyP;
   }
 
@@ -94,21 +126,31 @@
   // Cross-device: subscribe to this user's search_history rows (best-effort; needs the
   // table in the supabase_realtime publication). Idempotent, lazy, once.
   function initRealtime() {
-    if (_rtInited) return; var id = uid(); if (!id) return; _rtInited = true;
-    ready().then(function (sb) {
-      if (!sb || !sb.channel) return;
+    if (_rtInited) return; var id = uid(); if (!id) return;
+    var sb = client();
+    // supabase-js not loaded yet (this file runs before it on some pages) → bail
+    // WITHOUT marking done, so a later pull()/push() retries the subscription.
+    if (!sb || !sb.channel) return;
+    _rtInited = true;
+    try {
+      _reauthRealtime();   // make sure the socket carries the JWT before subscribing
+      sb.channel('search_history_' + id)
+        .on('postgres_changes',
+          { event: '*', schema: 'public', table: 'search_history', filter: 'user_id=eq.' + id },
+          function (payload) {
+            var row = (payload && payload.new) || (payload && payload.old) || {};
+            var entries = (payload && payload.new && payload.new.entries) || [];
+            if (row.bucket) emit(row.bucket, Array.isArray(entries) ? entries : []);
+          })
+        .subscribe();
+      // Keep the realtime socket's JWT current after the main client refreshes it
+      // (the token in localStorage rotates ~hourly); cheap and safe to re-assert.
       try {
-        sb.channel('search_history_' + id)
-          .on('postgres_changes',
-            { event: '*', schema: 'public', table: 'search_history', filter: 'user_id=eq.' + id },
-            function (payload) {
-              var row = (payload && payload.new) || (payload && payload.old) || {};
-              var entries = (payload && payload.new && payload.new.entries) || [];
-              if (row.bucket) emit(row.bucket, Array.isArray(entries) ? entries : []);
-            })
-          .subscribe();
+        document.addEventListener('visibilitychange', function () { if (!document.hidden) _reauthRealtime(); });
+        window.addEventListener('focus', _reauthRealtime);
+        setInterval(_reauthRealtime, 240000);
       } catch (e) {}
-    });
+    } catch (e) {}
   }
 
   window.RMSearchSync = {
@@ -120,6 +162,7 @@
     pull: function (bucket) {
       var id = uid();
       if (!id) return Promise.resolve([]);
+      initRealtime();   // retry the realtime subscribe now that supabase-js is surely loaded
       return ready().then(function (sb) {
         if (!sb) return [];
         return sb.from('search_history').select('entries')
@@ -132,6 +175,7 @@
     push: function (bucket, entries) {
       var id = uid();
       if (!id) return;
+      initRealtime();   // retry the realtime subscribe now that supabase-js is surely loaded
       // Instant same-device fan-out to other tabs/iframes (no wait for the DB round-trip).
       if (_bc) { try { _bc.postMessage({ uid: id, bucket: bucket, entries: (entries || []).slice(0, CAP) }); } catch (e) {} }
       clearTimeout(_timers[bucket]);

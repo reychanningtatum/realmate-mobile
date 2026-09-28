@@ -168,7 +168,41 @@
         migrateRecent(function () { RMSearchHistory._syncCore(scope, cb); });
         return;
       }
+      // Feed pulls BOTH its current bucket (rm_shist_feed) AND the legacy overlay
+      // bucket (so_feed) that older app builds still write to, so a Feed search
+      // made on a not-yet-updated device still shows up (and syncs to desktop).
+      if (scope === 'feed') { this._syncFeed(cb); return; }
       this._syncCore(scope, cb);
+    },
+    // Feed-specific sync: union rm_shist_feed + legacy so_feed (normalized) + local,
+    // persist + push the result to rm_shist_feed. This is what makes Feed recent
+    // searches from an older build (which write so_feed) sync to devices on the
+    // current build (which read rm_shist_feed). Once every device is updated, so_feed
+    // drains to empty and this is a no-op extra pull.
+    _syncFeed: function (cb) {
+      cb = cb || function () {};
+      var sync = window.RMSearchSync;
+      if (!sync || !sync.enabled()) { cb(read('feed')); return; }
+      var now = Date.now();
+      if (_syncedAt['feed'] && (now - _syncedAt['feed']) < SYNC_TTL) { cb(read('feed')); return; }
+      _syncedAt['feed'] = now;
+      var startedAt = now;
+      Promise.all([
+        sync.pull('rm_shist_feed').then(function (r) { return r || []; }, function () { return []; }),
+        sync.pull('so_feed').then(function (r) {
+          return (r || []).map(function (e) { return _normLegacy(e, 'so_feed'); }).filter(Boolean);
+        }, function () { return []; })
+      ]).then(function (res) {
+        // User changed the list mid-pull → keep local, push it, don't merge.
+        if (_mutatedAt['feed'] && _mutatedAt['feed'] > startedAt) {
+          sync.push('rm_shist_feed', read('feed')); cb(read('feed')); return;
+        }
+        var remote = sync.merge(res[0], res[1], keyOf);            // account + legacy
+        var merged = sync.merge(remote, read('feed'), keyOf).slice(0, CAP);   // + local
+        try { localStorage.setItem(storeKey('feed'), JSON.stringify(merged)); } catch (e) {}
+        sync.push('rm_shist_feed', merged);
+        cb(merged);
+      }, function () { cb(read('feed')); });
     },
     _syncCore: function (scope, cb) {
       cb = cb || function () {};
@@ -197,7 +231,18 @@
   try {
     if (window.RMSearchSync && window.RMSearchSync.onRemote) {
       window.RMSearchSync.onRemote(function (bucket, entries) {
-        if (!bucket || bucket.indexOf('rm_shist_') !== 0) return;
+        if (!bucket) return;
+        // Legacy Feed bucket (so_feed) from an older build: MERGE its entries into the
+        // unified 'feed' cache (don't overwrite rm_shist_feed) so an old device's live
+        // Feed search still appears here in real time.
+        if (bucket === 'so_feed') {
+          var norm = (entries || []).map(function (e) { return _normLegacy(e, 'so_feed'); }).filter(Boolean);
+          var mg = window.RMSearchSync.merge(read('feed'), norm, keyOf).slice(0, CAP);
+          try { localStorage.setItem(storeKey('feed'), JSON.stringify(mg)); } catch (e) {}
+          try { window.dispatchEvent(new CustomEvent('rmsh-remote', { detail: { scope: 'feed' } })); } catch (e) {}
+          return;
+        }
+        if (bucket.indexOf('rm_shist_') !== 0) return;
         var scope = bucket.slice('rm_shist_'.length);
         try { localStorage.setItem(storeKey(scope), JSON.stringify((entries || []).slice(0, CAP))); } catch (e) {}
         try { window.dispatchEvent(new CustomEvent('rmsh-remote', { detail: { scope: scope } })); } catch (e) {}

@@ -9,7 +9,11 @@ let user = JSON.parse(localStorage.getItem("user")) || {};
 /**
  * 🚀 IN-APP NOTIFICATION TOAST
  */
-function showSettingsNotificationToast(message, type = "success") {
+// `lockToggleId` (optional): the id of the toggle that triggered this toast. While
+// the toast is on screen that toggle is DISABLED, so a user can't rapidly flip it
+// back and forth and stack overlapping notifications. It is re-enabled only once
+// the toast has fully disappeared.
+function showSettingsNotificationToast(message, type = "success", lockToggleId) {
     const container = document.getElementById("settingsToastContainer");
     if (!container) return;
 
@@ -20,10 +24,22 @@ function showSettingsNotificationToast(message, type = "success") {
     toast.innerHTML = `<i class="fas ${icon}"></i> <span>${message}</span>`;
 
     container.appendChild(toast);
+
+    // Cooldown: lock the triggering toggle for the toast's lifetime.
+    const lockEl = lockToggleId ? document.getElementById(lockToggleId) : null;
+    const setLocked = (on) => {
+        if (!lockEl) return;
+        lockEl.disabled = on;
+        const sw = lockEl.closest('.switch');
+        if (sw) sw.classList.toggle('switch-locked', on);
+    };
+    setLocked(true);
+
     setTimeout(() => toast.classList.add("toast-visible"), 10);
     setTimeout(() => {
         toast.classList.remove("toast-visible");
-        setTimeout(() => toast.remove(), 300);
+        // Re-enable only AFTER the fade-out completes (toast fully gone).
+        setTimeout(() => { toast.remove(); setLocked(false); }, 300);
     }, 4000);
 }
 
@@ -48,7 +64,7 @@ function savePortalNotifsPref(isOn) {
     localStorage.setItem(PORTAL_NOTIFS_KEY, isOn ? '1' : '0');
     showSettingsNotificationToast(
         isOn ? 'Portal notifications turned on.' : 'Portal notifications turned off.',
-        'success'
+        'success', 'togglePortalNotifs'
     );
 }
 
@@ -106,12 +122,12 @@ async function _savePrivacyField(field, val, msg, toggleId) {
         // RLS can silently filter an UPDATE to zero rows (no error, no row back) — treat
         // that as a failure so the UI never claims a save that didn't persist.
         if (!data || data[field] !== !!val) throw new Error('privacy update did not persist');
-        showSettingsNotificationToast(msg, 'success');
+        showSettingsNotificationToast(msg, 'success', toggleId);
     } catch (e) {
         console.error('[Settings] _savePrivacyField(' + field + '):', e && (e.message || e));
         // Roll the toggle back so it reflects the real (unsaved) state.
         const t = document.getElementById(toggleId); if (t) t.checked = !val;
-        showSettingsNotificationToast('Could not save your privacy setting. Please try again.', 'error');
+        showSettingsNotificationToast('Could not save your privacy setting. Please try again.', 'error', toggleId);
     }
 }
 function savePublicAccountPref(isOn) {
@@ -276,7 +292,7 @@ async function saveBiometricPref(isOn) {
             if (!ok) {
                 const toggle = document.getElementById('toggleBiometric');
                 if (toggle) toggle.checked = false;
-                showSettingsNotificationToast('Could not verify — biometric sign-in not enabled.', 'error');
+                showSettingsNotificationToast('Could not verify — biometric sign-in not enabled.', 'error', 'toggleBiometric');
                 return;
             }
         }
@@ -295,12 +311,12 @@ async function saveBiometricPref(isOn) {
             const ready = await window.rmBio.hasCredentials();
             showSettingsNotificationToast(ready
                 ? ('Sign in with ' + t + ' is on.')
-                : ('Sign in with ' + t + ' is on — it will be ready the next time you sign in.'), 'success');
+                : ('Sign in with ' + t + ' is on — it will be ready the next time you sign in.'), 'success', 'toggleBiometric');
         } else {
-            showSettingsNotificationToast('Sign in with ' + t + ' is off.', 'success');
+            showSettingsNotificationToast('Sign in with ' + t + ' is off.', 'success', 'toggleBiometric');
         }
     } catch (e) {
-        showSettingsNotificationToast('Could not update biometric setting.', 'error');
+        showSettingsNotificationToast('Could not update biometric setting.', 'error', 'toggleBiometric');
     }
 }
 
