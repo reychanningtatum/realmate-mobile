@@ -1591,8 +1591,12 @@ html[data-theme="dark"] .lc-stat-match:hover { border-color: #166534; }
   box-shadow: 0 6px 20px -10px rgba(0, 0, 0, 0.5);
 }
 .match-your-listing-sticky {
-  position: sticky;
-  top: 48px;
+  /* Flat, in-flow card (matches the mobile reference — see the max-width:768px
+     block). NOT sticky: a fully-expanded long listing pinned at the top would be
+     taller than the viewport and its bottom would become unreachable. The page
+     scrolls normally instead, so the whole listing is always reachable. */
+  position: relative;
+  top: auto;
   z-index: 98;
   background: var(--bg);
   padding: 12px 0 10px;
@@ -1609,24 +1613,17 @@ html[data-theme="dark"] .lc-stat-match:hover { border-color: #166534; }
 }
 .your-listing-arrow.collapsed { transform: rotate(180deg); }
 .your-listing-body {
-  /* Desktop: cap the height so the sticky card never eats the whole screen and a
-     long post scrolls inside it (mouse-wheel chains fine here). On mobile this
-     nested scroller is flattened — see the max-width:768px override below — because
-     on iOS the pinned card's inner touch-scroller trapped the up-swipe. */
-  max-height: min(58vh, 560px); overflow-y: auto; overflow-x: hidden;
-  -webkit-overflow-scrolling: touch;
+  /* The card expands naturally to fit the ENTIRE listing — no internal scroller
+     and no fixed-height clip, on desktop and mobile alike. (The high max-height is
+     only so the collapse/expand toggle can still animate; it never clips real
+     content.) A long listing is read via normal PAGE scrolling. */
+  max-height: 4000px; overflow: visible;
   transition: max-height 0.3s ease, opacity 0.3s ease;
   opacity: 1;
 }
 .your-listing-body.collapsed {
   max-height: 0; opacity: 0; overflow: hidden;
 }
-/* Slim, unobtrusive scrollbar for the scrollable post */
-.your-listing-body::-webkit-scrollbar { width: 6px; }
-.your-listing-body::-webkit-scrollbar-thumb {
-  background: rgba(148,163,184,0.5); border-radius: 6px;
-}
-.your-listing-body { scrollbar-width: thin; }
 #matchView .match-layout {
   padding-top: 52px;
 }
@@ -3243,4 +3240,11 @@ html[data-theme="dark"] #spLockedMsgBtn:hover { background: #162032; }
   .lm-input{background:#0f172a;border-color:#334155;color:#e2e8f0;}
   .lm-seg,.lm-unit-chip{border-color:#334155;} .lm-seg-opt,.lm-unit-chip{background:#0f172a;color:#94a3b8;}
   .lm-suggest-menu{background:#0f172a;border-color:#334155;} .lm-suggest-item:hover{background:#1e293b;}
+}
+
+/* Desktop web only: hide the structured property-details block in the Post-a-
+   Listing composer. The desktop composer keeps the simple describe + photos
+   flow; the phone-only app (viewport < 901px) is unchanged and keeps the fields. */
+@media (min-width: 901px) {
+  #lmDetails { display: none !important; }
 }

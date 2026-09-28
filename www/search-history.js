@@ -62,11 +62,13 @@
   // Encode a URL so it is safe inside a single-quoted CSS url('...') in a style attr.
   function cssUrl(u) { return String(u || '').replace(/[\\'"()\s]/g, encodeURIComponent); }
 
-  // ── One-time migration: fold the pre-unification Feed/Portal history into the
-  // shared 'recent' bucket, so existing recents appear (and sync) after the switch to
-  // a single list. Normalizes legacy types: 'profile'→'person', and Portal's listings
-  // (stored as 'post') → 'listing'. Pulls the ACCOUNT copies so it works on a device
-  // whose local legacy cache is empty (e.g. desktop). Runs once per user.
+  // ── One-time migration for the PORTAL only: fold Portal's legacy history bucket
+  // ('rm_shist_portal') into its current 'recent' bucket, so existing Portal recents
+  // appear (and sync) on a device whose local cache is empty (e.g. desktop). Normalizes
+  // legacy types: 'profile'→'person', and Portal's listings (stored as 'post')→'listing'.
+  // IMPORTANT: this must NEVER pull Feed buckets — Feed search history (scope 'feed') is
+  // a completely separate system and folding it in here would leak Feed searches into the
+  // Portal's recent list. Runs once per user.
   function _normLegacy(e, fromBucket) {
     if (!e) return null;
     var t = e.type || 'query';
@@ -83,7 +85,9 @@
     // CRITICAL: pull the account 'recent' too and MERGE it in — otherwise this
     // device's one-time migration would OVERWRITE the account row and wipe items
     // other devices already added (the bug that broke cross-device sync).
-    var buckets = ['rm_shist_recent', 'rm_shist_portal', 'so_feed', 'rm_shist_feed'];
+    // Portal-only buckets: NEVER include Feed's ('so_feed' / 'rm_shist_feed') here —
+    // Feed and Portal search histories are independent and must not cross-contaminate.
+    var buckets = ['rm_shist_recent', 'rm_shist_portal'];
     Promise.all(buckets.map(function (b) {
       return sync.pull(b).then(function (r) { return { b: b, r: r || [] }; }, function () { return { b: b, r: [] }; });
     })).then(function (results) {

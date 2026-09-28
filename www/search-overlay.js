@@ -65,13 +65,14 @@
         if (IS_NOTIF_PAGE) return 'notifications';
         return null;
     }
-    // UNIFIED store: the Feed overlay shares ONE recent-search list with the Portal
-    // (RMSearchHistory scope 'recent'); forum/notifications keep their own scope.
-    // RMSearchHistory provides account sync + real-time (BroadcastChannel/Supabase),
-    // so an item added/removed here shows up on the Portal (and other devices) live.
+    // SEPARATE stores: Feed search history (scope 'feed') is its OWN list, kept apart
+    // from the Portal (scope 'recent'). Feed must NEVER share or display Portal's recent
+    // searches and vice-versa. RMSearchHistory provides account sync + real-time
+    // (BroadcastChannel/Supabase), so a Feed item added/removed here shows up on Feed's
+    // other devices (Feed Mobile ↔ Feed Desktop) live — and only on Feed.
     function _soScope() {
         const c = _soHistoryContext();
-        if (c === 'feed') return 'recent';   // shared with Portal
+        if (c === 'feed') return 'feed';     // Feed-only bucket (NOT shared with Portal)
         return c;                            // 'forum' | 'notifications' | null
     }
     function getSearchHistory() {

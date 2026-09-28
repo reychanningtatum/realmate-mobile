@@ -74,11 +74,22 @@ async function _savePrivacyField(field, val, msg, toggleId) {
     try {
         const { data: { user: authUser } } = await _supabase.auth.getUser();
         if (!authUser) throw new Error('not authenticated');
-        const upd = { id: authUser.id }; upd[field] = !!val;
-        const { error } = await _supabase.from('profiles').upsert(upd, { onConflict: 'id' });
+        // UPDATE the existing profile row — NOT upsert. The profile always exists for a
+        // signed-in user, and an upsert is an INSERT…ON CONFLICT: it would need INSERT
+        // RLS permission AND a value for every NOT NULL column (email, username, …), so a
+        // partial {id, is_public} payload fails with a NOT NULL violation. That was the
+        // root cause of "Could not save your privacy setting." A targeted UPDATE only
+        // needs UPDATE permission and touches just this one boolean.
+        const patch = {}; patch[field] = !!val;
+        const { data, error } = await _supabase.from('profiles')
+            .update(patch).eq('id', authUser.id).select(field).maybeSingle();
         if (error) throw error;
+        // RLS can silently filter an UPDATE to zero rows (no error, no row back) — treat
+        // that as a failure so the UI never claims a save that didn't persist.
+        if (!data || data[field] !== !!val) throw new Error('privacy update did not persist');
         showSettingsNotificationToast(msg, 'success');
     } catch (e) {
+        console.error('[Settings] _savePrivacyField(' + field + '):', e && (e.message || e));
         // Roll the toggle back so it reflects the real (unsaved) state.
         const t = document.getElementById(toggleId); if (t) t.checked = !val;
         showSettingsNotificationToast('Could not save your privacy setting. Please try again.', 'error');
