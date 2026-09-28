@@ -1585,10 +1585,12 @@ function _ensureHomeEditModal() {
     m.id = 'homeEditModal';
     m.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100000;align-items:center;justify-content:center;padding:14px;box-sizing:border-box;';
     m.innerHTML =
-        '<div style="background:#fff;border-radius:16px;width:100%;max-width:640px;height:88vh;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 12px 40px rgba(0,0,0,.2);overflow:hidden;">' +
+        '<div style="background:#fff;border-radius:16px;width:100%;max-width:640px;height:auto;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 12px 40px rgba(0,0,0,.2);overflow:hidden;">' +
           '<div style="padding:18px 20px;border-bottom:1px solid #eef2f7;font-weight:800;font-size:18px;color:#0f172a;flex:0 0 auto;">Edit post</div>' +
-          '<div style="padding:18px 20px;flex:1 1 auto;overflow-y:auto;display:flex;flex-direction:column;">' +
-            '<textarea id="homeEditText" style="width:100%;flex:1 1 auto;min-height:200px;border:1.5px solid #e2e8f0;border-radius:12px;padding:14px;font:16px/1.6 inherit;color:#0f172a;resize:none;box-sizing:border-box;" placeholder="Edit your post"></textarea>' +
+          '<div style="padding:18px 20px;flex:0 1 auto;overflow-y:auto;display:flex;flex-direction:column;">' +
+            // Compact, readable box: fixed height that becomes scrollable for long text
+            // (never grows the modal). Larger 17px text for easier reading/editing.
+            '<textarea id="homeEditText" style="width:100%;height:150px;max-height:34vh;overflow-y:auto;flex:0 0 auto;border:1.5px solid #e2e8f0;border-radius:12px;padding:14px;font-size:17px;line-height:1.5;font-family:inherit;color:#0f172a;resize:none;box-sizing:border-box;" placeholder="Edit your post"></textarea>' +
             '<div id="homeEditPhotos" style="margin-top:14px;display:none;flex:0 0 auto;">' +
               '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">' +
                 '<span style="font-size:11px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.04em;">Photos &amp; videos</span>' +
@@ -1600,7 +1602,7 @@ function _ensureHomeEditModal() {
           '</div>' +
           '<div style="display:flex;gap:12px;padding:14px 20px;border-top:1px solid #eef2f7;flex:0 0 auto;">' +
             '<button onclick="closeEditPost()" style="flex:1;padding:15px;border-radius:12px;border:1px solid #e2e8f0;background:#fff;font-size:15px;font-weight:600;cursor:pointer;">Cancel</button>' +
-            '<button id="homeEditSaveBtn" style="flex:1;padding:15px;border-radius:12px;border:none;background:#32cd32;color:#fff;font-size:15px;font-weight:700;cursor:pointer;">Save changes</button>' +
+            '<button id="homeEditSaveBtn" style="flex:1;padding:15px;border-radius:12px;border:none;background:#32cd32;color:#fff;font-size:15px;font-weight:700;cursor:pointer;">Save</button>' +
           '</div>' +
         '</div>';
     m.addEventListener('click', function (e) { if (e.target === m) closeEditPost(); });
@@ -1613,7 +1615,10 @@ function openEditPost(postId) {
     _editPostId = String(postId);
     const m = _ensureHomeEditModal();
     document.getElementById('homeEditText').value = (post && post.content) || '';
-    document.getElementById('homeEditSaveBtn').onclick = saveEditPost;
+    // Reset the (singleton) Save button every time the modal opens — otherwise a
+    // previous save left it stuck on "Saving…"/disabled and the next edit couldn't save.
+    const _sb = document.getElementById('homeEditSaveBtn');
+    if (_sb) { _sb.disabled = false; _sb.textContent = 'Save'; _sb.onclick = saveEditPost; }
 
     // Media add/remove is offered for every post EXCEPT polls. It shows exactly the
     // media the post currently displays (a video post → its video; otherwise its
@@ -1726,11 +1731,13 @@ async function saveEditPost() {
         if (error) throw error;
         _applyPostEdit(id, text, mediaPatch);
         try { localStorage.setItem('rm_post_edited', JSON.stringify({ id: String(id), content: text, media: mediaPatch, t: Date.now() })); } catch (e) {}
+        // Restore the button BEFORE closing so the reused modal is clean next time.
+        if (btn) { btn.disabled = false; btn.textContent = 'Save'; }
         closeEditPost();
         (window.showToast || function () {})('Post updated.', 'success');
     } catch (e) {
         (window.showToast || alert)('Could not save changes: ' + (e.message || e), 'error');
-        if (btn) { btn.disabled = false; btn.textContent = 'Save changes'; }
+        if (btn) { btn.disabled = false; btn.textContent = 'Save'; }
     }
 }
 // Patch a rendered post card's text + photos + in-memory copy (editor + storage
@@ -2343,6 +2350,7 @@ async function submitFeedReply(postId, parentId) {
     if (!text) return;
     field.value = '';
     hideReplyMentionBox(parentId);
+    closeEmojiPickerOnBlur('hffreply-' + parentId);   // send closes the picker; no refocus (no keyboard)
 
     const { data: authData } = await _supaHome.auth.getUser();
     await _supaHome.from('forum_comments').insert({
@@ -2419,6 +2427,7 @@ async function submitHomeComment(postId) {
     if (!text && !photo) return;
     input.value = '';
     hideMentionBox(postId);
+    closeEmojiPickerOnBlur('hfcinput-' + postId);   // send closes the picker; no refocus (no keyboard)
 
     let mediaUrl = null;
     if (photo) {
@@ -2853,9 +2862,18 @@ function openEmojiPicker(targetId, anchorEl) {
     // the viewport clamp if it happens to be tighter; floor at the left margin.
     let left = Math.min(r.right - pw, vw - pw - margin);
     left = Math.max(margin, left);
-    // Vertical: below the button, but flip above it when there isn't room below.
-    let top = r.bottom + 6;
-    if (top + ph > vh - margin && r.top - ph - 6 >= margin) top = r.top - ph - 6;
+    // Vertical: comment/reply emoji buttons sit at the BOTTOM of their card, so open
+    // the picker ABOVE the button — it rises out of the comment box (like iMessage)
+    // instead of dropping down over the next post's card. The composer's button is at
+    // the top, so it opens below (flipping up only if there isn't room).
+    const bottomAnchored = /^hfcinput-|^hffreply-/.test(_emojiTargetId || '');
+    let top;
+    if (bottomAnchored && r.top - ph - 6 >= margin) {
+        top = r.top - ph - 6;
+    } else {
+        top = r.bottom + 6;
+        if (top + ph > vh - margin && r.top - ph - 6 >= margin) top = r.top - ph - 6;
+    }
     top = Math.max(margin, Math.min(top, vh - ph - margin));
     picker.style.left = `${left}px`;
     picker.style.top = `${top}px`;
@@ -2880,10 +2898,21 @@ function closeEmojiPickerOnBlur(inputId) {
 function insertEmoji(e) {
     const el = document.getElementById(_emojiTargetId);
     if (!el) return;
-    const start = el.selectionStart ?? el.value.length;
-    el.value = el.value.slice(0, start) + e + el.value.slice(el.selectionEnd ?? start);
-    el.focus();
-    el.selectionStart = el.selectionEnd = start + e.length;
+    // Insert at the caret (or the end when the box isn't focused). We deliberately
+    // DON'T call el.focus(): tapping an emoji must never open the mobile keyboard,
+    // and the picker stays open so the user can keep adding emojis. The keyboard
+    // only appears when the user taps the typebox itself. Fire an 'input' event so
+    // any oninput logic (mention autocomplete, etc.) still runs.
+    const focused = (document.activeElement === el);
+    const start = focused ? (el.selectionStart ?? el.value.length) : el.value.length;
+    const end   = focused ? (el.selectionEnd ?? start) : el.value.length;
+    el.value = el.value.slice(0, start) + e + el.value.slice(end);
+    const caret = start + e.length;
+    // Desktop (has a physical keyboard): refocus so typing can continue. Mobile: never
+    // focus — focusing pops the on-screen keyboard, which this flow must avoid.
+    if (!_isTouchNoHover()) { el.focus(); try { el.selectionStart = el.selectionEnd = caret; } catch (_) {} }
+    else if (focused) { try { el.selectionStart = el.selectionEnd = caret; } catch (_) {} }
+    try { el.dispatchEvent(new Event('input', { bubbles: true })); } catch (_) {}
 }
 
 // ══════════════════════════════════════════════════
