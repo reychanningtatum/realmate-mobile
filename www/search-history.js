@@ -53,6 +53,46 @@
     try { if (window.RMSearchSync) window.RMSearchSync.push(bucketOf(scope), capped, immediate); } catch (e) {}
   }
 
+  // ── TOMBSTONES (feed only) ─────────────────────────────────────────────────
+  // Deletions are recorded as { key: ts } so a NON-destructive union merge can still
+  // honour them: an entry is dropped if a tombstone for its key is at least as new as
+  // the entry. This is what lets Feed sync MERGE (never replace/shrink) the account
+  // row — so a refresh, an empty account, or a stale device can NEVER wipe a saved
+  // search — while a real delete/Clear-All still sticks and propagates.
+  var TOMB_CAP = 60;
+  function tombKey(scope) { return 'rm_shtomb_' + scope + '_' + currentUid(); }
+  function tombBucket(scope) { return 'rm_shtomb_' + scope; }
+  function readTomb(scope) {
+    try { var o = JSON.parse(localStorage.getItem(tombKey(scope)) || '{}'); return (o && typeof o === 'object') ? o : {}; }
+    catch (e) { return {}; }
+  }
+  // The account stores the tombstone map as an array [{k,ts}] (search_history.entries
+  // is a jsonb array). Convert both ways.
+  function tombToArr(map) { var a = []; for (var k in map) { if (map.hasOwnProperty(k)) a.push({ k: k, ts: map[k] }); } return a; }
+  function arrToTomb(arr) { var m = {}; (arr || []).forEach(function (x) { if (x && x.k != null) m[x.k] = Math.max(m[x.k] || 0, x.ts || 0); }); return m; }
+  function mergeTomb(a, b) {
+    var m = {}, k;
+    for (k in a) if (a.hasOwnProperty(k)) m[k] = a[k];
+    for (k in b) if (b.hasOwnProperty(k)) m[k] = Math.max(m[k] || 0, b[k] || 0);
+    // Bound growth: keep the most recent TOMB_CAP tombstones.
+    var keys = Object.keys(m);
+    if (keys.length > TOMB_CAP) {
+      keys.sort(function (x, y) { return m[y] - m[x]; }).slice(TOMB_CAP).forEach(function (x) { delete m[x]; });
+    }
+    return m;
+  }
+  function writeTomb(scope, map, immediate) {
+    try { localStorage.setItem(tombKey(scope), JSON.stringify(map)); } catch (e) {}
+    try { if (window.RMSearchSync) window.RMSearchSync.push(tombBucket(scope), tombToArr(map), immediate); } catch (e) {}
+  }
+  // Drop entries that a tombstone (>= the entry's ts) says were deleted.
+  function applyTomb(list, map) {
+    return (list || []).filter(function (e) {
+      var t = map[keyOf(e)];
+      return !(t && t >= (e.ts || 0));
+    });
+  }
+
   // Initials for the CSS avatar fallback (no external service needed).
   function initials(label) {
     var parts = String(label || '').trim().split(/\s+/).filter(Boolean);
@@ -177,35 +217,36 @@
       };
       if (!entry.label && entry.type !== 'post' && entry.type !== 'listing') return;   // nothing to show
       var k = keyOf(entry);
-      var cur = read(scope);
-      var arr = cur.filter(function (e) { return keyOf(e) !== k; });
+      var arr = read(scope).filter(function (e) { return keyOf(e) !== k; });
       arr.unshift(entry);
-      var sync = window.RMSearchSync;
-      // CLOBBER GUARD: if the local cache is EMPTY it may simply be un-synced. Pushing
-      // just [entry] would REPLACE the account row and wipe entries that already live
-      // there (the data-loss bug). So when local is empty, merge the new entry INTO the
-      // account (pull → merge → push) instead of replacing. When local already has
-      // entries it's fresh (a focus/sync populated it), so a direct immediate keepalive
-      // push is safe AND survives the navigation that selecting a result triggers.
-      if (cur.length === 0 && sync && sync.enabled()) {
-        try { localStorage.setItem(storeKey(scope), JSON.stringify(arr.slice(0, CAP))); } catch (e) {}
-        _mutatedAt[scope] = Date.now();
-        sync.pull(bucketOf(scope)).then(function (remote) {
-          var merged = sync.merge([entry], remote || [], keyOf).slice(0, CAP);
-          try { localStorage.setItem(storeKey(scope), JSON.stringify(merged)); } catch (e) {}
-          sync.push(bucketOf(scope), merged, true);
-          try { window.dispatchEvent(new CustomEvent('rmsh-remote', { detail: { scope: scope } })); } catch (e) {}
-        }, function () { write(scope, arr, true); });
-      } else {
-        write(scope, arr, true);   // local is fresh → immediate keepalive push
+      // Feed: re-adding un-deletes — drop any tombstone for this key so the merge
+      // won't filter the freshly-added entry back out.
+      if (scope === 'feed') {
+        var tomb = readTomb('feed');
+        if (tomb[k] != null) { delete tomb[k]; writeTomb('feed', tomb, true); }
       }
+      // The account row is a non-destructive UNION (see _syncFeed / onRemote), so a
+      // plain local write + push can never wipe entries already on the account. Local
+      // is durable (localStorage), so the entry also survives a refresh regardless of
+      // whether the push completes before navigation.
+      write(scope, arr, true);
     },
-    // Remove one entry by its keyOf() value. Pushed immediately so the delete lands
-    // on the account row before any reload can pull the old list back.
+    // Remove one entry by its keyOf() value. For Feed, record a tombstone so the delete
+    // sticks through the non-destructive merge (and propagates to other devices).
     remove: function (scope, key) {
+      if (scope === 'feed') {
+        var tomb = readTomb('feed'); tomb[key] = Date.now(); writeTomb('feed', tomb, true);
+      }
       write(scope, read(scope).filter(function (e) { return keyOf(e) !== key; }), true);
     },
-    clear: function (scope) { write(scope, [], true); },
+    clear: function (scope) {
+      if (scope === 'feed') {
+        var tomb = readTomb('feed');
+        read('feed').forEach(function (e) { tomb[keyOf(e)] = Date.now(); });
+        writeTomb('feed', tomb, true);
+      }
+      write(scope, [], true);
+    },
     // Pull the account copy, merge it into the local cache, and persist the merge
     // back up — so this device shows searches made on other devices. Throttled to
     // once per SYNC_TTL (i.e. once per "open"), and it never resurrects an entry the
@@ -225,18 +266,15 @@
       if (scope === 'feed') { this._syncFeed(cb); return; }
       this._syncCore(scope, cb);
     },
-    // Feed sync — ACCOUNT-AUTHORITATIVE. The rm_shist_feed account row is the single
-    // source of truth: we mirror it into the local cache on every sync. This is what
-    // makes a DELETE stick — the previous version union-merged the account row with
-    // the local cache AND the legacy so_feed bucket, so any entry removed locally was
-    // resurrected on the next reload from the copy still sitting in one of those. Adds
-    // are pushed to the account row on write (see write()), so it already holds them;
-    // legacy so_feed data was already folded into rm_shist_feed by earlier builds, so
-    // it is no longer read here (reading it was the resurrection bug).
+    // Feed sync — NON-DESTRUCTIVE union + tombstones. We UNION the account list with
+    // the durable local cache (so a refresh, an empty account, or a stale device can
+    // never wipe a saved search), then drop anything a tombstone marks as deleted (so
+    // real deletes / Clear-All still stick and propagate). The merged result is written
+    // back to the account, healing it. This replaces the account-authoritative model,
+    // which kept wiping saved searches whenever the account row was momentarily empty.
     _syncFeed: function (cb) {
       cb = cb || function () {};
-      // One-time: fold legacy so_feed into rm_shist_feed + retire so_feed, THEN read the
-      // authoritative account row. After migration this is a no-op passthrough.
+      // One-time: fold legacy so_feed into rm_shist_feed + retire so_feed, THEN sync.
       migrateFeed(function () { RMSearchHistory._syncFeedCore(cb); });
     },
     _syncFeedCore: function (cb) {
@@ -246,16 +284,19 @@
       var now = Date.now();
       if (_syncedAt['feed'] && (now - _syncedAt['feed']) < SYNC_TTL) { cb(read('feed')); return; }
       _syncedAt['feed'] = now;
-      var startedAt = now;
-      sync.pull('rm_shist_feed').then(function (remote) {
-        // The user changed the list WHILE the pull was in flight (e.g. just deleted an
-        // entry) → keep the local copy and push it up; don't clobber it with the stale
-        // remote we started fetching before the change.
-        if (_mutatedAt['feed'] && _mutatedAt['feed'] > startedAt) {
-          sync.push('rm_shist_feed', read('feed')); cb(read('feed')); return;
-        }
-        var next = (Array.isArray(remote) ? remote : []).slice(0, CAP);
+      Promise.all([
+        sync.pull('rm_shist_feed').then(function (r) { return Array.isArray(r) ? r : []; }, function () { return []; }),
+        sync.pull('rm_shtomb_feed').then(function (r) { return arrToTomb(r); }, function () { return {}; })
+      ]).then(function (res) {
+        var remoteList = res[0], remoteTomb = res[1];
+        var tomb = mergeTomb(readTomb('feed'), remoteTomb);
+        var union = sync.merge(read('feed'), remoteList, keyOf);   // local + account, newest ts
+        var next = applyTomb(union, tomb).slice(0, CAP);
         try { localStorage.setItem(storeKey('feed'), JSON.stringify(next)); } catch (e) {}
+        try { localStorage.setItem(tombKey('feed'), JSON.stringify(tomb)); } catch (e) {}
+        // Heal the account with the reconciled result (and the merged tombstones).
+        sync.push('rm_shist_feed', next);
+        sync.push('rm_shtomb_feed', tombToArr(tomb));
         cb(next);
       }, function () { cb(read('feed')); });
     },
@@ -286,12 +327,33 @@
   try {
     if (window.RMSearchSync && window.RMSearchSync.onRemote) {
       window.RMSearchSync.onRemote(function (bucket, entries) {
-        // Only the current rm_shist_<scope> buckets. The account row is authoritative,
-        // so a remote change (including a DELETE or Clear-All on another device) REPLACES
-        // the local cache — that is what makes deletes propagate live. The legacy so_feed
-        // bucket is intentionally ignored (merging it back in resurrected deleted items).
-        if (!bucket || bucket.indexOf('rm_shist_') !== 0) return;
+        if (!bucket) return;
+        // FEED tombstone changed on another device (a delete / Clear-All): merge the
+        // tombstones and re-filter the local feed list so the deletion appears live.
+        if (bucket === 'rm_shtomb_feed') {
+          var tomb = mergeTomb(readTomb('feed'), arrToTomb(entries));
+          try { localStorage.setItem(tombKey('feed'), JSON.stringify(tomb)); } catch (e) {}
+          try { localStorage.setItem(storeKey('feed'), JSON.stringify(applyTomb(read('feed'), tomb).slice(0, CAP))); } catch (e) {}
+          try { window.dispatchEvent(new CustomEvent('rmsh-remote', { detail: { scope: 'feed' } })); } catch (e) {}
+          return;
+        }
+        if (bucket.indexOf('rm_shist_') !== 0) return;
         var scope = bucket.slice('rm_shist_'.length);
+        if (scope === 'feed') {
+          // FEED is NON-DESTRUCTIVE. Deletions travel as TOMBSTONES (rm_shtomb_feed),
+          // never as an empty list — so an EMPTY remote list carries no authority and is
+          // IGNORED. This is what stops an old account-authoritative build (or any stale
+          // device) from wiping saved searches by pushing []. A non-empty remote list is
+          // UNION-merged in (so a remote add appears live), then tombstoned entries drop.
+          var incoming = entries || [];
+          if (!incoming.length) return;   // empty push = no info → never shrink local
+          var merged = applyTomb(window.RMSearchSync.merge(read('feed'), incoming, keyOf), readTomb('feed')).slice(0, CAP);
+          try { localStorage.setItem(storeKey('feed'), JSON.stringify(merged)); } catch (e) {}
+          try { window.dispatchEvent(new CustomEvent('rmsh-remote', { detail: { scope: 'feed' } })); } catch (e) {}
+          return;
+        }
+        // Other scopes (Portal 'recent', forum, notifications): unchanged — the account
+        // row replaces the local cache so their deletes propagate as before.
         try { localStorage.setItem(storeKey(scope), JSON.stringify((entries || []).slice(0, CAP))); } catch (e) {}
         try { window.dispatchEvent(new CustomEvent('rmsh-remote', { detail: { scope: scope } })); } catch (e) {}
       });
