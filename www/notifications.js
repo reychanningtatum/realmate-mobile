@@ -406,17 +406,15 @@ function _signalNotifBadgeRefresh() {
     try { if (window.parent && window.parent !== window) window.parent.postMessage({ type: 'rm-notif-read' }, location.origin); } catch (e) {}
 }
 
-// Opening/viewing the Notifications tab counts as reading them: mark everything
-// read so the red bell badge clears in real time. Called on first load AND by the
-// app shell every time the Notifications tab is revealed (app-shell.js reveal()),
-// so a cached tab re-open still clears the badge. No-op when nothing is unread, so
-// re-revealing doesn't spam the DB.
+// Opening/viewing/refreshing the Notifications tab MUST NOT mark notifications
+// read. A notification only becomes read when the user taps that specific card
+// (handleNotificationRowClick) or uses "Mark all as read". This hook is still
+// invoked by the app shell every time the tab is revealed (app-shell.js
+// reveal()), but it now only nudges the bell badge to RECOUNT the true unread
+// total — it never flips is_read. Kept as a defined no-op so the shell's call
+// doesn't throw.
 window.rmMarkNotificationsViewed = async function () {
-    try {
-        if (!Array.isArray(localNotificationsCache) || !localNotificationsCache.some(n => !n.is_read)) return;
-        await markAllNotificationsAsRead();
-        _signalNotifBadgeRefresh();
-    } catch (e) {}
+    try { _signalNotifBadgeRefresh(); } catch (e) {}
 };
 
 /**
@@ -525,6 +523,25 @@ async function handleNotificationRowClick(id) {
     if (notif.type === 'mate_request' || notif.type === 'mate_accepted' || notif.type === 'mate_declined' ||
         notif.type === 'follow' || notif.type === 'follow_request' || notif.type === 'follow_accepted') {
         await _notifGoToSenderProfile(notif);
+        return;
+    }
+
+    // AI Match → open the Portal on the AI Match Engine tab and highlight the
+    // exact matched listing (same mechanism match-alert.js uses for its banner:
+    // rm_portal_tab selects the Matches tab, rm_match_highlight scrolls to +
+    // outlines the specific listing once the list renders).
+    if (notif.type === 'match') {
+        const matchId = notif.target_listing_id || notif.target_post_id || notif.listing_id || notif.ref_id || null;
+        try { localStorage.setItem('rm_portal_tab', 'AI_ENGINE'); } catch (e) {}
+        if (matchId != null) { try { localStorage.setItem('rm_match_highlight', String(matchId)); } catch (e) {} }
+        location.href = 'livemarket.html';
+        return;
+    }
+
+    // Broadcast = an admin announcement to everyone. Its whole content is the
+    // notification card itself; there is no specific item to open. Stay on the
+    // Notifications page (already marked read) rather than bouncing to the Feed.
+    if (notif.type === 'broadcast') {
         return;
     }
 
@@ -751,9 +768,10 @@ window.onload = async () => {
     ]);
     renderNotificationsInterface();
     setupRealtimeNotificationListener();
-    // Opening the tab = viewing → mark read so the red bell badge clears. (Re-opens
-    // of the cached tab are handled by the shell calling rmMarkNotificationsViewed.)
-    rmMarkNotificationsViewed();
+    // NOTE: opening the Notifications page does NOT mark anything read. Reads
+    // happen only on a direct card tap or "Mark all as read". We just keep the
+    // bell badge in sync with the true unread count.
+    _signalNotifBadgeRefresh();
 };
 // ── Live relationship sync ──────────────────────────────────────────────────
 // Keep notification cards in step with the current relationship state. Any

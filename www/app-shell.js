@@ -88,9 +88,10 @@
     // out). No-op on first reveal (nothing stored) or when it was at the top.
     var f = frames[tab];
     if (f && f.__scrollY > 0) restoreFrameScroll(f, f.__scrollY);
-    // Opening/revealing the Notifications tab counts as viewing them → tell the page
-    // to mark everything read so the red bell badge clears in real time (covers a
-    // cached re-open, where the page's own onload doesn't run again).
+    // Revealing the Notifications tab must NOT mark anything read — reads happen
+    // only on a direct card tap or "Mark all as read". This just nudges the bell
+    // badge to recount the true unread total (rmMarkNotificationsViewed is now a
+    // no-op beyond that badge refresh).
     if (tab === 'notifications' && f) {
       try { var _nw = f.contentWindow; if (_nw && typeof _nw.rmMarkNotificationsViewed === 'function') _nw.rmMarkNotificationsViewed(); } catch (e) {}
     }
