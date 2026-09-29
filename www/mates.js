@@ -271,14 +271,23 @@ async function loadMatesCache() {
 
         _matesCache = {};
         _matesCacheById = {};
+        // Two accounts can have MULTIPLE mates rows over time (e.g. a stale
+        // outgoing row left beside a fresh incoming pending request). A naive
+        // last-row-wins could let an old 'pending_sent'/'accepted' row overwrite
+        // the NEW 'pending_received' one, so the request notification would show
+        // "Request declined." instead of Accept/Decline. Rank the statuses and
+        // keep the most actionable per person: an INCOMING pending request wins,
+        // so its Accept/Decline always render for the latest request.
+        const RANK = { none: 0, accepted: 1, pending_sent: 2, pending_received: 3 };
+        const _better = (a, b) => (RANK[a] || 0) >= (RANK[b] || 0) ? a : b;
         (rows || []).forEach(r => {
             const otherName = r.requester_id === myId ? r.recipient_name : r.requester_name;
             const otherId = r.requester_id === myId ? r.recipient_id : r.requester_id;
             const status = r.status === 'accepted'
                 ? 'accepted'
                 : (r.requester_id === myId ? 'pending_sent' : 'pending_received');
-            _matesCache[otherName] = status;
-            if (otherId) _matesCacheById[otherId] = status;
+            if (otherName) _matesCache[otherName] = _better(status, _matesCache[otherName]);
+            if (otherId) _matesCacheById[otherId] = _better(status, _matesCacheById[otherId]);
         });
         _matesLoaded = true;
     } catch (e) { console.warn('mates cache load:', e); }
