@@ -43,12 +43,14 @@
         .filter(function (e) { return e && (e.label || e.type === 'post' || e.type === 'listing'); });
     } catch (e) { return []; }
   }
-  function write(scope, arr) {
+  function write(scope, arr, immediate) {
     var capped = arr.slice(0, CAP);
     try { localStorage.setItem(storeKey(scope), JSON.stringify(capped)); } catch (e) {}
-    // Mirror the write up to the account so other devices see it.
+    // Mirror the write up to the account so other devices see it. `immediate` skips the
+    // debounce — used for deletes/clear so the account row is updated at once and a
+    // quick reload can't pull the pre-delete list back.
     _mutatedAt[scope] = Date.now();
-    try { if (window.RMSearchSync) window.RMSearchSync.push(bucketOf(scope), capped); } catch (e) {}
+    try { if (window.RMSearchSync) window.RMSearchSync.push(bucketOf(scope), capped, immediate); } catch (e) {}
   }
 
   // Initials for the CSS avatar fallback (no external service needed).
@@ -108,6 +110,35 @@
     }, function () { done(); });
   }
 
+  // ── One-time FEED migration: fold the legacy overlay bucket 'so_feed' (older app
+  // builds wrote Feed searches there) into the authoritative 'rm_shist_feed', then
+  // CLEAR so_feed so it can never resurrect a deleted entry again. After this runs,
+  // Feed reads only rm_shist_feed (account-authoritative), so deletes stick. Runs once
+  // per user; merges the account row (not just local) so no device wipes another's adds.
+  function migrateFeed(done) {
+    done = done || function () {};
+    var sync = window.RMSearchSync;
+    var flag = 'rm_feed_migrated_' + currentUid();
+    if (!sync || !sync.enabled() || currentUid() === 'anon') { done(); return; }
+    try { if (localStorage.getItem(flag) === '1') { done(); return; } } catch (e) {}
+    Promise.all([
+      sync.pull('rm_shist_feed').then(function (r) { return r || []; }, function () { return []; }),
+      sync.pull('so_feed').then(function (r) {
+        return (r || []).map(function (e) { return _normLegacy(e, 'so_feed'); }).filter(Boolean);
+      }, function () { return []; })
+    ]).then(function (res) {
+      var merged = sync.merge(sync.merge(res[0], res[1], keyOf), read('feed'), keyOf).slice(0, CAP);
+      try { localStorage.setItem(storeKey('feed'), JSON.stringify(merged)); } catch (e) {}
+      // AWAIT the account write so the account-authoritative pull that follows sees the
+      // migrated data (rather than racing an empty row). Then retire so_feed.
+      Promise.resolve(sync.push('rm_shist_feed', merged, true)).then(function () {
+        sync.push('so_feed', [], true);           // retire the legacy bucket → no more resurrection
+        try { localStorage.setItem(flag, '1'); } catch (e) {}
+        done();
+      }, function () { try { localStorage.setItem(flag, '1'); } catch (e) {} done(); });
+    }, function () { done(); });
+  }
+
   window.RMSearchHistory = {
     keyOf: keyOf,
     initials: initials,
@@ -150,11 +181,12 @@
       arr.unshift(entry);
       write(scope, arr);
     },
-    // Remove one entry by its keyOf() value.
+    // Remove one entry by its keyOf() value. Pushed immediately so the delete lands
+    // on the account row before any reload can pull the old list back.
     remove: function (scope, key) {
-      write(scope, read(scope).filter(function (e) { return keyOf(e) !== key; }));
+      write(scope, read(scope).filter(function (e) { return keyOf(e) !== key; }), true);
     },
-    clear: function (scope) { write(scope, []); },
+    clear: function (scope) { write(scope, [], true); },
     // Pull the account copy, merge it into the local cache, and persist the merge
     // back up — so this device shows searches made on other devices. Throttled to
     // once per SYNC_TTL (i.e. once per "open"), and it never resurrects an entry the
@@ -174,12 +206,21 @@
       if (scope === 'feed') { this._syncFeed(cb); return; }
       this._syncCore(scope, cb);
     },
-    // Feed-specific sync: union rm_shist_feed + legacy so_feed (normalized) + local,
-    // persist + push the result to rm_shist_feed. This is what makes Feed recent
-    // searches from an older build (which write so_feed) sync to devices on the
-    // current build (which read rm_shist_feed). Once every device is updated, so_feed
-    // drains to empty and this is a no-op extra pull.
+    // Feed sync — ACCOUNT-AUTHORITATIVE. The rm_shist_feed account row is the single
+    // source of truth: we mirror it into the local cache on every sync. This is what
+    // makes a DELETE stick — the previous version union-merged the account row with
+    // the local cache AND the legacy so_feed bucket, so any entry removed locally was
+    // resurrected on the next reload from the copy still sitting in one of those. Adds
+    // are pushed to the account row on write (see write()), so it already holds them;
+    // legacy so_feed data was already folded into rm_shist_feed by earlier builds, so
+    // it is no longer read here (reading it was the resurrection bug).
     _syncFeed: function (cb) {
+      cb = cb || function () {};
+      // One-time: fold legacy so_feed into rm_shist_feed + retire so_feed, THEN read the
+      // authoritative account row. After migration this is a no-op passthrough.
+      migrateFeed(function () { RMSearchHistory._syncFeedCore(cb); });
+    },
+    _syncFeedCore: function (cb) {
       cb = cb || function () {};
       var sync = window.RMSearchSync;
       if (!sync || !sync.enabled()) { cb(read('feed')); return; }
@@ -187,21 +228,16 @@
       if (_syncedAt['feed'] && (now - _syncedAt['feed']) < SYNC_TTL) { cb(read('feed')); return; }
       _syncedAt['feed'] = now;
       var startedAt = now;
-      Promise.all([
-        sync.pull('rm_shist_feed').then(function (r) { return r || []; }, function () { return []; }),
-        sync.pull('so_feed').then(function (r) {
-          return (r || []).map(function (e) { return _normLegacy(e, 'so_feed'); }).filter(Boolean);
-        }, function () { return []; })
-      ]).then(function (res) {
-        // User changed the list mid-pull → keep local, push it, don't merge.
+      sync.pull('rm_shist_feed').then(function (remote) {
+        // The user changed the list WHILE the pull was in flight (e.g. just deleted an
+        // entry) → keep the local copy and push it up; don't clobber it with the stale
+        // remote we started fetching before the change.
         if (_mutatedAt['feed'] && _mutatedAt['feed'] > startedAt) {
           sync.push('rm_shist_feed', read('feed')); cb(read('feed')); return;
         }
-        var remote = sync.merge(res[0], res[1], keyOf);            // account + legacy
-        var merged = sync.merge(remote, read('feed'), keyOf).slice(0, CAP);   // + local
-        try { localStorage.setItem(storeKey('feed'), JSON.stringify(merged)); } catch (e) {}
-        sync.push('rm_shist_feed', merged);
-        cb(merged);
+        var next = (Array.isArray(remote) ? remote : []).slice(0, CAP);
+        try { localStorage.setItem(storeKey('feed'), JSON.stringify(next)); } catch (e) {}
+        cb(next);
       }, function () { cb(read('feed')); });
     },
     _syncCore: function (scope, cb) {
@@ -231,18 +267,11 @@
   try {
     if (window.RMSearchSync && window.RMSearchSync.onRemote) {
       window.RMSearchSync.onRemote(function (bucket, entries) {
-        if (!bucket) return;
-        // Legacy Feed bucket (so_feed) from an older build: MERGE its entries into the
-        // unified 'feed' cache (don't overwrite rm_shist_feed) so an old device's live
-        // Feed search still appears here in real time.
-        if (bucket === 'so_feed') {
-          var norm = (entries || []).map(function (e) { return _normLegacy(e, 'so_feed'); }).filter(Boolean);
-          var mg = window.RMSearchSync.merge(read('feed'), norm, keyOf).slice(0, CAP);
-          try { localStorage.setItem(storeKey('feed'), JSON.stringify(mg)); } catch (e) {}
-          try { window.dispatchEvent(new CustomEvent('rmsh-remote', { detail: { scope: 'feed' } })); } catch (e) {}
-          return;
-        }
-        if (bucket.indexOf('rm_shist_') !== 0) return;
+        // Only the current rm_shist_<scope> buckets. The account row is authoritative,
+        // so a remote change (including a DELETE or Clear-All on another device) REPLACES
+        // the local cache — that is what makes deletes propagate live. The legacy so_feed
+        // bucket is intentionally ignored (merging it back in resurrected deleted items).
+        if (!bucket || bucket.indexOf('rm_shist_') !== 0) return;
         var scope = bucket.slice('rm_shist_'.length);
         try { localStorage.setItem(storeKey(scope), JSON.stringify((entries || []).slice(0, CAP))); } catch (e) {}
         try { window.dispatchEvent(new CustomEvent('rmsh-remote', { detail: { scope: scope } })); } catch (e) {}

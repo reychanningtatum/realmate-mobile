@@ -171,25 +171,29 @@
                 function () { return []; });
       });
     },
-    // Upsert the bucket's entries for this user (debounced per bucket).
-    push: function (bucket, entries) {
+    // Upsert the bucket's entries for this user. Debounced per bucket, unless
+    // `immediate` (deletes/clear) — those fire the upsert right away so the account
+    // row reflects the removal before any reload can pull the pre-delete list back.
+    push: function (bucket, entries, immediate) {
       var id = uid();
       if (!id) return;
       initRealtime();   // retry the realtime subscribe now that supabase-js is surely loaded
       // Instant same-device fan-out to other tabs/iframes (no wait for the DB round-trip).
       if (_bc) { try { _bc.postMessage({ uid: id, bucket: bucket, entries: (entries || []).slice(0, CAP) }); } catch (e) {} }
-      clearTimeout(_timers[bucket]);
-      _timers[bucket] = setTimeout(function () {
-        ready().then(function (sb) {
+      var doUpsert = function () {
+        return ready().then(function (sb) {
           if (!sb) return;
           try {
-            sb.from('search_history').upsert(
+            return sb.from('search_history').upsert(
               { user_id: id, bucket: bucket, entries: (entries || []).slice(0, CAP), updated_at: new Date().toISOString() },
               { onConflict: 'user_id,bucket' }
             ).then(function () {}, function () {});
           } catch (e) {}
         });
-      }, 400);
+      };
+      clearTimeout(_timers[bucket]);
+      if (immediate) { return doUpsert(); }   // returns a promise callers can await
+      _timers[bucket] = setTimeout(doUpsert, 400);
     }
   };
 })();

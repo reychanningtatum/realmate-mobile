@@ -9,13 +9,34 @@ let user = JSON.parse(localStorage.getItem("user")) || {};
 /**
  * 🚀 IN-APP NOTIFICATION TOAST
  */
-// `lockToggleId` (optional): the id of the toggle that triggered this toast. While
-// the toast is on screen that toggle is DISABLED, so a user can't rapidly flip it
-// back and forth and stack overlapping notifications. It is re-enabled only once
-// the toast has fully disappeared.
-function showSettingsNotificationToast(message, type = "success", lockToggleId) {
+// Every switch toggle in Settings (Portal Notifications, Public Account, Public
+// Following, Face ID, …). Scoped to .switch so unrelated checkboxes are untouched.
+function _settingsToggleEls() {
+    return Array.prototype.slice.call(document.querySelectorAll('.switch input[type="checkbox"]'));
+}
+// GLOBAL cooldown: while a notification is on screen, EVERY settings toggle is
+// disabled — the user changes one setting at a time and toasts never stack.
+function _lockSettingsToggles(on) {
+    _settingsToggleEls().forEach(function (el) {
+        el.disabled = on;
+        const sw = el.closest('.switch');
+        if (sw) sw.classList.toggle('switch-locked', on);
+    });
+}
+// Only ONE notification exists at a time; while it shows, ALL settings toggles are
+// locked, and they all unlock once it has fully disappeared. (The optional 3rd arg
+// some callers still pass is ignored — the lock is global now.)
+let _settingsToastTimers = [];
+function showSettingsNotificationToast(message, type = "success") {
     const container = document.getElementById("settingsToastContainer");
     if (!container) return;
+
+    // Single notification, bulletproof: cancel the previous toast's pending timers and
+    // remove any existing toast, so exactly one toast is ever on screen and the unlock
+    // can never be stranded by a superseded toast's timer.
+    _settingsToastTimers.forEach(id => clearTimeout(id));
+    _settingsToastTimers = [];
+    Array.prototype.slice.call(container.querySelectorAll('.settings-toast')).forEach(t => t.remove());
 
     const toast = document.createElement("div");
     toast.className = `settings-toast ${type === "success" ? "toast-success" : "toast-error"}`;
@@ -24,23 +45,16 @@ function showSettingsNotificationToast(message, type = "success", lockToggleId) 
     toast.innerHTML = `<i class="fas ${icon}"></i> <span>${message}</span>`;
 
     container.appendChild(toast);
+    _lockSettingsToggles(true);   // lock ALL toggles for this toast's lifetime
 
-    // Cooldown: lock the triggering toggle for the toast's lifetime.
-    const lockEl = lockToggleId ? document.getElementById(lockToggleId) : null;
-    const setLocked = (on) => {
-        if (!lockEl) return;
-        lockEl.disabled = on;
-        const sw = lockEl.closest('.switch');
-        if (sw) sw.classList.toggle('switch-locked', on);
-    };
-    setLocked(true);
-
-    setTimeout(() => toast.classList.add("toast-visible"), 10);
-    setTimeout(() => {
+    _settingsToastTimers.push(setTimeout(() => toast.classList.add("toast-visible"), 10));
+    _settingsToastTimers.push(setTimeout(() => {
         toast.classList.remove("toast-visible");
-        // Re-enable only AFTER the fade-out completes (toast fully gone).
-        setTimeout(() => { toast.remove(); setLocked(false); }, 300);
-    }, 4000);
+        _settingsToastTimers.push(setTimeout(() => {
+            toast.remove();
+            _lockSettingsToggles(false);   // this is the only/last toast → safe to unlock all
+        }, 300));
+    }, 4000));
 }
 
 /* ============================================================

@@ -157,38 +157,54 @@ html.rm-embedded .settings-field > label { overflow-wrap: anywhere; word-break: 
    ========================================= */
 .toast-container {
     position: fixed;
-    /* Top-CENTER, slightly below the top edge (respecting the device safe area so
-       it never hides under the status bar / notch). */
+    /* Top-CENTER, slightly below the top edge (respecting the device safe area so it
+       never hides under the status bar / notch). A single WIDE rectangle: it stretches
+       to a comfortable max width with side margins, centered horizontally. */
     top: calc(env(safe-area-inset-top, 0px) + 16px);
     left: 50%;
     transform: translateX(-50%);
+    width: 100%;
+    max-width: 560px;
+    padding: 0 16px;               /* comfortable side margins on every screen */
+    box-sizing: border-box;
     display: flex;
     flex-direction: column;
-    align-items: center;
-    gap: 12px;
+    align-items: stretch;          /* the toast fills the width → wide rectangle */
+    gap: 10px;
     z-index: 999999;
-    max-width: calc(100vw - 24px);
-    pointer-events: none;   /* toasts are non-interactive; don't block the page */
+    pointer-events: none;          /* toasts are non-interactive; don't block the page */
 }
 
 .settings-toast {
     display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 16px 28px;
+    align-items: center;           /* icon + message on one baseline */
+    gap: 14px;
+    width: 100%;
+    padding: 15px 20px;
     border-radius: 16px;
     background: #0f172a;
-    color: white;
-    font-size: 14px;
-    font-weight: 700;
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-    transform: translateY(-20px) scale(0.95);
+    color: #fff;
+    font-size: 14.5px;
+    font-weight: 600;
+    line-height: 1.35;
+    text-align: left;
+    box-shadow: 0 18px 40px -12px rgba(15, 23, 42, 0.55);
+    transform: translateY(-14px);
     opacity: 0;
-    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.28s ease;
+}
+.settings-toast i {
+    font-size: 20px;
+    flex-shrink: 0;
+    line-height: 1;
+}
+.settings-toast span {
+    flex: 1;
+    min-width: 0;                  /* let long messages wrap instead of overflowing */
 }
 
 .settings-toast.toast-visible {
-    transform: translateY(0) scale(1);
+    transform: translateY(0);
     opacity: 1;
 }
 
