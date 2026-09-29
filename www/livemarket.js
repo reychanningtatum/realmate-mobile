@@ -5469,7 +5469,7 @@ async function handleAddMateFromLocked() {
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Sending...';
     try {
-        const result = await sendMateRequest(window._spName, window._spImg);
+        const result = await sendMateRequest(window._spName, window._spImg, window._spUserId);
         if (result?.success) {
             btn.innerHTML = '<i class="fas fa-check"></i> Request Sent';
             btn.style.background = '#16a34a';

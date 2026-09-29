@@ -130,8 +130,10 @@ async function handleGateAddMate(btn, userName) {
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
     const card = btn.closest('.profile-gate-card');
     const userImg = document.getElementById('profileImage')?.src || '';
+    // Pass the viewed profile's exact account id (namesake-proof) so the request
+    // + its notification target this specific account, not a same-named one.
     const result = (typeof sendMateRequest === 'function')
-        ? await sendMateRequest(userName, userImg)
+        ? await sendMateRequest(userName, userImg, (typeof _viewUserId !== 'undefined' ? _viewUserId : undefined) || undefined)
         : { success: false, error: 'unavailable' };
 
     if (result.success && result.accepted) {

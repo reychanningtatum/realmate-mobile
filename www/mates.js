@@ -420,7 +420,7 @@ async function getMatesList() {
     } catch (e) { console.warn('getMatesList:', e); return { accepted: [], pendingReceived: [] }; }
 }
 
-async function sendMateRequest(recipientName, recipientImg) {
+async function sendMateRequest(recipientName, recipientImg, recipientIdArg) {
     const me = _localUser();
     if (!me) return { error: 'Not logged in' };
 
@@ -429,14 +429,20 @@ async function sendMateRequest(recipientName, recipientImg) {
         const myId = authData?.user?.id;
         if (!myId) return { error: 'Not authenticated' };
 
-        // Find recipient id from profiles first, fall back to listings
-        let recipientId = null;
-        const { data: profileRows } = await _matesDb
-            .from('profiles')
-            .select('id')
-            .eq('full_name', recipientName)
-            .limit(1);
-        recipientId = profileRows?.[0]?.id || null;
+        // Prefer the EXACT account id the caller resolved (from the profile/person
+        // card the user tapped). Resolving by display name is ambiguous when two
+        // accounts share a name — the request (and its notification) would target
+        // whichever profile the name lookup happened to pick. Only fall back to a
+        // name lookup when no id was passed.
+        let recipientId = recipientIdArg || null;
+        if (!recipientId) {
+            const { data: profileRows } = await _matesDb
+                .from('profiles')
+                .select('id')
+                .eq('full_name', recipientName)
+                .limit(1);
+            recipientId = profileRows?.[0]?.id || null;
+        }
         if (!recipientId) {
             const { data: listingRows } = await _matesDb
                 .from('listings')
@@ -983,18 +989,20 @@ function mateButtonHtml(userName, btnClass = 'btn-mate', userId) {
                     </div>
                 </div>`;
     }
-    return `<button class="${btnClass}" onclick="handleAddMate(this, '${userName.replace(/'/g, "\\'")}')">
+    return `<button class="${btnClass}" onclick="handleAddMate(this, '${userName.replace(/'/g, "\\'")}', '${userId || ''}')">
                 <i class="fas fa-user-plus"></i> Add as Mate
             </button>`;
 }
 
-async function handleAddMate(btn, userName) {
+async function handleAddMate(btn, userName, userId) {
     const originalClass = btn.className;
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
     const userImg = btn.closest('.listing-card, .match-card, .profile-info-block')
         ?.querySelector('img')?.src || '';
-    const result = await sendMateRequest(userName, userImg);
+    // Pass the exact account id when we have it so the request targets the right
+    // account even if a same-named account exists (namesake-proof).
+    const result = await sendMateRequest(userName, userImg, userId || undefined);
     if (result.success && result.accepted) {
         // They had already sent us a request, so this became an accept, not a
         // send — reflect the real end state (Realmates), not a pending one.

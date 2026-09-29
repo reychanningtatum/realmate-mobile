@@ -131,7 +131,14 @@ async function fetchNotificationsList() {
         if (userSettings.anonName) {
             nameFilter += `,recipient_user_name.eq."${userSettings.anonName}"`;
         }
-        const idFilter = user.id ? `recipient_id.eq.${user.id},${nameFilter}` : nameFilter;
+        // Deliver by ACCOUNT ID when the row has one (namesake-proof: two accounts
+        // sharing a display name no longer receive each other's notifications).
+        // Fall back to NAME only for legacy rows written before recipient_id
+        // existed (recipient_id IS NULL). _notifQueryWithIdFallback drops to a
+        // name-only filter if the recipient_id column itself doesn't exist yet.
+        const idFilter = user.id
+            ? `recipient_id.eq.${user.id},and(recipient_id.is.null,or(${nameFilter}))`
+            : nameFilter;
 
         const { data, error } = await _notifQueryWithIdFallback(
             (filter) => _supabase.from('notifications').select('*').or(filter).order('created_at', { ascending: false }),
@@ -391,7 +398,14 @@ async function markAllNotificationsAsRead() {
         if (userSettings.anonName) {
             nameFilter += `,recipient_user_name.eq."${userSettings.anonName}"`;
         }
-        const idFilter = user.id ? `recipient_id.eq.${user.id},${nameFilter}` : nameFilter;
+        // Deliver by ACCOUNT ID when the row has one (namesake-proof: two accounts
+        // sharing a display name no longer receive each other's notifications).
+        // Fall back to NAME only for legacy rows written before recipient_id
+        // existed (recipient_id IS NULL). _notifQueryWithIdFallback drops to a
+        // name-only filter if the recipient_id column itself doesn't exist yet.
+        const idFilter = user.id
+            ? `recipient_id.eq.${user.id},and(recipient_id.is.null,or(${nameFilter}))`
+            : nameFilter;
 
         // Optimistically clean user layout memory structures
         localNotificationsCache.forEach(n => n.is_read = true);
@@ -680,9 +694,13 @@ function setupRealtimeNotificationListener() {
             table: 'notifications'
         }, payload => {
             if (payload.new) {
-                const targetMatch = (user.id && payload.new.recipient_id === user.id) ||
-                                    payload.new.recipient_user_name === user.name ||
-                                    (userSettings.anonName && payload.new.recipient_user_name === userSettings.anonName);
+                // Match by ACCOUNT ID when the new row carries one (namesake-proof);
+                // fall back to NAME only for legacy rows with a null recipient_id.
+                const _rid = payload.new.recipient_id;
+                const targetMatch = (_rid !== null && _rid !== undefined && _rid !== '')
+                    ? (user.id && String(_rid) === String(user.id))
+                    : (payload.new.recipient_user_name === user.name ||
+                       (userSettings.anonName && payload.new.recipient_user_name === userSettings.anonName));
 
                 if (targetMatch) {
                     _resolveLiveSenders([payload.new]).finally(async () => {

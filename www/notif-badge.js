@@ -12,7 +12,12 @@
         if (userSettings.anonName) {
             nameFilter += `,recipient_user_name.eq."${userSettings.anonName}"`;
         }
-        const idFilter = user.id ? `recipient_id.eq.${user.id},${nameFilter}` : nameFilter;
+        // Count by ACCOUNT ID when the row has one (namesake-proof); name only for
+        // legacy rows with a null recipient_id. So a notification addressed to a
+        // same-named OTHER account never inflates this account's badge.
+        const idFilter = user.id
+            ? `recipient_id.eq.${user.id},and(recipient_id.is.null,or(${nameFilter}))`
+            : nameFilter;
         return { idFilter, nameFilter };
     }
 
@@ -68,7 +73,7 @@
             // migration), so no "column might not exist" fallback is needed
             // here — just id-or-name, same rename-safety as elsewhere.
             const recipientFilter = user.id
-                ? `recipient_id.eq.${user.id},recipient_name.eq."${user.name}"`
+                ? `recipient_id.eq.${user.id},and(recipient_id.is.null,recipient_name.eq."${user.name}")`
                 : `recipient_name.eq."${user.name}"`;
 
             const res = await fetch(
@@ -356,9 +361,14 @@
     // Realtime subscription for instant notifications
     try {
         const _notifSupa = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-        const isMine = (row) => (user.id && row.recipient_id === user.id) ||
-            row.recipient_user_name === user.name ||
-            (userSettings.anonName && row.recipient_user_name === userSettings.anonName);
+        // Prefer ACCOUNT ID when the row carries one (namesake-proof); name only
+        // for legacy rows with a null/absent recipient_id.
+        const isMine = (row) => {
+            const rid = row && row.recipient_id;
+            if (rid !== null && rid !== undefined && rid !== '') return !!user.id && String(rid) === String(user.id);
+            return (row && row.recipient_user_name === user.name) ||
+                (userSettings.anonName && row && row.recipient_user_name === userSettings.anonName);
+        };
         _notifSupa
             .channel('notif-badge')
             .on('postgres_changes',
@@ -415,7 +425,9 @@
         const isMineAsRecipient = (row) => {
             if (!row) return true;
             if (row.recipient_id === undefined && row.recipient_name === undefined) return true;
-            return (user.id && row.recipient_id === user.id) || row.recipient_name === user.name;
+            const rid = row.recipient_id;
+            if (rid !== null && rid !== undefined && rid !== '') return !!user.id && String(rid) === String(user.id);
+            return row.recipient_name === user.name;
         };
         _matesSupa
             .channel('notif-badge-mates')
