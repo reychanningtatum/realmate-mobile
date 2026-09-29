@@ -1110,40 +1110,10 @@ async function loadHomeFeed(feedEl, filterArg, silent) {
         // Wire autoplay + mute control for any videos in the freshly-rendered feed.
         try { if (window.RMFeedVideo) RMFeedVideo.scan(feed); } catch (e) {}
 
-        // Deep link from notification
-        const targetPostId = localStorage.getItem('route_target_post_id');
-        const targetAnchorId = localStorage.getItem('route_target_anchor_id');
-        if (targetPostId) {
-            localStorage.removeItem('route_target_post_id');
-            localStorage.removeItem('route_target_anchor_id');
-            const postEl = document.getElementById(`hfpost-${targetPostId}`);
-            if (postEl) {
-                // Open comments section
-                const commSection = document.getElementById(`hfcomments-${targetPostId}`);
-                if (commSection && commSection.style.display === 'none') {
-                    commSection.style.display = 'block';
-                    initCommentAvatar(parseInt(targetPostId));
-                    await loadHomeComments(parseInt(targetPostId));
-                }
-                setTimeout(() => {
-                    // Prefer a specific comment/reply anchor when it exists, but fall
-                    // back to the POST card itself. Like/Reaction notifications only
-                    // carry target_post_id and set a legacy 'post-<id>' anchor that
-                    // doesn't exist in the Feed (cards are 'hfpost-<id>'); without this
-                    // fallback the scroll+highlight silently no-op'd and the user just
-                    // landed at the top of the Feed.
-                    const scrollTarget = (targetAnchorId && document.getElementById(targetAnchorId)) || postEl;
-                    if (scrollTarget) {
-                        scrollTarget.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        // Temporary green highlight so the user sees exactly which post
-                        // generated the notification. Removed after 3s so it never
-                        // persists once they navigate away / stay on the Feed.
-                        scrollTarget.classList.add('hf-notif-highlight');
-                        setTimeout(() => { scrollTarget.classList.remove('hf-notif-highlight'); }, 3000);
-                    }
-                }, 300);
-            }
-        }
+        // Deep link from a notification — scroll to + highlight the exact target.
+        // Runs AFTER this render pass, but also polls (the post may not be in the
+        // DOM yet on a cold first navigation), so the FIRST click always lands.
+        rmConsumeFeedDeepLink();
 
     } catch (err) {
         console.error('Home feed error:', err);
@@ -1153,6 +1123,72 @@ async function loadHomeFeed(feedEl, filterArg, silent) {
         </div>`;
     }
 }
+
+// Consume a notification deep-link: scroll to + green-highlight the EXACT post
+// (and comment/reply, when targeted). Robust by design so the FIRST click always
+// lands regardless of how cold the feed is:
+//   • polls for the target card to actually exist in the DOM (the feed may still
+//     be fetching/rendering right after navigation) — no fixed guess-timeout;
+//   • opens the comments thread only when a comment/reply anchor is targeted;
+//   • waits for layout to settle (2× rAF) before scrollIntoView so content-
+//     visibility cards report their real height and the scroll lands dead-on;
+//   • only clears the route keys once consumed, and self-guards against double
+//     runs, so calling it from several places (render, pageshow) is safe.
+let _deepLinkBusy = false;
+async function rmConsumeFeedDeepLink() {
+    if (_deepLinkBusy) return;
+    let targetPostId = null, targetAnchorId = null;
+    try {
+        targetPostId = localStorage.getItem('route_target_post_id');
+        targetAnchorId = localStorage.getItem('route_target_anchor_id');
+    } catch (e) {}
+    if (!targetPostId) return;
+    _deepLinkBusy = true;
+    try {
+        // 1) Wait until the target post card is in the DOM (cold first load).
+        const deadline = Date.now() + 6000;
+        let postEl = document.getElementById(`hfpost-${targetPostId}`);
+        while (!postEl && Date.now() < deadline) {
+            await new Promise(r => setTimeout(r, 120));
+            postEl = document.getElementById(`hfpost-${targetPostId}`);
+        }
+        if (!postEl) return;   // post not on this feed (e.g. older than the loaded page)
+
+        // Consumed — clear so a later feed reload doesn't re-trigger the jump.
+        try { localStorage.removeItem('route_target_post_id'); localStorage.removeItem('route_target_anchor_id'); } catch (e) {}
+
+        // 2) Only open the comments thread when a comment/reply is the target.
+        const wantsComment = !!targetAnchorId && targetAnchorId.indexOf('hf-comment-') === 0;
+        if (wantsComment) {
+            const commSection = document.getElementById(`hfcomments-${targetPostId}`);
+            if (commSection && commSection.style.display === 'none') {
+                commSection.style.display = 'block';
+                try { initCommentAvatar(parseInt(targetPostId)); } catch (e) {}
+                try { await loadHomeComments(parseInt(targetPostId)); } catch (e) {}
+            }
+            // Wait for the specific comment node to render too.
+            const cDeadline = Date.now() + 3000;
+            while (!document.getElementById(targetAnchorId) && Date.now() < cDeadline) {
+                await new Promise(r => setTimeout(r, 100));
+            }
+        }
+
+        // 3) Scroll + highlight the exact target, after layout settles. Prefer the
+        //    comment/reply anchor when present; otherwise the post card itself.
+        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+        const scrollTarget = (wantsComment && document.getElementById(targetAnchorId)) || postEl;
+        if (scrollTarget) {
+            try { scrollTarget.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {}
+            scrollTarget.classList.add('hf-notif-highlight');
+            setTimeout(() => { scrollTarget.classList.remove('hf-notif-highlight'); }, 3000);
+        }
+    } finally {
+        _deepLinkBusy = false;
+    }
+}
+// Also run on show (e.g. bfcache restore) in case the feed was already rendered
+// when the deep-link key was written.
+window.addEventListener('pageshow', () => { try { rmConsumeFeedDeepLink(); } catch (e) {} });
 
 function buildHomePostCard(post, stats) {
     stats = stats || {};
@@ -2862,7 +2898,11 @@ async function submitShare() {
     btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
     const comment = document.getElementById('shareComment').value.trim();
     const { data: authData } = await _supaHome.auth.getUser();
-    const { error } = await _supaHome.from('forum_posts').insert({
+    // Capture the NEW share row's id so the share notification (and its click
+    // routing) references the SHARE the recipient will actually see — not the
+    // original post. All interactions on this share (likes/comments/replies)
+    // already key off this row's id via the post card.
+    const { data: newShare, error } = await _supaHome.from('forum_posts').insert({
         user_id: authData?.user?.id,
         user_name: user.name,
         user_img: user.image || '',
@@ -2874,7 +2914,7 @@ async function submitShare() {
         hashtags: extractHashtags(comment),
         is_anonymous: false,
         source: 'home'
-    });
+    }).select('id').single();
     btn.disabled = false; btn.innerHTML = '<i class="fas fa-share"></i> Share now';
     if (error) { (window.showToast || alert)('Could not share: ' + error.message, 'error'); return; }
 
@@ -2896,7 +2936,10 @@ async function submitShare() {
             sender_user_name: user.name,
             sender_profile_picture: user.image || '',
             type: 'post_share',
-            target_post_id: parseInt(_sharePostId),
+            // Route to the SHARE (so the author sees who shared + their words),
+            // not the original — falls back to the original id if the row id
+            // couldn't be read back for any reason.
+            target_post_id: newShare?.id || parseInt(_sharePostId),
             message: 'shared your post.',
             is_read: false
         });

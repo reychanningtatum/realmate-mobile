@@ -489,9 +489,16 @@ async function handleNotificationRowClick(id) {
     const notif = localNotificationsCache.find(n => n.id === id);
     if (!notif) return;
 
+    // Mark read WITHOUT blocking the route. The DB write is fired-and-forgotten
+    // (its own _signalNotifBadgeRefresh still runs); we DON'T await it before
+    // navigating. Awaiting it was the root cause of the "first click doesn't
+    // route, second does" bug — the ~300ms network round-trip only ran on the
+    // first (still-unread) click, so the first and second clicks behaved
+    // differently. The local flag + a synchronous re-render keep the read UI
+    // instant for the paths that stay on this page (content_removed, broadcast).
     if (!notif.is_read) {
         notif.is_read = true;
-        await markSingleNotificationAsRead(id);
+        try { markSingleNotificationAsRead(id); } catch (e) {}
         renderNotificationsInterface();
     }
 
@@ -556,25 +563,24 @@ async function handleNotificationRowClick(id) {
         return;
     }
 
-    // Post/comment/reply notifications. The Forum is a disabled feature, so never
-    // route there — land on the Feed (home). Legacy forum-only posts have no live
-    // destination while the Forum is off; the Feed is the safe home.
+    // Post/comment/reply/like/share notifications → the Feed (Forum is disabled).
+    // Likes and shares carry only target_post_id and route straight to the post —
+    // no lookup, so they navigate instantly. Comment/reply notifications resolve
+    // the home-feed comment anchor (hf-comment-<id>) so the Feed scrolls to the
+    // exact comment/reply once the thread renders. home.js then scrolls +
+    // green-highlights the exact target (rmConsumeFeedDeepLink).
     if (notif.target_post_id) {
-        try {
-            const { data: postRows } = await _supabase
-                .from('forum_posts')
-                .select('source')
-                .eq('id', notif.target_post_id)
-                .limit(1);
-            const source = postRows?.[0]?.source;
-            if (source === 'home' && notif.target_comment_id) {
-                // Override anchor ID for home page comment format
-                localStorage.setItem("route_target_anchor_id", `hf-comment-${notif.target_comment_id}`);
-            }
-            location.href = 'home.html';
-        } catch {
-            location.href = 'home.html';
+        if (notif.target_comment_id || notif.target_reply_id) {
+            try {
+                const { data: postRows } = await _supabase
+                    .from('forum_posts').select('source').eq('id', notif.target_post_id).limit(1);
+                if (postRows?.[0]?.source === 'home') {
+                    const cId = notif.target_reply_id || notif.target_comment_id;
+                    localStorage.setItem('route_target_anchor_id', `hf-comment-${cId}`);
+                }
+            } catch (e) {}
         }
+        location.href = 'home.html';
     } else {
         location.href = 'home.html';
     }

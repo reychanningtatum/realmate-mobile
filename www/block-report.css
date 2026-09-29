@@ -15,9 +15,7 @@
 .rmbr-submit{background:#e11d48;color:#fff;}
 .rmbr-submit:disabled{opacity:.5;cursor:not-allowed;}
 .rmbr-status{font-size:12px;color:#e11d48;margin-top:10px;min-height:14px;}
-@media (prefers-color-scheme:dark){
-  .rmbr-modal{background:#0f172a;} .rmbr-title{color:#e2e8f0;} .rmbr-sub{color:#94a3b8;}
-  .rmbr-reasons button{background:#0f172a;border-color:#334155;color:#94a3b8;}
-  .rmbr-details{background:#0b1220;border-color:#334155;color:#e2e8f0;}
-  .rmbr-cancel{background:#1e293b;color:#cbd5e1;}
-}
+/* The app is light-only (theme.js forces data-theme="light" and removes dark
+   mode). The old @media (prefers-color-scheme:dark) block made this Report modal
+   follow the DEVICE's dark mode, turning it navy on a white app — removed so the
+   modal is always white and uniform with the rest of the UI. */
