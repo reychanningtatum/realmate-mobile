@@ -151,6 +151,11 @@
     var d = data;
     if (d.data && typeof d.data === 'object' && (d.data.route || d.data.tab || d.data.kind || d.data.conversation_id || d.data.listing_id)) d = d.data;
 
+    // Tapping a push for a specific notification = the user opening THAT
+    // notification, so it must be marked read (and the bell counter updated).
+    // Stash its id; notifications.js marks it read on load (it opens fresh here).
+    try { if (d.kind === 'notification' && d.notification_id) localStorage.setItem('rm_push_notif_read', String(d.notification_id)); } catch (e) {}
+
     var route = d.tab || d.route;
     var tab = (route === 'chat') ? 'chat'
       : (route === 'portal') ? 'portal'

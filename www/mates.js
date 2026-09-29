@@ -875,9 +875,19 @@ async function declineMateRequest(requesterName) {
                 requesterId = listingRows?.[0]?.user_id || null;
             }
         }
-        const declineFilter = (myId && requesterId)
-            ? `and(requester_id.eq.${requesterId},recipient_id.eq.${myId})`
-            : `and(requester_name.eq.${requesterName},recipient_name.eq.${me.name})`;
+        // Match the pending row by id-pair OR name-pair — the SAME robustness
+        // acceptMateRequest uses. The old code used ONLY the id-pair when both
+        // ids resolved, so a pending row stored name-only (null requester_id/
+        // recipient_id — the common case on this DB) matched ZERO rows: the
+        // delete silently no-opped, the function returned success, and the
+        // request stayed pending (Decline "did nothing"). Both matchers are the
+        // incoming direction (requester = the sender, recipient = me).
+        const declineParts = [];
+        if (myId && requesterId) {
+            declineParts.push(`and(requester_id.eq.${requesterId},recipient_id.eq.${myId})`);
+        }
+        declineParts.push(`and(requester_name.eq.${requesterName},recipient_name.eq.${me.name})`);
+        const declineFilter = declineParts.join(',');
 
         // Same idempotency guard as acceptMateRequest: only notify if this
         // call actually deleted the pending row (i.e. it's the first decline

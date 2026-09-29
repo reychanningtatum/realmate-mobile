@@ -685,8 +685,28 @@ function setupRealtimeNotificationListener() {
                                     (userSettings.anonName && payload.new.recipient_user_name === userSettings.anonName);
 
                 if (targetMatch) {
-                    _resolveLiveSenders([payload.new]).finally(() => {
+                    _resolveLiveSenders([payload.new]).finally(async () => {
                         localNotificationsCache.unshift(payload.new);
+                        // A newly-arrived realmate/follow REQUEST changes the
+                        // relationship state, but this realtime feed only carries
+                        // the notification row — the mates cache getMateStatus()
+                        // reads was loaded BEFORE this request existed, so the card
+                        // would render the stale state ("Request declined." from a
+                        // prior request between the same two users) instead of the
+                        // new pending request's Accept/Decline. Refresh the shared
+                        // relationship source of truth first, then render, so the
+                        // card reflects the LATEST active request. (Realtime, not a
+                        // timer/poll.)
+                        const _t = payload.new.type;
+                        if (_t === 'mate_request' || _t === 'mate_accepted' || _t === 'mate_declined' ||
+                            _t === 'follow_request' || _t === 'follow' || _t === 'follow_accepted') {
+                            try { if (typeof loadMatesCache === 'function') await loadMatesCache(); } catch (e) {}
+                            try {
+                                window._pendingFollowerIds = new Set(
+                                    (typeof listFollowRequests === 'function' ? await listFollowRequests() : [])
+                                        .map(r => String(r.follower_id)));
+                            } catch (e) {}
+                        }
                         renderNotificationsInterface();
                     });
                 }
@@ -782,7 +802,23 @@ async function handleNotifAcceptMate(btn, senderName, notifId) {
 
 async function handleNotifDeclineMate(btn, senderName, notifId) {
     btn.disabled = true;
-    await declineMateRequest(senderName);
+    const _orig = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+    // The DB relationship is the source of truth — only advance the UI when the
+    // decline actually persisted (mirrors handleNotifAcceptMate). The result was
+    // previously ignored, so a failed/no-op decline still marked the card read
+    // and re-rendered while the pending row survived — leaving Accept/Decline in
+    // place (the "Decline does nothing" bug). On failure keep the buttons + toast.
+    const result = await declineMateRequest(senderName);
+    if (!result || result.error) {
+        btn.disabled = false;
+        btn.innerHTML = _orig;
+        console.error('[notif] decline failed:', result && result.error);
+        (window.showToast || alert)(`Could not decline request: ${(result && result.error) || 'Unknown error'}`, 'error');
+        return;
+    }
+
     await markSingleNotificationAsRead(notifId);
     const cached = localNotificationsCache.find(n => n.id === notifId);
     if (cached) cached.is_read = true;
@@ -809,6 +845,24 @@ window.onload = async () => {
     // happen only on a direct card tap or "Mark all as read". We just keep the
     // bell badge in sync with the true unread count.
     _signalNotifBadgeRefresh();
+
+    // EXCEPTION: if the app was opened by TAPPING an iOS push for a specific
+    // notification, that tap IS the user opening that notification — mark that
+    // ONE read (by id), persist it, and refresh the bell counter. Only the tapped
+    // notification; nothing else. native-auth.js stashed the id on the tap.
+    try {
+        const _pushReadId = localStorage.getItem('rm_push_notif_read');
+        if (_pushReadId) {
+            localStorage.removeItem('rm_push_notif_read');
+            const _n = localNotificationsCache.find(n => String(n.id) === String(_pushReadId));
+            if (_n && !_n.is_read) {
+                _n.is_read = true;
+                await markSingleNotificationAsRead(_pushReadId);
+                renderNotificationsInterface();
+                _signalNotifBadgeRefresh();
+            }
+        }
+    } catch (e) {}
 };
 // ── Live relationship sync ──────────────────────────────────────────────────
 // Keep notification cards in step with the current relationship state. Any
