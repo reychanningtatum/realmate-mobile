@@ -1675,6 +1675,24 @@ body {
 .admin-main select.rep-flt { width: auto; min-width: 130px; height: var(--ctl-md); }
 .admin-main select.rep-perpage { width: auto; min-width: 120px; height: var(--ctl-sm); }
 
+/* Workflow section tabs (New / Under Review / Done) */
+.rep-tabs { display: flex; gap: 6px; padding: 4px 22px 0; border-bottom: 1px solid var(--rm-border); flex-wrap: wrap; }
+.rep-tab {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: transparent; border: none; cursor: pointer;
+    font-size: 13px; font-weight: 700; color: var(--rm-muted);
+    padding: 12px 14px; border-bottom: 2px solid transparent;
+    margin-bottom: -1px; border-radius: 8px 8px 0 0;
+}
+.rep-tab:hover { color: var(--rm-text); background: var(--rm-bg); }
+.rep-tab.active { color: var(--rm-green, #16a34a); border-bottom-color: var(--rm-green, #16a34a); }
+.rep-tab-count {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px;
+    background: var(--rm-bg); color: var(--rm-muted); font-size: 11px; font-weight: 800;
+}
+.rep-tab.active .rep-tab-count { background: var(--rm-green, #16a34a); color: #fff; }
+
 /* Type / reason / status badges */
 .rep-type, .rep-reason { display: inline-flex; align-items: center; font-size: 11px; font-weight: 800; padding: 3px 10px; border-radius: var(--rm-r-pill); letter-spacing: .2px; white-space: nowrap; }
 .rt-blue { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }

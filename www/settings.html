@@ -64,6 +64,17 @@
                     <span class="slider"></span>
                 </label>
             </div>
+
+            <div class="settings-row" style="margin-top:12px;">
+                <div>
+                    <div class="settings-row-label">Feed Video Sound</div>
+                    <div class="settings-row-desc">On: Feed videos start with sound (one at a time). Off (default): Feed videos autoplay muted until you tap unmute.</div>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" id="toggleFeedVideoSound" onchange="saveFeedVideoSoundPref(this.checked)">
+                    <span class="slider"></span>
+                </label>
+            </div>
         </div>
 
         <!-- ── Security (native app + enrolled biometrics only; shown via JS) ── -->
@@ -237,7 +248,7 @@
 <script src="vendor/supabase-js.min.js?v=2.112.3"></script>
 <script src="block-report.js?v=20260829f"></script>
 <script src="auth-guard.js?v=20260922a"></script>
-<script src="settings.js?v=20260929c"></script>
+<script src="settings.js?v=20260929d"></script>
 <script src="location-engine.js?v=20260809b"></script>
 <script src="match-engine.js?v=20260821p1"></script>
 <script src="match-alert.js?v=20260918b"></script>

@@ -1107,6 +1107,8 @@ async function loadHomeFeed(feedEl, filterArg, silent) {
             });
             feed.appendChild(card);
         });
+        // Wire autoplay + mute control for any videos in the freshly-rendered feed.
+        try { if (window.RMFeedVideo) RMFeedVideo.scan(feed); } catch (e) {}
 
         // Deep link from notification
         const targetPostId = localStorage.getItem('route_target_post_id');
@@ -1283,8 +1285,10 @@ function buildSharedEmbed(orig) {
 
 function buildPostMedia(post) {
     if (post.media_type === 'video' && post.media_url) {
-        return `<div class="hf-post-media">
-            <video controls src="${post.media_url}" style="width:100%;border-radius:12px;max-height:400px;"></video>
+        // Autoplay (muted) + custom mute button — wired by feed-video.js (RMFeedVideo).
+        return `<div class="hf-post-media hf-video-wrap">
+            <video class="hf-feed-video" src="${post.media_url}" muted loop playsinline webkit-playsinline preload="metadata" style="width:100%;border-radius:12px;max-height:400px;"></video>
+            <button class="hf-video-mute" type="button" aria-label="Unmute"><i class="fas fa-volume-xmark"></i></button>
         </div>`;
     }
 
@@ -3319,11 +3323,67 @@ let _homeSearchActive = false;
 function onHomeSearch(q) {
     document.getElementById('homeSearchClear').style.display = q ? 'flex' : 'none';
     clearTimeout(_homeSearchTimer);
+    _hsResetKbd();   // typing invalidates any keyboard highlight/selection
     const resultsEl = document.getElementById('homeSearchResults');
     if (!q.trim()) { renderFeedRecent(); return; }   // empty → show Recent searches
     resultsEl.classList.add('visible');
     resultsEl.innerHTML = '<div class="hs-loading"><i class="fas fa-spinner fa-spin"></i> Searching…</div>';
     _homeSearchTimer = setTimeout(() => runHomeSearch(q.trim()), 300);
+}
+
+// ── DESKTOP-ONLY keyboard navigation for Feed Search suggestions ───────────────
+// Purely an interaction layer over the EXISTING suggestion UI — it does not change
+// search logic, recent-search saving, persistence, real-time sync, or which entities
+// are searched. ↑/↓ move a highlight; the first Enter SELECTS the highlighted
+// suggestion into the input (no execute); a second Enter executes the search.
+let _hsIdx = -1, _hsSelected = false;
+function _hsIsDesktop() { try { return window.matchMedia('(min-width: 901px)').matches; } catch (e) { return false; } }
+function _hsResetKbd() { _hsIdx = -1; _hsSelected = false; }
+function _hsRows() {
+    const box = document.getElementById('homeSearchResults');
+    if (!box || !box.classList.contains('visible')) return [];
+    return Array.prototype.slice.call(box.querySelectorAll('.hs-people-row, .hs-listing-row, .hs-recent-row'));
+}
+function _hsHighlight(i) {
+    const rows = _hsRows();
+    rows.forEach(function (r) { r.classList.remove('hs-active'); });
+    if (i >= 0 && rows[i]) { rows[i].classList.add('hs-active'); try { rows[i].scrollIntoView({ block: 'nearest' }); } catch (e) {} }
+    _hsIdx = i;
+}
+function _hsValueOf(row) {
+    const el = row.querySelector('.hs-name, .hs-listing-content, .hs-recent-term');
+    return el ? (el.textContent || '').trim() : '';
+}
+function onHomeSearchKeydown(e) {
+    const desktop = _hsIsDesktop();
+    const rows = desktop ? _hsRows() : [];
+    if (desktop && (e.key === 'ArrowDown' || e.key === 'ArrowUp') && rows.length) {
+        e.preventDefault();
+        let i = (_hsIdx < 0 || _hsIdx >= rows.length) ? (e.key === 'ArrowDown' ? -1 : 0) : _hsIdx;
+        i = e.key === 'ArrowDown' ? (i + 1) % rows.length : (i <= 0 ? rows.length - 1 : i - 1);
+        _hsSelected = false;
+        _hsHighlight(i);
+        return;
+    }
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        // FIRST Enter on a highlighted suggestion → place it in the input, don't execute.
+        if (desktop && _hsIdx >= 0 && rows[_hsIdx] && !_hsSelected) {
+            const v = _hsValueOf(rows[_hsIdx]);
+            const inp = document.getElementById('homeSearchInput');
+            if (inp && v) {
+                inp.value = v;
+                const clr = document.getElementById('homeSearchClear'); if (clr) clr.style.display = 'flex';
+            }
+            _hsSelected = true;                 // next Enter executes
+            return;
+        }
+        // SECOND Enter (or plain Enter / mobile) → execute using the existing logic.
+        _hsResetKbd();
+        homeSearchCommit();
+        return;
+    }
+    if (e.key === 'Escape') { _hsResetKbd(); }
 }
 
 // Focusing the empty search box shows the user's Recent searches.
@@ -3581,6 +3641,7 @@ async function handleNewPost(post) {
         pollData: post.poll ? { counts: {}, total: 0, userVote: null } : null
     });
     feed.insertBefore(card, feed.firstChild);
+    try { if (window.RMFeedVideo) RMFeedVideo.scan(card); } catch (e) {}
     // brief highlight so the new post is noticed
     card.style.transition = 'background 0.7s ease';
     card.style.background = 'rgba(50,205,50,0.08)';

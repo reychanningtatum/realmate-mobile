@@ -2369,6 +2369,17 @@ let _reportsCache = [];
 let _reportsPage = 1;
 let _reportsPerPage = 10;
 const _repF = { q: '', status: 'all', type: 'all', reason: 'all', time: 'all' };
+// Reports are grouped into three workflow sections (tabs), independent of the
+// finer DB status. New = awaiting triage (open), Under Review = being handled
+// (reviewed), Done = resolved and kept for the record (dismissed OR actioned/
+// deleted). Nothing is ever deleted from the reports table on "Done".
+let _repSection = 'new';
+const _REP_SECTIONS = {
+    new: { label: 'New', icon: 'fa-inbox', match: r => r.status === 'open' },
+    review: { label: 'Under Review', icon: 'fa-clipboard-check', match: r => r.status === 'reviewed' },
+    done: { label: 'Done', icon: 'fa-circle-check', match: r => r.status === 'actioned' || r.status === 'dismissed' },
+};
+function reportSetSection(s) { if (_REP_SECTIONS[s]) { _repSection = s; _reportsPage = 1; renderReports(); } }
 
 async function loadReports() {
     const table = document.getElementById('reportsTable');
@@ -2428,8 +2439,9 @@ function _reportsFiltered() {
     const now = Date.now();
     const timeCut = { today: 1, '7': 7, '30': 30 }[_repF.time];
     const q = _repF.q.trim().toLowerCase();
+    const secMatch = (_REP_SECTIONS[_repSection] || _REP_SECTIONS.new).match;
     return _reportsCache.filter(r => {
-        if (_repF.status !== 'all' && r.status !== _repF.status) return false;
+        if (!secMatch(r)) return false;
         if (_repF.type !== 'all' && r.content_type !== _repF.type) return false;
         if (_repF.reason !== 'all' && r.reason !== _repF.reason) return false;
         if (timeCut && r.created_at && (now - new Date(r.created_at).getTime()) > timeCut * 864e5) return false;
@@ -2452,20 +2464,31 @@ function renderReports() {
     const openCount = _reportsCache.filter(r => r.status === 'open').length;
     const uniq = (k) => [...new Set(_reportsCache.map(r => r[k]).filter(Boolean))];
     const opt = (val, cur, label) => `<option value="${escapeHtml(val)}"${val === cur ? ' selected' : ''}>${escapeHtml(label)}</option>`;
-    const statusSel = `<select class="flt-ctl rep-flt" onchange="reportSetFilter('status',this.value)">${opt('all', _repF.status, 'All Status')}${['open', 'reviewed', 'dismissed', 'actioned'].map(s => opt(s, _repF.status, s === 'actioned' ? 'Deleted' : s[0].toUpperCase() + s.slice(1))).join('')}</select>`;
     const typeSel = `<select class="flt-ctl rep-flt" onchange="reportSetFilter('type',this.value)">${opt('all', _repF.type, 'All Types')}${uniq('content_type').map(t => opt(t, _repF.type, (_REP_TYPE[t] ? _REP_TYPE[t][0] : t))).join('')}</select>`;
     const reasonSel = `<select class="flt-ctl rep-flt" onchange="reportSetFilter('reason',this.value)">${opt('all', _repF.reason, 'All Reasons')}${uniq('reason').map(r => opt(r, _repF.reason, r)).join('')}</select>`;
     const timeSel = `<select class="flt-ctl rep-flt" onchange="reportSetFilter('time',this.value)">${opt('all', _repF.time, 'All Time')}${opt('today', _repF.time, 'Today')}${opt('7', _repF.time, 'Last 7 days')}${opt('30', _repF.time, 'Last 30 days')}</select>`;
 
+    // Workflow section tabs (New / Under Review / Done) — the primary way to
+    // navigate reports by status. Each carries a live count from the cache.
+    const secCount = (key) => _reportsCache.filter(_REP_SECTIONS[key].match).length;
+    const tabs = Object.keys(_REP_SECTIONS).map(key => {
+        const s = _REP_SECTIONS[key];
+        const n = secCount(key);
+        return `<button type="button" class="rep-tab${key === _repSection ? ' active' : ''}" onclick="reportSetSection('${key}')">
+            <i class="fas ${s.icon}"></i> ${s.label}<span class="rep-tab-count">${n}</span>
+          </button>`;
+    }).join('');
+
     const head = `
       <div class="rtbl-head rep-head">
-        <div class="rtbl-title"><i class="fas fa-flag"></i> Reported Content <span class="rep-open-count">(${openCount} Open)</span></div>
+        <div class="rtbl-title"><i class="fas fa-flag"></i> Reported Content <span class="rep-open-count">(${openCount} New)</span></div>
         <div class="rep-controls">
           <div class="flt-search rep-search"><i class="fas fa-magnifying-glass"></i><input type="search" class="flt-ctl" placeholder="Search by user, reason, or details…" value="${escapeHtml(_repF.q)}" oninput="_repF.q=this.value;_reportsPage=1;renderReports();this.focus();"></div>
-          ${statusSel}${typeSel}${reasonSel}${timeSel}
+          ${typeSel}${reasonSel}${timeSel}
           <button type="button" class="btn-ghost" onclick="loadReports()"><i class="fas fa-rotate-right"></i></button>
         </div>
-      </div>`;
+      </div>
+      <div class="rep-tabs" role="tablist">${tabs}</div>`;
 
     const rows = _reportsFiltered();
     const total = rows.length;
@@ -2475,20 +2498,40 @@ function renderReports() {
     const pageRows = rows.slice(start, start + _reportsPerPage);
 
     if (!total) {
-        box.innerHTML = head + `<div class="empty-row"><i class="fas fa-flag"></i> ${_reportsCache.length ? 'No reports match these filters.' : 'No reports yet.'}</div>`;
+        const secLabel = (_REP_SECTIONS[_repSection] || _REP_SECTIONS.new).label;
+        const emptyMsg = _reportsCache.length
+            ? (_repF.q || _repF.type !== 'all' || _repF.reason !== 'all' || _repF.time !== 'all'
+                ? 'No reports match these filters.'
+                : `No reports in “${secLabel}”.`)
+            : 'No reports yet.';
+        box.innerHTML = head + `<div class="empty-row"><i class="fas fa-flag"></i> ${escapeHtml(emptyMsg)}</div>`;
         return;
     }
 
     const body = pageRows.map(r => {
-        const isReviewed = ['reviewed', 'actioned'].includes(r.status);
         const when = r.created_at ? new Date(r.created_at).toLocaleString('en-US', { year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true }) : '—';
         const uname = r.reported_user_name || '(unknown)';
         const handle = r.reported_username ? '@' + r.reported_username : '';
         const canDelete = ['post', 'comment', 'listing'].includes(r.content_type);
-        const reviewBtn = isReviewed
-            ? `<button class="btn-sm-soft rep-done" disabled><i class="fas fa-check"></i> Reviewed</button>`
-            : `<button class="btn-sm-green" onclick="reportSetStatus('${r.id}','reviewed')"><i class="fas fa-check"></i> Mark Reviewed</button>`;
         const suspendItem = r.reported_user_id ? `<button class="rk-item rk-no" onclick="openBanModal('${r.reported_user_id}');closeRegMenus()"><i class="fas fa-ban"></i> Suspend user</button>` : '';
+
+        // Status-transition buttons, per the workflow section the row is in:
+        //   New       → Under Review, → Done (Delete also lands in Done)
+        //   Under Rev → Done            (Delete also lands in Done)
+        //   Done      → (terminal) read-only
+        let statusBtns = '';
+        if (r.status === 'open') {
+            statusBtns = `
+              <button class="btn-sm-green" onclick="reportSetStatus('${r.id}','reviewed')"><i class="fas fa-clipboard-check"></i> Under Review</button>
+              <button class="btn-outline-sm" onclick="reportSetStatus('${r.id}','dismissed')"><i class="fas fa-check"></i> Mark Done</button>`;
+        } else if (r.status === 'reviewed') {
+            statusBtns = `
+              <button class="btn-outline-sm" onclick="reportSetStatus('${r.id}','dismissed')"><i class="fas fa-check"></i> Mark Done</button>`;
+        }
+        const deleteBtn = (r.status === 'actioned')
+            ? '' // content already removed (Done) — nothing left to delete
+            : `<button class="btn-outline-sm rc-danger" ${canDelete ? '' : 'disabled'} onclick="reportDeleteContent('${r.id}')"><i class="fas fa-trash"></i> Delete</button>`;
+
         return `
         <tr class="${r.status === 'open' ? 'rep-row-open' : ''}">
           <td data-label="When" class="rc-date">${when}</td>
@@ -2502,9 +2545,8 @@ function renderReports() {
           <td data-label="Actions" class="rc-actions">
             <div class="rep-actions">
               <button class="btn-outline-sm" onclick="reportView('${r.id}')"><i class="fas fa-eye"></i> View</button>
-              ${reviewBtn}
-              <button class="btn-outline-sm" onclick="reportSetStatus('${r.id}','dismissed')"><i class="fas fa-xmark"></i> Dismiss</button>
-              <button class="btn-outline-sm rc-danger" ${canDelete ? '' : 'disabled'} onclick="reportDeleteContent('${r.id}')"><i class="fas fa-trash"></i> Delete</button>
+              ${statusBtns}
+              ${deleteBtn}
               <div class="rk"><button class="rk-btn" onclick="toggleRegMenu(event,this)"><i class="fas fa-ellipsis-vertical"></i></button>
                 <div class="rk-menu"><button class="rk-item" onclick="reportView('${r.id}');closeRegMenus()"><i class="fas fa-eye"></i> View content</button>${suspendItem}</div>
               </div>
@@ -2548,17 +2590,68 @@ async function reportSetStatus(id, status) {
     } catch (e) { showAdminAlert('Could not update', e.message || String(e), 'error'); }
 }
 
+// Predefined removal explanations the admin picks from before finalizing a
+// takedown. The chosen message is sent verbatim to the affected user (with
+// {type} filled in), so they always learn WHY their content was removed —
+// without the admin retyping it each time. Keep these clear and neutral.
+const CONTENT_REMOVAL_REASONS = [
+    { id: 'guidelines', label: 'Violated Community Guidelines', msg: 'Your {type} was removed by realmate Admin because it violated our Community Guidelines.' },
+    { id: 'spam', label: 'Spam or misleading', msg: 'Your {type} was removed by realmate Admin because it was spam or misleading content.' },
+    { id: 'harassment', label: 'Harassment or hateful content', msg: 'Your {type} was removed by realmate Admin because it contained harassment, bullying, or hateful content.' },
+    { id: 'inappropriate', label: 'Inappropriate or explicit', msg: 'Your {type} was removed by realmate Admin because it contained inappropriate or explicit content.' },
+    { id: 'misinformation', label: 'False or misleading information', msg: 'Your {type} was removed by realmate Admin because it contained false or misleading information.' },
+    { id: 'scam', label: 'Fraud or scam', msg: 'Your {type} was removed by realmate Admin because it appeared to be fraudulent or a scam.' },
+    { id: 'ip', label: 'Intellectual property / copyright', msg: 'Your {type} was removed by realmate Admin due to an intellectual property or copyright concern.' },
+    { id: 'terms', label: 'Other violation of Terms', msg: 'Your {type} was removed by realmate Admin for violating realmate’s Terms of Use.' },
+];
+
 async function reportDeleteContent(id) {
     const r = _reportsCache.find(x => String(x.id) === String(id));
-    _confirmModal('Delete reported content?', 'This permanently removes the reported ' + ((r && r.content_type) || 'content') + ' from realmate. This cannot be undone.', 'Delete content', async () => {
+    const typeLabel = (r && r.content_type) === 'listing' ? 'listing'
+        : (r && r.content_type) === 'comment' ? 'comment' : 'post';
+
+    const el = document.createElement('div');
+    el.className = 'rm-modal-overlay';
+    el.onclick = (e) => { if (e.target === el) el.remove(); };
+    const opts = CONTENT_REMOVAL_REASONS
+        .map(o => `<option value="${o.id}">${escapeHtml(o.label)}</option>`).join('');
+    el.innerHTML = `<div class="rm-modal-box rm-modal-box-sm">
+        <div class="rm-modal-head"><span>Delete reported ${escapeHtml(typeLabel)}?</span><span class="rm-modal-close" role="button" tabindex="0" onclick="this.closest('.rm-modal-overlay').remove()">&times;</span></div>
+        <div class="rm-modal-body">
+          <p class="reg-confirm-message">This permanently removes the reported ${escapeHtml(typeLabel)} from realmate. This cannot be undone. Choose the explanation the user will receive:</p>
+          <label class="reg-field-label" for="rmDelReason" style="display:block;margin:10px 0 6px;font-weight:600;">Explanation sent to the user</label>
+          <select id="rmDelReason" class="flt-ctl" style="width:100%;">${opts}</select>
+          <div id="rmDelPreview" class="reg-reason-note" style="max-width:none;margin-top:10px;"></div>
+        </div>
+        <div class="rm-modal-foot"><button class="btn-cancel-sm" onclick="this.closest('.rm-modal-overlay').remove()">Cancel</button><button class="btn-save reg-confirm-reject" id="rmDelYes"><i class="fas fa-trash"></i> Delete & notify</button></div>
+      </div>`;
+    document.body.appendChild(el);
+
+    const sel = el.querySelector('#rmDelReason');
+    const prev = el.querySelector('#rmDelPreview');
+    const resolveMsg = () => {
+        const o = CONTENT_REMOVAL_REASONS.find(x => x.id === sel.value) || CONTENT_REMOVAL_REASONS[0];
+        return o.msg.replace('{type}', typeLabel);
+    };
+    const refreshPreview = () => { prev.textContent = resolveMsg(); };
+    sel.onchange = refreshPreview;
+    refreshPreview();
+
+    el.querySelector('#rmDelYes').onclick = async () => {
+        const reason = sel.value;
+        const explanation = resolveMsg();
+        el.remove();
         try {
-            const res = await _sbAdmin.functions.invoke('admin-reports', { body: { adminPassword: _currentPassword, action: 'deleteContent', id } });
+            const res = await _sbAdmin.functions.invoke('admin-reports', { body: { adminPassword: _currentPassword, action: 'deleteContent', id, reason, explanation } });
             if (res.error || !res.data?.ok) throw new Error(res.error?.message || res.data?.error || 'Failed');
             if (r) { r.status = 'actioned'; r.reviewed_at = new Date().toISOString(); }
             renderReportsSummary(); renderReports();
-            showAdminAlert('Content deleted', res.data.removed ? 'The reported content was removed.' : 'Report marked actioned (content already gone).');
+            const note = res.data.removed
+                ? (res.data.notified ? 'The content was removed and the user was notified with your explanation.' : 'The content was removed (the user could not be notified automatically).')
+                : 'Report marked actioned (content already gone).';
+            showAdminAlert('Content deleted', note);
         } catch (e) { showAdminAlert('Could not delete', e.message || String(e), 'error'); }
-    });
+    };
 }
 
 async function reportView(id) {

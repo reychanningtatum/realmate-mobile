@@ -82,6 +82,22 @@ function savePortalNotifsPref(isOn) {
     );
 }
 
+/* Feed Video Sound — the DEFAULT audio state of autoplaying Feed videos.
+   Stored as 'on' | 'muted' (default muted). feed-video.js reads this key. */
+const FEED_VIDEO_SOUND_KEY = 'rm_feed_video_sound';
+function feedVideoSoundOn() { return localStorage.getItem(FEED_VIDEO_SOUND_KEY) === 'on'; } // default OFF = muted
+function initFeedVideoSoundToggle() {
+    const t = document.getElementById('toggleFeedVideoSound');
+    if (t) t.checked = feedVideoSoundOn();
+}
+function saveFeedVideoSoundPref(isOn) {
+    localStorage.setItem(FEED_VIDEO_SOUND_KEY, isOn ? 'on' : 'muted');
+    showSettingsNotificationToast(
+        isOn ? 'Feed videos will start with sound.' : 'Feed videos will start muted.',
+        'success', 'toggleFeedVideoSound'
+    );
+}
+
 /* ============================================================
    🔒 PRIVACY — Public Account + Public Following
    Persisted to profiles (other users read these to decide access),
@@ -276,6 +292,7 @@ function logout() {
  */
 window.onload = () => {
     initPortalNotifsToggle();
+    initFeedVideoSoundToggle();
     loadAccountEmail();
     loadPrivacyToggles();
     initBiometricToggle();

@@ -215,6 +215,9 @@ function _buildNotificationCard(notif) {
     } else if (type === 'broadcast') {
         typeIcon = "fa-bullhorn";
         contextClass = "badge-reply";
+    } else if (type === 'content_removed') {
+        typeIcon = "fa-gavel";
+        contextClass = "badge-removed";
     } else if (type.includes("like")) {
         typeIcon = "fa-heart";
         contextClass = "badge-like";
@@ -500,6 +503,15 @@ async function handleNotificationRowClick(id) {
         localStorage.setItem("route_target_post_id", String(notif.target_post_id));
     }
 
+    // Admin content-removal → open the dedicated removal-explanation view.
+    // The post/comment/listing itself is permanently gone, so there is nothing
+    // to route to in the Feed; the details come from the notification's own
+    // snapshot instead.
+    if (notif.type === 'content_removed') {
+        openContentRemovalDetails(notif);
+        return;
+    }
+
     // Offer notifications → open chat with the sender
     if (notif.type === 'offer') {
         sessionStorage.setItem('openChatWith', JSON.stringify({ userId: notif.sender_user_id || null, name: notif.sender_user_name }));
@@ -538,6 +550,66 @@ async function handleNotificationRowClick(id) {
     } else {
         location.href = 'home.html';
     }
+}
+
+/**
+ * Dedicated removal-explanation view for a `content_removed` notification.
+ * Shows the exact explanation the admin selected plus a snapshot that lets the
+ * user identify which of their posts/comments/listings was taken down — even
+ * though it no longer exists in the Feed. The reporter is never identified here
+ * (the notification carries nothing about who reported it).
+ */
+function openContentRemovalDetails(notif) {
+    const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => (
+        { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const d = notif.removal_details || {};
+    const typeLabel = d.content_type === 'listing' ? 'listing'
+        : d.content_type === 'comment' ? 'comment' : 'post';
+    const explanation = d.explanation || notif.message || `Your ${typeLabel} was removed by realmate Admin following a review of a report.`;
+    const snap = d.snapshot || null;
+    const removedAt = d.removed_at || notif.created_at;
+
+    let snapHtml;
+    if (snap && (snap.text || snap.image || snap.author)) {
+        const imgs = snap.image ? `<div class="crd-snap-imgs"><img src="${esc(snap.image)}" alt="" onerror="this.style.display='none'"></div>` : '';
+        snapHtml = `<div class="crd-snap">
+            ${snap.author ? `<div class="crd-snap-author"><i class="fas fa-user"></i> ${esc(snap.author)}</div>` : ''}
+            ${snap.text ? `<div class="crd-snap-text">${esc(snap.text)}</div>` : '<div class="crd-snap-muted">(no text)</div>'}
+            ${imgs}
+            ${snap.created_at ? `<div class="crd-snap-when">Originally posted ${esc(formatRelativeTime(snap.created_at))}</div>` : ''}
+        </div>`;
+    } else {
+        snapHtml = `<div class="crd-snap crd-snap-muted"><i class="fas fa-ghost"></i> This ${esc(typeLabel)} has been permanently removed.</div>`;
+    }
+
+    const el = document.createElement('div');
+    el.className = 'crd-overlay';
+    el.setAttribute('role', 'dialog');
+    el.setAttribute('aria-modal', 'true');
+    el.onclick = (e) => { if (e.target === el) el.remove(); };
+    el.innerHTML = `<div class="crd-box">
+        <div class="crd-head">
+            <div class="crd-head-icon"><i class="fas fa-gavel"></i></div>
+            <div class="crd-head-titles">
+                <div class="crd-title">Your ${esc(typeLabel)} was removed</div>
+                <div class="crd-sub">by realmate Admin${removedAt ? ' · ' + esc(formatRelativeTime(removedAt)) : ''}</div>
+            </div>
+            <span class="crd-close" role="button" tabindex="0" aria-label="Close" onclick="this.closest('.crd-overlay').remove()">&times;</span>
+        </div>
+        <div class="crd-body">
+            <div class="crd-section-label">Reason</div>
+            <div class="crd-reason">${esc(explanation)}</div>
+            <div class="crd-section-label">Removed ${esc(typeLabel)}</div>
+            ${snapHtml}
+            <p class="crd-foot-note">If you believe this was a mistake, you can contact realmate through Customer Service.</p>
+        </div>
+        <div class="crd-foot">
+            <button class="crd-ok" onclick="this.closest('.crd-overlay').remove()">Got it</button>
+        </div>
+    </div>`;
+    document.body.appendChild(el);
+    const closeOnEsc = (ev) => { if (ev.key === 'Escape') { el.remove(); document.removeEventListener('keydown', closeOnEsc); } };
+    document.addEventListener('keydown', closeOnEsc);
 }
 
 /**

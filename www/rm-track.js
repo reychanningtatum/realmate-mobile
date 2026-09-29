@@ -72,6 +72,18 @@
       .catch(function () { return null; });
   }
 
+  // The authenticated user's id — used by the unified GLOBAL path to attribute
+  // events so Nexus can build a per-user behavioural profile (spec §5). Inserts
+  // run under the user's own session, so RLS (user_id = auth.uid()) permits them.
+  var _userId = null;
+  function _getUserId() {
+    if (_userId) return Promise.resolve(_userId);
+    var sb = _client(); if (!sb) return Promise.resolve(null);
+    return sb.auth.getUser()
+      .then(function (r) { _userId = (r && r.data && r.data.user) ? r.data.user.id : null; return _userId; })
+      .catch(function () { return null; });
+  }
+
   // Decide the capture mode ONCE per session.
   function _resolveMode() {
     if (_mode) return Promise.resolve(_mode);
@@ -83,9 +95,12 @@
       if (raw) { var c = JSON.parse(raw); if (c && (Date.now() - c.t) < TTL_MS) { _mode = c.m; if (_mode !== 'off') _startFlush(); return Promise.resolve(_mode); } }
     } catch (e) {}
 
-    _resolving = _resolveTestMode().then(function (isTest) {
-      if (isTest) return 'test';
-      return _resolveGlobalFlag().then(function (on) { return on ? 'global' : 'off'; });
+    // Unified model (spec §20): the main-project GLOBAL flag is the primary
+    // capture switch. The legacy allowlist / separate-testing-project path is only
+    // a fallback, used when the global flag is off and a testing project is wired.
+    _resolving = _resolveGlobalFlag().then(function (on) {
+      if (on) return 'global';
+      return _resolveTestMode().then(function (isTest) { return isTest ? 'test' : 'off'; });
     }).then(function (m) {
       _mode = m;
       try { sessionStorage.setItem(MODE_CACHE_KEY, JSON.stringify({ m: m, t: Date.now() })); } catch (e) {}
@@ -143,19 +158,25 @@
     });
   }
 
-  // GLOBAL path: direct insert to this project's behavioral_events (dormant in prod).
+  // GLOBAL path (unified model): direct insert to the MAIN project's
+  // behavioral_events, attributed to the authenticated user so Nexus can learn a
+  // per-user profile. Gated by BEHAVIORAL_DATA_COLLECTION_ENABLED; dormant while
+  // that flag is off/absent. Inserts run under the user's own session (RLS).
   function _flushGlobal() {
     if (!_queue.length) return;
     var sb = _client(); if (!sb) return;
-    var rows = _queue.splice(0, MAX_BATCH).map(function (e) {
-      return {
-        user_id: null, session_id: _session(), event_type: e.event_type,
-        listing_id: e.listing_id, post_id: e.post_id, developer: e.developer,
-        project: e.project, target_user_id: e.target_user_id, duration_ms: e.duration_ms,
-        query: e.query, filters: e.filters, metadata: e.metadata
-      };
+    var batch = _queue.splice(0, MAX_BATCH);
+    _getUserId().then(function (uid) {
+      var rows = batch.map(function (e) {
+        return {
+          user_id: uid || null, session_id: _session(), event_type: e.event_type,
+          listing_id: e.listing_id, post_id: e.post_id, developer: e.developer,
+          project: e.project, target_user_id: e.target_user_id, duration_ms: e.duration_ms,
+          query: e.query, filters: e.filters, metadata: e.metadata
+        };
+      });
+      try { sb.from('behavioral_events').insert(rows).then(function () {}).catch(function () {}); } catch (e) {}
     });
-    try { sb.from('behavioral_events').insert(rows).then(function () {}).catch(function () {}); } catch (e) {}
   }
 
   function _enqueue(eventType, payload) {

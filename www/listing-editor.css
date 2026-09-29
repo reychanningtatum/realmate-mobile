@@ -269,3 +269,10 @@ html[data-theme="dark"] .lm-vis-chip { background: #0f172a; color: #e2e8f0; }
   .lm-suggest-menu {background:#0f172a;border-color:#334155;}
   .lm-suggest-item:hover {background:#1e293b;}
 }
+
+/* Desktop web only: hide the structured property-details block in the Post-a-
+   Listing composer. The desktop composer keeps the simple describe + photos
+   flow; the phone-only app (viewport < 901px) is unchanged and keeps the fields. */
+@media (min-width: 901px) {
+  #lmDetails { display: none !important; }
+}

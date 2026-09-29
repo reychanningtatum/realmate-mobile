@@ -89,6 +89,22 @@ body {
   mix-blend-mode: normal !important;
 }
 
+/* DESKTOP: the navbar is the left .sidebar, not the mobile bottom bar. Without
+   this it lived in the root snapshot and slid/panned with the page content on
+   every tab switch (the "navbar transitions/flickers on desktop"). Give it the
+   SAME frozen treatment as the bottom nav — its own transition group, held fully
+   opaque and un-animated — so it stays perfectly firm while only the content
+   pans. On mobile widths .sidebar is display:none, so it produces no snapshot
+   and this is completely inert there (desktop-only in effect). */
+.sidebar { view-transition-name: rm-side-nav; }
+::view-transition-group(rm-side-nav) { animation: none !important; }
+::view-transition-old(rm-side-nav),
+::view-transition-new(rm-side-nav) {
+  animation: none !important;
+  opacity: 1 !important;
+  mix-blend-mode: normal !important;
+}
+
 /* Content pans: new tab slides in from the right, old eases out left. The slide
    is OPAQUE — no opacity fade — because a cross-fade briefly lets the app
    background bleed through both half-transparent snapshots (the "whole-app
