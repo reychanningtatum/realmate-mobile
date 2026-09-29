@@ -266,6 +266,13 @@
     background: #fef2f2; border: 1px solid #fecaca; color: #7f1d1d;
     border-radius: 12px; padding: 12px 14px; font-size: 14px; line-height: 1.5; margin-bottom: 16px;
 }
+.crd-custom-msg {
+    background: var(--surface-2, #f8fafc); border: 1px solid rgba(0,0,0,.08);
+    border-left: 3px solid var(--primary, #32cd32);
+    border-radius: 12px; padding: 12px 14px; font-size: 14px; line-height: 1.5;
+    margin-bottom: 16px; white-space: pre-wrap; word-break: break-word;
+}
+[data-theme="dark"] .crd-custom-msg { background: rgba(255,255,255,.04); border-color: rgba(255,255,255,.12); border-left-color: var(--primary, #32cd32); }
 .crd-snap {
     background: var(--surface-2, #f8fafc); border: 1px solid rgba(0,0,0,.08);
     border-radius: 12px; padding: 12px 14px; font-size: 14px;

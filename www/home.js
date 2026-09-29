@@ -1124,6 +1124,54 @@ async function loadHomeFeed(feedEl, filterArg, silent) {
     }
 }
 
+// Fetch a single post by id and render its card at the top of the feed — used
+// when a notification's target post isn't in the loaded feed page (it's older
+// than the most-recent batch). Guarantees a notification can ALWAYS open the
+// exact post it references, on the first click. Returns the card element (or
+// null if the post no longer exists / isn't accessible). The referenced post is
+// always the recipient's own ("reacted to YOUR post"), so no extra access gate.
+async function _ensureFeedPostRendered(postId) {
+    const feed = document.getElementById('homeFeed');
+    if (!feed) return null;
+    const existing = document.getElementById(`hfpost-${postId}`);
+    if (existing) return existing;
+    try {
+        const { data: post } = await _supaHome.from('forum_posts').select(FEED_COLS).eq('id', postId).maybeSingle();
+        if (!post) return null;
+        try { await _resolveLiveAuthors([post]); } catch (e) {}
+        // Pull the embedded original for a shared post so its card renders fully.
+        if (post.shared_post_id && !_sharedOriginals[post.shared_post_id]) {
+            const { data: orig } = await _supaHome.from('forum_posts').select(FEED_COLS).eq('id', post.shared_post_id).maybeSingle();
+            if (orig) { try { await _resolveLiveAuthors([orig]); } catch (e) {} _sharedOriginals[orig.id] = orig; }
+        }
+        // Stats for just this post.
+        const [likesRes, commentsRes, sharesRes] = await Promise.all([
+            _supaHome.from('forum_likes').select('user_name, reaction').eq('post_id', postId),
+            _supaHome.from('forum_comments').select('id').eq('post_id', postId),
+            _supaHome.from('forum_posts').select('id').eq('shared_post_id', postId)
+        ]);
+        const user = getUser();
+        const reactCounts = {}; let userReaction = null;
+        (likesRes.data || []).forEach(r => {
+            const rt = REACTIONS[r.reaction] ? r.reaction : 'like';
+            reactCounts[rt] = (reactCounts[rt] || 0) + 1;
+            if (user && r.user_name === user.name) userReaction = rt;
+        });
+        post.reactCounts = reactCounts;
+        post.userReaction = userReaction;
+        const card = buildHomePostCard(post, {
+            reactCounts, userReaction,
+            commentCount: (commentsRes.data || []).length,
+            shareCount: (sharesRes.data || []).length,
+            pollData: null
+        });
+        feed.insertBefore(card, feed.firstChild);
+        if (!_homePosts.find(p => p.id == post.id)) _homePosts.unshift(post);
+        try { if (window.RMFeedVideo) RMFeedVideo.scan(feed); } catch (e) {}
+        return card;
+    } catch (e) { return null; }
+}
+
 // Consume a notification deep-link: scroll to + green-highlight the EXACT post
 // (and comment/reply, when targeted). Robust by design so the FIRST click always
 // lands regardless of how cold the feed is:
@@ -1145,14 +1193,21 @@ async function rmConsumeFeedDeepLink() {
     if (!targetPostId) return;
     _deepLinkBusy = true;
     try {
-        // 1) Wait until the target post card is in the DOM (cold first load).
-        const deadline = Date.now() + 6000;
+        // 1) Wait until the target post card is in the DOM (the feed may still be
+        //    fetching/rendering right after navigation).
+        const deadline = Date.now() + 4000;
         let postEl = document.getElementById(`hfpost-${targetPostId}`);
         while (!postEl && Date.now() < deadline) {
             await new Promise(r => setTimeout(r, 120));
             postEl = document.getElementById(`hfpost-${targetPostId}`);
         }
-        if (!postEl) return;   // post not on this feed (e.g. older than the loaded page)
+        // 1b) Still not there → the post is older than the loaded feed page. Fetch
+        //     and render THAT exact post so the first click always lands on it,
+        //     instead of leaving the user on the general Feed.
+        if (!postEl) {
+            postEl = await _ensureFeedPostRendered(targetPostId);
+        }
+        if (!postEl) return;   // post genuinely unavailable (deleted / no access)
 
         // Consumed — clear so a later feed reload doesn't re-trigger the jump.
         try { localStorage.removeItem('route_target_post_id'); localStorage.removeItem('route_target_anchor_id'); } catch (e) {}
@@ -2871,8 +2926,55 @@ async function pinPost(postId) {
 }
 
 let _sharePostId = null;
+// The share modal markup + styles live on the Feed page (home.html/home.css).
+// Other pages that reuse the feed renderer — a user's Profile (dashboard.html)
+// especially — load home.js but NOT that markup/CSS, so Share threw on a null
+// element and silently did nothing. Build a self-contained modal on demand when
+// it's missing (styles inlined so it looks right without home.css), and reuse
+// the page's own modal on the Feed. Fixes Share on other users' profiles.
+function _ensureShareModal() {
+    if (document.getElementById('sharePostModal')) return;
+    if (!document.getElementById('rm-share-modal-css')) {
+        const st = document.createElement('style');
+        st.id = 'rm-share-modal-css';
+        st.textContent =
+            '#sharePostModal.share-modal{position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;}' +
+            '#sharePostModal .share-box{background:var(--white,#fff);border-radius:18px;width:92%;max-width:480px;box-shadow:0 24px 60px rgba(0,0,0,.25);overflow:hidden;}' +
+            '#sharePostModal .share-head{display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:1px solid var(--border,#e5e7eb);font-size:16px;font-weight:800;color:var(--text-main,#0f172a);}' +
+            '#sharePostModal .share-close{border:none;background:none;font-size:18px;cursor:pointer;color:var(--text-sub,#64748b);}' +
+            '#sharePostModal .share-body{padding:16px 20px;}' +
+            '#sharePostModal .share-body textarea{width:100%;box-sizing:border-box;border:1px solid var(--border,#e5e7eb);border-radius:10px;padding:12px;font-family:inherit;font-size:14px;resize:vertical;outline:none;margin-bottom:12px;}' +
+            '#sharePostModal .share-original{border:1px solid var(--border,#e5e7eb);border-radius:12px;padding:12px;background:#fafbfc;}' +
+            '#sharePostModal .share-foot{display:flex;justify-content:flex-end;gap:10px;padding:14px 20px;border-top:1px solid var(--border,#e5e7eb);}' +
+            '#sharePostModal .share-btn-ghost{padding:10px 18px;border-radius:10px;border:1px solid var(--border,#e5e7eb);background:var(--white,#fff);font-weight:700;font-size:14px;cursor:pointer;color:var(--text-main,#0f172a);}' +
+            '#sharePostModal .share-btn-primary{padding:10px 20px;border-radius:10px;border:none;background:var(--primary,#32cd32);color:#fff;font-weight:700;font-size:14px;cursor:pointer;}';
+        document.head.appendChild(st);
+    }
+    const m = document.createElement('div');
+    m.id = 'sharePostModal';
+    m.className = 'share-modal';
+    m.style.display = 'none';
+    m.innerHTML =
+        '<div class="share-box">' +
+          '<div class="share-head">' +
+            '<span><i class="fas fa-share" style="margin-right:8px;color:var(--primary,#32cd32);"></i> Share post</span>' +
+            '<button class="share-close" onclick="closeShareModal()"><i class="fas fa-times"></i></button>' +
+          '</div>' +
+          '<div class="share-body">' +
+            '<textarea id="shareComment" placeholder="Say something about this…" rows="2"></textarea>' +
+            '<div id="shareOriginalPreview" class="share-original"></div>' +
+          '</div>' +
+          '<div class="share-foot">' +
+            '<button class="share-btn-ghost" onclick="closeShareModal()">Cancel</button>' +
+            '<button class="share-btn-primary" id="shareSubmitBtn" onclick="submitShare()"><i class="fas fa-share"></i> Share now</button>' +
+          '</div>' +
+        '</div>';
+    document.body.appendChild(m);
+}
+
 function sharePost(postId) {
-    const orig = _homePosts.find(p => p.id == postId);
+    _ensureShareModal();
+    const orig = _homePosts.find(p => p.id == postId) || _sharedOriginals[postId];
     if (!orig) return;
     // Share the underlying original if this post is itself a share
     _sharePostId = orig.shared_post_id || orig.id;
@@ -2945,7 +3047,11 @@ async function submitShare() {
         });
     }
     closeShareModal();
-    setFeedFilter('all');
+    try { (window.showToast || function () {})('Shared to your feed', 'success'); } catch (e) {}
+    // Refresh the Feed only when we're actually on it (the share lands in the main
+    // feed). On a Profile page there is no #homeFeed, so skip — the share still
+    // succeeded; closing the modal + toast is the confirmation there.
+    if (document.getElementById('homeFeed')) setFeedFilter('all');
 }
 
 // ══════════════════════════════════════════════════

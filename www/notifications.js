@@ -600,6 +600,7 @@ function openContentRemovalDetails(notif) {
     const typeLabel = d.content_type === 'listing' ? 'listing'
         : d.content_type === 'comment' ? 'comment' : 'post';
     const explanation = d.explanation || notif.message || `Your ${typeLabel} was removed by realmate admin following a review of a report.`;
+    const customMessage = (typeof d.custom_message === 'string' ? d.custom_message.trim() : '');
     const snap = d.snapshot || null;
     const removedAt = d.removed_at || notif.created_at;
 
@@ -633,6 +634,8 @@ function openContentRemovalDetails(notif) {
         <div class="crd-body">
             <div class="crd-section-label">Reason</div>
             <div class="crd-reason">${esc(explanation)}</div>
+            ${customMessage ? `<div class="crd-section-label">Message from realmate admin</div>
+            <div class="crd-custom-msg">${esc(customMessage)}</div>` : ''}
             <div class="crd-section-label">Removed ${esc(typeLabel)}</div>
             ${snapHtml}
             <p class="crd-foot-note">If you believe this was a mistake, you can contact realmate through Customer Service.</p>

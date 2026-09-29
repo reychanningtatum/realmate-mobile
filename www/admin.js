@@ -2619,9 +2619,11 @@ async function reportDeleteContent(id) {
         <div class="rm-modal-head"><span>Delete reported ${escapeHtml(typeLabel)}?</span><span class="rm-modal-close" role="button" tabindex="0" onclick="this.closest('.rm-modal-overlay').remove()">&times;</span></div>
         <div class="rm-modal-body">
           <p class="reg-confirm-message">This permanently removes the reported ${escapeHtml(typeLabel)} from realmate. This cannot be undone. Choose the explanation the user will receive:</p>
-          <label class="reg-field-label" for="rmDelReason" style="display:block;margin:10px 0 6px;font-weight:600;">Explanation sent to the user</label>
+          <label class="reg-field-label" for="rmDelReason" style="display:block;margin:10px 0 6px;font-weight:600;">Reason sent to the user</label>
           <select id="rmDelReason" class="flt-ctl" style="width:100%;">${opts}</select>
           <div id="rmDelPreview" class="reg-reason-note" style="max-width:none;margin-top:10px;"></div>
+          <label class="reg-field-label" for="rmDelCustom" style="display:block;margin:14px 0 6px;font-weight:600;">Add a custom message <span style="font-weight:400;color:var(--rm-muted);">(optional)</span></label>
+          <textarea id="rmDelCustom" class="flt-ctl" rows="3" maxlength="600" placeholder="Add a personal note to the user about this removal…" style="width:100%;resize:vertical;font-family:inherit;"></textarea>
         </div>
         <div class="rm-modal-foot"><button class="btn-cancel-sm" onclick="this.closest('.rm-modal-overlay').remove()">Cancel</button><button class="btn-save reg-confirm-reject" id="rmDelYes"><i class="fas fa-trash"></i> Delete & notify</button></div>
       </div>`;
@@ -2640,9 +2642,10 @@ async function reportDeleteContent(id) {
     el.querySelector('#rmDelYes').onclick = async () => {
         const reason = sel.value;
         const explanation = resolveMsg();
+        const customMessage = (el.querySelector('#rmDelCustom').value || '').trim();
         el.remove();
         try {
-            const res = await _sbAdmin.functions.invoke('admin-reports', { body: { adminPassword: _currentPassword, action: 'deleteContent', id, reason, explanation } });
+            const res = await _sbAdmin.functions.invoke('admin-reports', { body: { adminPassword: _currentPassword, action: 'deleteContent', id, reason, explanation, customMessage } });
             if (res.error || !res.data?.ok) throw new Error(res.error?.message || res.data?.error || 'Failed');
             if (r) { r.status = 'actioned'; r.reviewed_at = new Date().toISOString(); }
             renderReportsSummary(); renderReports();

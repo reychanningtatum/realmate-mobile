@@ -1858,3 +1858,20 @@ html[data-theme="dark"] .profile-img-container { border-color: #334155; }
 .profile-gate-title { font-size: 15px; font-weight: 700; color: var(--text-main); }
 .profile-gate-sub { font-size: 13px; color: var(--text-sub); max-width: 340px; line-height: 1.5; }
 .profile-gate-card .btn-mate-profile { margin-top: 6px; }
+
+/* Profile post videos reuse the Feed renderer (home.js buildPostMedia +
+   feed-video.js), but home.css isn't loaded here — mirror the Feed's video
+   mute/unmute control so it sits in the lower-right, same size/style/behavior. */
+.hf-video-wrap { position: relative; }
+.hf-video-wrap video { cursor: pointer; }
+.hf-video-mute {
+  position: absolute; right: 12px; bottom: 12px; z-index: 4;
+  width: 38px; height: 38px; padding: 0; border: none; border-radius: 50%;
+  background: rgba(15, 23, 42, 0.62); color: #fff; font-size: 15px; line-height: 1;
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28); backdrop-filter: blur(3px);
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+.hf-video-mute:hover { background: rgba(15, 23, 42, 0.8); }
+.hf-video-mute:active { transform: scale(0.92); }
+.hf-video-mute.is-on { background: var(--primary, #32cd32); }   /* sound on */

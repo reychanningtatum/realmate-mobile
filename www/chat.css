@@ -1442,6 +1442,16 @@ html[data-theme="dark"] .chat-archived-header button { background: #1e293b; colo
 @media (min-width: 769px) {
   .chat-sidebar { position: relative; }
   .chat-main { display: flex; }
+  /* Reserve room for the floating desktop bottom navbar (desktop-nav.css:
+     position:fixed; bottom:22px; height:68px). Without this the chat layout is
+     a full 100vh, so the composer sits at the very bottom and is covered by the
+     bar. Shortening the whole chat column lifts the composer above the bar and
+     keeps the conversation scrolling within the space above it — it never hides
+     behind the type box or the navbar. Mobile keeps its own fixed layout (the
+     max-width:768px block above), so this is desktop-only. */
+  .chat-container,
+  .chat-sidebar,
+  .chat-main { height: calc(100vh - 104px); }
 }
 
 /* ===== DARK THEME ===== */
