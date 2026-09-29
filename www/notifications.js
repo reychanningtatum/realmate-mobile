@@ -275,16 +275,27 @@ function _buildNotificationCard(notif) {
         </div>` : (type === 'follow_request' && !_isPendingFollow
             ? `<p class="mate-confirmed-msg"><i class="fas fa-user-check"></i> Follow request handled.</p>` : '');
 
+    // Admin-generated post-removal notifications are NOT from a user: show a
+    // branded realmate admin avatar (never a profile photo / "?" placeholder),
+    // a lowercase "realmate admin" name, and no click-to-profile on either.
+    const isAdminNotif = type === 'content_removed';
+    const avatarHtml = isAdminNotif
+        ? `<div class="hub-avatar-img hub-admin-avatar" aria-label="realmate admin"><i class="fas fa-shield-halved"></i></div>`
+        : `<img src="${notif.sender_profile_picture || 'https://ui-avatars.com/api/?name=?&background=0f172a&color=32cd32'}" class="hub-avatar-img hub-avatar-clickable" alt="Sender Avatar" title="View profile" onclick="event.stopPropagation(); _notifGoToSenderProfileById('${notif.id}')">`;
+    const senderHtml = isAdminNotif
+        ? `<strong class="hub-sender-name hub-admin-name">realmate admin</strong>`
+        : `<strong class="hub-sender-name-clickable" title="View profile" onclick="event.stopPropagation(); _notifGoToSenderProfileById('${notif.id}')">${notif.sender_user_name}</strong>`;
+
     row.innerHTML = `
         <div class="hub-avatar-block">
-            <img src="${notif.sender_profile_picture || 'https://ui-avatars.com/api/?name=?&background=0f172a&color=32cd32'}" class="hub-avatar-img hub-avatar-clickable" alt="Sender Avatar" title="View profile" onclick="event.stopPropagation(); _notifGoToSenderProfileById('${notif.id}')">
+            ${avatarHtml}
             <div class="hub-type-badge-icon ${contextClass}">
                 <i class="fas ${typeIcon}"></i>
             </div>
         </div>
         <div class="hub-message-content-box">
             <p class="hub-message-text">
-                <strong class="hub-sender-name-clickable" title="View profile" onclick="event.stopPropagation(); _notifGoToSenderProfileById('${notif.id}')">${notif.sender_user_name}</strong> ${notif.message || 'interacted with your content.'}
+                ${senderHtml} ${notif.message || 'interacted with your content.'}
             </p>
             <span class="hub-timestamp-label">
                 <i class="far fa-clock"></i> ${formatRelativeTime(notif.created_at || notif.timestamp)}
@@ -582,7 +593,7 @@ function openContentRemovalDetails(notif) {
     const d = notif.removal_details || {};
     const typeLabel = d.content_type === 'listing' ? 'listing'
         : d.content_type === 'comment' ? 'comment' : 'post';
-    const explanation = d.explanation || notif.message || `Your ${typeLabel} was removed by realmate Admin following a review of a report.`;
+    const explanation = d.explanation || notif.message || `Your ${typeLabel} was removed by realmate admin following a review of a report.`;
     const snap = d.snapshot || null;
     const removedAt = d.removed_at || notif.created_at;
 
@@ -609,7 +620,7 @@ function openContentRemovalDetails(notif) {
             <div class="crd-head-icon"><i class="fas fa-gavel"></i></div>
             <div class="crd-head-titles">
                 <div class="crd-title">Your ${esc(typeLabel)} was removed</div>
-                <div class="crd-sub">by realmate Admin${removedAt ? ' · ' + esc(formatRelativeTime(removedAt)) : ''}</div>
+                <div class="crd-sub">by realmate admin${removedAt ? ' · ' + esc(formatRelativeTime(removedAt)) : ''}</div>
             </div>
             <span class="crd-close" role="button" tabindex="0" aria-label="Close" onclick="this.closest('.crd-overlay').remove()">&times;</span>
         </div>

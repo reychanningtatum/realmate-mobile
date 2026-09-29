@@ -1270,6 +1270,21 @@ html[data-theme="dark"] .chat-archived-header button { background: #1e293b; colo
 
 /* ===== RESPONSIVE ===== */
 @media (max-width: 768px) {
+  /* Mobile only: a long-press on a message must trigger the Copy/Unsend pop-up,
+     NOT the browser's blue text-selection / iOS callout. Suppress native
+     selection + callout on message rows so the long-press selects the MESSAGE.
+     Desktop (>=769px) is untouched, so drag-to-select text still works there.
+     Copy still works — ctxCopyText() reads data-msg-text, not the DOM selection. */
+  .chat-msg-row,
+  .chat-msg-bubble,
+  .chat-msg-bubble * {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+  }
+
   .chat-container {
     position: fixed;
     top: var(--rm-safe-top, env(safe-area-inset-top));

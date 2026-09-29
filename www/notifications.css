@@ -189,6 +189,18 @@
     background: #cbd5e1;
 }
 
+/* Branded realmate admin avatar for post-removal notifications (no user photo). */
+.hub-admin-avatar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #16a34a, #15803d);
+    color: #fff;
+    font-size: 20px;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.15);
+}
+.hub-admin-name { color: inherit; }
+
 /* Avatar/name open the sender's profile independently of the card's own
    click (which routes to the notification's content) — event.stopPropagation()
    on these keeps the two actions from firing together. */

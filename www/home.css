@@ -461,6 +461,18 @@ html[data-theme="dark"] .hs-recent-del:hover { background: #0f172a; }
 }
 .hf-post-card:last-child { margin-bottom: 0; }
 
+/* Temporary green highlight when a post is opened via a Like/Reaction (or other
+   post) notification — makes the exact post unmistakable, then fades out (added
+   for 3s by home.js's notification deep-link, so it never persists). Works the
+   same on desktop and mobile. Also applied to a specific comment/reply target. */
+.hf-notif-highlight {
+  box-shadow: 0 0 0 3px var(--primary, #32cd32), var(--card-shadow, 0 2px 8px rgba(0,0,0,.06)) !important;
+  background-color: rgba(50, 205, 50, 0.08) !important;
+  border-color: var(--primary, #32cd32) !important;
+  transition: box-shadow .4s ease, background-color .4s ease, border-color .4s ease;
+  scroll-margin: 80px;
+}
+
 /* Post header */
 .hf-post-header {
   display: flex; align-items: center; gap: 12px;
@@ -642,6 +654,8 @@ html[data-theme="dark"] .hs-recent-del:hover { background: #0f172a; }
 .hf-c-time { color: #90949c; font-weight: 500; }
 .hf-c-reply { color: #65676b; cursor: pointer; }
 .hf-c-reply:hover { text-decoration: underline; }
+.hf-c-delete { color: #dc2626; cursor: pointer; }
+.hf-c-delete:hover { text-decoration: underline; }
 
 /* Replies toggle (View N replies / Hide) */
 .hf-replies-toggle {

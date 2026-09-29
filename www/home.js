@@ -1126,16 +1126,20 @@ async function loadHomeFeed(feedEl, filterArg, silent) {
                     await loadHomeComments(parseInt(targetPostId));
                 }
                 setTimeout(() => {
-                    const scrollTarget = targetAnchorId ? document.getElementById(targetAnchorId) : postEl;
+                    // Prefer a specific comment/reply anchor when it exists, but fall
+                    // back to the POST card itself. Like/Reaction notifications only
+                    // carry target_post_id and set a legacy 'post-<id>' anchor that
+                    // doesn't exist in the Feed (cards are 'hfpost-<id>'); without this
+                    // fallback the scroll+highlight silently no-op'd and the user just
+                    // landed at the top of the Feed.
+                    const scrollTarget = (targetAnchorId && document.getElementById(targetAnchorId)) || postEl;
                     if (scrollTarget) {
                         scrollTarget.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        scrollTarget.style.transition = 'all 0.5s ease-in-out';
-                        scrollTarget.style.boxShadow = '0 0 0 4px #32cd32';
-                        scrollTarget.style.backgroundColor = 'rgba(50, 205, 50, 0.05)';
-                        setTimeout(() => {
-                            scrollTarget.style.boxShadow = '';
-                            scrollTarget.style.backgroundColor = '';
-                        }, 3000);
+                        // Temporary green highlight so the user sees exactly which post
+                        // generated the notification. Removed after 3s so it never
+                        // persists once they navigate away / stay on the Feed.
+                        scrollTarget.classList.add('hf-notif-highlight');
+                        setTimeout(() => { scrollTarget.classList.remove('hf-notif-highlight'); }, 3000);
                     }
                 }, 300);
             }
@@ -1846,9 +1850,25 @@ function _syncSharesOfOriginal(originalId, content, mediaPatch) {
         });
     } catch (e) {}
 }
+// Remove a deleted comment/reply from THIS view and refresh the owning post's
+// comment count. Shared by the cross-iframe storage bridge and the realtime
+// channel. A top-level comment removes its whole thread node.
+function _applyCommentDeleted(commentId, postId, isReply) {
+    if (commentId == null) return;
+    const node = document.getElementById(isReply ? `hf-comment-${commentId}` : `hf-thread-${commentId}`)
+        || document.getElementById(`hf-comment-${commentId}`);
+    if (node) node.remove();
+    if (postId != null && document.getElementById(`hfstats-${postId}`)) {
+        try { updateCommentCount(postId); } catch (_) {}
+    }
+}
+
 window.addEventListener('storage', function (e) {
     if (e.key === 'rm_post_deleted' && e.newValue) {
         try { var d = JSON.parse(e.newValue); if (d && d.id) document.getElementById('hfpost-' + d.id)?.remove(); } catch (_) {}
+    }
+    if (e.key === 'rm_comment_deleted' && e.newValue) {
+        try { var cd = JSON.parse(e.newValue); if (cd && cd.id) _applyCommentDeleted(cd.id, cd.postId, cd.isReply); } catch (_) {}
     }
     if (e.key === 'rm_post_edited' && e.newValue) {
         try { var ed = JSON.parse(e.newValue); if (ed && ed.id) _applyPostEdit(String(ed.id), ed.content || '', ed.media || null); } catch (_) {}
@@ -2325,6 +2345,11 @@ function renderFeedComment(c, postId, isReply, postAuthor) {
     // Reply on a reply targets the SAME parent (2-level max) and mentions the reply author
     const replyTarget = isReply ? c.parent_id : c.id;
     const mentionArg = isReply ? `,'${(c.user_name || '').replace(/'/g, "\\'")}'` : '';
+    // Only the author of THIS comment/reply may delete it — same ownership rule
+    // the post card uses (id first, name fallback). Others never see the control,
+    // and the DB delete is additionally scoped to the row's own id.
+    const _u = typeof getUser === 'function' ? getUser() : null;
+    const isOwn = !!_u && ((c.user_id && _u.supabaseId && String(c.user_id) === String(_u.supabaseId)) || (c.user_name && c.user_name === _u.name));
     return `
     <div class="hf-comment${isReply ? ' hf-comment-reply' : ''}" id="hf-comment-${c.id}">
         <img loading="lazy" decoding="async" class="hf-c-avatar" src="${img}" onerror="this.src='${avatarUrl(c.user_name)}'">
@@ -2337,9 +2362,68 @@ function renderFeedComment(c, postId, isReply, postAuthor) {
             <div class="hf-c-actions">
                 <span class="hf-c-time">${timeAgo(c.created_at)}</span>
                 <span class="hf-c-reply" onclick="showFeedReplyInput('${postId}','${replyTarget}'${mentionArg})">Reply</span>
+                ${isOwn ? `<span class="hf-c-delete" onclick="deleteFeedComment('${postId}','${c.id}',${isReply ? 'true' : 'false'})">Delete</span>` : ''}
             </div>
         </div>
     </div>`;
+}
+
+// Delete the current user's OWN comment or reply (confirmation required). Deleting
+// a top-level comment also removes its replies (a thread can't exist without its
+// root — Postgres cascades if FK ON DELETE CASCADE exists; we also delete them
+// explicitly so it works regardless). The DB delete is scoped to the row id and,
+// under RLS, to the owner — so this can never remove another user's content.
+let _pendingDeleteComment = null;
+function deleteFeedComment(postId, commentId, isReply) {
+    _pendingDeleteComment = { postId: String(postId), commentId: String(commentId), isReply: !!isReply };
+    const modal = _ensureCommentDeleteModal();
+    modal.querySelector('.hf-cdel-title').textContent = isReply ? 'Delete this reply?' : 'Delete this comment?';
+    modal.style.display = 'flex';
+}
+function closeCommentDeleteModal() {
+    const m = document.getElementById('hfCommentDeleteModal');
+    if (m) m.style.display = 'none';
+    _pendingDeleteComment = null;
+}
+function _ensureCommentDeleteModal() {
+    let modal = document.getElementById('hfCommentDeleteModal');
+    if (modal) return modal;
+    modal = document.createElement('div');
+    modal.id = 'hfCommentDeleteModal';
+    modal.style.cssText = 'display:none; position:fixed; inset:0; z-index:100001; background:rgba(0,0,0,0.45); align-items:center; justify-content:center;';
+    modal.innerHTML =
+        '<div style="background:#fff; border-radius:20px; padding:32px 28px; max-width:340px; width:90%; text-align:center; box-shadow:0 20px 60px rgba(0,0,0,0.2);">' +
+        '<i class="fas fa-exclamation-triangle" style="font-size:40px; color:#ef4444; margin-bottom:16px;"></i>' +
+        '<h3 class="hf-cdel-title" style="font-size:18px; font-weight:800; color:#0f172a; margin:0 0 8px;">Delete this comment?</h3>' +
+        '<p style="color:#64748b; font-size:13px; margin:0 0 24px;">This action cannot be undone.</p>' +
+        '<div style="display:flex; gap:10px;">' +
+        '<button onclick="closeCommentDeleteModal()" style="flex:1; padding:12px; border-radius:10px; border:1px solid #e2e8f0; background:#fff; font-size:14px; font-weight:600; cursor:pointer;">Cancel</button>' +
+        '<button id="hfCommentDeleteConfirmBtn" style="flex:1; padding:12px; border-radius:10px; border:none; background:#ef4444; color:#fff; font-size:14px; font-weight:700; cursor:pointer;">Delete</button>' +
+        '</div></div>';
+    document.body.appendChild(modal);
+    modal.querySelector('#hfCommentDeleteConfirmBtn').onclick = confirmCommentDelete;
+    return modal;
+}
+async function confirmCommentDelete() {
+    if (!_pendingDeleteComment) return;
+    const { postId, commentId, isReply } = _pendingDeleteComment;
+    closeCommentDeleteModal();
+    try {
+        // Cascade: remove this comment's replies first (only for a top-level comment).
+        if (!isReply) await _supaHome.from('forum_comments').delete().eq('parent_id', commentId);
+        const { error } = await _supaHome.from('forum_comments').delete().eq('id', commentId);
+        if (error) throw error;
+        // Remove from THIS view immediately (parent removes its whole thread).
+        (document.getElementById(isReply ? `hf-comment-${commentId}` : `hf-thread-${commentId}`)
+            || document.getElementById(`hf-comment-${commentId}`))?.remove();
+        updateCommentCount(postId);
+        // Broadcast so the same deletion reflects on the other shell view (Feed ↔
+        // Profile iframes) and, via the realtime channel, on other devices.
+        try { localStorage.setItem('rm_comment_deleted', JSON.stringify({ id: String(commentId), postId: String(postId), isReply: !!isReply, t: Date.now() })); } catch (e) {}
+    } catch (e) {
+        console.warn('comment delete failed:', e);
+        alert('Sorry, that could not be deleted. Please try again.');
+    }
 }
 
 // Smooth expand / collapse of a replies group
@@ -3588,6 +3672,19 @@ function subscribeToFeed() {
             // videos — show immediately for everyone, no manual refresh.
             { event: 'UPDATE', schema: 'public', table: 'forum_posts' },
             (payload) => { handleEditedPost(payload.new); })
+        .on('postgres_changes',
+            // A comment/reply was deleted (here or on another device). Remove it from
+            // any open thread and refresh the post's comment count in real time.
+            // post_id is only present when forum_comments has REPLICA IDENTITY FULL
+            // (see content-comment-delete-migration.sql); without it we still remove
+            // the node by id and the count self-corrects next time comments open.
+            { event: 'DELETE', schema: 'public', table: 'forum_comments' },
+            (payload) => {
+                const o = payload.old || {};
+                if (o.id == null) return;
+                const isReply = o.parent_id != null;
+                _applyCommentDeleted(o.id, o.post_id, isReply);
+            })
         .subscribe();
 }
 

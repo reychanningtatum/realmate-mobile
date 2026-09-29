@@ -2595,14 +2595,14 @@ async function reportSetStatus(id, status) {
 // {type} filled in), so they always learn WHY their content was removed —
 // without the admin retyping it each time. Keep these clear and neutral.
 const CONTENT_REMOVAL_REASONS = [
-    { id: 'guidelines', label: 'Violated Community Guidelines', msg: 'Your {type} was removed by realmate Admin because it violated our Community Guidelines.' },
-    { id: 'spam', label: 'Spam or misleading', msg: 'Your {type} was removed by realmate Admin because it was spam or misleading content.' },
-    { id: 'harassment', label: 'Harassment or hateful content', msg: 'Your {type} was removed by realmate Admin because it contained harassment, bullying, or hateful content.' },
-    { id: 'inappropriate', label: 'Inappropriate or explicit', msg: 'Your {type} was removed by realmate Admin because it contained inappropriate or explicit content.' },
-    { id: 'misinformation', label: 'False or misleading information', msg: 'Your {type} was removed by realmate Admin because it contained false or misleading information.' },
-    { id: 'scam', label: 'Fraud or scam', msg: 'Your {type} was removed by realmate Admin because it appeared to be fraudulent or a scam.' },
-    { id: 'ip', label: 'Intellectual property / copyright', msg: 'Your {type} was removed by realmate Admin due to an intellectual property or copyright concern.' },
-    { id: 'terms', label: 'Other violation of Terms', msg: 'Your {type} was removed by realmate Admin for violating realmate’s Terms of Use.' },
+    { id: 'guidelines', label: 'Violated Community Guidelines', msg: 'Your {type} was removed by realmate admin because it violated our Community Guidelines.' },
+    { id: 'spam', label: 'Spam or misleading', msg: 'Your {type} was removed by realmate admin because it was spam or misleading content.' },
+    { id: 'harassment', label: 'Harassment or hateful content', msg: 'Your {type} was removed by realmate admin because it contained harassment, bullying, or hateful content.' },
+    { id: 'inappropriate', label: 'Inappropriate or explicit', msg: 'Your {type} was removed by realmate admin because it contained inappropriate or explicit content.' },
+    { id: 'misinformation', label: 'False or misleading information', msg: 'Your {type} was removed by realmate admin because it contained false or misleading information.' },
+    { id: 'scam', label: 'Fraud or scam', msg: 'Your {type} was removed by realmate admin because it appeared to be fraudulent or a scam.' },
+    { id: 'ip', label: 'Intellectual property / copyright', msg: 'Your {type} was removed by realmate admin due to an intellectual property or copyright concern.' },
+    { id: 'terms', label: 'Other violation of Terms', msg: 'Your {type} was removed by realmate admin for violating realmate’s Terms of Use.' },
 ];
 
 async function reportDeleteContent(id) {
