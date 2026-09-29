@@ -177,9 +177,28 @@
       };
       if (!entry.label && entry.type !== 'post' && entry.type !== 'listing') return;   // nothing to show
       var k = keyOf(entry);
-      var arr = read(scope).filter(function (e) { return keyOf(e) !== k; });
+      var cur = read(scope);
+      var arr = cur.filter(function (e) { return keyOf(e) !== k; });
       arr.unshift(entry);
-      write(scope, arr);
+      var sync = window.RMSearchSync;
+      // CLOBBER GUARD: if the local cache is EMPTY it may simply be un-synced. Pushing
+      // just [entry] would REPLACE the account row and wipe entries that already live
+      // there (the data-loss bug). So when local is empty, merge the new entry INTO the
+      // account (pull → merge → push) instead of replacing. When local already has
+      // entries it's fresh (a focus/sync populated it), so a direct immediate keepalive
+      // push is safe AND survives the navigation that selecting a result triggers.
+      if (cur.length === 0 && sync && sync.enabled()) {
+        try { localStorage.setItem(storeKey(scope), JSON.stringify(arr.slice(0, CAP))); } catch (e) {}
+        _mutatedAt[scope] = Date.now();
+        sync.pull(bucketOf(scope)).then(function (remote) {
+          var merged = sync.merge([entry], remote || [], keyOf).slice(0, CAP);
+          try { localStorage.setItem(storeKey(scope), JSON.stringify(merged)); } catch (e) {}
+          sync.push(bucketOf(scope), merged, true);
+          try { window.dispatchEvent(new CustomEvent('rmsh-remote', { detail: { scope: scope } })); } catch (e) {}
+        }, function () { write(scope, arr, true); });
+      } else {
+        write(scope, arr, true);   // local is fresh → immediate keepalive push
+      }
     },
     // Remove one entry by its keyOf() value. Pushed immediately so the delete lands
     // on the account row before any reload can pull the old list back.

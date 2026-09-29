@@ -192,7 +192,27 @@
         });
       };
       clearTimeout(_timers[bucket]);
-      if (immediate) { return doUpsert(); }   // returns a promise callers can await
+      if (immediate) {
+        // Immediate writes (a search just SELECTED, or a delete/clear) must survive the
+        // page navigation that selecting a result triggers — a normal fetch would be
+        // cancelled mid-flight and the save would be lost. Fire a raw PostgREST upsert
+        // with keepalive:true (browsers let it complete after the page unloads), and
+        // also do the SDK upsert as a belt-and-suspenders fallback.
+        try {
+          var tok = _storedToken();
+          if (tok) {
+            fetch(URL_ + '/rest/v1/search_history?on_conflict=user_id,bucket', {
+              method: 'POST', keepalive: true,
+              headers: {
+                'apikey': KEY_, 'Authorization': 'Bearer ' + tok,
+                'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates,return=minimal'
+              },
+              body: JSON.stringify([{ user_id: id, bucket: bucket, entries: (entries || []).slice(0, CAP), updated_at: new Date().toISOString() }])
+            }).catch(function () {});
+          }
+        } catch (e) {}
+        return doUpsert();
+      }
       _timers[bucket] = setTimeout(doUpsert, 400);
     }
   };
