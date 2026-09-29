@@ -489,17 +489,18 @@ async function handleNotificationRowClick(id) {
     const notif = localNotificationsCache.find(n => n.id === id);
     if (!notif) return;
 
-    // Mark read WITHOUT blocking the route. The DB write is fired-and-forgotten
-    // (its own _signalNotifBadgeRefresh still runs); we DON'T await it before
-    // navigating. Awaiting it was the root cause of the "first click doesn't
-    // route, second does" bug — the ~300ms network round-trip only ran on the
-    // first (still-unread) click, so the first and second clicks behaved
-    // differently. The local flag + a synchronous re-render keep the read UI
-    // instant for the paths that stay on this page (content_removed, broadcast).
+    // Mark THIS exact notification (by id) read, and PERSIST it before we route.
+    // First flip the local flag + re-render so the unread dot/count clears
+    // instantly, then AWAIT the DB write. The write must complete before the
+    // navigation below: location.href unloads the page and would abort a
+    // fire-and-forget PATCH, leaving the row unread on return/refresh. This is a
+    // real await on the existing update — NOT an arbitrary delay — and the
+    // destination deep-link consumers poll for their target, so the small wait
+    // never reintroduces the old "first click doesn't route" behavior.
     if (!notif.is_read) {
         notif.is_read = true;
-        try { markSingleNotificationAsRead(id); } catch (e) {}
         renderNotificationsInterface();
+        try { await markSingleNotificationAsRead(id); } catch (e) {}
     }
 
     let anchorFragmentTarget = "";
@@ -563,22 +564,38 @@ async function handleNotificationRowClick(id) {
         return;
     }
 
-    // Post/comment/reply/like/share notifications → the Feed (Forum is disabled).
-    // Likes and shares carry only target_post_id and route straight to the post —
-    // no lookup, so they navigate instantly. Comment/reply notifications resolve
-    // the home-feed comment anchor (hf-comment-<id>) so the Feed scrolls to the
-    // exact comment/reply once the thread renders. home.js then scrolls +
-    // green-highlights the exact target (rmConsumeFeedDeepLink).
+    // Post/comment/reply/like/share notifications. If the target post is the
+    // CURRENT USER'S OWN post (e.g. "reacted to your post"), open My Profile →
+    // Posts and land on that exact post at its NATURAL position — never the Feed,
+    // never prepended to the top. Otherwise fall back to the Feed. Decision is
+    // data-driven (resolve the post's actual owner), not a guess from the
+    // notification type.
     if (notif.target_post_id) {
-        if (notif.target_comment_id || notif.target_reply_id) {
-            try {
-                const { data: postRows } = await _supabase
-                    .from('forum_posts').select('source').eq('id', notif.target_post_id).limit(1);
-                if (postRows?.[0]?.source === 'home') {
-                    const cId = notif.target_reply_id || notif.target_comment_id;
-                    localStorage.setItem('route_target_anchor_id', `hf-comment-${cId}`);
-                }
-            } catch (e) {}
+        let owner = null, source = null;
+        try {
+            const { data: postRows } = await _supabase
+                .from('forum_posts').select('user_id,user_name,source').eq('id', notif.target_post_id).limit(1);
+            owner = (postRows && postRows[0]) || null;
+            source = owner && owner.source;
+        } catch (e) {}
+        const myId = user.id || user.supabaseId;
+        const isOwnPost = !!owner && (
+            (myId && owner.user_id && String(owner.user_id) === String(myId)) ||
+            (owner.user_name && user.name && owner.user_name === user.name));
+        if (isOwnPost) {
+            // My own post → My Profile → Posts tab, exact post + green highlight.
+            // Clear the Feed deep-link keys so home.js's feed consumer never also
+            // fires (and never prepends the post to the top of the Feed).
+            try { localStorage.removeItem('route_target_post_id'); localStorage.removeItem('route_target_anchor_id'); } catch (e) {}
+            try { localStorage.setItem('route_profile_post_id', String(notif.target_post_id)); } catch (e) {}
+            location.href = 'dashboard.html';
+            return;
+        }
+        // Not my post → Feed (existing behavior). Resolve the home comment anchor
+        // so the Feed scrolls to the exact comment/reply once the thread renders.
+        if (source === 'home' && (notif.target_comment_id || notif.target_reply_id)) {
+            const cId = notif.target_reply_id || notif.target_comment_id;
+            localStorage.setItem('route_target_anchor_id', `hf-comment-${cId}`);
         }
         location.href = 'home.html';
     } else {

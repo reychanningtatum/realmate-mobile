@@ -646,6 +646,32 @@ function switchProfileTab(tab) {
     if (tab === 'about') updateBioReadMoreVisibility();
 }
 
+// Notification deep-link: a reaction/like/comment/reply on MY OWN post opens My
+// Profile → Posts and lands on that EXACT post at its natural position (never the
+// Feed, never the top). notifications.js sets route_profile_post_id then routes
+// here. Data-ready (no timing hack): activate the Posts tab, then poll for the
+// exact post card to render in the wall, scroll to its real position, and apply
+// the same green highlight used on the Feed. Cleared once consumed so a later
+// re-render doesn't re-trigger it.
+async function _consumeProfilePostDeepLink() {
+    let pid = null;
+    try { pid = localStorage.getItem('route_profile_post_id'); } catch (e) {}
+    if (!pid) return;
+    try { switchProfileTab('posts'); } catch (e) {}   // land on Posts (mobile; desktop shows all)
+    const deadline = Date.now() + 8000;
+    let el = document.getElementById('hfpost-' + pid);
+    while (!el && Date.now() < deadline) {
+        await new Promise(function (r) { setTimeout(r, 120); });
+        el = document.getElementById('hfpost-' + pid);
+    }
+    if (!el) return;   // post not in this wall (deleted / not accessible)
+    try { localStorage.removeItem('route_profile_post_id'); } catch (e) {}
+    await new Promise(function (r) { requestAnimationFrame(function () { requestAnimationFrame(r); }); });
+    try { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {}
+    el.classList.add('hf-notif-highlight');
+    setTimeout(function () { el.classList.remove('hf-notif-highlight'); }, 3000);
+}
+
 // Portal's "View Listings" opens this dashboard with ?view=listings. The visitor
 // wants to land at the TOP of the profile (name/photo) with the LISTINGS tab
 // active and the listings just below — NOT scrolled down onto a listing. So we
@@ -1469,6 +1495,10 @@ async function loadProfile() {
         } else if (typeof loadHomeFeed === 'function') {
             loadHomeFeed(wallEl, { type: 'userId', value: targetId });
         }
+        // A notification about MY OWN post lands here — scroll to + highlight that
+        // exact post at its natural position in the Posts wall (polls for it to
+        // render; no fixed delay). No-op when there's no pending deep-link.
+        _consumeProfilePostDeepLink();
     }
 
     // About: show the SAME locked-state gate as Posts/Listings (not just a hidden

@@ -1875,3 +1875,14 @@ html[data-theme="dark"] .profile-img-container { border-color: #334155; }
 .hf-video-mute:hover { background: rgba(15, 23, 42, 0.8); }
 .hf-video-mute:active { transform: scale(0.92); }
 .hf-video-mute.is-on { background: var(--primary, #32cd32); }   /* sound on */
+
+/* Notification deep-link highlight for a post opened via My Profile → Posts.
+   home.css isn't loaded here, so mirror the Feed's temporary green box/border
+   (added for 3s by _consumeProfilePostDeepLink, then removed). */
+.hf-notif-highlight {
+  box-shadow: 0 0 0 3px var(--primary, #32cd32), var(--card-shadow, 0 2px 8px rgba(0,0,0,.06)) !important;
+  background-color: rgba(50, 205, 50, 0.08) !important;
+  border-color: var(--primary, #32cd32) !important;
+  transition: box-shadow .4s ease, background-color .4s ease, border-color .4s ease;
+  scroll-margin: 80px;
+}
