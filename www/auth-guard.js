@@ -303,6 +303,11 @@ function goBack() {
     // current) makes our own echo — and the same-device applyCrop path, which has
     // already updated the cache — a harmless no-op.
     try {
+        // Authenticate the realtime socket so RLS-gated postgres_changes on the
+        // user's OWN profile row are actually delivered (without this, an RLS
+        // SELECT policy silently filters the UPDATE event out — the change then
+        // only appears on a later fetch/navigation, i.e. "syncs but not realtime").
+        try { if (session.access_token && _sb.realtime && _sb.realtime.setAuth) _sb.realtime.setAuth(session.access_token); } catch (e) {}
         _sb.channel('profile-self-' + session.user.id)
             .on('postgres_changes',
                 { event: 'UPDATE', schema: 'public', table: 'profiles', filter: 'id=eq.' + session.user.id },
@@ -316,7 +321,13 @@ function goBack() {
                         window.rmApplyAvatarUpdate(newUrl, payload.new.avatar_original_url);
                     } catch (e) {}
                 })
-            .subscribe();
+            .subscribe(function (status) {
+                // CHANNEL_ERROR here almost always means `profiles` is not in the
+                // supabase_realtime publication yet → run profiles-realtime-migration.sql.
+                if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+                    console.warn('[AuthGuard] profile realtime unavailable (' + status + ') — run profiles-realtime-migration.sql');
+                }
+            });
     } catch (e) { /* realtime optional — run profiles-realtime-migration.sql to enable */ }
 
     // ── Analytics: record app_open ────────────────────────────────────────

@@ -34,7 +34,7 @@
   <link rel="stylesheet" href="vendor/fontawesome/css/all.min.css?v=6.5.0">
   <link rel="stylesheet" href="vendor/cropperjs/cropper.min.css?v=1.6.1">
   <link rel="stylesheet" href="vendor/googlefonts/fonts.css?v=1">
-  <link rel="stylesheet" href="dashboard-style.css?v=20260929b">
+  <link rel="stylesheet" href="dashboard-style.css?v=20260930a">
   <link rel="stylesheet" href="customer-service.css?v=3">
   <link rel="stylesheet" href="mobile-back.css">
   <link rel="stylesheet" href="composer.css?v=20260829e">
@@ -102,7 +102,7 @@
 
             <!-- Avatar overlapping cover -->
             <div class="profile-avatar-wrap">
-                <div class="profile-img-container" onclick="openPhotoActionSheet()">
+                <div class="profile-img-container" onclick="togglePhotoInlineMenu(event)">
                     <img id="profileImage">
                     <div class="profile-camera-overlay">
                         <i class="fas fa-camera"></i>
@@ -110,6 +110,16 @@
                     </div>
                 </div>
                 <span class="profile-online-dot" id="onlineStatusDot" style="display:none;" title="Active now"></span>
+                <!-- Photo options anchored directly UNDER the profile picture (an inline
+                     dropdown that reads as part of the avatar), instead of a floating/
+                     bottom sheet. Each option opens its picker via changeImage(). -->
+                <div id="photoInlineMenu" class="photo-inline-menu" style="display:none;" onclick="event.stopPropagation()">
+                    <div class="pim-item" onclick="closePhotoInlineMenu(); viewFullPhoto();"><i class="fas fa-expand"></i><span>View Full Photo</span></div>
+                    <div class="pim-item" onclick="closePhotoInlineMenu(); repositionPhoto();"><i class="fas fa-arrows-alt"></i><span>Reposition / Zoom</span></div>
+                    <div class="pim-item" onclick="changeImage('library')"><i class="fas fa-images"></i><span>Photo Library</span></div>
+                    <div class="pim-item" onclick="changeImage('camera')"><i class="fas fa-camera"></i><span>Take Photo or Video</span></div>
+                    <div class="pim-item" onclick="changeImage('file')"><i class="fas fa-folder-open"></i><span>Choose File</span></div>
+                </div>
             </div>
 
             <!-- Info -->
@@ -447,9 +457,17 @@
                 <div style="width:38px; height:38px; background:#f1f5f9; border-radius:10px; display:flex; align-items:center; justify-content:center;"><i class="fas fa-arrows-alt" style="color:#475569;"></i></div>
                 <div><div style="font-size:14px; font-weight:700; color:#0f172a;">Reposition / Zoom</div><div style="font-size:12px; color:#94a3b8;">Drag and zoom your current photo</div></div>
             </div>
-            <div onclick="changeImage()" style="display:flex; align-items:center; gap:14px; padding:16px 24px; cursor:pointer; border-bottom:1px solid #f1f5f9;">
+            <div onclick="changeImage('library')" style="display:flex; align-items:center; gap:14px; padding:16px 24px; cursor:pointer; border-bottom:1px solid #f1f5f9;">
+                <div style="width:38px; height:38px; background:#f1f5f9; border-radius:10px; display:flex; align-items:center; justify-content:center;"><i class="fas fa-images" style="color:#475569;"></i></div>
+                <div><div style="font-size:14px; font-weight:700; color:#0f172a;">Photo Library</div><div style="font-size:12px; color:#94a3b8;">Choose from your photos</div></div>
+            </div>
+            <div onclick="changeImage('camera')" style="display:flex; align-items:center; gap:14px; padding:16px 24px; cursor:pointer; border-bottom:1px solid #f1f5f9;">
                 <div style="width:38px; height:38px; background:#f1f5f9; border-radius:10px; display:flex; align-items:center; justify-content:center;"><i class="fas fa-camera" style="color:#475569;"></i></div>
-                <div><div style="font-size:14px; font-weight:700; color:#0f172a;">Change Photo</div><div style="font-size:12px; color:#94a3b8;">Upload a new profile picture</div></div>
+                <div><div style="font-size:14px; font-weight:700; color:#0f172a;">Take Photo or Video</div><div style="font-size:12px; color:#94a3b8;">Use your camera</div></div>
+            </div>
+            <div onclick="changeImage('file')" style="display:flex; align-items:center; gap:14px; padding:16px 24px; cursor:pointer; border-bottom:1px solid #f1f5f9;">
+                <div style="width:38px; height:38px; background:#f1f5f9; border-radius:10px; display:flex; align-items:center; justify-content:center;"><i class="fas fa-folder-open" style="color:#475569;"></i></div>
+                <div><div style="font-size:14px; font-weight:700; color:#0f172a;">Choose File</div><div style="font-size:12px; color:#94a3b8;">Browse your files</div></div>
             </div>
             <div onclick="closePhotoActionSheet()" style="display:flex; align-items:center; gap:14px; padding:16px 24px; cursor:pointer;">
                 <div style="width:38px; height:38px; background:#fef2f2; border-radius:10px; display:flex; align-items:center; justify-content:center;"><i class="fas fa-times" style="color:#ef4444;"></i></div>
@@ -512,16 +530,17 @@
 
 <!-- Cover Crop Modal -->
 <div id="coverCropModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:99998; justify-content:center; align-items:center; flex-direction:column;">
-    <div style="background:#1e293b; border-radius:20px; width:min(560px, 95vw); overflow:hidden; box-shadow:0 30px 60px rgba(0,0,0,0.5);">
-        <div style="padding:16px 20px; border-bottom:1px solid rgba(255,255,255,0.1); display:flex; align-items:center; justify-content:space-between;">
-            <span style="font-size:15px; font-weight:700; color:#fff;">Reposition Cover Photo</span>
-            <button onclick="closeCoverCropModal()" style="background:none; border:none; color:#94a3b8; font-size:18px; cursor:pointer;"><i class="fas fa-times"></i></button>
+    <div style="background:#fff; border-radius:20px; width:min(560px, 95vw); overflow:hidden; box-shadow:0 30px 60px rgba(0,0,0,0.35);">
+        <div style="padding:16px 20px; border-bottom:1px solid #e2e8f0; display:flex; align-items:center; justify-content:space-between;">
+            <span style="font-size:15px; font-weight:700; color:#0f172a;">Reposition Cover Photo</span>
+            <button onclick="closeCoverCropModal()" style="background:none; border:none; color:#64748b; font-size:18px; cursor:pointer;"><i class="fas fa-times"></i></button>
         </div>
-        <div style="padding:16px; max-height:60vh; overflow:hidden;">
+        <!-- Crop canvas area stays dark for image contrast (per spec). -->
+        <div style="padding:16px; max-height:60vh; overflow:hidden; background:#0f172a;">
             <img id="coverCropImage" src="" style="display:block; max-width:100%;">
         </div>
-        <div style="padding:12px 20px; border-top:1px solid rgba(255,255,255,0.1); display:flex; justify-content:flex-end; gap:10px;">
-            <button onclick="closeCoverCropModal()" style="padding:10px 20px; border-radius:10px; border:1px solid #475569; background:transparent; color:#94a3b8; font-size:13px; font-weight:700; cursor:pointer;">Cancel</button>
+        <div style="padding:12px 20px; border-top:1px solid #e2e8f0; display:flex; justify-content:flex-end; gap:10px;">
+            <button onclick="closeCoverCropModal()" style="padding:10px 20px; border-radius:10px; border:1px solid #e2e8f0; background:#f1f5f9; color:#0f172a; font-size:13px; font-weight:700; cursor:pointer;">Cancel</button>
             <button id="applyCoverCropBtn" onclick="applyCoverCrop()" style="padding:10px 20px; border-radius:10px; border:none; background:#32cd32; color:#fff; font-size:13px; font-weight:700; cursor:pointer;"><i class="fas fa-check"></i> Save</button>
         </div>
     </div>
@@ -535,27 +554,28 @@
 
 <!-- Crop / Reposition Modal -->
 <div id="cropModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:99998; justify-content:center; align-items:center; flex-direction:column;">
-    <div style="background:#1e293b; border-radius:20px; width:min(420px, 95vw); overflow:hidden; box-shadow:0 30px 60px rgba(0,0,0,0.5);">
-        <div style="padding:16px 20px; border-bottom:1px solid rgba(255,255,255,0.1); display:flex; align-items:center; justify-content:space-between;">
-            <span style="color:#fff; font-weight:700; font-size:15px;">Reposition & Zoom</span>
-            <i class="fas fa-times" onclick="closeCropModal()" style="color:#94a3b8; cursor:pointer; font-size:18px;"></i>
+    <div style="background:#fff; border-radius:20px; width:min(420px, 95vw); overflow:hidden; box-shadow:0 30px 60px rgba(0,0,0,0.35);">
+        <div style="padding:16px 20px; border-bottom:1px solid #e2e8f0; display:flex; align-items:center; justify-content:space-between;">
+            <span style="color:#0f172a; font-weight:700; font-size:15px;">Reposition & Zoom</span>
+            <i class="fas fa-times" onclick="closeCropModal()" style="color:#64748b; cursor:pointer; font-size:18px;"></i>
         </div>
         <div style="padding:20px; display:flex; flex-direction:column; gap:14px;">
+            <!-- Crop canvas stays dark for image contrast (per spec). -->
             <div style="width:100%; height:300px; background:#0f172a; border-radius:12px; overflow:hidden;">
                 <img id="cropperImage" style="max-width:100%; display:block;">
             </div>
             <!-- Zoom controls -->
             <div style="display:flex; align-items:center; gap:12px;">
-                <button onclick="cropperInstance && cropperInstance.zoom(-0.1)" style="width:32px; height:32px; border-radius:8px; border:1px solid rgba(255,255,255,0.15); background:rgba(255,255,255,0.08); color:#fff; cursor:pointer; font-size:14px; display:flex; align-items:center; justify-content:center;"><i class="fas fa-minus"></i></button>
+                <button onclick="cropperInstance && cropperInstance.zoom(-0.1)" style="width:32px; height:32px; border-radius:8px; border:1px solid #e2e8f0; background:#f1f5f9; color:#475569; cursor:pointer; font-size:14px; display:flex; align-items:center; justify-content:center;"><i class="fas fa-minus"></i></button>
                 <input type="range" id="zoomSlider" min="0.1" max="3" step="0.05" value="1"
                     style="flex:1; accent-color:#32cd32; cursor:pointer; height:4px;"
                     oninput="cropperInstance && cropperInstance.zoomTo(parseFloat(this.value))">
-                <button onclick="cropperInstance && cropperInstance.zoom(0.1)" style="width:32px; height:32px; border-radius:8px; border:1px solid rgba(255,255,255,0.15); background:rgba(255,255,255,0.08); color:#fff; cursor:pointer; font-size:14px; display:flex; align-items:center; justify-content:center;"><i class="fas fa-plus"></i></button>
+                <button onclick="cropperInstance && cropperInstance.zoom(0.1)" style="width:32px; height:32px; border-radius:8px; border:1px solid #e2e8f0; background:#f1f5f9; color:#475569; cursor:pointer; font-size:14px; display:flex; align-items:center; justify-content:center;"><i class="fas fa-plus"></i></button>
             </div>
             <p style="color:#64748b; font-size:12px; text-align:center; margin:0;"><i class="fas fa-hand-paper"></i> Drag to reposition &nbsp;·&nbsp; <i class="fas fa-search-plus"></i> Slide or buttons to zoom</p>
         </div>
-        <div style="padding:16px 20px; border-top:1px solid rgba(255,255,255,0.1); display:flex; gap:10px;">
-            <button onclick="closeCropModal()" style="flex:1; padding:12px; background:rgba(255,255,255,0.08); color:#fff; border:1px solid rgba(255,255,255,0.15); border-radius:12px; font-weight:700; font-size:14px; cursor:pointer;">Cancel</button>
+        <div style="padding:16px 20px; border-top:1px solid #e2e8f0; display:flex; gap:10px;">
+            <button onclick="closeCropModal()" style="flex:1; padding:12px; background:#f1f5f9; color:#0f172a; border:1px solid #e2e8f0; border-radius:12px; font-weight:700; font-size:14px; cursor:pointer;">Cancel</button>
             <button id="applyCropBtn" onclick="applyCrop()" style="flex:2; padding:12px; background:#32cd32; color:#fff; border:none; border-radius:12px; font-weight:700; font-size:14px; cursor:pointer;"><i class="fas fa-check"></i> Apply & Save</button>
         </div>
     </div>
@@ -618,7 +638,7 @@
 <script src="rm-sound.js?v=20260831a"></script>
 <script src="mates.js?v=20260930c"></script>
 <script src="follows.js?v=20260918b"></script>
-<script src="auth-guard.js?v=20260930a"></script>
+<script src="auth-guard.js?v=20260930b"></script>
 <!-- Shared account-menu modal (My Account/My Profile/My Listings) — same
      component Portal's livemarket.js uses for showSelfPopup()/showSellerPopup(). -->
 <link rel="stylesheet" href="account-menu.css?v=20260810a">
@@ -635,9 +655,9 @@
 <script src="livemarket.js?v=20260930e"></script>
 <script src="privacy.js?v=20260831a"></script>
 <script src="deactivation.js?v=20260831a"></script>
-<script src="dashboard-script.js?v=20260930d"></script>
+<script src="dashboard-script.js?v=20260930g"></script>
 <script src="emoji-picker.js?v=20260928d"></script>
-<script src="home.js?v=20260930h"></script>
+<script src="home.js?v=20260930i"></script>
 <script src="feed-video.js?v=20260929a"></script>
 <script src="block-report.js?v=20260829f"></script>
 <script src="congrats.js?v=20260810b"></script>

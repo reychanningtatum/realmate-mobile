@@ -1200,11 +1200,31 @@ function _rmSyncOwnAvatarFromCache() {
     try {
         if (_viewUserId) return;   // viewing another user — don't touch their avatar
         const cached = JSON.parse(localStorage.getItem('user')) || {};
-        if (cached.image && typeof user !== 'undefined' && user && cached.image !== user.image) {
+        if (!cached.image) return;
+        if (typeof user !== 'undefined' && user && cached.image !== user.image) {
             user.image = cached.image;
             if (cached.imageOriginal) user.imageOriginal = cached.imageOriginal;
             if (typeof updateUI === 'function') updateUI();
         }
+        _rmRepaintOwnProfileAvatars(cached.image);
+    } catch (_) {}
+}
+
+// Repaint the two profile-page avatars that updateUI/nav don't cover: the
+// "Write a post" composer avatar and the Posts-tab post-card avatars. On the OWN
+// profile every wall post is this user's, so all outer .hf-post-avatar are theirs
+// (the embedded shared-original avatar, .hf-shared-head img, belongs to another
+// user and is intentionally left alone).
+function _rmRepaintOwnProfileAvatars(url) {
+    if (!url || _viewUserId) return;
+    try {
+        document.querySelectorAll('#createPostAvatar').forEach(el => {
+            el.style.background = `url('${url}') center/cover no-repeat`;
+            el.innerHTML = '';
+        });
+    } catch (_) {}
+    try {
+        document.querySelectorAll('.hf-post-avatar').forEach(img => { img.src = url; });
     } catch (_) {}
 }
 window.addEventListener('rm-avatar-changed', _rmSyncOwnAvatarFromCache);
@@ -2107,9 +2127,57 @@ function closePhotoActionSheet() {
     document.body.style.overflow = "";
 }
 
-function changeImage() {
+// Inline photo-options dropdown anchored UNDER the profile picture (replaces the
+// floating/bottom-sheet chooser so the options read as part of the avatar). Does
+// NOT open the keyboard and does NOT lock page scroll — it's a lightweight popover.
+function togglePhotoInlineMenu(e) {
+    if (e) e.stopPropagation();
+    const menu = document.getElementById("photoInlineMenu");
+    if (!menu) return;
+    if (menu.style.display === "none" || !menu.style.display) openPhotoInlineMenu();
+    else closePhotoInlineMenu();
+}
+function openPhotoInlineMenu() {
+    const menu = document.getElementById("photoInlineMenu");
+    if (!menu) return;
+    menu.style.display = "block";
+    setTimeout(() => document.addEventListener("click", _photoMenuOutside, true), 0);
+}
+function closePhotoInlineMenu() {
+    const menu = document.getElementById("photoInlineMenu");
+    if (menu) menu.style.display = "none";
+    document.removeEventListener("click", _photoMenuOutside, true);
+}
+function _photoMenuOutside(e) {
+    const wrap = document.querySelector(".profile-avatar-wrap");
+    if (wrap && !wrap.contains(e.target)) closePhotoInlineMenu();
+}
+
+// Open the picker for a chosen source directly, instead of a bare fileInput.click()
+// (which makes iOS show its own dark "Photo Library / Take Photo / Choose File"
+// menu). Each source configures the SAME input + change handler, so the upload/
+// crop flow is unchanged:
+//   library → accept image only          (photo library)
+//   camera  → accept image + capture     (opens the camera directly)
+//   file    → no accept                   (Files / document picker)
+function changeImage(source) {
     closePhotoActionSheet();
-    document.getElementById("fileInput").click();
+    closePhotoInlineMenu();
+    const fi = document.getElementById("fileInput");
+    if (!fi) return;
+    try {
+        if (source === 'camera') {
+            fi.setAttribute('accept', 'image/*');
+            fi.setAttribute('capture', 'environment');
+        } else if (source === 'file') {
+            fi.removeAttribute('accept');
+            fi.removeAttribute('capture');
+        } else { // 'library' (default)
+            fi.setAttribute('accept', 'image/*');
+            fi.removeAttribute('capture');
+        }
+    } catch (e) {}
+    fi.click();
 }
 
 // ── Lightbox ──
@@ -2151,6 +2219,12 @@ function openCropModal(src) {
 
     document.getElementById("cropModal").style.display = "flex";
     document.body.style.overflow = "hidden";
+
+    // Reset the Apply button every time the cropper opens. applyCrop() sets it to
+    // "Saving…" + disabled and only closes the modal afterward (never restores it),
+    // so without this a later open would still show the stale "Saving…" state.
+    const applyBtn = document.getElementById("applyCropBtn");
+    if (applyBtn) { applyBtn.disabled = false; applyBtn.innerHTML = '<i class="fas fa-check"></i> Apply & Save'; }
 
     if (cropperInstance) { cropperInstance.destroy(); cropperInstance = null; }
 
@@ -2253,6 +2327,8 @@ async function applyCrop() {
                 }
             }
             updateUI();
+            // Also repaint THIS page's composer + Posts-tab post-card avatars.
+            try { _rmRepaintOwnProfileAvatars(publicUrl); } catch (e) {}
             // Propagate the new avatar to every OTHER cached app-shell iframe
             // (feed composer, navbars, etc.) without a reload. localStorage is
             // shared same-origin; writing this key fires a `storage` event in the

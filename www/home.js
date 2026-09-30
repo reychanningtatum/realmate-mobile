@@ -2165,12 +2165,38 @@ function _applyCommentDeleted(commentId, postId, isReply) {
     }
 }
 
+// Repaint the CURRENT user's own post-card avatars in the feed after their
+// profile picture changes. Only their own posts (matched via _homePosts by id /
+// name); other users' avatars and anonymous posts are left untouched.
+function _rmRepaintOwnFeedAvatars() {
+    try {
+        const me = getUser();
+        if (!me || !me.image) return;
+        const myId = me.id != null ? String(me.id) : null;
+        const myName = me.name || '';
+        (Array.isArray(_homePosts) ? _homePosts : []).forEach(function (p) {
+            if (!p || p.is_anonymous) return;
+            const mine = (myId && String(p.user_id) === myId) || (myName && p.user_name === myName);
+            if (!mine) return;
+            const card = document.getElementById('hfpost-' + p.id);
+            const img = card && card.querySelector('.hf-post-avatar');
+            if (img) img.src = me.image;
+        });
+    } catch (_) {}
+}
+// Same-document realtime path (auth-guard fires rm-avatar-changed): repaint the
+// composer + the user's own feed post avatars.
+window.addEventListener('rm-avatar-changed', function () {
+    try { if (typeof initCreatePost === 'function') initCreatePost(); } catch (_) {}
+    _rmRepaintOwnFeedAvatars();
+});
 window.addEventListener('storage', function (e) {
     // Profile picture changed in another app-shell iframe/tab → repaint the feed
-    // composer avatar from the updated localStorage user (no reload). The nav
-    // avatar is handled by nav-menu.js's own listener.
+    // composer avatar + the user's own post avatars from the updated localStorage
+    // user (no reload). The nav avatar is handled by nav-menu.js's own listener.
     if (e.key === 'rm_avatar_changed') {
         try { if (typeof initCreatePost === 'function') initCreatePost(); } catch (_) {}
+        _rmRepaintOwnFeedAvatars();
     }
     if (e.key === 'rm_post_deleted' && e.newValue) {
         try { var d = JSON.parse(e.newValue); if (d && d.id) document.getElementById('hfpost-' + d.id)?.remove(); } catch (_) {}
