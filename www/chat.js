@@ -854,8 +854,14 @@ function addMsgBubble(container, m) {
     else if (isYesterday) fullTimestamp = `Yesterday at ${timeStr}`;
     else fullTimestamp = `${dt.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })} • ${timeStr}`;
 
-    // Unsent message
-    if (m.is_unsent) {
+    // Unsent message → tombstone. Also catch any message whose content has been
+    // stripped (no text AND no file): an unsent row that — on some client/build —
+    // didn't get is_unsent flagged would otherwise fall through to an empty TEXT
+    // bubble, rendering the original position BLANK. Treat a content-less message
+    // as unsent so the tombstone always shows and a blank bubble can never appear.
+    // (LISTING_REF stores its JSON in message_text, so it always has content.)
+    const _hasContent = (m.message_text && String(m.message_text).trim() !== '') || m.file_url;
+    if (m.is_unsent || !_hasContent) {
         const label = isOwn ? 'You unsent a message' : 'This message was unsent';
         const html = `<div class="chat-msg-row ${side}" data-msg-id="${m.id}" onclick="toggleMsgTimestamp(this)"><div class="chat-msg-tap-ts">${fullTimestamp}</div><div><div class="chat-msg-unsent"><i class="fas fa-ban" style="margin-right:4px;font-size:11px;"></i>${label}</div></div></div>`;
         container.insertAdjacentHTML('beforeend', html);
