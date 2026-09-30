@@ -293,6 +293,14 @@ function goBack() {
         try { window.loadNavAvatar && window.loadNavAvatar(); } catch (e) {}
         try { window.initCreatePost && window.initCreatePost(); } catch (e) {}
         try { window.dispatchEvent(new CustomEvent('rm-avatar-changed', { detail: { url: newUrl, original: originalUrl || '' } })); } catch (e) {}
+        // Fan out to the OTHER app-shell documents on this device — the persistent
+        // mobile shell (app.html, which owns the visible navbar) and the other
+        // cached tab iframes. They repaint via their rm_avatar_changed storage
+        // listeners. Cross-device realtime only fires in the document(s) that
+        // received it; on mobile that may not be the shell or the profile iframe,
+        // so without this broadcast their navbar / composer stay stale until a
+        // refresh. `storage` events fire only in OTHER documents → no loop here.
+        try { localStorage.setItem('rm_avatar_changed', JSON.stringify({ url: newUrl, ts: Date.now() })); } catch (e) {}
     };
 
     // Subscribe to THIS user's profile row so a picture changed on another device

@@ -118,7 +118,6 @@
                     <div class="pim-item" onclick="closePhotoInlineMenu(); repositionPhoto();"><i class="fas fa-arrows-alt"></i><span>Reposition / Zoom</span></div>
                     <div class="pim-item" onclick="changeImage('library')"><i class="fas fa-images"></i><span>Photo Library</span></div>
                     <div class="pim-item" onclick="changeImage('camera')"><i class="fas fa-camera"></i><span>Take Photo or Video</span></div>
-                    <div class="pim-item" onclick="changeImage('file')"><i class="fas fa-folder-open"></i><span>Choose File</span></div>
                 </div>
             </div>
 
@@ -465,10 +464,6 @@
                 <div style="width:38px; height:38px; background:#f1f5f9; border-radius:10px; display:flex; align-items:center; justify-content:center;"><i class="fas fa-camera" style="color:#475569;"></i></div>
                 <div><div style="font-size:14px; font-weight:700; color:#0f172a;">Take Photo or Video</div><div style="font-size:12px; color:#94a3b8;">Use your camera</div></div>
             </div>
-            <div onclick="changeImage('file')" style="display:flex; align-items:center; gap:14px; padding:16px 24px; cursor:pointer; border-bottom:1px solid #f1f5f9;">
-                <div style="width:38px; height:38px; background:#f1f5f9; border-radius:10px; display:flex; align-items:center; justify-content:center;"><i class="fas fa-folder-open" style="color:#475569;"></i></div>
-                <div><div style="font-size:14px; font-weight:700; color:#0f172a;">Choose File</div><div style="font-size:12px; color:#94a3b8;">Browse your files</div></div>
-            </div>
             <div onclick="closePhotoActionSheet()" style="display:flex; align-items:center; gap:14px; padding:16px 24px; cursor:pointer;">
                 <div style="width:38px; height:38px; background:#fef2f2; border-radius:10px; display:flex; align-items:center; justify-content:center;"><i class="fas fa-times" style="color:#ef4444;"></i></div>
                 <div><div style="font-size:14px; font-weight:700; color:#ef4444;">Close</div></div>
@@ -638,7 +633,7 @@
 <script src="rm-sound.js?v=20260831a"></script>
 <script src="mates.js?v=20260930c"></script>
 <script src="follows.js?v=20260918b"></script>
-<script src="auth-guard.js?v=20260930b"></script>
+<script src="auth-guard.js?v=20260930c"></script>
 <!-- Shared account-menu modal (My Account/My Profile/My Listings) — same
      component Portal's livemarket.js uses for showSelfPopup()/showSellerPopup(). -->
 <link rel="stylesheet" href="account-menu.css?v=20260810a">
