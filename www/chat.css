@@ -1246,9 +1246,13 @@ html[data-theme="dark"] .chat-settings-label { color: #f1f5f9; }
 }
 
 .chat-msg-row.own .chat-msg-unsent {
-  border-color: rgba(255,255,255,0.3);
-  color: rgba(255,255,255,0.6);
-  background: rgba(50,205,50,0.08);
+  /* The tombstone has a faint, near-transparent background (NOT the solid green
+     own-message bubble), so it needs dark, readable text. The old white text
+     ("You unsent a message") was invisible on the light chat background — the
+     "blank message" bug. Use the same readable style as the other side. */
+  border-color: var(--chat-border);
+  color: var(--chat-sub);
+  background: rgba(50,205,50,0.06);
 }
 
 /* Dark theme additions */

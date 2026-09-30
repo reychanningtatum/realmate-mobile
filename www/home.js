@@ -1130,7 +1130,7 @@ async function loadHomeFeed(feedEl, filterArg, silent) {
 // exact post it references, on the first click. Returns the card element (or
 // null if the post no longer exists / isn't accessible). The referenced post is
 // always the recipient's own ("reacted to YOUR post"), so no extra access gate.
-async function _ensureFeedPostRendered(postId) {
+async function _ensureFeedPostRendered(postId, position) {
     const feed = document.getElementById('homeFeed');
     if (!feed) return null;
     const existing = document.getElementById(`hfpost-${postId}`);
@@ -1165,8 +1165,29 @@ async function _ensureFeedPostRendered(postId) {
             shareCount: (sharesRes.data || []).length,
             pollData: null
         });
-        feed.insertBefore(card, feed.firstChild);
-        if (!_homePosts.find(p => p.id == post.id)) _homePosts.unshift(post);
+        if (position === 'natural') {
+            // Insert at the correct chronological slot (the feed is created_at DESC),
+            // so the post lands where it belongs in the timeline — NOT at the top.
+            // Almost always the post is older than the loaded page (the feed shows
+            // only the latest 40), so it appends at the bottom; the loop also handles
+            // the rare case where it's newer than some already-loaded posts.
+            const tCreated = new Date(post.created_at).getTime();
+            let refNode = null;
+            for (const p of _homePosts) {
+                if (new Date(p.created_at).getTime() < tCreated) {
+                    const node = document.getElementById(`hfpost-${p.id}`);
+                    if (node) { refNode = node; break; }
+                }
+            }
+            if (refNode) feed.insertBefore(card, refNode); else feed.appendChild(card);
+            if (!_homePosts.find(p => p.id == post.id)) {
+                _homePosts.push(post);
+                _homePosts.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+            }
+        } else {
+            feed.insertBefore(card, feed.firstChild);
+            if (!_homePosts.find(p => p.id == post.id)) _homePosts.unshift(post);
+        }
         try { if (window.RMFeedVideo) RMFeedVideo.scan(feed); } catch (e) {}
         return card;
     } catch (e) { return null; }
@@ -1383,18 +1404,30 @@ function buildSharedEmbed(orig) {
 }
 
 // Open an exact post (by its own id) in the main Feed — from the Feed, a Profile,
-// or anywhere. If we're already on the Feed and the post is present, scroll +
-// green-highlight in place; otherwise deep-link into the Feed (rmConsumeFeedDeepLink
-// waits for it to render, scrolls to its natural position, and green-highlights).
-function openFeedPost(postId) {
+// or anywhere.
+//   • Already on the Feed: scroll + green-highlight the post IN PLACE. If it isn't
+//     in the loaded page (the feed shows only the latest 40), fetch + render it at
+//     its correct chronological position and scroll there — NO page reload (a reload
+//     just refreshes the mobile app-shell and never lands on the post).
+//   • Not on the Feed (e.g. a Profile): deep-link into the Feed; rmConsumeFeedDeepLink
+//     resolves + scrolls + highlights once it renders.
+async function openFeedPost(postId) {
     if (postId == null || postId === '') return;
-    const here = document.getElementById(`hfpost-${postId}`);
     const onFeed = !!document.getElementById('homeFeed');
-    if (onFeed && here) {
+    if (onFeed) {
         try { if (typeof clearHomeSearch === 'function') clearHomeSearch(); } catch (e) {}
-        try { here.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {}
-        here.classList.add('hf-notif-highlight');
-        setTimeout(() => here.classList.remove('hf-notif-highlight'), 3000);
+        let here = document.getElementById(`hfpost-${postId}`);
+        if (!here && typeof _ensureFeedPostRendered === 'function') {
+            // Render the missing post at its natural timeline position (not the top).
+            try { here = await _ensureFeedPostRendered(postId, 'natural'); } catch (e) {}
+        }
+        if (here) {
+            // Wait for layout (a just-rendered card, images) so the scroll lands dead-on.
+            await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+            try { here.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {}
+            here.classList.add('hf-notif-highlight');
+            setTimeout(() => here.classList.remove('hf-notif-highlight'), 3000);
+        }
         return;
     }
     // Not on the Feed (e.g. a Profile) — deep-link by the post's own id.
