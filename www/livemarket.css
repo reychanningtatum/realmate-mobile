@@ -422,6 +422,93 @@ html[data-theme="dark"] .ps-recent-del:hover { background: #0f172a; }
 html[data-theme="dark"] .location-wrap select {
   background-color: #1e293b; color: #f1f5f9; border-color: #334155;
 }
+
+/* ===== Custom Location dropdown (Portal) — reference-matched design ===== */
+/* The native <select> is kept only as the value store; hide it visually. */
+.location-wrap select.loc-native { display: none !important; }
+
+/* Trigger button — same clean white box / rounded / green active look as before. */
+.loc-trigger {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  padding: 11px 12px; border: 1px solid var(--border); border-radius: 12px;
+  background: #fff; color: var(--text-main);
+  font-size: 13px; font-family: inherit; text-align: left; cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+}
+.location-wrap .loc-trigger .loc-trigger-pin {
+  position: static; transform: none; color: var(--text-sub); font-size: 13px; z-index: auto;
+}
+.loc-trigger-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.loc-trigger-chevron { color: var(--text-sub); font-size: 12px; transition: transform 0.2s; }
+.loc-trigger[aria-expanded="true"] { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-soft); }
+.loc-trigger[aria-expanded="true"] .loc-trigger-chevron { transform: rotate(180deg); }
+.location-wrap.active .loc-trigger { border-color: var(--primary); background: var(--primary-soft); }
+.location-wrap.active .loc-trigger .loc-trigger-label,
+.location-wrap.active .loc-trigger .loc-trigger-pin { color: var(--primary); font-weight: 700; }
+
+/* Panel — white rounded card opening directly under the trigger, aligned to its width. */
+.loc-panel {
+  position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 400;
+  background: #fff; border: 1px solid var(--border); border-radius: 16px;
+  box-shadow: 0 12px 34px rgba(15, 23, 42, 0.18);
+  display: flex; flex-direction: column; overflow: hidden;
+  max-height: min(62vh, 460px);
+}
+.loc-panel[hidden] { display: none; }
+
+/* Selected-location row — light green, green circular check. */
+.loc-selected-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 16px; background: var(--primary-soft);
+  border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.loc-check {
+  width: 26px; height: 26px; flex-shrink: 0; border-radius: 50%;
+  background: var(--primary); color: #fff;
+  display: flex; align-items: center; justify-content: center; font-size: 12px;
+}
+.loc-selected-text { font-size: 15px; font-weight: 600; color: var(--text-main); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Search field. */
+.loc-search-wrap { position: relative; padding: 10px 12px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.loc-search-wrap i { position: absolute; left: 24px; top: 50%; transform: translateY(-50%); color: var(--text-sub); font-size: 13px; pointer-events: none; }
+.loc-search-wrap input {
+  width: 100%; padding: 10px 12px 10px 34px; border: 1px solid var(--border); border-radius: 10px;
+  font-size: 14px; font-family: inherit; background: #fff; color: var(--text-main); outline: none;
+  box-sizing: border-box;
+}
+.loc-search-wrap input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-soft); }
+
+/* Scrollable options list. */
+.loc-options { overflow-y: auto; -webkit-overflow-scrolling: touch; flex: 1; min-height: 0; }
+.loc-group-heading {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 16px 6px; font-size: 11px; font-weight: 700; letter-spacing: 0.04em;
+  text-transform: uppercase; color: var(--text-sub);
+}
+.loc-group-heading::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+.loc-option {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  padding: 13px 16px; border: none; border-bottom: 1px solid var(--border);
+  background: none; cursor: pointer; text-align: left;
+  font-size: 15px; font-family: inherit; color: var(--text-main);
+}
+.location-wrap .loc-option i.fa-map-marker-alt {
+  position: static; transform: none; color: var(--text-sub); font-size: 15px;
+  width: 18px; text-align: center; z-index: auto;
+}
+.loc-option:last-child { border-bottom: none; }
+.loc-option:hover, .loc-option:active { background: var(--primary-soft); }
+.loc-option-name { flex: 1; min-width: 0; }
+
+/* Dark theme */
+html[data-theme="dark"] .loc-trigger,
+html[data-theme="dark"] .loc-panel,
+html[data-theme="dark"] .loc-search-wrap input { background: #1e293b; color: #f1f5f9; border-color: #334155; }
+html[data-theme="dark"] .loc-selected-row { background: rgba(50, 205, 50, 0.12); border-color: #334155; }
+html[data-theme="dark"] .loc-selected-text { color: #f1f5f9; }
+html[data-theme="dark"] .loc-option { color: #f1f5f9; border-color: #1e293b; }
+html[data-theme="dark"] .loc-group-heading::after { background: #334155; }
 html[data-theme="dark"] .location-wrap.active select {
   background-color: var(--primary-soft); color: var(--primary);
 }

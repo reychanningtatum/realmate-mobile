@@ -3004,25 +3004,128 @@ function populateLocationFilter() {
     const prev = sel.value;
     const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
 
+    let groups = [];
     if (window.RM_LOC && window.RM_LOC.filterOptions) {
-        const groups = window.RM_LOC.filterOptions();
+        groups = window.RM_LOC.filterOptions();
         sel.innerHTML = '<option value="">All Locations</option>' +
             groups.map(g => `<optgroup label="${esc(g.label)}">` +
                 g.options.map(o => `<option value="${esc(o.value)}">${esc(o.label)}</option>`).join('') +
                 '</optgroup>').join('');
-        if (prev && [...sel.options].some(o => o.value === prev)) sel.value = prev;
-        return;
+    } else {
+        // Legacy fallback — distinct locations actually present in the pool.
+        const set = new Set();
+        (allListings || []).forEach(l => {
+            extractLocations(l.content || '').forEach(loc => { if (loc && loc.trim()) set.add(loc.trim()); });
+        });
+        const locs = [...set].sort((a, b) => a.localeCompare(b));
+        sel.innerHTML = '<option value="">All Locations</option>' +
+            locs.map(l => `<option value="${esc(l.toLowerCase())}">${esc(l)}</option>`).join('');
+        groups = locs.length ? [{ label: 'Locations', options: locs.map(l => ({ value: l.toLowerCase(), label: l })) }] : [];
     }
-
-    // Legacy fallback — distinct locations actually present in the pool.
-    const set = new Set();
-    (allListings || []).forEach(l => {
-        extractLocations(l.content || '').forEach(loc => { if (loc && loc.trim()) set.add(loc.trim()); });
-    });
-    const locs = [...set].sort((a, b) => a.localeCompare(b));
-    sel.innerHTML = '<option value="">All Locations</option>' +
-        locs.map(l => `<option value="${esc(l.toLowerCase())}">${esc(l)}</option>`).join('');
     if (prev && [...sel.options].some(o => o.value === prev)) sel.value = prev;
+
+    // Mirror the same options into the custom dropdown panel + sync the trigger.
+    buildLocationPanel(groups);
+    syncLocationTrigger();
+}
+
+// ── Custom Location dropdown (visual layer over the hidden <select>) ──────
+// Builds the panel rows from the SAME groups the <select> uses, so the dataset
+// and filtering logic are untouched — only the presentation changes.
+function buildLocationPanel(groups) {
+    const box = document.getElementById('locOptions');
+    if (!box) return;
+    const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+    // "All Locations" reset row first (no group heading), then each region group.
+    let html = `<button type="button" class="loc-option" role="option" data-value="" data-label="All Locations" onclick="selectLocationOption(this.dataset.value, this.dataset.label)"><i class="fas fa-map-marker-alt"></i><span class="loc-option-name">All Locations</span></button>`;
+    (groups || []).forEach(g => {
+        html += `<div class="loc-group-heading">${esc(g.label)}</div>`;
+        g.options.forEach(o => {
+            html += `<button type="button" class="loc-option" role="option" data-value="${esc(o.value)}" data-label="${esc(o.label)}" onclick="selectLocationOption(this.dataset.value, this.dataset.label)"><i class="fas fa-map-marker-alt"></i><span class="loc-option-name">${esc(o.label)}</span></button>`;
+        });
+    });
+    box.innerHTML = html;
+}
+
+// Reflect the current <select> value in the trigger label + the panel's selected row.
+function syncLocationTrigger() {
+    const sel = document.getElementById('locationInput');
+    if (!sel) return;
+    const opt = sel.options[sel.selectedIndex];
+    const label = (sel.value && opt) ? opt.textContent : 'All Locations';
+    const trg = document.getElementById('locTriggerLabel');
+    const selText = document.getElementById('locSelectedText');
+    if (trg) trg.textContent = label;
+    if (selText) selText.textContent = label;
+    const wrap = sel.closest('.location-wrap');
+    if (wrap) wrap.classList.toggle('active', !!sel.value);
+}
+
+function _locOutsideClose(e) {
+    const wrap = document.getElementById('marketLocationFilter');
+    if (wrap && !wrap.contains(e.target)) closeLocationPanel();
+}
+
+function toggleLocationPanel(e) {
+    if (e) e.stopPropagation();
+    const panel = document.getElementById('locPanel');
+    if (!panel) return;
+    if (panel.hasAttribute('hidden')) openLocationPanel();
+    else closeLocationPanel();
+}
+
+function openLocationPanel() {
+    const panel = document.getElementById('locPanel');
+    const trg = document.getElementById('locTrigger');
+    if (!panel) return;
+    panel.removeAttribute('hidden');
+    if (trg) trg.setAttribute('aria-expanded', 'true');
+    const search = document.getElementById('locSearchInput');
+    if (search) { search.value = ''; filterLocationOptions(''); setTimeout(() => { try { search.focus(); } catch (e) {} }, 40); }
+    // Defer binding so the opening click itself doesn't immediately close it.
+    setTimeout(() => document.addEventListener('click', _locOutsideClose, true), 0);
+}
+
+function closeLocationPanel() {
+    const panel = document.getElementById('locPanel');
+    const trg = document.getElementById('locTrigger');
+    if (panel) panel.setAttribute('hidden', '');
+    if (trg) trg.setAttribute('aria-expanded', 'false');
+    document.removeEventListener('click', _locOutsideClose, true);
+}
+
+// Filter the visible option rows by the search query; hide group headings that
+// end up with no visible options. Purely presentational — the <select> is intact.
+function filterLocationOptions(query) {
+    const box = document.getElementById('locOptions');
+    if (!box) return;
+    const q = (query || '').trim().toLowerCase();
+    box.querySelectorAll('.loc-option').forEach(row => {
+        const name = (row.dataset.label || '').toLowerCase();
+        row.style.display = (!q || name.includes(q)) ? '' : 'none';
+    });
+    box.querySelectorAll('.loc-group-heading').forEach(h => {
+        let sib = h.nextElementSibling, anyVisible = false;
+        while (sib && !sib.classList.contains('loc-group-heading')) {
+            if (sib.classList.contains('loc-option') && sib.style.display !== 'none') { anyVisible = true; break; }
+            sib = sib.nextElementSibling;
+        }
+        h.style.display = anyVisible ? '' : 'none';
+    });
+}
+
+// Select a location: set the hidden <select>, sync UI, close, and run the EXISTING
+// filter logic (unchanged).
+function selectLocationOption(value, label) {
+    const sel = document.getElementById('locationInput');
+    if (sel) {
+        sel.value = value || '';
+        // If the exact encoded value isn't an option (shouldn't happen), fall back to All.
+        if (sel.value !== (value || '')) sel.value = '';
+    }
+    syncLocationTrigger();
+    closeLocationPanel();
+    applyLocationFilter();
 }
 
 function applyLocationFilter() {

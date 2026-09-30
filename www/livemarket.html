@@ -10,7 +10,7 @@
   <script src="native-auth.js?v=11"></script>
   <script src="vendor/supabase-js.min.js?v=2.112.3"></script>
 <script src="auth-guard.js?v=20260922a"></script>
-  <link rel="stylesheet" href="livemarket.css?v=20260928a">
+  <link rel="stylesheet" href="livemarket.css?v=20260930c">
   <link rel="stylesheet" href="mobile-back.css">
   <link rel="stylesheet" href="block-report.css?v=20260929a">
   <!-- Account/seller options sheet — tapping a Portal post's user (avatar/name)
@@ -121,10 +121,28 @@ html.rm-inmatch .rm-ptr{display:none!important}</style>
       <!-- 3. Location filter — full-width row, below categories, above search -->
       <div class="filter-location-row">
         <div class="location-wrap location-wrap-row" id="marketLocationFilter">
-          <i class="fas fa-map-marker-alt"></i>
-          <select id="locationInput" onchange="applyLocationFilter()" aria-label="Filter by location">
+          <!-- Hidden native <select> kept as the value store + fallback so the
+               existing filtering logic (applyLocationFilter / applyFilters, encoded
+               region:/prov:/city: values) is unchanged. The custom UI below mirrors it. -->
+          <select id="locationInput" class="loc-native" onchange="applyLocationFilter()" aria-label="Filter by location" tabindex="-1" aria-hidden="true">
             <option value="">All Locations</option>
           </select>
+          <button type="button" class="loc-trigger" id="locTrigger" onclick="toggleLocationPanel(event)" aria-haspopup="listbox" aria-expanded="false">
+            <i class="fas fa-map-marker-alt loc-trigger-pin"></i>
+            <span class="loc-trigger-label" id="locTriggerLabel">All Locations</span>
+            <i class="fas fa-chevron-down loc-trigger-chevron"></i>
+          </button>
+          <div class="loc-panel" id="locPanel" role="listbox" aria-label="Filter by location" hidden>
+            <div class="loc-selected-row">
+              <span class="loc-check"><i class="fas fa-check"></i></span>
+              <span class="loc-selected-text" id="locSelectedText">All Locations</span>
+            </div>
+            <div class="loc-search-wrap">
+              <i class="fas fa-search"></i>
+              <input type="text" id="locSearchInput" placeholder="Search location..." oninput="filterLocationOptions(this.value)" autocomplete="off">
+            </div>
+            <div class="loc-options" id="locOptions"></div>
+          </div>
         </div>
       </div>
       <!-- 4. Search -->
@@ -460,7 +478,7 @@ html.rm-inmatch .rm-ptr{display:none!important}</style>
   <script src="nexus-rank.js?v=20260925a"></script>
   <script src="block-report.js?v=20260829f"></script>
   <script src="deactivation.js?v=20260831a"></script>
-  <script src="livemarket.js?v=20260930b"></script>
+  <script src="livemarket.js?v=20260930c"></script>
   <script src="match-alert.js?v=20260918b"></script>
   <script src="notif-badge.js?v=16"></script>
   <script src="pull-refresh.js?v=20260915b"></script>
