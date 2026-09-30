@@ -1191,6 +1191,25 @@ window.addEventListener('storage', function (e) {
     if (e.key === 'rm_mate_removed' && e.newValue) { try { _onMateRemovedRegate(JSON.parse(e.newValue).name); } catch (_) {} }
 });
 
+// Profile picture changed elsewhere — this same document's realtime handler
+// (rm-avatar-changed CustomEvent) or another app-shell iframe (rm_avatar_changed
+// storage event). Sync THIS page's module `user` from the updated cache and
+// repaint the profile avatar. Only relevant on the OWN profile view (not while
+// viewing someone else's). No re-broadcast → no loop.
+function _rmSyncOwnAvatarFromCache() {
+    try {
+        if (_viewUserId) return;   // viewing another user — don't touch their avatar
+        const cached = JSON.parse(localStorage.getItem('user')) || {};
+        if (cached.image && typeof user !== 'undefined' && user && cached.image !== user.image) {
+            user.image = cached.image;
+            if (cached.imageOriginal) user.imageOriginal = cached.imageOriginal;
+            if (typeof updateUI === 'function') updateUI();
+        }
+    } catch (_) {}
+}
+window.addEventListener('rm-avatar-changed', _rmSyncOwnAvatarFromCache);
+window.addEventListener('storage', function (e) { if (e.key === 'rm_avatar_changed') _rmSyncOwnAvatarFromCache(); });
+
 // Any follow/Realmate relationship change from OUTSIDE this tab (another tab or a
 // live DB event — e.g. the other party accepting my follow request) → re-run
 // loadProfile while viewing someone else's profile, so the Follow / Accept
@@ -2234,6 +2253,12 @@ async function applyCrop() {
                 }
             }
             updateUI();
+            // Propagate the new avatar to every OTHER cached app-shell iframe
+            // (feed composer, navbars, etc.) without a reload. localStorage is
+            // shared same-origin; writing this key fires a `storage` event in the
+            // other frames, which re-render their avatars from the updated user.
+            // (updateUI already refreshed THIS page's profile + nav avatar.)
+            try { localStorage.setItem('rm_avatar_changed', JSON.stringify({ url: publicUrl, ts: Date.now() })); } catch (e) {}
             showPhotoToast();
         }
     } catch(e) {

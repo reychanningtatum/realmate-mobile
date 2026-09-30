@@ -73,7 +73,7 @@
       <!-- Create Post -->
       <div class="create-post-card" id="createPostCard">
         <div class="create-post-top">
-          <div class="create-post-avatar" id="createPostAvatar">
+          <div class="create-post-avatar" id="createPostAvatar" style="cursor:pointer;" title="View your profile" onclick="event.stopPropagation(); location.href='dashboard.html';">
             <i class="fas fa-user-tie" style="font-size:16px;"></i>
           </div>
           <div class="create-post-input" onclick="expandCreatePost()">
@@ -318,13 +318,13 @@
 <script src="compress.js"></script>
 <script src="visibility.js?v=20260819a"></script>
 <script src="search-overlay.js?v=20260928e"></script>
-<script src="auth-guard.js?v=20260922a"></script>
+<script src="auth-guard.js?v=20260930a"></script>
 <script src="top-producers.js"></script>
 <script src="rm-sound.js?v=20260831a"></script>
 <script src="follows.js?v=20260918b"></script>
 <script src="privacy.js?v=20260831a"></script>
 <script src="emoji-picker.js?v=20260928d"></script>
-<script src="home.js?v=20260930g"></script>
+<script src="home.js?v=20260930h"></script>
 <script src="feed-video.js?v=20260929a"></script>
 <script src="deactivation.js?v=20260831a"></script>
 <script src="block-report.js?v=20260829f"></script>
@@ -358,7 +358,7 @@
   </div>
 </nav>
 <script src="pull-refresh.js?v=20260915b"></script>
-<script src="nav-menu.js?v=20260912h"></script>
+<script src="nav-menu.js?v=20260930a"></script>
 <script src="customer-service.js?v=7"></script>
 <script>document.addEventListener("DOMContentLoaded",function(){if(window.rmPullRefresh)rmPullRefresh({content:".main-content",windowScroll:true,pullTarget:"#homeFeed",label:"Loading Feed",onRefresh:function(){return window.loadHomeFeed?loadHomeFeed(null,null,true):location.reload();}});});</script>
 </body>

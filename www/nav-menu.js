@@ -99,3 +99,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 300);
     }
 });
+
+// The user changed their profile picture in another app-shell iframe/tab:
+// localStorage.user.image was updated there, so re-render THIS page's nav avatar
+// from it (loadNavAvatar's data-img guard forces a repaint when it differs).
+window.addEventListener('storage', function (e) {
+    if (e.key === 'rm_avatar_changed') { try { loadNavAvatar(); } catch (_) {} }
+});

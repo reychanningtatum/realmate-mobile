@@ -2166,6 +2166,12 @@ function _applyCommentDeleted(commentId, postId, isReply) {
 }
 
 window.addEventListener('storage', function (e) {
+    // Profile picture changed in another app-shell iframe/tab → repaint the feed
+    // composer avatar from the updated localStorage user (no reload). The nav
+    // avatar is handled by nav-menu.js's own listener.
+    if (e.key === 'rm_avatar_changed') {
+        try { if (typeof initCreatePost === 'function') initCreatePost(); } catch (_) {}
+    }
     if (e.key === 'rm_post_deleted' && e.newValue) {
         try { var d = JSON.parse(e.newValue); if (d && d.id) document.getElementById('hfpost-' + d.id)?.remove(); } catch (_) {}
     }

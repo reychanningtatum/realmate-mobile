@@ -277,6 +277,48 @@ function goBack() {
         console.warn("[AuthGuard] Avatar heal error:", e.message);
     }
 
+    // ── Cross-device profile-picture sync (realtime) ──────────────────────
+    // Apply a new avatar URL app-wide: update the cached user, repaint the
+    // avatars this page renders, and notify page-specific consumers (e.g. the
+    // dashboard profile avatar) via a same-document event. Exposed globally so
+    // the realtime handler (and any caller) can reuse one code path.
+    window.rmApplyAvatarUpdate = function (newUrl, originalUrl) {
+        if (!newUrl) return;
+        try {
+            const u = JSON.parse(localStorage.getItem('user')) || {};
+            u.image = newUrl;
+            if (originalUrl) u.imageOriginal = originalUrl;
+            localStorage.setItem('user', JSON.stringify(u));
+        } catch (e) {}
+        try { window.loadNavAvatar && window.loadNavAvatar(); } catch (e) {}
+        try { window.initCreatePost && window.initCreatePost(); } catch (e) {}
+        try { window.dispatchEvent(new CustomEvent('rm-avatar-changed', { detail: { url: newUrl, original: originalUrl || '' } })); } catch (e) {}
+    };
+
+    // Subscribe to THIS user's profile row so a picture changed on another device
+    // (mobile ↔ desktop) lands here live — no refresh, no polling. The DB row is
+    // the single source of truth; realtime delivers the committed row, so the
+    // newest successful update always wins. Each avatar URL is a unique
+    // avatar_<ts>.jpg, so there is nothing to cache-bust. The guard (image already
+    // current) makes our own echo — and the same-device applyCrop path, which has
+    // already updated the cache — a harmless no-op.
+    try {
+        _sb.channel('profile-self-' + session.user.id)
+            .on('postgres_changes',
+                { event: 'UPDATE', schema: 'public', table: 'profiles', filter: 'id=eq.' + session.user.id },
+                function (payload) {
+                    try {
+                        const newUrl = payload && payload.new && payload.new.avatar_url;
+                        if (!newUrl) return;
+                        const u = JSON.parse(localStorage.getItem('user')) || {};
+                        if (u.id && u.id !== session.user.id) return;
+                        if (u.image === newUrl) return;   // already current — skip echo / same-device
+                        window.rmApplyAvatarUpdate(newUrl, payload.new.avatar_original_url);
+                    } catch (e) {}
+                })
+            .subscribe();
+    } catch (e) { /* realtime optional — run profiles-realtime-migration.sql to enable */ }
+
     // ── Analytics: record app_open ────────────────────────────────────────
     // Marks this authenticated user active TODAY for the Admin › Analytics
     // "Active Users" metric. Reached only on the authenticated path (guests and
