@@ -1291,7 +1291,7 @@ function buildHomePostCard(post, stats) {
         ${post.content ? `<div class="hf-post-text">${linkifyContent(post.content)}</div>` : ''}
         ${pollHtml}
         ${mediaHtml}
-        ${sharedOrig ? buildSharedEmbed(sharedOrig, post.id) : (post.shared_post_id ? `<div class="hf-shared-embed hf-shared-missing">Original post is no longer available.</div>` : '')}
+        ${sharedOrig ? buildSharedEmbed(sharedOrig) : (post.shared_post_id ? `<div class="hf-shared-embed hf-shared-missing">Original post is no longer available.</div>` : '')}
         <div class="hf-post-stats" id="hfstats-${post.id}">
             ${reactionSummaryHtml(reactCounts, post.id)}
             <span class="hf-stats-meta">
@@ -1359,16 +1359,17 @@ function subjectBadge(subject) {
     return subject ? `<div class="hf-post-subject">${safeText(subject)}</div>` : '';
 }
 
-// Embedded original post inside a share. `sharedInstanceId` is the id of the
-// SHARE post that contains this embed — clicking the shared content routes to
-// that exact shared instance in the main Feed (not to the original post), at its
-// natural Feed position with the green highlight (see openSharedPost).
-function buildSharedEmbed(orig, sharedInstanceId) {
+// Embedded original post inside a share. Tapping INSIDE this inner card routes to
+// the ORIGINAL post (orig.id) in the main Feed — at its natural position, with the
+// green highlight. event.stopPropagation() keeps this separate from the outer
+// shared-post card (which keeps its own existing behavior). The original author's
+// avatar/name still open that author's profile.
+function buildSharedEmbed(orig) {
     const name = orig.is_anonymous ? 'Anonymous' : (orig.user_name || 'realmate Member');
     const img  = orig.is_anonymous ? avatarUrl('Anon') : (orig.user_img || avatarUrl(name));
     const profileClick = !orig.is_anonymous && orig.user_id
         ? ` style="cursor:pointer;" onclick="event.stopPropagation();rmGoProfile('${orig.user_id}')"` : '';
-    return `<div class="hf-shared-embed" onclick="openSharedPost('${sharedInstanceId != null ? sharedInstanceId : orig.id}')">
+    return `<div class="hf-shared-embed" onclick="event.stopPropagation(); openFeedPost('${orig.id}')">
         <div class="hf-shared-head">
             <img loading="lazy" decoding="async" src="${img}" onerror="this.src='${avatarUrl(name)}'"${profileClick}>
             <div>
@@ -1377,18 +1378,17 @@ function buildSharedEmbed(orig, sharedInstanceId) {
             </div>
         </div>
         ${orig.content ? `<div class="hf-shared-text">${linkifyContent(orig.content)}</div>` : ''}
-        ${buildPostMedia(orig)}
+        ${buildPostMedia(orig, { embed: true })}
     </div>`;
 }
 
-// Open the exact SHARE post instance (by its own id) in the main Feed — from the
-// Feed, a Profile, or anywhere a shared card is shown. Never routes to the
-// original post. If we're already on the Feed and the instance is present, scroll
-// + highlight in place; otherwise deep-link into the Feed (rmConsumeFeedDeepLink
+// Open an exact post (by its own id) in the main Feed — from the Feed, a Profile,
+// or anywhere. If we're already on the Feed and the post is present, scroll +
+// green-highlight in place; otherwise deep-link into the Feed (rmConsumeFeedDeepLink
 // waits for it to render, scrolls to its natural position, and green-highlights).
-function openSharedPost(sharedId) {
-    if (sharedId == null || sharedId === '') return;
-    const here = document.getElementById(`hfpost-${sharedId}`);
+function openFeedPost(postId) {
+    if (postId == null || postId === '') return;
+    const here = document.getElementById(`hfpost-${postId}`);
     const onFeed = !!document.getElementById('homeFeed');
     if (onFeed && here) {
         try { if (typeof clearHomeSearch === 'function') clearHomeSearch(); } catch (e) {}
@@ -1397,16 +1397,29 @@ function openSharedPost(sharedId) {
         setTimeout(() => here.classList.remove('hf-notif-highlight'), 3000);
         return;
     }
-    // Not on the Feed (e.g. a Profile) — deep-link by the SHARE instance's own id.
+    // Not on the Feed (e.g. a Profile) — deep-link by the post's own id.
     try {
-        localStorage.setItem('route_target_post_id', String(sharedId));
+        localStorage.setItem('route_target_post_id', String(postId));
         localStorage.removeItem('route_target_anchor_id');
     } catch (e) {}
     location.href = 'home.html';
 }
 
-function buildPostMedia(post) {
+function buildPostMedia(post, opts) {
+    // `embed: true` renders the media STATICALLY for a shared-post embed: no image
+    // viewer, no video mute button. Those inner handlers would otherwise swallow a
+    // tap on the (photo/video-dominated) embedded card, stopping it from routing to
+    // the original post. With them removed, a tap anywhere on the embed's media
+    // bubbles up to the embed's onclick → openFeedPost(original id).
+    const embed = !!(opts && opts.embed);
+
     if (post.media_type === 'video' && post.media_url) {
+        if (embed) {
+            // pointer-events:none → clicks pass straight through to the embed card.
+            return `<div class="hf-post-media">
+                <video class="hf-feed-video" src="${post.media_url}" muted loop playsinline webkit-playsinline preload="metadata" style="width:100%;border-radius:12px;max-height:400px;pointer-events:none;"></video>
+            </div>`;
+        }
         // Autoplay (muted) + custom mute button — wired by feed-video.js (RMFeedVideo).
         return `<div class="hf-post-media hf-video-wrap">
             <video class="hf-feed-video" src="${post.media_url}" muted loop playsinline webkit-playsinline preload="metadata" style="width:100%;border-radius:12px;max-height:400px;"></video>
@@ -1426,6 +1439,11 @@ function buildPostMedia(post) {
     const imgsAttr = JSON.stringify(imgs).replace(/"/g, '&quot;');
 
     if (imgs.length === 1) {
+        if (embed) {
+            return `<div class="hf-post-media">
+                <img loading="lazy" decoding="async" src="${imgs[0]}" style="width:100%;border-radius:12px;max-height:500px;object-fit:cover;">
+            </div>`;
+        }
         return `<div class="hf-post-media" data-imgs="${imgsAttr}">
             <img loading="lazy" decoding="async" src="${imgs[0]}" style="width:100%;border-radius:12px;max-height:500px;object-fit:cover;cursor:pointer;"
                 onclick="openHomeImgViewer(this,0)">
@@ -1437,6 +1455,14 @@ function buildPostMedia(post) {
     // where the user swipes sideways through ALL photos in the post.
     const gridCls = imgs.length === 2 ? 'grid-2' : imgs.length === 3 ? 'grid-3' : 'grid-4';
     const shown = imgs.slice(0, 4);
+    if (embed) {
+        return `<div class="hf-post-media hf-img-grid ${gridCls}">
+            ${shown.map((u, i) => `<div class="hf-img-cell">
+                <img loading="lazy" decoding="async" src="${u}">
+                ${i === 3 && imgs.length > 4 ? `<span class="hf-img-more">+${imgs.length - 4}</span>` : ''}
+            </div>`).join('')}
+        </div>`;
+    }
     return `<div class="hf-post-media hf-img-grid ${gridCls}" data-imgs="${imgsAttr}">
         ${shown.map((u, i) => `<div class="hf-img-cell" onclick="openHomeImgViewer(this,${i})">
             <img loading="lazy" decoding="async" src="${u}">
