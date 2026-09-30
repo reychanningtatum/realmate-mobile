@@ -466,25 +466,133 @@ function avatarFallback(name) {
 
 // PARTNER_MAP moved to match-engine.js (window.RM_MATCH), aliased at top.
 
-// ── Pinned listings ──────────────────────────────
-function getPinnedIds() {
-    try { return JSON.parse(localStorage.getItem('rm_pinned') || '[]'); } catch { return []; }
+// ── Pinned listings (ACCOUNT-LEVEL, realtime-synced) ─────────────────────
+// Pins live per-account in the `pinned_listings` table (PK user_id+listing_id,
+// so no duplicate rows), NOT per-device. A signed-in user has ONE shared pinned
+// set across desktop, mobile and every other session. localStorage is kept only
+// as a FIRST-PAINT cache — loadPinnedIds() always overwrites it with the backend
+// truth, so a stale device can never win. A realtime subscription keeps every
+// device in sync with no refresh and no polling.
+//   Requires pinned-listings-migration.sql.
+let _pinnedIds = (function () {
+    try { return new Set(JSON.parse(localStorage.getItem('rm_pinned') || '[]').map(String)); }
+    catch { return new Set(); }
+})();
+let _pinUserId = null;
+let _pinsChannel = null;
+
+// Synchronous source of truth for all render paths (card render, applyFilters,
+// menu label). Reads the in-memory Set — seeded from localStorage for instant
+// first paint, then corrected by the backend fetch.
+function getPinnedIds() { return [..._pinnedIds]; }
+
+function _persistPinCache() {
+    try { localStorage.setItem('rm_pinned', JSON.stringify([..._pinnedIds])); } catch (e) {}
 }
-function togglePin(listingId, btn) {
-    let pins = getPinnedIds();
-    const id = String(listingId);
-    const pinning = !pins.includes(id);
-    if (pinning) pins.push(id); else pins = pins.filter(p => p !== id);
-    localStorage.setItem('rm_pinned', JSON.stringify(pins));
-    if (btn) {
-        btn.innerHTML = `<i class="fas fa-thumbtack ${pinning ? 'pinned-icon' : ''}"></i><span>${pinning ? 'Unpin' : 'Pin'}</span>`;
-    }
-    // Flip the on-card "Pinned" badge instantly (every rendered copy of the card —
-    // the Portal grid and, when open, the AI Match Engine view).
-    document.querySelectorAll('[id="lc-' + id + '"]').forEach(c => c.classList.toggle('is-pinned', pinning));
-    // If the current tab's Pinned toggle is on, re-render immediately so the card
-    // appears/disappears without a refresh.
+
+// Reflect a single pin-state change in the UI: flip the on-card "Pinned" badge on
+// every rendered copy of the card (Portal grid + open AI Match Engine view) and,
+// if a Pinned toggle is active, re-filter so the card appears/disappears live.
+// Shared by the local toggle and by realtime events from other devices.
+function _applyPinUI(id, pinned) {
+    id = String(id);
+    document.querySelectorAll('[id="lc-' + id + '"]').forEach(c => c.classList.toggle('is-pinned', pinned));
     if (marketPinned || myListingsPinned || aiMatchesPinned) applyFilters();
+}
+
+// Pull the account's pins from the backend (source of truth) and start the
+// realtime subscription. Called once during init; safe to call again.
+async function loadPinnedIds() {
+    try {
+        const { data: auth } = await _sb.auth.getUser();
+        _pinUserId = auth?.user?.id || null;
+    } catch (e) { _pinUserId = null; }
+    if (!_pinUserId) return;                         // not signed in — nothing to sync
+    try {
+        const { data, error } = await _sb.from('pinned_listings')
+            .select('listing_id').eq('user_id', _pinUserId);
+        if (error) throw error;
+        // Backend wins: replace the whole cache (drops any stale local-only pins).
+        _pinnedIds = new Set((data || []).map(r => String(r.listing_id)));
+        _persistPinCache();
+        // Re-sync every already-rendered card's badge to the fresh truth, then
+        // re-filter if a Pinned view is currently active.
+        document.querySelectorAll('[id^="lc-"]').forEach(c => {
+            const cid = c.id.slice(3);
+            c.classList.toggle('is-pinned', _pinnedIds.has(cid));
+        });
+        if (marketPinned || myListingsPinned || aiMatchesPinned) applyFilters();
+    } catch (e) {
+        console.warn('[Portal] pin load failed — run pinned-listings-migration.sql', e);
+    }
+    subscribePortalPins();
+}
+
+// Realtime: a pin/unpin on ANY of this account's devices updates the others live.
+// Scoped to the authenticated user (filter user_id=eq.<me>) so User A never
+// receives User B's pin changes. Own writes echo back here too, but the Set
+// membership guard makes them no-ops (no duplicate cards, no flicker).
+function subscribePortalPins() {
+    if (_pinsChannel || !_pinUserId || typeof _sb === 'undefined' || !_sb.channel) return;
+    try {
+        _pinsChannel = _sb.channel('portal-pins')
+            .on('postgres_changes',
+                { event: 'INSERT', schema: 'public', table: 'pinned_listings', filter: `user_id=eq.${_pinUserId}` },
+                payload => {
+                    const id = String(payload.new.listing_id);
+                    if (_pinnedIds.has(id)) return;          // de-dupe repeat/own events
+                    _pinnedIds.add(id); _persistPinCache(); _applyPinUI(id, true);
+                })
+            .on('postgres_changes',
+                { event: 'DELETE', schema: 'public', table: 'pinned_listings', filter: `user_id=eq.${_pinUserId}` },
+                payload => {
+                    const id = String(payload.old.listing_id);
+                    if (!_pinnedIds.has(id)) return;
+                    _pinnedIds.delete(id); _persistPinCache(); _applyPinUI(id, false);
+                })
+            .subscribe(status => {
+                if (status === 'CHANNEL_ERROR') console.warn('[Portal] pins realtime unavailable — run pinned-listings-migration.sql');
+            });
+    } catch (e) { console.warn('subscribePortalPins failed', e); }
+}
+
+// Pin / unpin a listing for the account. Optimistic: the current device updates
+// instantly, then the backend write persists it and realtime propagates it to
+// the user's other devices. The (user_id, listing_id) PK / upsert prevents
+// duplicate rows even under rapid pin/unpin; a failed write rolls the UI back so
+// it always matches the true backend state.
+async function togglePin(listingId, btn) {
+    const id = String(listingId);
+    const pinning = !_pinnedIds.has(id);
+    // Optimistic local update — instant feedback on this device.
+    if (pinning) _pinnedIds.add(id); else _pinnedIds.delete(id);
+    _persistPinCache();
+    if (btn) btn.innerHTML = `<i class="fas fa-thumbtack ${pinning ? 'pinned-icon' : ''}"></i><span>${pinning ? 'Unpin' : 'Pin'}</span>`;
+    _applyPinUI(id, pinning);
+
+    if (!_pinUserId) {
+        try { const { data: auth } = await _sb.auth.getUser(); _pinUserId = auth?.user?.id || null; } catch (e) {}
+    }
+    if (!_pinUserId) return;   // not signed in (shouldn't happen in Portal) — local only
+
+    try {
+        if (pinning) {
+            // Upsert keeps (user_id, listing_id) unique — never a duplicate pin row.
+            const { error } = await _sb.from('pinned_listings')
+                .upsert({ user_id: _pinUserId, listing_id: id }, { onConflict: 'user_id,listing_id', ignoreDuplicates: true });
+            if (error) throw error;
+        } else {
+            const { error } = await _sb.from('pinned_listings')
+                .delete().eq('user_id', _pinUserId).eq('listing_id', id);
+            if (error) throw error;
+        }
+    } catch (e) {
+        // Roll back so the UI matches the backend (the source of truth).
+        console.warn('[Portal] pin write failed, reverting', e);
+        if (pinning) _pinnedIds.delete(id); else _pinnedIds.add(id);
+        _persistPinCache();
+        _applyPinUI(id, !pinning);
+    }
 }
 
 // ── Listing card kebab menu (pin / dismiss / delete) ──
@@ -3964,6 +4072,12 @@ async function init() {
     // Leased, drop it from AI Matches + counts here with no page refresh.
     try { subscribePortalListings(); }
     catch (e) { console.warn('[Portal] listings realtime failed:', e); }
+
+    // Account-level pinned posts: pull the shared pin set from the backend
+    // (overriding any stale per-device localStorage) and subscribe so a pin/unpin
+    // on another device (desktop ↔ mobile) reflects here live, with no refresh.
+    try { loadPinnedIds(); }
+    catch (e) { console.warn('[Portal] pin sync failed:', e); }
 
     // Then, if the user was inside a listing's match view before navigating away
     // (e.g. opened a listing's detail and pressed Back), re-open it on top.
