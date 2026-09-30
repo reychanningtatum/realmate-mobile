@@ -3081,7 +3081,16 @@ function openLocationPanel() {
     panel.removeAttribute('hidden');
     if (trg) trg.setAttribute('aria-expanded', 'true');
     const search = document.getElementById('locSearchInput');
-    if (search) { search.value = ''; filterLocationOptions(''); setTimeout(() => { try { search.focus(); } catch (e) {} }, 40); }
+    // Reset the search to show the full list, but DO NOT focus the input — opening
+    // the dropdown is browse/scroll only. The keyboard must only appear when the
+    // user explicitly taps the "Search location..." field (no auto-focus here).
+    if (search) { search.value = ''; filterLocationOptions(''); }
+    // Pre-highlight the first option for keyboard nav (highlighted, NOT selected).
+    _locSetActive(0);
+    // Keyboard navigation (↑/↓/Enter/Esc) while the panel is open — works whether or
+    // not the search field is focused. Capture-phase so we can preventDefault before
+    // the input moves its caret / the page scrolls / a form submits.
+    document.addEventListener('keydown', _locPanelKeydown, true);
     // Defer binding so the opening click itself doesn't immediately close it.
     setTimeout(() => document.addEventListener('click', _locOutsideClose, true), 0);
 }
@@ -3092,6 +3101,64 @@ function closeLocationPanel() {
     if (panel) panel.setAttribute('hidden', '');
     if (trg) trg.setAttribute('aria-expanded', 'false');
     document.removeEventListener('click', _locOutsideClose, true);
+    document.removeEventListener('keydown', _locPanelKeydown, true);
+    _locActiveIndex = -1;
+    const box = document.getElementById('locOptions');
+    if (box) box.querySelectorAll('.loc-option.loc-active').forEach(o => o.classList.remove('loc-active'));
+}
+
+// ── Keyboard navigation for the Location dropdown ────────────────────────
+// Operates on the currently VISIBLE (filtered) option rows. Complements mouse/
+// touch — never replaces it. Scrolls only inside the options list, never the page.
+let _locActiveIndex = -1;
+
+function _locVisibleOptions() {
+    const box = document.getElementById('locOptions');
+    if (!box) return [];
+    return [...box.querySelectorAll('.loc-option')].filter(o => o.style.display !== 'none');
+}
+
+// Keep the active row visible by scrolling ONLY the options container (not the page).
+function _locScrollActiveIntoView(el) {
+    const box = document.getElementById('locOptions');
+    if (!box || !el) return;
+    const br = box.getBoundingClientRect();
+    const er = el.getBoundingClientRect();
+    if (er.top < br.top) box.scrollTop -= (br.top - er.top);
+    else if (er.bottom > br.bottom) box.scrollTop += (er.bottom - br.bottom);
+}
+
+function _locSetActive(idx) {
+    const opts = _locVisibleOptions();
+    const box = document.getElementById('locOptions');
+    if (box) box.querySelectorAll('.loc-option.loc-active').forEach(o => o.classList.remove('loc-active'));
+    if (!opts.length) { _locActiveIndex = -1; return; }
+    idx = Math.max(0, Math.min(idx, opts.length - 1));
+    const el = opts[idx];
+    el.classList.add('loc-active');
+    _locActiveIndex = idx;
+    _locScrollActiveIntoView(el);
+}
+
+function _locMoveActive(dir) {
+    const opts = _locVisibleOptions();
+    if (!opts.length) { _locActiveIndex = -1; return; }
+    const cur = opts.findIndex(o => o.classList.contains('loc-active'));
+    let idx = cur < 0 ? (dir > 0 ? 0 : opts.length - 1) : cur + dir;
+    _locSetActive(idx);
+}
+
+function _locPanelKeydown(e) {
+    const panel = document.getElementById('locPanel');
+    if (!panel || panel.hasAttribute('hidden')) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); _locMoveActive(1); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); _locMoveActive(-1); }
+    else if (e.key === 'Enter') {
+        const opts = _locVisibleOptions();
+        const cur = opts.findIndex(o => o.classList.contains('loc-active'));
+        if (cur >= 0) { e.preventDefault(); const el = opts[cur]; selectLocationOption(el.dataset.value, el.dataset.label); }
+    }
+    else if (e.key === 'Escape') { e.preventDefault(); closeLocationPanel(); }
 }
 
 // Filter the visible option rows by the search query; hide group headings that
@@ -3112,6 +3179,11 @@ function filterLocationOptions(query) {
         }
         h.style.display = anyVisible ? '' : 'none';
     });
+    // Keep the keyboard highlight on a visible result: if the current active row was
+    // filtered out (or none is set), reset to the first visible result. No results →
+    // no highlight (Arrow/Enter then do nothing).
+    const active = box.querySelector('.loc-option.loc-active');
+    if (!active || active.style.display === 'none') _locSetActive(0);
 }
 
 // Select a location: set the hidden <select>, sync UI, close, and run the EXISTING

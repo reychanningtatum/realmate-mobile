@@ -499,6 +499,10 @@ html[data-theme="dark"] .location-wrap select {
 }
 .loc-option:last-child { border-bottom: none; }
 .loc-option:hover, .loc-option:active { background: var(--primary-soft); }
+/* Keyboard-navigation highlight — distinct from hover via a left accent bar
+   (inset box-shadow = no layout shift). */
+.loc-option.loc-active { background: var(--primary-soft); box-shadow: inset 3px 0 0 var(--primary); }
+html[data-theme="dark"] .loc-option.loc-active { background: rgba(50, 205, 50, 0.14); }
 .loc-option-name { flex: 1; min-width: 0; }
 
 /* Dark theme */

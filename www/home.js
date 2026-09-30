@@ -1249,14 +1249,20 @@ async function rmConsumeFeedDeepLink() {
             }
         }
 
-        // 3) Scroll + highlight the exact target, after layout settles. Prefer the
-        //    comment/reply anchor when present; otherwise the post card itself.
-        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-        const scrollTarget = (wantsComment && document.getElementById(targetAnchorId)) || postEl;
-        if (scrollTarget) {
-            try { scrollTarget.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {}
-            scrollTarget.classList.add('hf-notif-highlight');
-            setTimeout(() => { scrollTarget.classList.remove('hf-notif-highlight'); }, 3000);
+        // 3) Highlight + scroll the exact target. For a POST target use the single
+        //    authoritative centering flow (waits for media, computes real geometry,
+        //    accounts for the fixed navbar/sticky header). For a comment/reply anchor
+        //    keep the lightweight scrollIntoView (small target, existing behavior).
+        const commentAnchor = wantsComment && document.getElementById(targetAnchorId);
+        if (commentAnchor) {
+            await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+            try { commentAnchor.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {}
+            commentAnchor.classList.add('hf-notif-highlight');
+            setTimeout(() => { commentAnchor.classList.remove('hf-notif-highlight'); }, 3000);
+        } else if (postEl) {
+            postEl.classList.add('hf-notif-highlight');
+            setTimeout(() => { postEl.classList.remove('hf-notif-highlight'); }, 3000);
+            await _centerFeedPostStable(postEl);
         }
     } finally {
         _deepLinkBusy = false;
@@ -1403,14 +1409,133 @@ function buildSharedEmbed(orig) {
     </div>`;
 }
 
+// ── Deterministic "center a feed post in the usable viewport" ─────────────
+// scrollIntoView({block:'center'}) centres against the FULL window and ignores
+// the fixed bottom navbar + sticky top search bar, and (worse) it runs before the
+// target's media has loaded — so the post lands at a different spot every time as
+// images expand the layout. These helpers compute the scroll from the ACTUAL
+// rendered geometry, after the target's media height is stable, and correct once
+// after the scroll settles. No arbitrary setTimeout drives the timing.
+
+// Measure the fixed/sticky chrome that eats into the visible feed area, live.
+function _feedViewportInsets() {
+    let top = 0, bottom = 0;
+    try {
+        const nav = document.querySelector('.mobile-bottom-nav');
+        if (nav) {
+            const cs = getComputedStyle(nav);
+            if (cs.display !== 'none' && cs.visibility !== 'hidden') {
+                const r = nav.getBoundingClientRect();
+                // Only count it when it's actually pinned at the bottom of the viewport.
+                if (r.height && r.bottom >= window.innerHeight - 2) bottom = window.innerHeight - r.top;
+            }
+        }
+    } catch (e) {}
+    try {
+        const hdr = document.querySelector('.home-search-wrap');
+        if (hdr && !hdr.classList.contains('search-hidden')) {
+            const cs = getComputedStyle(hdr);
+            if (cs.position === 'sticky' || cs.position === 'fixed') {
+                const r = hdr.getBoundingClientRect();
+                if (r.top <= 2 && r.bottom > 0) top = r.bottom;   // pinned at the top
+            }
+        }
+    } catch (e) {}
+    return { top: Math.max(0, top), bottom: Math.max(0, bottom) };
+}
+
+// The scroll delta that puts `el`'s vertical centre at the centre of the USABLE
+// viewport (between the sticky top bar and the fixed bottom navbar).
+function _feedCenterDelta(el) {
+    const ins = _feedViewportInsets();
+    const usableHeight = Math.max(1, window.innerHeight - ins.top - ins.bottom);
+    const rect = el.getBoundingClientRect();
+    const targetCenter  = rect.top + rect.height / 2;   // viewport-relative
+    const desiredCenter = ins.top + usableHeight / 2;   // viewport-relative
+    return targetCenter - desiredCenter;
+}
+
+// The element that actually scrolls the feed: the WINDOW on mobile (app-shell),
+// but a scrollable CONTAINER on desktop. window.scrollTo() does nothing when the
+// feed lives in an overflow:auto column — that was the "not routing" regression.
+function _feedScroller(el) {
+    let n = el && el.parentElement;
+    while (n && n !== document.body && n !== document.documentElement) {
+        const cs = getComputedStyle(n);
+        if (/(auto|scroll)/.test(cs.overflowY) && n.scrollHeight > n.clientHeight + 4) return n;
+        n = n.parentElement;
+    }
+    return window;
+}
+function _scrollerY(s) { return s === window ? (window.scrollY || window.pageYOffset || 0) : s.scrollTop; }
+function _scrollerTo(s, y, behavior) {
+    y = Math.max(0, y);
+    if (s === window) window.scrollTo({ top: y, behavior });
+    else s.scrollTo({ top: y, behavior });
+}
+
+// Run cb once the given scroller has actually settled (frame-based, not a fixed
+// delay): when its scroll position stops changing for a few frames, or a cap.
+function _afterScrollSettle(scroller, cb) {
+    let last = null, stable = 0, frames = 0;
+    const tick = () => {
+        const y = _scrollerY(scroller);
+        if (last !== null && Math.abs(y - last) < 0.5) stable++; else stable = 0;
+        last = y; frames++;
+        if (stable >= 3 || frames > 150) { cb(); return; }
+        requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+}
+
+// THE single authoritative centering flow for a routed feed post.
+async function _centerFeedPostStable(el) {
+    if (!el) return;
+    // 1) Let the just-rendered card lay out.
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+    // 2) Wait for the target's own media so its height is final BEFORE we measure
+    //    (image/video load events — synchronised with rendering, not a timer). A
+    //    generous frame cap only guards against media that never fires an event.
+    try {
+        const media = [
+            ...[...el.querySelectorAll('img')].filter(i => !i.complete),
+            ...[...el.querySelectorAll('video')].filter(v => v.readyState < 1)
+        ];
+        if (media.length) {
+            await Promise.race([
+                Promise.all(media.map(m => new Promise(res => {
+                    const done = () => res();
+                    m.addEventListener('load', done, { once: true });
+                    m.addEventListener('loadedmetadata', done, { once: true });
+                    m.addEventListener('error', done, { once: true });
+                }))),
+                new Promise(r => setTimeout(r, 2000))   // fallback cap only; not the mechanism
+            ]);
+            await new Promise(r => requestAnimationFrame(r));
+        }
+    } catch (e) {}
+    // 3) One authoritative centering scroll from real geometry, on the ACTUAL
+    //    scroller (window on mobile, container on desktop).
+    const scroller = _feedScroller(el);
+    try { _scrollerTo(scroller, _scrollerY(scroller) + _feedCenterDelta(el), 'smooth'); } catch (e) {}
+    // 4) After it settles, recompute from the final layout (content above may have
+    //    shifted as its own media loaded) and correct once, instantly.
+    _afterScrollSettle(scroller, () => {
+        try {
+            const delta = _feedCenterDelta(el);
+            if (Math.abs(delta) > 4) _scrollerTo(scroller, _scrollerY(scroller) + delta, 'auto');
+        } catch (e) {}
+    });
+}
+
 // Open an exact post (by its own id) in the main Feed — from the Feed, a Profile,
 // or anywhere.
-//   • Already on the Feed: scroll + green-highlight the post IN PLACE. If it isn't
+//   • Already on the Feed: centre + green-highlight the post IN PLACE. If it isn't
 //     in the loaded page (the feed shows only the latest 40), fetch + render it at
-//     its correct chronological position and scroll there — NO page reload (a reload
+//     its correct chronological position and centre there — NO page reload (a reload
 //     just refreshes the mobile app-shell and never lands on the post).
 //   • Not on the Feed (e.g. a Profile): deep-link into the Feed; rmConsumeFeedDeepLink
-//     resolves + scrolls + highlights once it renders.
+//     resolves + centres + highlights once it renders.
 async function openFeedPost(postId) {
     if (postId == null || postId === '') return;
     const onFeed = !!document.getElementById('homeFeed');
@@ -1422,11 +1547,11 @@ async function openFeedPost(postId) {
             try { here = await _ensureFeedPostRendered(postId, 'natural'); } catch (e) {}
         }
         if (here) {
-            // Wait for layout (a just-rendered card, images) so the scroll lands dead-on.
-            await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-            try { here.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {}
+            // Highlight first (box-shadow/border-color only — no reflow), then run the
+            // single authoritative centering flow (waits for media, one scroll + settle).
             here.classList.add('hf-notif-highlight');
             setTimeout(() => here.classList.remove('hf-notif-highlight'), 3000);
+            await _centerFeedPostStable(here);
         }
         return;
     }
