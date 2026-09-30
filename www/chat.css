@@ -1431,7 +1431,13 @@ html[data-theme="dark"] .chat-archived-header button { background: #1e293b; colo
 
   .chat-msg-image { max-width: 200px; }
 
-  .chat-msg-file { min-width: 180px; padding: 10px 12px; }
+  /* The row's bubble-wrapper is a flex item; its default min-width:auto
+     (= min-content) lets a long, unbroken file name push the file bubble past the
+     row's max-width and off-screen. min-width:0 down the chain lets it shrink so
+     the name ellipsizes (it already has overflow:hidden/ellipsis) and the bubble
+     stays inside the viewport. Desktop keeps the base 220px floor (unchanged). */
+  .chat-msg-row > div { min-width: 0; max-width: 100%; }
+  .chat-msg-file { min-width: 0; max-width: 100%; box-sizing: border-box; padding: 10px 12px; }
 
   .chat-date-sep { margin: 10px 0; }
 

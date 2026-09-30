@@ -1291,7 +1291,7 @@ function buildHomePostCard(post, stats) {
         ${post.content ? `<div class="hf-post-text">${linkifyContent(post.content)}</div>` : ''}
         ${pollHtml}
         ${mediaHtml}
-        ${sharedOrig ? buildSharedEmbed(sharedOrig) : (post.shared_post_id ? `<div class="hf-shared-embed hf-shared-missing">Original post is no longer available.</div>` : '')}
+        ${sharedOrig ? buildSharedEmbed(sharedOrig, post.id) : (post.shared_post_id ? `<div class="hf-shared-embed hf-shared-missing">Original post is no longer available.</div>` : '')}
         <div class="hf-post-stats" id="hfstats-${post.id}">
             ${reactionSummaryHtml(reactCounts, post.id)}
             <span class="hf-stats-meta">
@@ -1359,13 +1359,16 @@ function subjectBadge(subject) {
     return subject ? `<div class="hf-post-subject">${safeText(subject)}</div>` : '';
 }
 
-// Embedded original post inside a share
-function buildSharedEmbed(orig) {
+// Embedded original post inside a share. `sharedInstanceId` is the id of the
+// SHARE post that contains this embed — clicking the shared content routes to
+// that exact shared instance in the main Feed (not to the original post), at its
+// natural Feed position with the green highlight (see openSharedPost).
+function buildSharedEmbed(orig, sharedInstanceId) {
     const name = orig.is_anonymous ? 'Anonymous' : (orig.user_name || 'realmate Member');
     const img  = orig.is_anonymous ? avatarUrl('Anon') : (orig.user_img || avatarUrl(name));
     const profileClick = !orig.is_anonymous && orig.user_id
         ? ` style="cursor:pointer;" onclick="event.stopPropagation();rmGoProfile('${orig.user_id}')"` : '';
-    return `<div class="hf-shared-embed" onclick="scrollToPost('${orig.id}')">
+    return `<div class="hf-shared-embed" onclick="openSharedPost('${sharedInstanceId != null ? sharedInstanceId : orig.id}')">
         <div class="hf-shared-head">
             <img loading="lazy" decoding="async" src="${img}" onerror="this.src='${avatarUrl(name)}'"${profileClick}>
             <div>
@@ -1376,6 +1379,30 @@ function buildSharedEmbed(orig) {
         ${orig.content ? `<div class="hf-shared-text">${linkifyContent(orig.content)}</div>` : ''}
         ${buildPostMedia(orig)}
     </div>`;
+}
+
+// Open the exact SHARE post instance (by its own id) in the main Feed — from the
+// Feed, a Profile, or anywhere a shared card is shown. Never routes to the
+// original post. If we're already on the Feed and the instance is present, scroll
+// + highlight in place; otherwise deep-link into the Feed (rmConsumeFeedDeepLink
+// waits for it to render, scrolls to its natural position, and green-highlights).
+function openSharedPost(sharedId) {
+    if (sharedId == null || sharedId === '') return;
+    const here = document.getElementById(`hfpost-${sharedId}`);
+    const onFeed = !!document.getElementById('homeFeed');
+    if (onFeed && here) {
+        try { if (typeof clearHomeSearch === 'function') clearHomeSearch(); } catch (e) {}
+        try { here.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {}
+        here.classList.add('hf-notif-highlight');
+        setTimeout(() => here.classList.remove('hf-notif-highlight'), 3000);
+        return;
+    }
+    // Not on the Feed (e.g. a Profile) — deep-link by the SHARE instance's own id.
+    try {
+        localStorage.setItem('route_target_post_id', String(sharedId));
+        localStorage.removeItem('route_target_anchor_id');
+    } catch (e) {}
+    location.href = 'home.html';
 }
 
 function buildPostMedia(post) {

@@ -54,6 +54,10 @@ let _showingArchived = false;
 // suggested-reply chips so tapping one sends the message without popping the
 // on-screen keyboard.
 let _skipComposerRefocus = false;
+// True while a send (text or file) is in progress. A synchronous guard in
+// sendMessage() so rapid double taps/clicks — or a button-click + Enter racing —
+// can't run the upload/message-create flow twice. Reset in sendMessage's finally.
+let _sendInFlight = false;
 // Every conversation the current user participates in, INCLUDING ones they've
 // soft-deleted from their inbox. Lets the realtime layer tell "a new message in
 // a chat I deleted" (which must resurface) apart from "a message in a chat that
@@ -528,8 +532,17 @@ function renderConvList(filter) {
     const pinned = _getConvFlagSet('pinned');
     const archived = _getConvFlagSet('archived');
 
-    // Archived view shows ONLY archived chats; the normal view hides them.
-    const base = conversations.filter(c => (_showingArchived ? archived.has(c.id) : !archived.has(c.id)) && !(window.RMBR && RMBR.isBlocked(c.otherUser && c.otherUser.id, c.otherUser && c.otherUser.name)));
+    // Archived = hidden from the inbox, NOT deleted — so it must stay findable.
+    // Archived view: only archived. Normal inbox with NO search term: hide
+    // archived. Normal inbox WHILE SEARCHING: include archived too, so a person
+    // you archived still shows up in results (opening them keeps them archived;
+    // only sending a message un-archives — see sendMessage).
+    const base = conversations.filter(c => {
+        if (window.RMBR && RMBR.isBlocked(c.otherUser && c.otherUser.id, c.otherUser && c.otherUser.name)) return false;
+        if (_showingArchived) return archived.has(c.id);
+        if (lf) return true;                 // searching the inbox → include archived
+        return !archived.has(c.id);          // normal inbox → hide archived
+    });
 
     // When searching, match on the person's name OR on any message content in the
     // conversation. If a message matched (but the name didn't), surface that message
@@ -912,15 +925,30 @@ function fileBubble(m, icon, preview) {
 // ===== SEND MESSAGE =====
 async function sendMessage() {
     if (_supportTicketClosed()) return; // closed support ticket is read-only
+    // In-flight guard: every Send path (button onclick, Enter key, suggested
+    // reply) funnels through here, and btn.disabled is only a visual cue that a
+    // second rapid tap/click can beat. This synchronous flag — set below BEFORE
+    // any await — makes a duplicate call return immediately, so a file is
+    // uploaded and its message created exactly once no matter how fast Send is
+    // double-tapped. Reset in finally so failures still allow a retry.
+    if (_sendInFlight) return;
     const input = document.getElementById('chatComposerInput');
     const text = input.value.trim();
     const convId = activeConversationId;
     if (!convId || (!text && !attachedFile)) return;
 
+    _sendInFlight = true;
     const btn = document.getElementById('chatSendBtn');
     btn.disabled = true;
     input.value = '';
     autoResizeComposer(input);
+
+    // Sending a new message un-archives the conversation and returns it to the
+    // inbox (archive = "hidden until I message again"; opening/reading/searching
+    // never unarchive it). Cleared BEFORE the sends so the inbox re-render they
+    // trigger (sortAndRenderConvs in doSendText/doSendFile) already places it back
+    // by the new message's recency. No-op if it wasn't archived.
+    try { _clearConvFlag('archived', convId); } catch (e) {}
 
     try {
         if (attachedFile) {
@@ -933,10 +961,14 @@ async function sendMessage() {
         chatUpdate('conversations', `id=eq.${convId}`, { updated_at: new Date().toISOString() });
     } catch (e) {
         console.error('Send error:', e);
+    } finally {
+        // Always release the guard + re-enable Send, even on failure, so the user
+        // can retry (the attachment is left intact when doSendFile throws — it's
+        // only cleared after a successful upload above).
+        _sendInFlight = false;
+        btn.disabled = false;
+        updateSendButton();
     }
-
-    btn.disabled = false;
-    updateSendButton();
     // Suggested-reply sends set this so we don't pop the keyboard back open.
     if (_skipComposerRefocus) { _skipComposerRefocus = false; }
     else { input.focus(); }
