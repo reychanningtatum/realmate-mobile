@@ -681,18 +681,27 @@
         }
         let html = '';
         if (people.length) {
+            // Seed the live-profile cache, then render each person from the LATEST
+            // known profile (realtime cache wins over the fetched snapshot) so a
+            // result shown right after a rename/new picture is already current.
+            try { if (window.RMProfileLive) RMProfileLive.prime(people); } catch (e) {}
             // Cache people so the click handler can pass full details to the seller popup.
-            window.__soPeople = people.map(p => ({
-                id: p.id,
-                name: p.full_name || 'realmate Member',
-                job: soValidPosition(p.job_title),
-                img: soAvatarFor(p.full_name, p.avatar_url)
-            }));
+            window.__soPeople = people.map(p => {
+                const live = (window.RMProfileLive && RMProfileLive.get(p.id)) || null;
+                const fullName = (live && live.full_name != null) ? live.full_name : p.full_name;
+                const avatarUrl = (live && live.avatar_url !== undefined) ? live.avatar_url : p.avatar_url;
+                return {
+                    id: p.id,
+                    name: fullName || 'realmate Member',
+                    job: soValidPosition(p.job_title),
+                    img: soAvatarFor(fullName, avatarUrl)
+                };
+            });
             html += `<div class="so-section">People</div>`;
             window.__soPeople.forEach((p, i) => {
                 const name = esc(p.name);
                 const job = esc(p.job);
-                html += `<div class="so-person" onclick="window.__soPersonClick(${i})">
+                html += `<div class="so-person" data-uid="${esc(String(p.id || ''))}" onclick="window.__soPersonClick(${i})">
                     <img src="${p.img}" class="so-avatar" onerror="this.src='https://ui-avatars.com/api/?name=?&background=0f172a&color=32cd32'">
                     <div><div class="so-pname">${name}</div>${job ? `<div class="so-pjob">${job}</div>` : ''}<span class="so-cat so-cat-people">People</span></div>
                 </div>`;
@@ -732,6 +741,31 @@
     function escAttr(s) {
         return esc(s).replace(/"/g,'&quot;').replace(/'/g,'&#39;');
     }
+
+    // Real-time: a member changed their name/picture (RMProfileLive). Patch any of
+    // THIS overlay's visible People rows for that member in place — new avatar + new
+    // name — and update the cached __soPeople so a rerender keeps the fresh value.
+    // No refetch, no reload.
+    try {
+        window.addEventListener('rm-profile-live', function (e) {
+            const d = e && e.detail; if (!d || !d.id) return;
+            const res = document.getElementById('soResults'); if (!res) return;
+            const rows = res.querySelectorAll('.so-person[data-uid="' + (window.CSS && CSS.escape ? CSS.escape(String(d.id)) : String(d.id)) + '"]');
+            if (!rows.length) return;
+            const list = window.__soPeople || [];
+            rows.forEach(function (row) {
+                const nameEl = row.querySelector('.so-pname');
+                const imgEl = row.querySelector('.so-avatar');
+                const idx = parseInt(row.getAttribute('onclick').replace(/\D+/g, ''), 10);
+                const cached = (!isNaN(idx) && list[idx]) ? list[idx] : null;
+                const newName = (d.full_name != null) ? d.full_name : (cached && cached.name);
+                const newImg = soAvatarFor(newName, d.avatar_url);
+                if (nameEl && newName != null) nameEl.textContent = newName;
+                if (imgEl && newImg) imgEl.src = newImg;
+                if (cached) { if (newName != null) cached.name = newName; cached.img = newImg; }
+            });
+        });
+    } catch (e) {}
 
     // Real-time: RMSearchHistory (via search-sync) writes the incoming entries to the
     // cache and fires 'rmsh-remote' with the scope. If it's the scope this overlay

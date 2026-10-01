@@ -18,6 +18,24 @@
 .rmbr-submit{background:#e11d48;color:#fff;}
 .rmbr-submit:disabled{opacity:.5;cursor:not-allowed;}
 .rmbr-status{font-size:12px;color:#e11d48;margin-top:10px;min-height:14px;}
+/* ── Shared confirm dialog (block user / block post / unblock) ─────────────
+   Reuses .rmbr-overlay (centered, light-only, desktop content offset). A clean
+   centered card: icon, title, body, then a primary (danger for block) action
+   and an explicit Cancel. Never a native alert()/confirm(). */
+.rmbr-confirm-overlay{z-index:10001;}   /* above the kebab bottom-sheet (9999) */
+.rmbrc-modal{max-width:380px;text-align:center;padding:24px 22px 20px;}
+.rmbrc-icon{width:52px;height:52px;border-radius:50%;background:#f1f5f9;border:2px solid #cbd5e1;display:flex;align-items:center;justify-content:center;margin:0 auto 14px;}
+.rmbrc-icon i{font-size:19px;color:#475569;}
+.rmbrc-icon.danger{background:#fff5f5;border-color:#fca5a5;}
+.rmbrc-icon.danger i{color:#ef4444;}
+.rmbrc-title{font-size:17px;font-weight:800;color:#0f172a;margin-bottom:8px;}
+.rmbrc-body{font-size:13.5px;color:#64748b;line-height:1.55;margin:0 0 20px;}
+.rmbrc-actions{display:flex;flex-direction:column;gap:10px;}
+.rmbrc-actions button{width:100%;border-radius:12px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;border:1px solid transparent;font-family:inherit;}
+.rmbrc-confirm{background:#0f172a;color:#fff;}
+.rmbrc-confirm.danger{background:#ef4444;color:#fff;}
+.rmbrc-cancel{background:#fff;color:#64748b;border:1.5px solid #e2e8f0;}
+
 /* The app is light-only (theme.js forces data-theme="light" and removes dark
    mode). The old @media (prefers-color-scheme:dark) block made this Report modal
    follow the DEVICE's dark mode, turning it navy on a white app — removed so the

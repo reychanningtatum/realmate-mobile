@@ -57,8 +57,67 @@
     return false;
   }
 
+  // ── Shared confirmation dialog ───────────────────────────────────────────
+  // A single in-app confirm modal (never window.confirm) reused for every
+  // block/unblock action on every page that loads RMBR. Returns a Promise that
+  // resolves true (confirmed) or false (cancelled / dismissed). Light-theme,
+  // matches the Report modal pattern. Exposed as RMBR.confirm for Settings.
+  function ensureConfirm() {
+    if (document.getElementById('rmbrConfirmOverlay')) return;
+    var el = document.createElement('div');
+    el.id = 'rmbrConfirmOverlay'; el.className = 'rmbr-overlay rmbr-confirm-overlay'; el.hidden = true;
+    el.innerHTML =
+      '<div class="rmbr-modal rmbrc-modal" role="dialog" aria-modal="true" aria-labelledby="rmbrcTitle">' +
+        '<div class="rmbrc-icon"><i class="fas fa-ban" id="rmbrcIcon"></i></div>' +
+        '<div class="rmbrc-title" id="rmbrcTitle">Are you sure?</div>' +
+        '<p class="rmbrc-body" id="rmbrcBody"></p>' +
+        '<div class="rmbrc-actions">' +
+          '<button type="button" class="rmbrc-confirm" id="rmbrcConfirm">Confirm</button>' +
+          '<button type="button" class="rmbrc-cancel" id="rmbrcCancel">Cancel</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(el);
+  }
+  function rmbrConfirm(opts) {
+    opts = opts || {};
+    return new Promise(function (resolve) {
+      ensureConfirm();
+      var el = document.getElementById('rmbrConfirmOverlay');
+      var okBtn = el.querySelector('#rmbrcConfirm');
+      var cancelBtn = el.querySelector('#rmbrcCancel');
+      var icon = el.querySelector('#rmbrcIcon');
+      el.querySelector('#rmbrcTitle').textContent = opts.title || 'Are you sure?';
+      el.querySelector('#rmbrcBody').textContent = opts.body || '';
+      okBtn.textContent = opts.confirmLabel || 'Confirm';
+      okBtn.className = 'rmbrc-confirm' + (opts.danger ? ' danger' : '');
+      icon.className = 'fas ' + (opts.icon || 'fa-circle-question');
+      el.querySelector('.rmbrc-icon').classList.toggle('danger', !!opts.danger);
+      function cleanup(v) {
+        el.hidden = true;
+        okBtn.onclick = null; cancelBtn.onclick = null; el.onclick = null;
+        document.removeEventListener('keydown', onKey, true);
+        resolve(v);
+      }
+      function onKey(e) { if (e.key === 'Escape') { e.stopPropagation(); cleanup(false); } }
+      okBtn.onclick = function () { cleanup(true); };
+      cancelBtn.onclick = function () { cleanup(false); };
+      el.onclick = function (e) { if (e.target === el) cleanup(false); };   // backdrop = cancel
+      document.addEventListener('keydown', onKey, true);
+      el.hidden = false;
+      try { okBtn.focus(); } catch (e) {}
+    });
+  }
+
   async function blockUser(userId, userName) {
     var sb = client(); if (!sb || !myId || !userId || userId === myId) return false;
+    // Confirmation FIRST — at the action layer, so no UI entry point (Feed, Portal,
+    // Profile, Chat; mobile or desktop) can block a user with a single tap.
+    var ok = await rmbrConfirm({
+      title: 'Block this user?',
+      body: 'You won’t see ' + (userName ? '“' + userName + '”' : 'this user') + '’s posts, listings or messages, and they won’t see yours. You can undo this in Settings.',
+      confirmLabel: 'Block', icon: 'fa-ban', danger: true
+    });
+    if (!ok) return false;
     try {
       await sb.from('user_blocks').upsert({ blocker_id: myId, blocked_id: userId, blocked_name: userName || null }, { onConflict: 'blocker_id,blocked_id', ignoreDuplicates: true });
       blockedIds.add(userId); if (userName) blockedNames.add(String(userName).toLowerCase());
@@ -81,6 +140,15 @@
   function isPostBlocked(type, id) { return id != null && blockedPosts.has(_pkey(type, id)); }
   async function blockPost(type, id, label) {
     var sb = client(); if (!sb || !myId || id == null) return false;
+    // Confirmation FIRST — at the action layer, covering every block-post entry
+    // point (Feed, Portal; mobile or desktop) so a single tap never hides a post.
+    var noun = (type === 'listing') ? 'listing' : 'post';
+    var ok = await rmbrConfirm({
+      title: 'Block this ' + noun + '?',
+      body: 'This ' + noun + ' will be hidden from you. The author stays visible. You can undo this in Settings.',
+      confirmLabel: 'Block', icon: 'fa-eye-slash', danger: true
+    });
+    if (!ok) return false;
     try {
       await sb.from('blocked_posts').upsert({ blocker_id: myId, content_type: type || 'post', content_id: String(id), content_label: label || null }, { onConflict: 'blocker_id,content_type,content_id', ignoreDuplicates: true });
       blockedPosts.add(_pkey(type, id));
@@ -160,7 +228,7 @@
   function toast(m) { if (typeof window.showToast === 'function') window.showToast(m); }
 
   window.RMBR = { init: init, isBlocked: isBlocked, blockUser: blockUser, unblockUser: unblockUser, listBlocked: listBlocked, openReport: openReport,
-    isPostBlocked: isPostBlocked, blockPost: blockPost, unblockPost: unblockPost, listBlockedPosts: listBlockedPosts };
+    isPostBlocked: isPostBlocked, blockPost: blockPost, unblockPost: unblockPost, listBlockedPosts: listBlockedPosts, confirm: rmbrConfirm };
   Object.defineProperty(window.RMBR, 'ready', { get: function () { return ready; } });
   Object.defineProperty(window.RMBR, 'myId', { get: function () { return myId; } });
 

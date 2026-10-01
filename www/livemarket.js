@@ -2699,6 +2699,40 @@ window.addEventListener('rmsh-remote', function (e) {
         if (box && box.classList.contains('open')) { try { renderPortalSuggest(''); } catch (_) {} }
     }
 });
+
+// Real-time: a member changed their name/picture (RMProfileLive). Keep Portal
+// search current without a refetch: update the author snapshot on every listing
+// they own (so future suggestion renders + listing cards stay fresh), then patch
+// any matching People row in the OPEN suggestion dropdown in place.
+window.addEventListener('rm-profile-live', function (e) {
+    const d = e && e.detail; if (!d || !d.id) return;
+    const uid = String(d.id);
+    try {
+        if (Array.isArray(allListings)) {
+            allListings.forEach(l => {
+                if (l && String(l.user_id) === uid && !l.is_anonymous) {
+                    if (d.full_name != null) l.user_name = d.full_name;
+                    if (d.avatar_url !== undefined) l.user_img = d.avatar_url || '';
+                }
+            });
+        }
+    } catch (_) {}
+    try {
+        const sug = window.__portalSuggest && window.__portalSuggest.people;
+        if (Array.isArray(sug)) sug.forEach(p => { if (String(p.id) === uid) { if (d.full_name != null) p.name = d.full_name; if (d.avatar_url !== undefined) p.img = d.avatar_url || ''; } });
+    } catch (_) {}
+    const box = document.getElementById('portalSuggest');
+    if (!box || !box.classList.contains('open')) return;
+    const sel = (window.CSS && CSS.escape) ? CSS.escape(uid) : uid;
+    box.querySelectorAll('.ps-item[data-uid="' + sel + '"]').forEach(function (row) {
+        const nameEl = row.querySelector('.ps-name');
+        const imgEl = row.querySelector('.ps-avatar');
+        if (nameEl && d.full_name != null) nameEl.textContent = d.full_name;
+        if (imgEl) imgEl.src = (d.avatar_url && !String(d.avatar_url).includes('ui-avatars.com'))
+            ? d.avatar_url
+            : `https://ui-avatars.com/api/?name=${encodeURIComponent(d.full_name || '?')}&background=0f172a&color=32cd32`;
+    });
+});
 function renderPortalSuggest(q) {
     const box = document.getElementById('portalSuggest');
     if (!box) return;
@@ -2743,6 +2777,19 @@ function renderPortalSuggest(q) {
     });
     const people = [...peopleMap.values()].slice(0, 4);
 
+    // Seed the shared live-profile cache, then overlay each suggestion with the
+    // LATEST known name/avatar (realtime cache wins over the listing snapshot) so a
+    // rename / new picture shows even on a result rendered right after the change.
+    try {
+        if (window.RMProfileLive) {
+            RMProfileLive.prime(people.map(p => ({ id: p.id, full_name: p.name, avatar_url: p.img })));
+            people.forEach(p => {
+                const live = RMProfileLive.get(p.id);
+                if (live) { if (live.full_name != null) p.name = live.full_name; if (live.avatar_url !== undefined) p.img = live.avatar_url || ''; }
+            });
+        }
+    } catch (e) {}
+
     // Posts — listings matched across content + category + agent (all terms must match)
     const posts = allListings
         .filter(l => listingMatchesQuery(l, q))
@@ -2761,7 +2808,7 @@ function renderPortalSuggest(q) {
         html += `<div class="ps-section">People</div>`;
         people.forEach((p, i) => {
             const img = p.img || `https://ui-avatars.com/api/?name=${encodeURIComponent(p.name || '?')}&background=0f172a&color=32cd32`;
-            html += `<div class="ps-item" onclick="portalSuggestPerson(${i})">
+            html += `<div class="ps-item" data-uid="${escapeHtmlSafe(String(p.id || ''))}" onclick="portalSuggestPerson(${i})">
                 <img loading="lazy" decoding="async" class="ps-avatar" src="${img}" onerror="this.src='https://ui-avatars.com/api/?name=?&background=0f172a&color=32cd32'">
                 <div class="ps-info"><div class="ps-name">${escapeHtmlSafe(p.name || 'Member')}</div>${p.job ? `<div class="ps-sub">${escapeHtmlSafe(p.job)}</div>` : ''}</div>
                 <span class="ps-tag">People</span>

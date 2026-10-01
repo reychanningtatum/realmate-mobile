@@ -34,10 +34,20 @@
     // other value (or absent) = ON by default. When off, suppress the global
     // AI-match banner and nav badge entirely.
     if (localStorage.getItem('rm_portal_notifs') === '0') return;
-    if (!window.RM_MATCH) {                          // engine must be present
-        console.warn('[MatchAlert] RM_MATCH not loaded — match-engine.js missing on this page.');
-        return;
-    }
+    // The scoring engine (match-engine.js) is present on every CONTENT page, but NOT
+    // on the mobile app-shell (app.html). Rather than go fully inert without it, this
+    // file runs in two modes sharing ONE banner implementation:
+    //   • engine present  → detect matches (realtime) + show/badge locally (desktop),
+    //                        or BROADCAST the banner to the shell (mobile iframe).
+    //   • engine absent   → display-only: the shell receives those broadcasts and
+    //                        renders the single banner (see the no-engine block below).
+    const _hasEngine = !!window.RM_MATCH;
+    if (!_hasEngine) console.warn('[MatchAlert] RM_MATCH not loaded — running in display-only (shell) mode.');
+    // Are we a content page embedded inside the mobile shell? (set by the page's
+    // inline `if (window.self!==window.top) add('rm-embedded')`). If so, the banner
+    // must be rendered by the SHELL, not here: position:fixed inside a scrolled
+    // iframe is mis-placed on iOS WKWebView, so an in-iframe banner never shows.
+    const _embedded = document.documentElement.classList.contains('rm-embedded');
 
     // Per-user localStorage identity. Falls back to name when id is absent so
     // the badge still works, but auth id (below) is preferred once resolved.
@@ -218,6 +228,18 @@
             if (localStorage.getItem('rm_push_match') &&
                 (Date.now() - (parseInt(localStorage.getItem('rm_push_match_at'), 10) || 0)) < 15000) return;
         } catch (e) {}
+        // Mobile content iframe: hand the banner to the SHELL (which renders the one
+        // banner in the real top-level viewport). Same arrival, same text/target —
+        // just a different, iOS-safe place to render. The shell listens for this key.
+        if (_embedded) {
+            try {
+                localStorage.setItem('rm_match_banner', JSON.stringify({
+                    sub: sub || '', targetId: targetId != null ? String(targetId) : null,
+                    uid: _uid || null, ts: Date.now()
+                }));
+            } catch (e) {}
+            return;
+        }
         const b = buildBanner();
         _bannerTargetId = targetId != null ? String(targetId) : null;
         const subEl = b.querySelector('#rmbSub');
@@ -237,6 +259,17 @@
         if (_bannerTargetId) {
             try { localStorage.setItem('rm_match_highlight', _bannerTargetId); } catch {}
         }
+        // Mobile shell: route through the shell's iframe router to the Portal tab on
+        // the AI Engine sub-tab — NEVER a top-level location.href (that would tear
+        // down the whole iframe shell). livemarket.js init reads rm_portal_tab +
+        // rm_match_highlight → opens the Matches tab and highlights the match,
+        // exactly like the desktop cross-page entry. rmOpen only exists in the shell
+        // (app-shell.js), so desktop is unaffected.
+        if (typeof window.rmOpen === 'function') {
+            try { localStorage.setItem('rm_portal_tab', 'AI_ENGINE'); } catch {}
+            window.rmOpen('portal', 'livemarket.html');
+            return;
+        }
         // Already on the Portal → just switch to the Matches tab, then highlight.
         const tab = document.querySelector('.seg-tab[data-seg="AI_ENGINE"]');
         if (tab && typeof window.selectSegTab === 'function') {
@@ -255,6 +288,36 @@
         const cat = (listing.category || '').toString();
         const nice = cat ? cat.replace(/\b\w/g, c => c.toUpperCase()) : 'listing';
         return `A new “${nice}” listing matches your listing. Tap to view.`;
+    }
+
+    // ── Display-only (mobile shell: app.html, no match-engine) ──────────────────
+    // Detection runs inside the content iframes; they broadcast each genuine arrival
+    // via localStorage 'rm_match_banner'. The shell (the real top-level viewport,
+    // where position:fixed renders correctly on iOS) shows the single banner here,
+    // reusing the same buildBanner/showBanner/openMatches used on desktop. Badges in
+    // the shell are owned by notif-badge.js and are left untouched — we return before
+    // any detection/realtime/badge wiring below.
+    if (!_hasEngine) {
+        // (a) Banner: render the broadcast banner for the current user.
+        window.addEventListener('storage', function (e) {
+            if (e.key !== 'rm_match_banner' || !e.newValue) return;
+            let d; try { d = JSON.parse(e.newValue); } catch (_) { return; }
+            if (!d) return;
+            if (d.uid && _uid && String(d.uid) !== String(_uid)) return;  // current user only
+            showBanner(d.sub || 'A new listing matches your listing. Tap to view.', d.targetId);
+        });
+        // (b) Badge-only mode: the engine (detection) isn't here, but the unseen-match
+        // state is the SAME shared localStorage the Portal iframe writes. Paint the
+        // shell's VISIBLE Portal nav badge from it now, and repaint whenever that
+        // state changes in ANY same-origin document (the Portal iframe detecting or
+        // clearing a match, or another tab). This is what restores the red badge on
+        // the mobile shell navbar — no separate detection, same source of truth.
+        window.addEventListener('storage', function (e) {
+            if (e.key && e.key.indexOf('rm_match_state_') === 0) { try { refreshBadges(); } catch (_) {} }
+        });
+        refreshBadges();
+        document.addEventListener('DOMContentLoaded', refreshBadges);
+        return;
     }
 
     // ── Match state cache (the user's own listings, for realtime scoring) ──
@@ -322,12 +385,56 @@
         } catch (e) { /* analytics must never disrupt matching */ }
     }
 
+    // ── Seen state: cross-device source of truth (match_seen table) ───────────
+    // "Seen" (the user opened AI Matches while a match was surfaced) is persisted
+    // per-user in the backend so it survives login, reload, and moving between
+    // desktop and mobile. localStorage stays a fast cache; the backend is the
+    // truth that prevents already-seen matches from re-badging as new. Fail-open:
+    // if the table/migration isn't present, we silently keep localStorage-only
+    // behavior (a load/insert error just leaves _seenLoaded true so badges still
+    // paint from the local cache).
+    let _seenLoaded = false;       // backend seen-set merged into state yet?
+    let _pendingRecordIds = null;  // a recordMatches() that arrived before that
+
+    async function _loadSeen() {
+        const uid = _myUid || _uid;
+        try {
+            if (uid && _sb) {
+                const { data, error } = await _sb.from('match_seen').select('listing_id').eq('user_id', uid);
+                if (!error && Array.isArray(data) && data.length) {
+                    const s = getState();
+                    s.seen = [...new Set([...(s.seen || []), ...data.map(r => String(r.listing_id)).filter(Boolean)])];
+                    setState(s);
+                }
+            }
+        } catch (e) { /* fail-open → local cache only */ }
+        _seenLoaded = true;
+        refreshBadges();
+        if (_pendingRecordIds != null) { const ids = _pendingRecordIds; _pendingRecordIds = null; recordMatches(ids); }
+    }
+
+    function _persistSeen(ids) {
+        try {
+            const uid = _myUid || _uid;
+            if (!uid || !_sb || !ids || !ids.length) return;
+            const rows = [...new Set(ids.map(String))].filter(Boolean).map(id => ({ user_id: uid, listing_id: id }));
+            if (!rows.length) return;
+            _sb.from('match_seen')
+                .upsert(rows, { onConflict: 'user_id,listing_id', ignoreDuplicates: true })
+                .then(function () {}).catch(function () {});   // fail-open
+        } catch (e) { /* never disrupt the UI */ }
+    }
+
     // ── Public API ──────────────────────────────────────────────────────────
     // recordMatches(ids): the Portal's authoritative full current match set.
     // Replaces `current`; new ids simply become unseen (badge). No banner here —
     // the banner is reserved for genuine realtime ARRIVALS (noteIncoming), so a
     // first-ever Portal load doesn't spam a banner for pre-existing matches.
     function recordMatches(ids) {
+        // Wait until the backend seen-set has merged, so the very first recompute
+        // after login/reload classifies already-seen matches correctly instead of
+        // baselining them as unseen (the badge pile-up). Buffer the latest ids.
+        if (!_seenLoaded) { _pendingRecordIds = ids; return; }
         const s = getState();
         const prevCurrent = new Set(s.current);
         const cur = [...new Set((ids || []).map(String))];
@@ -346,15 +453,19 @@
         // e.g. the mobile Portal nav while desktop already showed it.)
         if (!s.baselined) {
             s.baselined = true;
-            s.seen = (s.seen || []).filter(id => cur.includes(id));   // keep only genuine prior 'seen'
+            // Keep the seen-set intact (incl. backend-loaded ids) — NEVER prune it to
+            // the current recompute, or an already-seen match that is momentarily
+            // absent from `cur` would re-count as new. Cap only for storage tidiness.
+            s.seen = (s.seen || []).slice(-5000);
             setState(s);
             refreshBadges();
             return;
         }
 
-        // Prune seen ids that are no longer matches at all (keeps storage tidy).
-        const curSet = new Set(cur);
-        s.seen = s.seen.filter(id => curSet.has(id));
+        // Keep the seen-set as-is (bounded). getUnseen() already ignores seen ids
+        // that aren't current, and noteRemoved() clears genuinely gone matches — so
+        // we must not drop a valid 'seen' here (that was re-badging seen matches).
+        s.seen = (s.seen || []).slice(-5000);
         setState(s);
         refreshBadges();
 
@@ -419,6 +530,7 @@
         s.seen = [...seen];
         setState(s);
         refreshBadges();
+        _persistSeen(ids);   // cross-device truth → stays seen on reload / other device
     }
 
     window.RMMatchAlert = { recordMatches, noteIncoming, markSeen, getUnseen, refreshBadges };
@@ -446,8 +558,11 @@
     const _sb = (typeof supabase !== 'undefined') ? supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
 
     (async function boot() {
-        if (!_sb) return;
+        if (!_sb) { _seenLoaded = true; return; }
         await loadMine();
+        // Seed the seen-set from the backend BEFORE any recordMatches is processed,
+        // so already-seen matches are never counted as new on login/reload/new device.
+        await _loadSeen();
         refreshBadges();
 
         // Realtime: any new/edited listing anywhere → score against mine. Broad

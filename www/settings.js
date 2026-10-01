@@ -22,6 +22,13 @@ function _lockSettingsToggles(on) {
         const sw = el.closest('.switch');
         if (sw) sw.classList.toggle('switch-locked', on);
     });
+    // Same cooldown applies to the Blocked-list Unblock buttons: while a settings
+    // notification is on screen they are disabled too, so an unblock can't be
+    // repeated or duplicated during the toast/timeout window (Privacy-toggle parity).
+    Array.prototype.slice.call(document.querySelectorAll('.blocked-unblock')).forEach(function (b) {
+        b.disabled = on;
+        b.classList.toggle('btn-locked', on);
+    });
 }
 // Only ONE notification exists at a time; while it shows, ALL settings toggles are
 // locked, and they all unlock once it has fully disappeared. (The optional 3rd arg
@@ -445,10 +452,22 @@ async function loadBlockedUsers(){
   const el=document.getElementById('blockedUsersList'); if(!el||!window.RMBR) return;
   const list=await RMBR.listBlocked();
   if(!list.length){ el.innerHTML='<div class="blocked-empty">You haven’t blocked anyone.</div>'; return; }
-  el.innerHTML=list.map(function(b){ return '<div class="blocked-row"><span class="blocked-name">'+_rmbrEsc(b.blocked_name||b.blocked_id)+'</span><button class="settings-btn blocked-unblock" onclick="unblockBlockedUser(\''+b.blocked_id+'\')">Unblock</button></div>'; }).join('');
+  el.innerHTML=list.map(function(b){ var nm=b.blocked_name||b.blocked_id; return '<div class="blocked-row"><span class="blocked-name">'+_rmbrEsc(nm)+'</span><button class="settings-btn blocked-unblock" onclick="unblockBlockedUser(\''+b.blocked_id+'\',\''+_rmbrEsc(String(nm)).replace(/'/g,"\\'")+'\')">Unblock</button></div>'; }).join('');
 }
-async function unblockBlockedUser(id){
+async function unblockBlockedUser(id, name){
   if(!window.RMBR) return;
+  // Confirmation FIRST (never unblock on a single tap). Clearly names the user.
+  if(typeof RMBR.confirm==='function'){
+    const go=await RMBR.confirm({
+      title:'Unblock this user?',
+      body:'“'+(name||'This user')+'” will be able to see your content and message you again.',
+      confirmLabel:'Unblock', icon:'fa-user-check'
+    });
+    if(!go) return;   // cancel → no backend request, no state change
+  }
+  // Reuse the Privacy-toggle cooldown/lock the moment the action starts so repeated
+  // taps can't fire duplicate unblock requests during the request + notification.
+  _lockSettingsToggles(true);
   const ok=await RMBR.unblockUser(id);
   if(ok){ showSettingsNotificationToast('User unblocked.','success'); loadBlockedUsers(); }
   else { showSettingsNotificationToast('Could not unblock. Please try again.','error'); }

@@ -134,18 +134,23 @@ function renderResults(people, listings) {
     let html = '';
 
     if (filteredPeople.length) {
+        try { if (window.RMProfileLive) RMProfileLive.prime(filteredPeople); } catch (e) {}
         html += `<div class="search-section-label"><i class="fas fa-users"></i> People <span class="s-count">${filteredPeople.length}</span></div>`;
         html += `<div class="people-grid">`;
         filteredPeople.forEach(p => {
-            const name   = esc(p.full_name || 'realmate Member');
+            // Latest profile wins over the fetched snapshot (realtime cache).
+            const live     = (window.RMProfileLive && RMProfileLive.get(p.id)) || null;
+            const fullName = (live && live.full_name != null) ? live.full_name : p.full_name;
+            const avatarUrl = (live && live.avatar_url !== undefined) ? live.avatar_url : p.avatar_url;
+            const name   = esc(fullName || 'realmate Member');
             const job    = esc(_searchValidPosition(p.job_title));
             const div    = esc(p.division  || '');
             const bio    = esc((p.bio || '').slice(0, 80));
-            const avatar = _searchAvatarFor(p.full_name, p.avatar_url);
+            const avatar = _searchAvatarFor(fullName, avatarUrl);
             html += `
-            <a href="dashboard.html?user_id=${p.id}" class="people-card">
+            <a href="dashboard.html?user_id=${p.id}" class="people-card" data-uid="${esc(String(p.id||''))}">
                 <img src="${avatar}" class="people-avatar"
-                     onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(p.full_name||'?')}&background=0f172a&color=32cd32'">
+                     onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(fullName||'?')}&background=0f172a&color=32cd32'">
                 <div class="people-info">
                     <div class="people-name">${name}</div>
                     ${(job || div) ? `<div class="people-job">${[job, div].filter(Boolean).join(' · ')}</div>` : ''}
@@ -189,6 +194,28 @@ function esc(str) {
         .replace(/>/g, '&gt;')
         .replace(/\n/g, ' ');
 }
+
+// Real-time: a member changed their name/picture (RMProfileLive). Patch any visible
+// People card for them in place, and update the _allPeople cache so switching tabs
+// (which rerenders) keeps the fresh value. No refetch, no reload.
+window.addEventListener('rm-profile-live', (e) => {
+    const d = e && e.detail; if (!d || !d.id) return;
+    const uid = String(d.id);
+    _allPeople.forEach(p => {
+        if (String(p.id) === uid) {
+            if (d.full_name != null) p.full_name = d.full_name;
+            if (d.avatar_url !== undefined) p.avatar_url = d.avatar_url;
+        }
+    });
+    const sel = (window.CSS && CSS.escape) ? CSS.escape(uid) : uid;
+    document.querySelectorAll('.people-card[data-uid="' + sel + '"]').forEach(card => {
+        const nameEl = card.querySelector('.people-name');
+        const imgEl = card.querySelector('.people-avatar');
+        const liveName = (d.full_name != null) ? d.full_name : (nameEl && nameEl.textContent);
+        if (nameEl && d.full_name != null) nameEl.textContent = d.full_name;
+        if (imgEl) imgEl.src = _searchAvatarFor(liveName, d.avatar_url);
+    });
+});
 
 // Pre-fill from URL ?q=
 window.addEventListener('DOMContentLoaded', () => {
