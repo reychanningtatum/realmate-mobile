@@ -385,6 +385,50 @@
         return false;
     }
 
+    // When MY OWN listing is posted/edited, the new matches are between MY listing
+    // and OTHER people's EXISTING listings — which never arrive as a realtime event
+    // here (they already exist). The realtime INSERT of my own post only re-primes
+    // _myParsed; nothing scans the market for those new matches, so (off the Portal)
+    // the user got no banner/badge for matches their own post created. This scans the
+    // active market once (after _myParsed is refreshed) and surfaces any genuinely
+    // unseen matches exactly like a realtime arrival — banner + badge, on any page.
+    async function _scanMarketForMatches() {
+        if (!_myParsed.length || !_myUid) return;
+        let rows = [];
+        try {
+            const res = await fetch(
+                `${SUPABASE_URL}/rest/v1/listings?select=*&archived=eq.false&order=created_at.desc&limit=500`,
+                { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } }
+            );
+            rows = await res.json();
+        } catch (e) { return; }
+        if (!Array.isArray(rows)) return;
+        const s = getState();
+        const dismissed = getDismissed();
+        const seenSet = new Set(s.seen);
+        const curSet = new Set(s.current);
+        const newly = [];
+        rows.forEach(l => {
+            if (!l || l.id == null) return;
+            const id = String(l.id);
+            if (l.user_id && l.user_id === _myUid) return;          // my own post, never a match for me
+            if (l.is_anonymous || l.archived || _isCompleted(l)) return;
+            if (curSet.has(id) || seenSet.has(id) || dismissed.has(id)) return;
+            if (!matchesMine(l)) return;
+            newly.push({ id, listing: l });
+        });
+        if (!newly.length) return;
+        newly.forEach(n => { s.current.push(n.id); _sessionArrivals.add(n.id); });
+        _persistMatches(newly.map(n => n.id));
+        setState(s);
+        refreshBadges();
+        showBanner(
+            newly.length === 1 ? bannerSubFor(newly[0].listing)
+                               : `${newly.length} new listings match your listing. Tap to view.`,
+            newly[0].id
+        );
+    }
+
     // ── Analytics: persist AI matches ────────────────────────────────────────
     // Records each listing the Match Engine surfaces to this user as a 'match'
     // event for the Admin › Analytics "Matches" metric. Deduped per (user,
@@ -602,7 +646,12 @@
         // pattern notif-badge.js uses). Debounced own-listing refresh so posting
         // a NEW own listing re-primes _myParsed (new matches can then be found).
         let _mineTimer = null;
-        const reloadMineDebounced = () => { clearTimeout(_mineTimer); _mineTimer = setTimeout(loadMine, 800); };
+        // Posting/editing MY OWN listing re-primes _myParsed AND then scans the market
+        // for the new matches that own post created (against others' existing listings).
+        const reloadMineDebounced = () => {
+            clearTimeout(_mineTimer);
+            _mineTimer = setTimeout(async () => { await loadMine(); await _scanMarketForMatches(); }, 800);
+        };
         try {
             _sb.channel('match-alert-listings')
                 .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'listings' },
