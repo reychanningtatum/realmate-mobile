@@ -77,6 +77,12 @@
     }
     function setState(s) {
         try { localStorage.setItem(stateKey(), JSON.stringify(s)); } catch {}
+        // In the mobile shell, content pages run in an iframe whose match state the
+        // shell must reflect on its VISIBLE navbar. localStorage `storage` events are
+        // unreliable iframe→parent in iOS WKWebView, so ALSO nudge the shell over
+        // postMessage (the proven channel this app already uses for keyboard events).
+        // The shell re-reads the shared localStorage and repaints its badge.
+        if (_embedded) { try { window.parent.postMessage({ type: 'rm-match-badge', uid: _uid }, location.origin); } catch (e) {} }
     }
     function getDismissed() {
         try { return new Set(JSON.parse(localStorage.getItem(dismissKey()) || '[]').map(String)); }
@@ -232,12 +238,11 @@
         // banner in the real top-level viewport). Same arrival, same text/target —
         // just a different, iOS-safe place to render. The shell listens for this key.
         if (_embedded) {
-            try {
-                localStorage.setItem('rm_match_banner', JSON.stringify({
-                    sub: sub || '', targetId: targetId != null ? String(targetId) : null,
-                    uid: _uid || null, ts: Date.now()
-                }));
-            } catch (e) {}
+            const payload = { sub: sub || '', targetId: targetId != null ? String(targetId) : null, uid: _uid || null, ts: Date.now() };
+            // postMessage is the reliable iframe→shell channel on iOS; localStorage is
+            // a belt-and-suspenders fallback (desktop/other same-origin tabs).
+            try { window.parent.postMessage(Object.assign({ type: 'rm-match-banner' }, payload), location.origin); } catch (e) {}
+            try { localStorage.setItem('rm_match_banner', JSON.stringify(payload)); } catch (e) {}
             return;
         }
         const b = buildBanner();
@@ -298,22 +303,27 @@
     // the shell are owned by notif-badge.js and are left untouched — we return before
     // any detection/realtime/badge wiring below.
     if (!_hasEngine) {
-        // (a) Banner: render the broadcast banner for the current user.
-        window.addEventListener('storage', function (e) {
-            if (e.key !== 'rm_match_banner' || !e.newValue) return;
-            let d; try { d = JSON.parse(e.newValue); } catch (_) { return; }
+        // Content iframes (which run detection) notify the shell over postMessage —
+        // the reliable iframe→parent channel on iOS WKWebView (the same one app.html
+        // uses for keyboard events). `storage` events are kept as a fallback for
+        // other same-origin tabs but are NOT relied on for the shell. The shell owns
+        // the single visible banner (position:fixed only renders correctly here) and
+        // the visible Portal nav badge, both read from the shared localStorage state.
+        function _onBanner(d) {
             if (!d) return;
-            if (d.uid && _uid && String(d.uid) !== String(_uid)) return;  // current user only
+            if (d.uid && _uid && String(d.uid) !== String(_uid)) return;   // current user only
             showBanner(d.sub || 'A new listing matches your listing. Tap to view.', d.targetId);
+        }
+        window.addEventListener('message', function (e) {
+            if (e.origin !== location.origin) return;
+            const d = e.data; if (!d || typeof d !== 'object') return;
+            if (d.type === 'rm-match-banner') _onBanner(d);
+            else if (d.type === 'rm-match-badge') { try { refreshBadges(); } catch (_) {} }
         });
-        // (b) Badge-only mode: the engine (detection) isn't here, but the unseen-match
-        // state is the SAME shared localStorage the Portal iframe writes. Paint the
-        // shell's VISIBLE Portal nav badge from it now, and repaint whenever that
-        // state changes in ANY same-origin document (the Portal iframe detecting or
-        // clearing a match, or another tab). This is what restores the red badge on
-        // the mobile shell navbar — no separate detection, same source of truth.
+        // Fallbacks via storage (other tabs / non-iframe same-origin contexts).
         window.addEventListener('storage', function (e) {
-            if (e.key && e.key.indexOf('rm_match_state_') === 0) { try { refreshBadges(); } catch (_) {} }
+            if (e.key === 'rm_match_banner' && e.newValue) { let d; try { d = JSON.parse(e.newValue); } catch (_) { return; } _onBanner(d); }
+            else if (e.key && e.key.indexOf('rm_match_state_') === 0) { try { refreshBadges(); } catch (_) {} }
         });
         refreshBadges();
         document.addEventListener('DOMContentLoaded', refreshBadges);
