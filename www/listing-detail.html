@@ -222,12 +222,20 @@
     .mobile-bottom-nav{ display:none !important; }
 
     /* ── Lightbox ── */
-    .ld-lightbox{ position:fixed; inset:0; background:rgba(0,0,0,0.92); z-index:99999; display:flex; align-items:center; justify-content:center; cursor:zoom-out; }
-    .ld-lightbox img{ max-width:92vw; max-height:90vh; object-fit:contain; border-radius:10px; }
+    /* Locked to the viewport: no vertical scroll, native gestures off (JS handles
+       the horizontal swipe), and overscroll contained so the page behind can't move. */
+    .ld-lightbox{ position:fixed; inset:0; background:rgba(0,0,0,0.92); z-index:99999; overflow:hidden; touch-action:none; overscroll-behavior:contain; -webkit-user-select:none; user-select:none; }
+    /* Horizontal carousel track: all slides side by side, slid via translateX so
+       navigating ANIMATES like a real swipe (and follows the finger during a drag). */
+    .ld-lb-track{ display:flex; height:100%; width:100%; will-change:transform; }
+    .ld-lb-track.ld-anim{ transition:transform .32s cubic-bezier(.22,.61,.36,1); }
+    .ld-lb-slide{ flex:0 0 100%; width:100%; height:100%; display:flex; align-items:center; justify-content:center; }
+    .ld-lightbox img{ max-width:92vw; max-height:calc(100vh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 96px); object-fit:contain; border-radius:10px; -webkit-user-drag:none; user-drag:none; pointer-events:none; }
     .ld-lb-nav{ position:absolute; top:50%; transform:translateY(-50%); width:40px; height:40px; border-radius:50%; background:rgba(255,255,255,0.15); border:none; color:#fff; font-size:18px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
     .ld-lb-nav:hover{ background:rgba(255,255,255,0.3); }
     .ld-lb-prev{ left:16px; } .ld-lb-next{ right:16px; }
-    .ld-lb-close{ position:absolute; top:16px; right:16px; width:36px; height:36px; border-radius:50%; background:rgba(255,255,255,0.15); border:none; color:#fff; font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+    /* Sit comfortably BELOW the status bar / notch (was top:16px — too high). */
+    .ld-lb-close{ position:absolute; top:calc(env(safe-area-inset-top,0px) + 20px); right:16px; width:36px; height:36px; border-radius:50%; background:rgba(255,255,255,0.15); border:none; color:#fff; font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center; z-index:2; }
 
     /* ── Toast ── */
     .ld-toast{ position:fixed; left:50%; bottom:92px; transform:translateX(-50%) translateY(10px); display:inline-flex; align-items:center; gap:8px; max-width:calc(100vw - 32px); background:#0f172a; color:#fff; font-size:13px; font-weight:600; padding:11px 18px; border-radius:999px; box-shadow:0 12px 30px -8px rgba(15,23,42,0.55); opacity:0; transition:opacity .25s ease, transform .25s ease; z-index:99999; pointer-events:none; }
@@ -354,10 +362,10 @@
 <script src="mates.js?v=20260930c"></script>
 <script src="nav-menu.js?v=20260930a"></script>
 <script src="location-engine.js?v=20260809b"></script>
-<script src="match-engine.js?v=20260821p1"></script>
+<script src="match-engine.js?v=20261001b"></script>
 <script src="developers.js?v=36"></script>
 <script src="rm-track.js?v=3"></script>
-<script src="match-alert.js?v=20260918b"></script>
+<script src="match-alert.js?v=20261001a"></script>
 <script src="notif-badge.js?v=16"></script>
 <script>
 const _sb = supabase.createClient('https://wmegpgrfrtprhuzmgjma.supabase.co', 'sb_publishable_Rm_fIBDUfu3DEyLj0_bWZw_qEqo8cd4');
@@ -1261,31 +1269,119 @@ async function copyOriginalText(){
 // Close the modal with Escape
 document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ const m=document.getElementById('ldCopyModal'); if(m && m.classList.contains('show')) closeCopyModal(); } });
 
-// ── Lightbox ──
+// ── Lightbox (horizontal photo gallery — slides like a native swipe) ──
 let _ldLbIdx = 0;
+let _ldLbPrevOverflow = '';
+// Slide the carousel track to the active index. `animate` adds the CSS transition
+// (for an arrow/wheel/snap move); omit it to follow the finger live during a drag.
+function _ldSetTrack(animate){
+  const track = document.getElementById('ldLbTrack');
+  if (track) {
+    track.classList.toggle('ld-anim', !!animate);
+    track.style.transform = `translateX(${-_ldLbIdx * 100}%)`;
+  }
+  const imgs = window._ldImages || [];
+  const count = document.getElementById('ldLbCount');
+  if (count) count.textContent = `${_ldLbIdx + 1} / ${imgs.length}`;
+}
 function openLdLightbox(idx){
-  _ldLbIdx = idx;
   const imgs = window._ldImages || []; if(!imgs.length) return;
+  _ldLbIdx = Math.max(0, Math.min(idx, imgs.length - 1));
   document.getElementById('ldLightbox')?.remove();
   const lb = document.createElement('div');
   lb.id='ldLightbox'; lb.className='ld-lightbox';
+  const slides = imgs.map(src => `<div class="ld-lb-slide"><img src="${src}"></div>`).join('');
   lb.innerHTML = `
     <button class="ld-lb-close" onclick="closeLdLightbox()"><i class="fas fa-times"></i></button>
     ${imgs.length>1 ? `<button class="ld-lb-nav ld-lb-prev" onclick="event.stopPropagation(); navLdLightbox(-1)"><i class="fas fa-chevron-left"></i></button>` : ''}
-    <img id="ldLbImg" src="${imgs[idx]}">
+    <div class="ld-lb-track" id="ldLbTrack" style="transform:translateX(${-_ldLbIdx*100}%)">${slides}</div>
     ${imgs.length>1 ? `<button class="ld-lb-nav ld-lb-next" onclick="event.stopPropagation(); navLdLightbox(1)"><i class="fas fa-chevron-right"></i></button>` : ''}
-    ${imgs.length>1 ? `<span style="position:absolute;bottom:20px;left:50%;transform:translateX(-50%);color:#fff;font-size:13px;font-weight:700;background:rgba(0,0,0,0.5);padding:4px 14px;border-radius:20px;" id="ldLbCount">${idx+1} / ${imgs.length}</span>` : ''}
+    ${imgs.length>1 ? `<span style="position:absolute;bottom:calc(env(safe-area-inset-bottom,0px) + 20px);left:50%;transform:translateX(-50%);color:#fff;font-size:13px;font-weight:700;background:rgba(0,0,0,0.5);padding:4px 14px;border-radius:20px;z-index:2;" id="ldLbCount">${_ldLbIdx+1} / ${imgs.length}</span>` : ''}
   `;
-  lb.addEventListener('click', e=>{ if(e.target===lb) closeLdLightbox(); });
+  // Tap the dark backdrop or the image area to close — but NOT when a drag just
+  // happened (a swipe shouldn't also dismiss the viewer).
+  lb.addEventListener('click', e=>{
+    if (lb._ldDragged) return;
+    if (e.target === lb || e.target.classList.contains('ld-lb-slide')) closeLdLightbox();
+  });
+
+  // Swipe: follow the finger/mouse live, then animate a snap on release — a real
+  // horizontal gallery. Pointer events cover mouse drag AND touch.
+  if (imgs.length > 1) {
+    const trackEl = () => document.getElementById('ldLbTrack');
+    let sx=0, sy=0, dragging=false, w=0, base=0;
+    lb.addEventListener('pointerdown', e => {
+      if (e.button != null && e.button !== 0) return;   // primary button / touch / pen
+      sx=e.clientX; sy=e.clientY; dragging=true; lb._ldDragged=false;
+      w = lb.clientWidth || window.innerWidth;
+      base = -_ldLbIdx * w;
+      const t = trackEl(); if (t) t.classList.remove('ld-anim');   // live follow (no transition)
+      try { lb.setPointerCapture(e.pointerId); } catch(_){}
+    });
+    lb.addEventListener('pointermove', e => {
+      if (!dragging) return;
+      const dx = e.clientX - sx;
+      if (Math.abs(dx) > 6) lb._ldDragged = true;
+      const last = (window._ldImages||[]).length - 1;
+      // Rubber-band resistance past the first/last image.
+      let off = dx;
+      if ((_ldLbIdx === 0 && dx > 0) || (_ldLbIdx === last && dx < 0)) off = dx * 0.35;
+      const t = trackEl(); if (t) t.style.transform = `translateX(${base + off}px)`;
+    });
+    lb.addEventListener('pointerup', e => {
+      if (!dragging) return; dragging=false;
+      const dx = e.clientX - sx, dy = e.clientY - sy;
+      const last = (window._ldImages||[]).length - 1;
+      if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) {
+        if (dx < 0 && _ldLbIdx < last) _ldLbIdx++;
+        else if (dx > 0 && _ldLbIdx > 0) _ldLbIdx--;
+      }
+      _ldSetTrack(true);                         // animate to the resting slide (snap)
+      setTimeout(() => { lb._ldDragged = false; }, 0);
+    });
+    lb.addEventListener('pointercancel', () => { if (dragging) { dragging=false; _ldSetTrack(true); } });
+
+    // Trackpad / Magic Mouse horizontal swipe is a WHEEL event (deltaX), not a drag.
+    // One physical swipe emits a long stream of (inertial) wheel events, so act on
+    // the FIRST one and then ignore the rest until the events STOP for a short idle
+    // gap — guaranteeing exactly one image per swipe (a fixed timer let momentum
+    // trigger a second advance → the "swipes twice / fast-forward" bug).
+    let wheelReady = true, wheelIdle = null;
+    lb.addEventListener('wheel', e => {
+      if (Math.abs(e.deltaX) <= Math.abs(e.deltaY) || Math.abs(e.deltaX) < 20) return;
+      if (e.cancelable) e.preventDefault();
+      clearTimeout(wheelIdle);
+      wheelIdle = setTimeout(() => { wheelReady = true; }, 140);   // gesture ended
+      if (!wheelReady) return;        // still mid-gesture / inertia → ignore
+      wheelReady = false;             // consume: one navigation per swipe
+      navLdLightbox(e.deltaX > 0 ? 1 : -1);
+    }, { passive: false });
+  }
+
   document.body.appendChild(lb);
+  // Lock the underlying Listing Detail page so it can't scroll behind the viewer.
+  _ldLbPrevOverflow = document.body.style.overflow;
+  document.body.style.overflow = 'hidden';
+  document.addEventListener('keydown', _ldLbKey);
 }
-function closeLdLightbox(){ document.getElementById('ldLightbox')?.remove(); }
+function _ldLbKey(e){
+  if (!document.getElementById('ldLightbox')) { document.removeEventListener('keydown', _ldLbKey); return; }
+  if (e.key === 'Escape') closeLdLightbox();
+  else if (e.key === 'ArrowRight') navLdLightbox(1);
+  else if (e.key === 'ArrowLeft') navLdLightbox(-1);
+}
+function closeLdLightbox(){
+  document.getElementById('ldLightbox')?.remove();
+  document.removeEventListener('keydown', _ldLbKey);
+  try { document.body.style.overflow = _ldLbPrevOverflow || ''; } catch(e){}
+}
 function navLdLightbox(dir){
   const imgs = window._ldImages || [];
-  _ldLbIdx = (_ldLbIdx + dir + imgs.length) % imgs.length;
-  document.getElementById('ldLbImg').src = imgs[_ldLbIdx];
-  const count = document.getElementById('ldLbCount');
-  if(count) count.textContent = `${_ldLbIdx+1} / ${imgs.length}`;
+  if (!imgs.length) return;
+  const next = _ldLbIdx + dir;
+  if (next < 0 || next > imgs.length - 1) return;   // clamp (no wrap → natural adjacent slide)
+  _ldLbIdx = next;
+  _ldSetTrack(true);
 }
 
 // ── Live realmate-relationship sync for the mate button ──────────────────────

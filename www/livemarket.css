@@ -2147,8 +2147,17 @@ html[data-theme="dark"] .mate-status-received { border-color: #60a5fa; color: #6
 .lm-modal-overlay {
   display: none; position: fixed; inset: 0;
   background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);
-  z-index: 1000; align-items: center; justify-content: center;
+  /* Above the bottom navbar (z-index:1000) so the modal — and its Post button —
+     are never hidden behind it. */
+  z-index: 1100; align-items: center; justify-content: center;
   padding: 14px;
+}
+/* Desktop: the content area (and the floating navbar) start AFTER the 240px left
+   sidebar, so offset the overlay by that width — the centred modal then lands in
+   the MIDDLE of the body, horizontally aligned with the navbar. padding-bottom
+   lifts it clear of the floating navbar; the backdrop still covers the full screen. */
+@media (min-width: 769px) {
+  .lm-modal-overlay { padding-left: 240px; padding-bottom: 110px; }
 }
 .lm-modal-overlay.open { display: flex; }
 

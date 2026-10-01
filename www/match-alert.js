@@ -88,6 +88,9 @@
                 .nav-badge{position:absolute;background:#ef4444;color:#fff;font-size:9px;font-weight:800;min-width:16px;height:16px;border-radius:8px;display:flex;align-items:center;justify-content:center;padding:0 3px;pointer-events:none;line-height:1;box-shadow:0 2px 6px rgba(239,68,68,0.4);z-index:10;}
                 .nav-badge--row{top:50%;right:10px;transform:translateY(-50%);}
                 .nav-badge--corner{top:2px;right:50%;transform:translateX(calc(50% + 8px));}
+                /* Inline, directly beside the nav label (sidebar Portal item) —
+                   not floated to the far right edge of the row. */
+                .nav-badge--inline{position:static;transform:none;margin-left:7px;flex:0 0 auto;}
                 .mob-nav-item .nav-badge{display:flex;align-items:center;justify-content:center;font-size:9px;line-height:1;}
             `;
             document.head.appendChild(el);
@@ -144,12 +147,13 @@
         if (count <= 0) return;
         const label = count > 99 ? '99+' : String(count);
 
-        // Portal — desktop sidebar nav item (globe icon)
+        // Portal — desktop sidebar nav item (globe icon). Place the badge INLINE
+        // right after the "Portal" label (not floated to the far-right edge of the
+        // wide row, which read as detached).
         const sideGlobe = document.querySelector('.nav-item [class*="fa-globe"]');
         if (sideGlobe) {
-            const wrap = sideGlobe.parentElement;
-            wrap.style.position = 'relative';
-            wrap.appendChild(makeBadge(label, 'global-match-badge', 'nav-badge--row'));
+            const item = sideGlobe.closest('.nav-item') || sideGlobe.parentElement;
+            item.appendChild(makeBadge(label, 'global-match-badge', 'nav-badge--inline'));
         }
         // Portal — mobile bottom nav (globe icon)
         const mobGlobe = document.querySelector('.mob-nav-item [class*="fa-globe"]');
@@ -411,11 +415,25 @@
 
     window.RMMatchAlert = { recordMatches, noteIncoming, markSeen, getUnseen, refreshBadges };
 
+    // Cross-document badge sync: match state lives in localStorage, so when it
+    // changes in ANOTHER same-origin document (the Portal iframe detecting/clearing
+    // a match, or another tab) re-render THIS document's badges. This is what makes
+    // the mobile app-shell's VISIBLE Portal badge appear/update live — detection
+    // runs in the Portal iframe (hidden navbar), the shell just reflects the state.
+    window.addEventListener('storage', function (e) {
+        if (e.key && e.key.indexOf('rm_match_state_') === 0) { try { refreshBadges(); } catch (_) {} }
+    });
+
     // ── Boot ──────────────────────────────────────────────────────────────
     // Paint whatever the persisted state says right away, then resolve the auth
     // id + own listings and wire realtime.
     refreshBadges();
     document.addEventListener('DOMContentLoaded', refreshBadges);
+
+    // Badge-only mode: the match engine isn't loaded here (e.g. the mobile shell
+    // app.html). Skip detection/realtime — refreshBadges() + the storage listener
+    // above keep the visible Portal badge in sync from the shared state.
+    if (typeof window.RM_MATCH === 'undefined') return;
 
     const _sb = (typeof supabase !== 'undefined') ? supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
 

@@ -172,7 +172,22 @@
         return _unitRank(a) <= _unitRank(b) ? a : b;
     }
 
+    // Normalize misspelled / mis-spaced / truncated bedroom tokens to the canonical
+    // "N Bedroom" so EVERY downstream reader (display + matching) understands them.
+    // Handles: "1-Bed Room" (space inside the word), "1-Bedroo"/"1 bedro" (truncated),
+    // "2 bedrm" / "3 bdr" (abbreviations). Anchored to a digit/number-word and a
+    // trailing non-letter, so it never eats into real words like "brothers" or
+    // "bed road". Idempotent: already-correct text ("1BR", "2 Bedrooms") passes through.
+    function _normBeds(text) {
+        try {
+            return String(text == null ? '' : text)
+                .replace(/\b([1-5])\s*-?\s*(?:br|bdrm?|bed\s*-?\s*rm|bed\s*-?\s*roo?m?s?)(?![a-z])/gi, '$1 Bedroom')
+                .replace(/\b(one|two|three|four|five)\s*-?\s*(?:bdrm?|bed\s*-?\s*rm|bed\s*-?\s*roo?m?s?)(?![a-z])/gi, '$1 Bedroom');
+        } catch (e) { return text; }
+    }
+
     function extractUnit(text) {
+        text = _normBeds(text);
         const lower = text.toLowerCase();
         // Detect unit range across any combo: "Studio or 1BR", "2-BEDROOM OR 3-BEDROOM", "1BR or 2 Bedroom"
         const rangeRe = /(studio|\d[\s-]*(?:br|bedroom\w*))\s+or\s+(studio|\d[\s-]*(?:br|bedroom\w*))/i;
@@ -776,6 +791,7 @@
     // Bedroom counts (1–5) mentioned in the post, digit ("2BR", "2 bedroom") or word
     // ("two-bedroom") form. Returns ALL counts so a range like "2BR or 3BR" keeps both.
     function _bedTokensForMatch(l) {
+        l = _normBeds(l);
         const nums = new Set();
         const w = { one: 1, two: 2, three: 3, four: 4, five: 5 };
         let m;
@@ -789,6 +805,7 @@
     // Like _bedTokensForMatch but skips bedroom counts stated as a possible use
     // ("ideal for a 2-bedroom conversion"), so matching mirrors the card display.
     function _bedTokensSubject(text) {
+        text = _normBeds(text);
         const nums = new Set(), w = { one: 1, two: 2, three: 3, four: 4, five: 5 };
         for (const re of [/\b([1-5])\s*-?\s*(?:br|bedrooms?)\b/gi,
                           /\b(one|two|three|four|five)[\s-]*bed\s*rooms?\b/gi]) {
@@ -924,22 +941,36 @@
         reasons.push(`Unit: ${typeOverlap.join(' or ')}`);
         details.unit = { match: true, value: typeOverlap.join(' or '), points: 25 };
 
-        // 4. Price/budget compatibility
+        // 4. Price/budget compatibility — DIRECTION-AWARE + PROPORTIONAL.
+        // Compare the BUYER's max budget (the ceiling they said they'd spend) against
+        // the SELLER's asking price. Never a hard yes/no filter:
+        //   • seller <= budget cap  → within budget (affordable) → full 25 pts
+        //   • seller  > budget cap  → above budget → points DECAY with the % over,
+        //     so a small overage still scores well while a big one scores little.
+        // This fixes the old bug where any price up to 20% over the cap was treated
+        // as "in budget" (e.g. ₱19M counted as within a ₱16M budget).
         const sellerPrice = mine.category.includes('FOR') ? mine.price : other.price;
         const buyerBudget = mine.category.includes('WILLING') ? mine.budget : other.budget;
         if (sellerPrice && buyerBudget) {
-            const pctInRange = sellerPrice >= buyerBudget.min * 0.8 && sellerPrice <= buyerBudget.max * 1.2;
-            const pctClose = sellerPrice >= buyerBudget.min * 0.6 && sellerPrice <= buyerBudget.max * 1.5;
-            if (pctInRange) {
-                score += 25;
-                reasons.push('Price in range');
-                details.price = { match: 'exact', seller: sellerPrice, budget: buyerBudget, points: 25 };
-            } else if (pctClose) {
-                score += 12;
-                reasons.push('Price close to range');
-                details.price = { match: 'close', seller: sellerPrice, budget: buyerBudget, points: 12 };
+            const cap = buyerBudget.max, floor = buyerBudget.min;
+            if (sellerPrice <= cap) {
+                if (sellerPrice >= floor * 0.6) {
+                    score += 25;
+                    reasons.push('Price within budget');
+                    details.price = { match: 'within', seller: sellerPrice, budget: buyerBudget, points: 25 };
+                } else {
+                    // Affordable, but well under the buyer's stated budget (unusual gap).
+                    score += 15;
+                    reasons.push('Price under budget');
+                    details.price = { match: 'below', seller: sellerPrice, budget: buyerBudget, points: 15 };
+                }
             } else {
-                details.price = { match: false, seller: sellerPrice, budget: buyerBudget };
+                // Above the cap — the larger the overage, the smaller the contribution.
+                const over = (sellerPrice - cap) / cap;
+                const pts = over <= 0.05 ? 20 : over <= 0.15 ? 13 : over <= 0.30 ? 7 : 2;
+                score += pts;
+                reasons.push('Price above budget');
+                details.price = { match: 'above', seller: sellerPrice, budget: buyerBudget, over: over, points: pts };
             }
         }
 

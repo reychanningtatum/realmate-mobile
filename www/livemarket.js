@@ -3832,9 +3832,22 @@ function buildAiAnalysis(details, color) {
     }
     if (details.price) {
         const fmtP = v => '₱' + (v / 1e6).toFixed(1) + 'M';
-        if (details.price.match === 'exact') rows += `<div class="match-detail-row">${check} <span>Price in budget: <strong>${fmtP(details.price.seller)}</strong></span></div>`;
-        else if (details.price.match === 'close') rows += `<div class="match-detail-row">${warn} <span>Price close: ${fmtP(details.price.seller)} (budget ${fmtP(details.price.budget.min)}–${fmtP(details.price.budget.max)})</span></div>`;
-        else rows += `<div class="match-detail-row">${cross} <span>Price: ${fmtP(details.price.seller)} outside budget</span></div>`;
+        const _seller = details.price.seller;
+        const _cap = details.price.budget ? details.price.budget.max : null;
+        const _budgetTxt = _cap != null ? ` · ${fmtP(_cap)} budget` : '';
+        const m = details.price.match;
+        if (m === 'within' || m === 'exact') {
+            rows += `<div class="match-detail-row">${check} <span>Price in budget: <strong>${fmtP(_seller)}</strong> asking${_budgetTxt}</span></div>`;
+        } else if (m === 'below') {
+            rows += `<div class="match-detail-row">${check} <span>Price under budget: <strong>${fmtP(_seller)}</strong> asking${_budgetTxt}</span></div>`;
+        } else if (m === 'above' || m === 'close') {
+            // Accurate, dynamic — NEVER "in budget" when the asking price exceeds it.
+            const over = (_cap != null) ? (_seller - _cap) : null;
+            const overTxt = (over != null && over > 0) ? `${fmtP(over)} over budget` : 'above budget';
+            rows += `<div class="match-detail-row">${warn} <span>Price ${overTxt}: ${fmtP(_seller)} asking${_budgetTxt}</span></div>`;
+        } else {
+            rows += `<div class="match-detail-row">${cross} <span>Price: ${fmtP(_seller)} outside budget</span></div>`;
+        }
     }
     if (details.features?.match) rows += `<div class="match-detail-row">${check} <span>Features: <strong>${details.features.common.join(', ')}</strong></span></div>`;
     if (details.size?.match) rows += `<div class="match-detail-row">${check} <span>Size: <strong>~${details.size.value} sqm</strong></span></div>`;
@@ -5073,15 +5086,20 @@ async function submitLMPost() {
     status.textContent = lmEditId ? 'Saving…' : 'Posting…';
 
     try {
+        // Resolve the user id from the LOCAL session — getSession() reads the cached
+        // token with NO network round-trip, whereas the old getUser() calls each hit
+        // the auth server, adding seconds of lag before the post could proceed. One
+        // local lookup, reused for both the duplicate check and the insert below.
+        const { data: { session: _lmSession } } = await _sb.auth.getSession();
+        const uid = _lmSession?.user?.id;
+
         // Duplicate-post prevention — run BEFORE uploading images so a blocked post
         // never leaves orphaned uploads. Compares this post's structured fields
         // against the user's own live listings only (never other users').
-        const { data: dupAuth } = await _sb.auth.getUser();
-        const dupUid = dupAuth?.user?.id;
-        if (dupUid) {
+        if (uid) {
             const { data: myListings, error: dupErr } = await _sb
                 .from('listings').select('id, content, category')
-                .eq('user_id', dupUid).eq('archived', false);
+                .eq('user_id', uid).eq('archived', false);
             if (!dupErr && myListings && myListings.length) {
                 const neu = lmStructuredOn() ? lmDupFieldsFromStructured(structured, content, lmSelectedCat)
                                              : lmDupFields(content, lmSelectedCat);
@@ -5119,7 +5137,6 @@ async function submitLMPost() {
         }
         const imageUrls = lmExistingUrls.concat(newUrls);
 
-        const { data: authData } = await _sb.auth.getUser();
         const postName = isAnon ? settings.anonName : localUser.name;
         const postImg  = isAnon
             ? `https://ui-avatars.com/api/?name=${encodeURIComponent(settings.anonName)}&background=0f172a&color=fff`
@@ -5186,7 +5203,7 @@ async function submitLMPost() {
         }
 
         const row = {
-            user_id:      authData?.user?.id,
+            user_id:      uid,
             user_name:    postName,
             user_job:     '',
             user_img:     postImg,
