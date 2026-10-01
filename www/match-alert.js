@@ -29,11 +29,38 @@
     const _isCompleted = l => !!l && COMPLETED_STATUSES.has(String(l.status || '').toLowerCase());
 
     const user = JSON.parse(localStorage.getItem('user') || 'null');
+
+    // ── TEMP DIAGNOSTIC (build 307) — remove after we locate the mobile break ──
+    // Shows the live AI-match pipeline state in a small corner pill so we can see
+    // exactly where it stops on-device. Only in the TOP document (shell/desktop),
+    // not inside content iframes, so there's one pill.
+    var _DBG = !!(user && (user.email === 'reychanbernaldez1019@gmail.com' || user.id === '11dcb156-5514-4dc5-9324-e924f2f4a405'));
+    var _topDoc = (window.self === window.top);
+    var _diag = { ctx: _topDoc ? 'TOP' : 'iframe', user: user && user.name ? 'y' : 'n',
+                  notifs: localStorage.getItem('rm_portal_notifs') === '0' ? 'OFF' : 'on',
+                  eng: '?', uid: '?', mine: '?', sub: '-', cur: '?', unseen: '?', lastEvt: '-', scan: '-', note: '-' };
+    function _renderDiag() {
+        if (!_DBG || !_topDoc) return;
+        try {
+            var el = document.getElementById('rmMaDiag');
+            if (!el) { el = document.createElement('div'); el.id = 'rmMaDiag';
+                el.style.cssText = 'position:fixed;left:6px;bottom:72px;z-index:2147483647;background:rgba(0,0,0,.84);color:#7CFC00;font:10px/1.35 monospace;padding:6px 8px;border-radius:8px;max-width:78vw;white-space:pre-wrap;';
+                el.addEventListener('click', function () { el.remove(); });
+                (document.body || document.documentElement).appendChild(el); }
+            el.textContent = 'AImatch['+_diag.ctx+'] user='+_diag.user+' notifs='+_diag.notifs+' eng='+_diag.eng
+                + '\nuid='+_diag.uid+' mine='+_diag.mine+' sub='+_diag.sub
+                + '\ncur='+_diag.cur+' unseen='+_diag.unseen
+                + '\nlastEvt='+_diag.lastEvt+' note='+_diag.note+' scan='+_diag.scan+'  (tap to hide)';
+        } catch (e) {}
+    }
+    function _setDiag(k, v) { _diag[k] = v; _renderDiag(); }
+    if (_DBG && _topDoc) { if (document.body) _renderDiag(); else document.addEventListener('DOMContentLoaded', _renderDiag); }
+
     if (!user || !user.name) return;                // logged-out: nothing to do
     // Portal Notifications toggle (Settings). '0' = user turned them OFF; any
     // other value (or absent) = ON by default. When off, suppress the global
     // AI-match banner and nav badge entirely.
-    if (localStorage.getItem('rm_portal_notifs') === '0') return;
+    if (localStorage.getItem('rm_portal_notifs') === '0') { _setDiag('note', 'RETURN:notifs-off'); return; }
     // The scoring engine (match-engine.js) is present on every CONTENT page, but NOT
     // on the mobile app-shell (app.html). Rather than go fully inert without it, this
     // file runs in two modes sharing ONE banner implementation:
@@ -42,6 +69,7 @@
     //   • engine absent   → display-only: the shell receives those broadcasts and
     //                        renders the single banner (see the no-engine block below).
     const _hasEngine = !!window.RM_MATCH;
+    _setDiag('eng', _hasEngine ? '1' : '0');
     if (!_hasEngine) console.warn('[MatchAlert] RM_MATCH not loaded — running in display-only (shell) mode.');
     // Are we a content page embedded inside the mobile shell? (set by the page's
     // inline `if (window.self!==window.top) add('rm-embedded')`). If so, the banner
@@ -186,6 +214,7 @@
         ensureStyles();
         document.querySelectorAll('.global-match-badge, .seg-tab-match-badge').forEach(el => el.remove());
         const count = getUnseen().length;
+        try { _setDiag('cur', getState().current.length); _setDiag('unseen', count); } catch (e) {}
         if (count <= 0) return;
         const label = count > 99 ? '99+' : String(count);
 
@@ -358,9 +387,11 @@
 
     async function loadMine() {
         try {
-            const authUid = (await _sb.auth.getUser()).data?.user?.id || null;
+            let authUid = null;
+            try { authUid = (await _sb.auth.getUser()).data?.user?.id || null; } catch (e) {}
             if (authUid) { _myUid = authUid; _uid = _uid || authUid; }
-            if (!_myUid) return;
+            _setDiag('uid', _myUid ? (String(_myUid).slice(0, 6) + '…') : 'NULL');
+            if (!_myUid) { _setDiag('note', 'loadMine:no-uid'); return; }
             const res = await fetch(
                 `${SUPABASE_URL}/rest/v1/listings?select=*&archived=eq.false&user_id=eq.${_myUid}`,
                 { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } }
@@ -371,7 +402,8 @@
             _myParsed = (Array.isArray(mine) ? mine : [])
                 .filter(l => !_isCompleted(l))
                 .map(l => window.RM_MATCH.parseListing(l));
-        } catch (e) { /* keep whatever we had */ }
+            _setDiag('mine', _myParsed.length);
+        } catch (e) { _setDiag('note', 'loadMine:err ' + (e && e.message || e)); }
     }
 
     // Does `listing` match any of my own listings (>= threshold)?
@@ -422,6 +454,7 @@
         _persistMatches(newly.map(n => n.id));
         setState(s);
         refreshBadges();
+        _setDiag('scan', 'found ' + newly.length);
         showBanner(
             newly.length === 1 ? bannerSubFor(newly[0].listing)
                                : `${newly.length} new listings match your listing. Tap to view.`,
@@ -567,18 +600,19 @@
         if (!listing || !listing.id) return;
         if (listing.archived) return;
         const id = String(listing.id);
-        if (listing.user_id && _myUid && listing.user_id === _myUid) return; // my own post
+        if (listing.user_id && _myUid && listing.user_id === _myUid) { _setDiag('note', id+':own'); return; } // my own post
         const dismissed = getDismissed();
-        if (dismissed.has(id)) return;
+        if (dismissed.has(id)) { _setDiag('note', id+':dismissed'); return; }
         const s = getState();
-        if (s.seen.includes(id)) return;      // already checked → no re-alert
-        if (s.current.includes(id)) return;   // already counted → no duplicate banner
-        if (!matchesMine(listing)) return;
+        if (s.seen.includes(id)) { _setDiag('note', id+':seen'); return; }      // already checked → no re-alert
+        if (s.current.includes(id)) { _setDiag('note', id+':dup'); return; }   // already counted → no duplicate banner
+        if (!matchesMine(listing)) { _setDiag('note', id+':nomatch(mine='+_myParsed.length+')'); return; }
         _sessionArrivals.add(id);   // a genuine live arrival — survives the baseline
         s.current.push(id);
         _persistMatches([id]);      // count this newly-arrived match
         setState(s);
         refreshBadges();
+        _setDiag('note', id+':BANNER');
         showBanner(bannerSubFor(listing), id);
     }
 
@@ -657,12 +691,14 @@
                 .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'listings' },
                     (payload) => {
                         const row = payload.new;
+                        _setDiag('lastEvt', 'INS#'+(row&&row.id));
                         if (row.user_id && _myUid && row.user_id === _myUid) { reloadMineDebounced(); return; }
                         noteIncoming(row);
                     })
                 .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'listings' },
                     (payload) => {
                         const row = payload.new;
+                        _setDiag('lastEvt', 'UPD#'+(row&&row.id));
                         // A listing that just became completed or archived can no
                         // longer be a match — drop it from the badge set live.
                         if (_isCompleted(row) || row.archived) { noteRemoved(row); }
@@ -670,8 +706,8 @@
                         if (_isCompleted(row) || row.archived) return; // handled above
                         noteIncoming(row);
                     })
-                .subscribe();
-        } catch (e) { console.warn('[MatchAlert] realtime subscription failed:', e); }
+                .subscribe((status) => { _setDiag('sub', status); });
+        } catch (e) { _setDiag('sub', 'EXC'); console.warn('[MatchAlert] realtime subscription failed:', e); }
     })();
 
     // Fallback repaint every 60s (a missed realtime event, tab wakeup, etc.).
