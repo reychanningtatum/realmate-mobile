@@ -1765,8 +1765,37 @@ function reloadDashboardListings() {
     if (_dashListingsCtx) renderRecentListings(_dashListingsCtx.targetId, _dashListingsCtx.canView);
 }
 
+// Keep Profile → Listings in sync with Portal → My Listings (the SAME `listings`
+// table). Subscribe to realtime INSERT/UPDATE/DELETE for THIS profile owner and
+// re-render on any change — so a listing created / marked Sold/Bought/Rented/Leased
+// / edited / deleted elsewhere reflects here live, in the same created_at order
+// (renderRecentListings always re-fetches ORDER BY created_at DESC). Same-origin
+// app-shell iframes also nudge it via the rm_listing_* storage keys below.
+let _profileListingsChannel = null;
+let _profileListingsSubbedFor = null;
+function _subscribeProfileListings(targetId) {
+    if (!_supabase || !_supabase.channel || !targetId) return;
+    if (_profileListingsSubbedFor === targetId && _profileListingsChannel) return;  // already subscribed
+    if (_profileListingsChannel) { try { _supabase.removeChannel(_profileListingsChannel); } catch (e) {} _profileListingsChannel = null; }
+    _profileListingsSubbedFor = targetId;
+    try {
+        _profileListingsChannel = _supabase.channel('profile-listings-' + targetId)
+            .on('postgres_changes',
+                { event: '*', schema: 'public', table: 'listings', filter: 'user_id=eq.' + targetId },
+                function () { try { reloadDashboardListings(); } catch (e) {} })
+            .subscribe();
+    } catch (e) { /* realtime optional — needs listings-realtime-migration.sql */ }
+}
+// Same-device cross-iframe instant nudge (Portal iframe → Profile iframe).
+window.addEventListener('storage', function (e) {
+    if (e.key === 'rm_listing_changed' || e.key === 'rm_listing_edited') {
+        try { reloadDashboardListings(); } catch (_) {}
+    }
+});
+
 async function renderRecentListings(targetId, canView = true) {
     _dashListingsCtx = { targetId, canView };
+    if (canView && targetId) _subscribeProfileListings(targetId);   // live sync with Portal
     const card = document.querySelector('.listings-card');
     const wrap = document.getElementById('recentListingsBody');
 

@@ -45,7 +45,11 @@
     // v2: the badge now counts only NEW matches (arrivals after a one-time
     // baseline), not the whole historical backlog — bumping the key re-baselines
     // everyone the first time this version runs, so old counts don't linger.
-    const stateKey = () => `rm_match_state_v2_${_uid || user.name}`;
+    // v3: stop auto-marking existing matches as "seen" on baseline (they now badge
+    // until the user opens Matches). Bumping the key resets devices that already
+    // baselined under v2 with everything marked seen, so the badge appears for their
+    // current unchecked matches.
+    const stateKey = () => `rm_match_state_v3_${_uid || user.name}`;
     const dismissKey = () => `dismissed_matches_${_uid || 'anon'}`;
 
     // Matches that arrived via realtime THIS session — kept unseen even through
@@ -333,12 +337,16 @@
         // baseline set on first load and any ids added on later recomputes.
         _persistMatches(cur);
 
-        // First time we ever see this user's matches: BASELINE them as already
-        // seen so the badge only ever reflects matches that arrive AFTER now.
-        // (Any live arrival earlier this session is kept unseen via _sessionArrivals.)
+        // First time we see this user's matches on this device: mark baselined so
+        // later recomputes can banner for NEW arrivals — but do NOT mark the current
+        // matches as "seen". They stay UNREAD so they BADGE (the red count) until the
+        // user actually opens the Matches tab (markSeen). We only suppress the
+        // first-load BANNER here so pre-existing matches don't banner-spam. (Fixes the
+        // badge never appearing on a device that baselined before the user checked —
+        // e.g. the mobile Portal nav while desktop already showed it.)
         if (!s.baselined) {
-            s.seen = cur.filter(id => !_sessionArrivals.has(id));
             s.baselined = true;
+            s.seen = (s.seen || []).filter(id => cur.includes(id));   // keep only genuine prior 'seen'
             setState(s);
             refreshBadges();
             return;

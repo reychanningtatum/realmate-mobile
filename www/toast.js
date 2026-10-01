@@ -29,7 +29,11 @@
             '@keyframes rmToastIn{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:none;}}' +
             '@keyframes rmToastOut{to{opacity:0;transform:translateY(12px);}}' +
             'html[data-theme="dark"] .rm-toast{background:#1e293b;border:1px solid #334155;}' +
-            '@media(max-width:768px){.rm-toast-container{bottom:76px;}}';
+            '@media(max-width:768px){.rm-toast-container{bottom:76px;}}' +
+            // Desktop: shift the toast right by half the 240px left sidebar so it is
+            // centered over the Portal content area (bottom-middle of the body), not
+            // the whole viewport.
+            '@media(min-width:769px){.rm-toast-container{left:calc(50% + 120px);}}';
         var s = document.createElement('style');
         s.id = STYLE_ID;
         s.textContent = css;

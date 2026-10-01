@@ -647,7 +647,13 @@ function _lcEnsureSheet() {
       + '#lcSheetBody .lc-menu-item i{font-size:18px;width:22px;}'
       + '#lcSheetBody .lc-menu-item:active{background:#eef2f7;}'
       + 'html[data-theme="dark"] #lcSheet{background:#1e293b;}'
-      + 'html[data-theme="dark"] #lcSheetBody .lc-menu-item:active{background:#0f172a;}';
+      + 'html[data-theme="dark"] #lcSheetBody .lc-menu-item:active{background:#0f172a;}'
+      // Desktop: keep the bottom sheet (slides up from the bottom), but center it
+      // over the Portal CONTENT area — offset past the 240px left sidebar so it lines
+      // up with the navbar, instead of being centered on the whole viewport.
+      + '@media (min-width:769px){'
+      +   '#lcSheetOverlay{padding-left:240px;}'
+      + '}';
     document.head.appendChild(st);
     ov = document.createElement('div');
     ov.id = 'lcSheetOverlay';
@@ -782,6 +788,8 @@ async function markListingSold(listingId) {
     if (error) return false;
 
     if (listing) { listing.status = 'sold'; listing.sold_at = soldAt; }
+    // Nudge the other view (Profile ↔ Portal iframes) to re-sync this status now.
+    try { localStorage.setItem('rm_listing_changed', JSON.stringify({ id: String(listingId), t: Date.now() })); } catch (e) {}
 
     if (document.getElementById('listingsGrid')) {
         applyFilters();
@@ -988,6 +996,14 @@ function lmToast(msg, icon) {
 function deleteListing(listingId) {
     let overlay = document.getElementById('deleteListingOverlay');
     if (!overlay) {
+        if (!document.getElementById('deleteListingOverlayCss')) {
+            const dst = document.createElement('style');
+            dst.id = 'deleteListingOverlayCss';
+            // Desktop: keep it a bottom sheet but center over the Portal content area
+            // (offset past the 240px left sidebar), matching the kebab menu sheet.
+            dst.textContent = '@media (min-width:769px){#deleteListingOverlay{padding-left:240px;}}';
+            document.head.appendChild(dst);
+        }
         overlay = document.createElement('div');
         overlay.id = 'deleteListingOverlay';
         overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:flex-end;justify-content:center;';
@@ -1020,9 +1036,14 @@ function deleteListing(listingId) {
             lmToast('Failed to delete listing', 'fa-triangle-exclamation');
             return;
         }
-        allListings = allListings.filter(l => String(l.id) !== String(listingId));
+        allListings = (allListings || []).filter(l => String(l.id) !== String(listingId));
+        if (typeof myListings !== 'undefined' && Array.isArray(myListings)) myListings = myListings.filter(l => String(l.id) !== String(listingId));
         overlay.remove();
-        applyFilters();
+        // Drop the card in WHICHEVER view this ran in (Portal grid or Profile list),
+        // then re-render both local views so the originating page updates instantly.
+        document.querySelectorAll('[id="lc-' + listingId + '"]').forEach(c => c.remove());
+        if (document.getElementById('listingsGrid')) applyFilters();
+        if (typeof reloadDashboardListings === 'function') { try { reloadDashboardListings(); } catch (e) {} }
         lmToast('Listing deleted', 'fa-circle-check');
         // Broadcast so the SAME listing drops from the other view live (Portal ↔
         // Profile), no manual refresh. livemarket.js runs in both, and the
@@ -1295,9 +1316,16 @@ function handleListingRealtimeUpdate(row, eventType) {
     //     doesn't linger, and
     //   • the red match-badge counts are re-recorded (no visible grid rebuild).
     if (row.archived) {
-        const ledgerVisible = document.getElementById('listingsGrid') &&
-                              document.getElementById('ledgerView')?.style.display !== 'none';
-        if (ledgerVisible) document.getElementById('lc-' + row.id)?.remove();
+        // Archive = soft-delete. REMOVE it from the in-memory pools (not just mark
+        // archived) so it's gone from state and a later applyFilters()/filter change
+        // can never re-insert it. Then drop the card + re-sync the Profile view.
+        [allListings, myListings].forEach(function (arr) {
+            if (!Array.isArray(arr)) return;
+            var i = arr.findIndex(function (l) { return String(l.id) === String(row.id); });
+            if (i !== -1) arr.splice(i, 1);
+        });
+        document.querySelectorAll('[id="lc-' + row.id + '"]').forEach(function (c) { c.remove(); });
+        if (typeof reloadDashboardListings === 'function') { try { reloadDashboardListings(); } catch (e) {} }
     }
     // Recompute + surgically refresh the AI-match counters live (no full grid rebuild),
     // then re-record the match-alert set from the fresh matchMap.
@@ -2139,7 +2167,9 @@ function buildListingCard(listing, matchLabel = null, fmvResult = null, matchCou
     // pinned to the lower-right of the avatar (Facebook-style verified placement).
     const verifiedBadge = listing.user_verified
         ? '<span class="lc-profile-verified"><i class="fas fa-circle-check" title="Verified"></i></span>' : '';
-    const kebabMenu = buildCardMenu(listing, { isOwner, canDismiss, isPinned });
+    // opts.hideMenu removes the 3-dot menu entirely (used for the AI Match Engine
+    // "Your Listing" card — the menu belongs on the Portal listing, not there).
+    const kebabMenu = opts.hideMenu ? '' : buildCardMenu(listing, { isOwner, canDismiss, isPinned });
 
     // Owner's own listing + at least one valid AI match → a beating "AI Matches
     // Found" button in the header, immediately LEFT of the three-dot menu. The
@@ -3445,6 +3475,7 @@ async function loadLedger(silent) {
             .order('created_at', { ascending: false }),
         localUser
             ? _sb.from('listings').select('*').eq('archived', false).eq('user_id', (await _sb.auth.getUser()).data?.user?.id || '__none__')
+                .order('created_at', { ascending: false })
             : Promise.resolve({ data: [] }),
         typeof loadMatesCache === 'function' ? loadMatesCache() : Promise.resolve(),
         preloadOfferCounts()
@@ -3637,6 +3668,14 @@ function confirmDismissMatch(listingId) {
     // Show bottom-sheet confirmation
     let overlay = document.getElementById('dismissMatchOverlay');
     if (!overlay) {
+        if (!document.getElementById('dismissMatchOverlayCss')) {
+            const dmst = document.createElement('style');
+            dmst.id = 'dismissMatchOverlayCss';
+            // Desktop: bottom sheet centered over the Portal content area (past the
+            // 240px left sidebar), matching the delete-confirm + kebab sheets.
+            dmst.textContent = '@media (min-width:769px){#dismissMatchOverlay{padding-left:240px;}}';
+            document.head.appendChild(dmst);
+        }
         overlay = document.createElement('div');
         overlay.id = 'dismissMatchOverlay';
         overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:flex-end;justify-content:center;';
@@ -3914,7 +3953,7 @@ function showMatchView(query, matches) {
     yourWrap.innerHTML = '';
     // This IS the AI Match Engine, so the owner card's "AI Matches Found" button
     // (which just opens this same view) is redundant here — suppress it.
-    yourWrap.appendChild(buildListingCard(query, null, fmvFor(query), matchCountMap.get(String(query.id)) || 0, { hideMatchBtn: true }));
+    yourWrap.appendChild(buildListingCard(query, null, fmvFor(query), matchCountMap.get(String(query.id)) || 0, { hideMatchBtn: true, hideMenu: true }));
 
 
     // Match count badge
@@ -5222,6 +5261,10 @@ async function submitLMPost() {
         // new listing posts even before optional migrations (cover_image_url) run.
         const { error } = await _lmWriteListing('insert', row);
         if (error) throw error;
+
+        // Nudge the other view (Profile ↔ Portal iframes) so the new listing appears
+        // at the top there too, immediately (realtime also covers cross-device).
+        try { localStorage.setItem('rm_listing_changed', JSON.stringify({ t: Date.now() })); } catch (e) {}
 
         status.className = 'lm-post-status success';
         status.innerHTML = '<i class="fas fa-circle-check"></i> Listing posted';

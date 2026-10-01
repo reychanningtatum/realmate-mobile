@@ -894,7 +894,13 @@
     }
 
     function computeMatchScore(mine, other) {
-        let score = 0;
+        // Score = earned / possible over the criteria that ACTUALLY APPLY to this
+        // pair (both sides have the data). Optional fields that are missing are
+        // EXCLUDED from the denominator — never counted as a mismatch — so a listing
+        // that matches exactly on every available criterion reaches ~99% instead of
+        // being capped at 75% by an unearnable "project" slot. The final percentage
+        // is earned/possible * 99 (99, not 100 — a deliberate small margin).
+        let earned = 0, possible = 0;
         let reasons = [];
         let details = {};
 
@@ -915,17 +921,22 @@
         const proximity = locationProximity(mine.locations, other.locations);
         if (proximity !== 'exact') return { score: 0, reasons: [], details: {} };
         const overlap = mine.locations.filter(l => other.locations.includes(l));
-        score += 25;
+        earned += 25; possible += 25;
         reasons.push(`Location: ${overlap.join(', ')}`);
         details.location = { match: 'exact', value: overlap.join(', '), points: 25 };
 
-        // 2. Project match
-        if (mine.project && other.project && mine.project.toLowerCase() === other.project.toLowerCase()) {
-            score += 25;
-            reasons.push(`Project: ${mine.project}`);
-            details.project = { match: true, value: mine.project, points: 25 };
-        } else if (mine.project || other.project) {
-            details.project = { match: false, mine: mine.project, theirs: other.project };
+        // 2. Project match — APPLICABLE only when BOTH sides state a project. If only
+        // one (or neither) does, it's unknown, not a mismatch → excluded from scoring
+        // so it can't drag the percentage down.
+        if (mine.project && other.project) {
+            possible += 25;
+            if (mine.project.toLowerCase() === other.project.toLowerCase()) {
+                earned += 25;
+                reasons.push(`Project: ${mine.project}`);
+                details.project = { match: true, value: mine.project, points: 25 };
+            } else {
+                details.project = { match: false, mine: mine.project, theirs: other.project };
+            }
         }
 
         // 3. Unit type match — MANDATORY, matched at the specific type level. A
@@ -937,7 +948,7 @@
         if (!mineTypes.length || !otherTypes.length) return { score: 0, reasons: [], details: {} };
         const typeOverlap = mineTypes.filter(u => otherTypes.includes(u));
         if (!typeOverlap.length) return { score: 0, reasons: [], details: {} };
-        score += 25;
+        earned += 25; possible += 25;
         reasons.push(`Unit: ${typeOverlap.join(' or ')}`);
         details.unit = { match: true, value: typeOverlap.join(' or '), points: 25 };
 
@@ -952,15 +963,16 @@
         const sellerPrice = mine.category.includes('FOR') ? mine.price : other.price;
         const buyerBudget = mine.category.includes('WILLING') ? mine.budget : other.budget;
         if (sellerPrice && buyerBudget) {
+            possible += 25;   // price is a real, available criterion for this pair
             const cap = buyerBudget.max, floor = buyerBudget.min;
             if (sellerPrice <= cap) {
                 if (sellerPrice >= floor * 0.6) {
-                    score += 25;
+                    earned += 25;
                     reasons.push('Price within budget');
                     details.price = { match: 'within', seller: sellerPrice, budget: buyerBudget, points: 25 };
                 } else {
                     // Affordable, but well under the buyer's stated budget (unusual gap).
-                    score += 15;
+                    earned += 15;
                     reasons.push('Price under budget');
                     details.price = { match: 'below', seller: sellerPrice, budget: buyerBudget, points: 15 };
                 }
@@ -968,46 +980,55 @@
                 // Above the cap — the larger the overage, the smaller the contribution.
                 const over = (sellerPrice - cap) / cap;
                 const pts = over <= 0.05 ? 20 : over <= 0.15 ? 13 : over <= 0.30 ? 7 : 2;
-                score += pts;
+                earned += pts;
                 reasons.push('Price above budget');
                 details.price = { match: 'above', seller: sellerPrice, budget: buyerBudget, over: over, points: pts };
             }
         }
 
-        // Feature overlap
+        // Feature overlap — applicable only when BOTH sides list features (capped).
         const allMineFeatures = mine.features;
         const allOtherFeatures = other.features;
         if (allMineFeatures.length && allOtherFeatures.length) {
+            possible += 10;
             const common = allMineFeatures.filter(f => allOtherFeatures.includes(f));
             if (common.length > 0) {
-                score += common.length * 5;
+                earned += Math.min(common.length * 5, 10);
                 reasons.push(`Features: ${common.join(', ')}`);
-                details.features = { match: true, common, points: common.length * 5 };
+                details.features = { match: true, common, points: Math.min(common.length * 5, 10) };
             }
         }
 
-        // Size/sqm matching
+        // Size/sqm matching — applicable only when BOTH sides state a size.
         const sizeRegex = /(\d+)\s*(?:sqm|sq\.?\s*m)/i;
         const mineSize = (mine.raw?.content || '').match(sizeRegex);
         const otherSize = (other.raw?.content || '').match(sizeRegex);
         if (mineSize && otherSize) {
+            possible += 10;
             const ms = parseInt(mineSize[1]), os = parseInt(otherSize[1]);
             if (Math.abs(ms - os) <= 10) {
-                score += 10;
+                earned += 10;
                 reasons.push(`Size: ~${os} sqm`);
                 details.size = { match: true, value: os, points: 10 };
             }
         }
 
-        // Floor preference
+        // Floor preference — applicable only when BOTH sides state a floor band.
         const floorRegex = /\b(high|mid|low)\s*floor\b/i;
         const mineFloor = (mine.raw?.content || '').match(floorRegex);
         const otherFloor = (other.raw?.content || '').match(floorRegex);
-        if (mineFloor && otherFloor && mineFloor[1].toLowerCase() === otherFloor[1].toLowerCase()) {
-            score += 5;
-            reasons.push(`${otherFloor[1]} floor`);
+        if (mineFloor && otherFloor) {
+            possible += 5;
+            if (mineFloor[1].toLowerCase() === otherFloor[1].toLowerCase()) {
+                earned += 5;
+                reasons.push(`${otherFloor[1]} floor`);
+            }
         }
 
+        // Normalize over the criteria that actually applied. 99 (not 100) keeps a
+        // deliberate small margin even for an all-exact match. Missing optional fields
+        // were never added to `possible`, so they don't dilute the score.
+        const score = possible > 0 ? Math.min(99, Math.round((earned / possible) * 99)) : 0;
         return { score, reasons, details };
     }
 

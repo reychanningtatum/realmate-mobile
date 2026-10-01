@@ -1,6 +1,9 @@
 /* block-report.css — RMBR report modal + block affordances (Guideline 1.2) */
 .rmbr-overlay{position:fixed;inset:0;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;z-index:3000;padding:20px;}
 .rmbr-overlay[hidden]{display:none;}
+/* Desktop: center the report modal over the Portal content area (past the 240px
+   left sidebar), so it lines up with the navbar instead of the whole viewport. */
+@media (min-width:769px){.rmbr-overlay{padding-left:260px;}}
 .rmbr-modal{background:#fff;border-radius:16px;max-width:420px;width:100%;padding:20px;box-shadow:0 20px 50px rgba(0,0,0,.25);}
 .rmbr-title{font-size:17px;font-weight:800;color:#0f172a;display:flex;gap:8px;align-items:center;}
 .rmbr-title i{color:#e11d48;}
