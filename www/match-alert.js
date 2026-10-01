@@ -49,6 +49,26 @@
     // iframe is mis-placed on iOS WKWebView, so an in-iframe banner never shows.
     const _embedded = document.documentElement.classList.contains('rm-embedded');
 
+    // Shell / top-level receiver: a content iframe that detected an arrival posts
+    // rm-match-banner / rm-match-badge up to its parent. Register this in ANY
+    // non-embedded document (the mobile shell, and harmlessly desktop where no
+    // iframe posts) so it works whether or not this doc also has the engine. This
+    // is the reliable iframe→shell channel on iOS (same one used for keyboard /
+    // notif-badge). showBanner/refreshBadges are hoisted; the handler runs async
+    // after the IIFE, so all state is initialized by then.
+    if (!_embedded) {
+        window.addEventListener('message', function (e) {
+            const d = e && e.data; if (!d || typeof d !== 'object') return;
+            if (e.origin && e.origin !== location.origin && e.origin !== 'null') return;
+            if (d.type === 'rm-match-banner') {
+                if (d.uid && _uid && String(d.uid) !== String(_uid)) return;
+                try { showBanner(d.sub || 'A new listing matches your listing. Tap to view.', d.targetId); } catch (_) {}
+            } else if (d.type === 'rm-match-badge') {
+                try { refreshBadges(); } catch (_) {}
+            }
+        });
+    }
+
     // Per-user localStorage identity. Falls back to name when id is absent so
     // the badge still works, but auth id (below) is preferred once resolved.
     let _uid = user.id || null;
@@ -70,8 +90,10 @@
     function getState() {
         try {
             const s = JSON.parse(localStorage.getItem(stateKey()) || '{}');
-            return { current: Array.isArray(s.current) ? s.current.map(String) : [],
-                     seen:    Array.isArray(s.seen)    ? s.seen.map(String)    : [],
+            // Dedup current/seen — the shell and the active content iframe can both
+            // detect the same arrival and write this shared key, so ids could double.
+            return { current: Array.isArray(s.current) ? [...new Set(s.current.map(String))] : [],
+                     seen:    Array.isArray(s.seen)    ? [...new Set(s.seen.map(String))]    : [],
                      baselined: !!s.baselined };
         } catch { return { current: [], seen: [], baselined: false }; }
     }
@@ -82,7 +104,7 @@
         // unreliable iframe→parent in iOS WKWebView, so ALSO nudge the shell over
         // postMessage (the proven channel this app already uses for keyboard events).
         // The shell re-reads the shared localStorage and repaints its badge.
-        if (_embedded) { try { window.parent.postMessage({ type: 'rm-match-badge', uid: _uid }, location.origin); } catch (e) {} }
+        if (_embedded) { try { window.parent.postMessage({ type: 'rm-match-badge', uid: _uid }, '*'); } catch (e) {} }
     }
     function getDismissed() {
         try { return new Set(JSON.parse(localStorage.getItem(dismissKey()) || '[]').map(String)); }
@@ -241,7 +263,7 @@
             const payload = { sub: sub || '', targetId: targetId != null ? String(targetId) : null, uid: _uid || null, ts: Date.now() };
             // postMessage is the reliable iframe→shell channel on iOS; localStorage is
             // a belt-and-suspenders fallback (desktop/other same-origin tabs).
-            try { window.parent.postMessage(Object.assign({ type: 'rm-match-banner' }, payload), location.origin); } catch (e) {}
+            try { window.parent.postMessage(Object.assign({ type: 'rm-match-banner' }, payload), '*'); } catch (e) {}
             try { localStorage.setItem('rm_match_banner', JSON.stringify(payload)); } catch (e) {}
             return;
         }

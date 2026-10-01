@@ -119,9 +119,13 @@
   <script src="toast.js?v=20261001a"></script>
   <script src="auth-guard.js?v=20260930c"></script>
   <script src="notif-badge.js?v=16"></script>
-  <!-- Badge-only here (no match engine): reflects the shared AI-match state on the
-       shell's VISIBLE Portal nav; detection runs in the Portal iframe. -->
-  <script src="match-alert.js?v=20261001f"></script>
+  <!-- The shell runs its OWN AI-match detection so the banner + Portal/AI-Matches
+       red badge appear reliably on mobile, independent of any iframe→shell relay
+       (localStorage storage events are unreliable iframe→parent in iOS WKWebView).
+       match-engine.js gives match-alert.js full engine mode here; it still also
+       receives content-iframe postMessages as a secondary path. -->
+  <script src="match-engine.js?v=20261001c"></script>
+  <script src="match-alert.js?v=20261001g"></script>
   <script src="app-shell.js?v=20260929a"></script>
   <script src="nav-menu.js?v=20260930a"></script>
   <script src="customer-service.js?v=7"></script>
