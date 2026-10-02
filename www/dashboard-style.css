@@ -1296,7 +1296,7 @@ html[data-theme="dark"] .stats-list-avatar { border-color: #334155; }
         display: flex; align-items: center; justify-content: space-between;
         /* Overlay the cover; sit just below the status bar / Dynamic Island on every
            device via the safe-area inset (falls back to a sensible offset when 0). */
-        position: absolute; top: calc(env(safe-area-inset-top, 0px) + 4px); left: 0; right: 0; height: auto;
+        position: absolute; top: calc(env(safe-area-inset-top, 0px) + 6px); left: 0; right: 0; height: auto;
         padding: 14px 16px; background: transparent;
         border-bottom: none; z-index: 200; pointer-events: none;
     }
