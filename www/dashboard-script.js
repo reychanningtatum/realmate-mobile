@@ -1363,6 +1363,8 @@ async function loadProfile() {
                             bio: profile.bio || '',
                             relationship: profile.relationship_status || '',
                             coverUrl: profile.cover_url || '',
+                            coverOriginalUrl: profile.cover_original_url || '',
+                            coverPosition: profile.cover_position || null,
                             location: profile.location || '',
                             isVerified: !!profile.is_verified,
                             lastSeen: profile.last_seen || '',
@@ -1390,6 +1392,8 @@ async function loadProfile() {
                             bio: profile.bio || user.bio,
                             relationship: profile.relationship_status || '',
                             coverUrl: profile.cover_url || '',
+                            coverOriginalUrl: profile.cover_original_url || '',
+                            coverPosition: profile.cover_position || null,
                             location: profile.location || user.location || '',
                             isVerified: !!profile.is_verified,
                             lastSeen: profile.last_seen || '',
@@ -2427,7 +2431,8 @@ function uploadCoverPhoto(input) {
     const reader = new FileReader();
     reader.onload = async e => {
         const small = await _downscaleDataUrl(e.target.result, 1600);
-        openCoverCropModal(small, true);
+        window._coverOriginalDataUrl = small;   // preserved as the ORIGINAL on save (never re-cropped)
+        openCoverCropModal(small, true, null);
     };
     reader.readAsDataURL(file);
 }
@@ -2464,18 +2469,24 @@ function changeCoverPhoto() {
 
 async function repositionCover() {
     closeCoverActionSheet();
-    if (!user.coverUrl) { changeCoverPhoto(); return; }
+    // ALWAYS reposition from the ORIGINAL image — never the already-cropped cover_url
+    // (that caused "the save permanently cropped it"). Legacy covers with no stored
+    // original fall back to the current cover_url and get frozen as the original on save.
+    const src = user.coverOriginalUrl || user.coverUrl;
+    if (!src) { changeCoverPhoto(); return; }
+    window._coverOriginalDataUrl = null;   // reposition reuses the existing original (not a fresh upload)
+    const savedPos = user.coverPosition || null;   // restore the previous view as an editable starting state
     try {
-        const res = await fetch(user.coverUrl);
+        const res = await fetch(src);
         const blob = await res.blob();
         const dataUrl = await new Promise(resolve => {
             const reader = new FileReader();
             reader.onload = e => resolve(e.target.result);
             reader.readAsDataURL(blob);
         });
-        openCoverCropModal(dataUrl);
+        openCoverCropModal(dataUrl, false, savedPos);
     } catch {
-        openCoverCropModal(user.coverUrl);
+        openCoverCropModal(src, false, savedPos);
     }
 }
 
@@ -2483,7 +2494,7 @@ let _coverCropper = null;
 
 let _coverIsNewUpload = false;
 
-function openCoverCropModal(src, isNewUpload) {
+function openCoverCropModal(src, isNewUpload, savedPosition) {
     _coverIsNewUpload = !!isNewUpload;
     const modal = document.getElementById('coverCropModal');
     const img = document.getElementById('coverCropImage');
@@ -2492,14 +2503,24 @@ function openCoverCropModal(src, isNewUpload) {
     document.body.style.overflow = 'hidden';
     if (_coverCropper) _coverCropper.destroy();
     _coverCropper = new Cropper(img, {
-        aspectRatio: 5 / 3,   /* match the dashboard cover display ratio (was 16/5, too wide) */
-        viewMode: 1,
+        aspectRatio: 5 / 3,   /* match the dashboard cover display ratio */
+        // viewMode 0 = free movement: the image follows the finger directly and you can
+        // zoom all the way out to the whole original. viewMode 1 clamped the image to the
+        // crop box, which is what made dragging feel "sticky".
+        viewMode: 0,
         dragMode: 'move',
         cropBoxResizable: false,
         cropBoxMovable: false,
         guides: false,
         center: true,
         background: false,
+        autoCropArea: 1,
+        ready() {
+            // Restore the previously saved view (position + zoom) as the STARTING state.
+            // getData/setData are in ORIGINAL-image coordinates → resolution-safe and still
+            // fully editable (the user can zoom back out to the base image from here).
+            if (savedPosition) { try { _coverCropper.setData(savedPosition); } catch (e) {} }
+        }
     });
 }
 
@@ -2515,10 +2536,14 @@ async function applyCoverCrop() {
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
     btn.disabled = true;
     try {
-        const canvas = _coverCropper.getCroppedCanvas({ width: 1200, height: 720 });
+        const canvas = _coverCropper.getCroppedCanvas({ width: 1200, height: 720, fillColor: '#ffffff' });
         if (!canvas) throw new Error('Could not process image.');
         const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.90));
         const file = new File([blob], `cover_${Date.now()}.jpg`, { type: 'image/jpeg' });
+        // Saved view in ORIGINAL-image coordinates — this is the editable metadata we
+        // restore next time (NOT a crop of the source). rounded for clean storage.
+        let position = null;
+        try { position = _coverCropper.getData(true); } catch (e) {}
         // Resolve the authenticated user id RELIABLY. getUser() hits the auth server
         // over the network and on mobile (Capacitor/WKWebView) can return null, which
         // made the path `covers/undefined_*` — and the storage policy enforces the
@@ -2530,14 +2555,42 @@ async function applyCoverCrop() {
         if (!userId) { try { const { data } = await _supabase.auth.getUser(); userId = data?.user?.id || null; } catch (e) {} }
         if (!userId) { try { userId = (JSON.parse(localStorage.getItem('user') || '{}') || {}).id || null; } catch (e) {} }
         if (!userId) throw new Error('You appear to be signed out. Please reopen the app and try again.');
-        const path = `covers/${userId}_${Date.now()}.jpg`;   // uid in path → satisfies the per-user storage policy
+        const ts = Date.now();
+        const path = `covers/${userId}_${ts}.jpg`;   // uid in path → satisfies the per-user storage policy
         const { error } = await _supabase.storage.from('images').upload(path, file, { upsert: true });
         if (error) throw error;
         const url = _supabase.storage.from('images').getPublicUrl(path).data.publicUrl;
-        // Persist to the profile; surface any error instead of silently failing.
-        const { error: updErr } = await _supabase.from('profiles').update({ cover_url: url }).eq('id', userId);
-        if (updErr) throw updErr;
+
+        // Preserve the ORIGINAL image so future repositions always start from it (never
+        // from the cropped result). New upload → store the freshly-picked original. Legacy
+        // cover with no original yet → freeze the current cover as the original once.
+        let originalUrl = user.coverOriginalUrl || '';
+        if (_coverIsNewUpload && window._coverOriginalDataUrl) {
+            try {
+                const origBlob = await (await fetch(window._coverOriginalDataUrl)).blob();
+                const origFile = new File([origBlob], `cover_orig_${ts}.jpg`, { type: 'image/jpeg' });
+                const origPath = `covers/${userId}_orig_${ts}.jpg`;
+                const { error: oErr } = await _supabase.storage.from('images').upload(origPath, origFile, { upsert: true });
+                if (!oErr) originalUrl = _supabase.storage.from('images').getPublicUrl(origPath).data.publicUrl;
+            } catch (e) { /* non-fatal; cover_url still saved */ }
+        } else if (!originalUrl) {
+            originalUrl = user.coverUrl || '';   // legacy: freeze current cover as the original going forward
+        }
+
+        // Persist to the profile. Include the new columns, but if they don't exist yet
+        // (migration not run) retry with just cover_url so saving NEVER breaks — the
+        // original/position persist automatically once the migration is applied.
+        const patch = { cover_url: url, cover_position: position };
+        if (originalUrl) patch.cover_original_url = originalUrl;
+        let { error: updErr } = await _supabase.from('profiles').update(patch).eq('id', userId);
+        if (updErr) {
+            const r2 = await _supabase.from('profiles').update({ cover_url: url }).eq('id', userId);
+            if (r2.error) throw r2.error;
+        }
         user.coverUrl = url;
+        user.coverPosition = position;
+        if (originalUrl) user.coverOriginalUrl = originalUrl;
+        window._coverOriginalDataUrl = null;
         localStorage.setItem('user', JSON.stringify(user));
         updateUI();
         const preview = document.getElementById('coverActionSheetPreview');

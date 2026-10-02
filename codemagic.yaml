@@ -173,6 +173,17 @@ workflows:
           # Face ID / Touch ID sign-in (capacitor-native-biometric). Without this
           # key iOS hard-crashes the first time BiometricAuth is invoked.
           plist_set NSFaceIDUsageDescription string "Realmate uses Face ID so you can sign in quickly and securely without re-entering your password."
+          # Lock the app to PORTRAIT only (native: the OS prevents landscape). Replace
+          # the default Capacitor orientation arrays (which include landscape) with a
+          # single Portrait entry, for iPhone and iPad. Info.plist is regenerated each
+          # build, so we Delete-then-Add to guarantee a clean portrait-only list.
+          /usr/libexec/PlistBuddy -c "Delete :UISupportedInterfaceOrientations" "$PLIST" 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :UISupportedInterfaceOrientations array" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Add :UISupportedInterfaceOrientations:0 string UIInterfaceOrientationPortrait" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Delete :UISupportedInterfaceOrientations~ipad" "$PLIST" 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :UISupportedInterfaceOrientations~ipad array" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Add :UISupportedInterfaceOrientations~ipad:0 string UIInterfaceOrientationPortrait" "$PLIST"
+          echo "----- Info.plist orientations -----"; /usr/libexec/PlistBuddy -c "Print :UISupportedInterfaceOrientations" "$PLIST" || true
           # Register the realmate:// custom URL scheme so the welcome-email deep link
           # (enter.html tries realmate://open) opens THIS app. A URL scheme needs no
           # entitlement or provisioning-profile capability — unlike Universal Links —
