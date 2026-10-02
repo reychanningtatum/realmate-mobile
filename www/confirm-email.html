@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en" style="background:#080f1a">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Confirm your email change…</title>
+  <!--
+    Email-change deep-link bridge. The Change Email confirmation email's "Confirm
+    Change of Email" button links here with ?token_hash=...&type=email_change. On a
+    device with the Realmate app installed, this hands off to
+    realmate://confirm-email?... so the confirmation is processed IN THE APP (and
+    the success state shows there). Otherwise it forwards to the web flow
+    (/index.html?token_hash=...&type=email_change), which runs verifyOtp. The token
+    is only ever verified by real client JS (in-app or web), so an email scanner's
+    plain GET can't spend it. Mirrors reset.html; custom scheme keeps this
+    independent of iOS Universal-Link provisioning.
+  -->
+  <style>
+    html,body{margin:0;height:100%;background:#080f1a;color:#e8f0ea;
+      font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+      display:flex;align-items:center;justify-content:center;text-align:center}
+    .wrap{padding:24px}
+    .word{font-size:34px;font-weight:800;letter-spacing:-0.5px}
+    .word span{color:#22c55e}
+    .spin{width:34px;height:34px;margin:26px auto 0;border-radius:50%;
+      border:3px solid rgba(255,255,255,.15);border-top-color:#22c55e;
+      animation:sp .8s linear infinite}
+    @keyframes sp{to{transform:rotate(360deg)}}
+    .msg{margin-top:20px;font-size:15px;color:#9fb0a6}
+    .link{display:inline-block;margin-top:22px;color:#22c55e;text-decoration:none;
+      font-weight:600;font-size:15px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="word">realmate<span>.</span></div>
+    <div class="spin" role="status" aria-label="Loading"></div>
+    <div class="msg">Confirming your email change…</div>
+    <a class="link" id="webLink" href="/index.html">Continue on the web &rarr;</a>
+  </div>
+  <script>
+    (function () {
+      var q = new URLSearchParams(location.search);
+      var th = q.get('token_hash') || '';
+      var type = q.get('type') || 'email_change';
+      var webUrl = '/index.html?token_hash=' + encodeURIComponent(th) + '&type=' + encodeURIComponent(type);
+      var link = document.getElementById('webLink');
+      if (link) link.href = webUrl;
+      // No token → nothing to confirm; just show the web app.
+      if (!th) { location.replace('/index.html'); return; }
+      var done = false;
+      function goWeb() { if (!done) { done = true; location.replace(webUrl); } }
+      // If the app opens, this tab is backgrounded — skip the web fallback so the
+      // one-time token is spent by the app (not consumed here first).
+      document.addEventListener('visibilitychange', function () { if (document.hidden) done = true; });
+      window.addEventListener('pagehide', function () { done = true; });
+      // Try to hand the confirmation to the installed app.
+      try { location.href = 'realmate://confirm-email?token_hash=' + encodeURIComponent(th) + '&type=' + encodeURIComponent(type); } catch (e) {}
+      // Still here after a generous wait → app isn't installed / the "Open in
+      // Realmate?" prompt was dismissed (or desktop) → web confirm flow.
+      setTimeout(goWeb, 3200);
+    })();
+  </script>
+</body>
+</html>

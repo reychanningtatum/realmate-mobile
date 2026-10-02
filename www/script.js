@@ -196,6 +196,29 @@ window.addEventListener('load', () => {
     openResetPasswordModal();
 })();
 
+// ── Prefetch-safe email change: ?token_hash=...&type=email_change ────────
+// The Change Email confirmation email links to confirm-email.html (which, in the
+// app, hands off to realmate://confirm-email and lands back here; on the web it
+// forwards here directly) with the Supabase token_hash. Same rationale as the
+// recovery flow above: nothing is verified until this real client code runs, so
+// an email scanner's plain GET can't spend the one-time token. verifyOtp with
+// type 'email_change' completes the secure change server-side and updates the
+// account's login email — the existing Supabase mechanism, not a new one.
+(async function handleTokenHashEmailChange() {
+    const params = new URLSearchParams(window.location.search);
+    const tokenHash = params.get("token_hash");
+    const type = params.get("type");
+    if (!tokenHash || type !== "email_change") return;
+
+    history.replaceState(null, "", window.location.pathname); // keep the one-time token out of the URL/history
+    const { error } = await window.supabaseClient.auth.verifyOtp({ token_hash: tokenHash, type: "email_change" });
+    if (error) {
+        showAuthToast(_friendlyAuthError(error, "This email-change link is invalid or has expired. Please request a new one from Settings."), "error");
+        return;
+    }
+    showAuthToast("Your email address has been confirmed and updated.", "success");
+})();
+
 // ── Resubmit verification docs: ?resubmit=<token> ───────────────────────
 // A "documents requested" applicant (pre-approval, no session) taps the email
 // button and lands here to re-upload their ID. The one-time token identifies

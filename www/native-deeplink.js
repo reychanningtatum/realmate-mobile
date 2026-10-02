@@ -37,6 +37,24 @@
       return true;
     }
 
+    // realmate://confirm-email?token_hash=...&type=email_change — the "Confirm
+    // Change of Email" button. Load index.html with the same token so script.js
+    // (handleTokenHashEmailChange) verifies it and shows the success state IN THE
+    // APP. Routed exactly once (same one-time-token reasoning as recovery below).
+    if (/realmate:\/\/confirm-email/i.test(url) || /type=email_change/i.test(url)) {
+      var me = url.match(/[?&]token_hash=([^&]+)/);
+      if (!me) return false;
+      var eh;
+      try { eh = decodeURIComponent(me[1]); } catch (e) { eh = me[1]; }
+      try {
+        if (sessionStorage.getItem('rm_emailchange_routed') === eh) return true;
+        sessionStorage.setItem('rm_emailchange_routed', eh);
+      } catch (e) {}
+      if (location.search.indexOf('token_hash=') >= 0) return true;
+      location.replace('index.html?token_hash=' + encodeURIComponent(eh) + '&type=email_change');
+      return true;
+    }
+
     var m = url.match(/[?&]token_hash=([^&]+)/);
     if (!m) return false;
     if (!/type=recovery/i.test(url) && !/realmate:\/\/reset/i.test(url)) return false;
