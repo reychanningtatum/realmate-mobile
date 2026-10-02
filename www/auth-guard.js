@@ -250,6 +250,28 @@ function goBack() {
         console.warn("[AuthGuard] Profile sync error:", e.message);
     }
 
+    // Email self-heal — keep profiles.email (the username→email login lookup source)
+    // aligned with the CONFIRMED auth email. profiles.email is written once at signup
+    // and never followed a confirmed email change, so after someone changed their email
+    // the username login resolved a stale address Supabase rejects ("invalid
+    // credentials") even with the right password. Realign it; only writes when they
+    // differ, once per session (needs GRANT UPDATE(email) — see
+    // profile-email-sync-migration.sql; a missing grant just no-ops).
+    try {
+        if (!sessionStorage.getItem('rm_email_synced')) {
+            sessionStorage.setItem('rm_email_synced', '1');
+            const authEmail = session.user.email;
+            if (authEmail) {
+                const { data: prof } = await _sb.from('profiles').select('email').eq('id', session.user.id).maybeSingle();
+                const have = (prof && prof.email) || '';
+                if (have.toLowerCase() !== authEmail.toLowerCase()) {
+                    await _sb.from('profiles').update({ email: authEmail }).eq('id', session.user.id);
+                    if (have) { try { await _sb.from('Users').update({ email: authEmail }).eq('email', have); } catch (_) {} }
+                }
+            }
+        }
+    } catch (e) { /* grant/RLS/network — non-fatal; login resolves once granted */ }
+
     // Avatar self-heal — the profile-sync block above only refetches when the
     // cached user id changes, so a session whose cached image is still a
     // generated placeholder (e.g. right after login, which stored a ui-avatars

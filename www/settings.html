@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="vendor/fontawesome/css/all.min.css?v=6.5.0">
     <link rel="stylesheet" href="vendor/googlefonts/fonts.css?v=1">
     <link rel="stylesheet" href="forum.css?v=20260716a">
-    <link rel="stylesheet" href="settings.css?v=20261002b">
+    <link rel="stylesheet" href="settings.css?v=20261002c">
     <link rel="stylesheet" href="block-report.css?v=20261001b">
     <link rel="stylesheet" href="mobile-back.css">
     <script src="theme.js?v=20260812a"></script>
@@ -150,10 +150,22 @@
             <div class="settings-card-title"><i class="fas fa-user-circle" style="color: var(--primary);"></i> Account Settings</div>
             <p class="settings-card-sub">Update the email and password you use to sign in.</p>
 
-            <!-- Email -->
+            <!-- Email — current (confirmed) is read-only; changing it requires
+                 confirming a link sent to the NEW address (Supabase email_change). -->
             <div class="settings-field">
-                <label for="accountEmail">Email</label>
-                <input type="email" id="accountEmail" class="settings-input" placeholder="you@example.com" autocomplete="email">
+                <label for="accountEmailCurrent">Current email</label>
+                <input type="email" id="accountEmailCurrent" class="settings-input" disabled autocomplete="email">
+                <div id="emailSuccessNote" class="settings-success-note" style="display:none;"><i class="fas fa-check-circle"></i> Email updated successfully.</div>
+                <div id="emailPendingBox" class="settings-pending" style="display:none;">
+                    <div class="sp-title"><i class="fas fa-clock"></i> Email change pending</div>
+                    <div class="sp-body">Confirmation sent to <strong id="emailPendingAddr"></strong>. Your email address will be updated only after you open that email and click the confirmation link — your current email stays active until then.</div>
+                    <button type="button" class="settings-btn sp-resend" id="resendEmailBtn" onclick="resendEmailChange()">Resend confirmation</button>
+                </div>
+            </div>
+            <div class="settings-field">
+                <label for="accountEmail">New email</label>
+                <input type="email" id="accountEmail" class="settings-input" placeholder="you@example.com" autocomplete="email" oninput="clearEmailError()">
+                <div id="accountEmailError" class="settings-inline-error" style="display:none;"></div>
                 <button class="settings-btn" id="updateEmailBtn" onclick="updateAccountEmail()">Update Email</button>
             </div>
 
@@ -271,9 +283,9 @@
 <script src="native-auth.js?v=11"></script>
 <script src="vendor/supabase-js.min.js?v=2.112.3"></script>
 <script src="block-report.js?v=20261001a"></script>
-<script src="auth-guard.js?v=20260930c"></script>
+<script src="auth-guard.js?v=20261002a"></script>
 <script src="profile-live.js?v=20261001a"></script>
-<script src="settings.js?v=20261002b"></script>
+<script src="settings.js?v=20261002c"></script>
 <script src="location-engine.js?v=20260809b"></script>
 <script src="match-engine.js?v=20261001c"></script>
 <script src="visibility.js?v=20261002a"></script>

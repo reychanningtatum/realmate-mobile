@@ -180,18 +180,93 @@ function savePublicFollowPref(isOn) {
    👤 ACCOUNT — Email & Password
    Backed by Supabase Auth on the active session.
    ============================================================ */
+// The CONFIRMED account email is always read from Supabase Auth (the source of
+// truth) — never from stale local state. authUser.new_email is set by Supabase
+// while an email change is awaiting confirmation; we drive the pending UI from it,
+// so the current email is never replaced before the user confirms the link.
 async function loadAccountEmail() {
-    const emailInput = document.getElementById('accountEmail');
-    if (!emailInput) return;
+    const currentInput = document.getElementById('accountEmailCurrent');
+    const newInput = document.getElementById('accountEmail');
     try {
         const { data: { user: authUser } } = await _supabase.auth.getUser();
-        const email = (authUser && authUser.email) || user.email || '';
-        emailInput.value = email;
-        emailInput.dataset.current = email;
+        const confirmed = (authUser && authUser.email) || user.email || '';
+        const pending = (authUser && authUser.new_email) || '';
+
+        if (currentInput) { currentInput.value = confirmed; currentInput.dataset.current = confirmed; }
+        if (newInput) newInput.dataset.current = confirmed;
+
+        // Self-heal the username→email lookup source. profiles.email is set once at
+        // signup and never followed a confirmed auth-email change, which silently broke
+        // username login (resolved a stale address Supabase rejects). Realign it with
+        // the confirmed auth email; only writes when they actually differ.
+        _syncProfileEmail(authUser);
+
+        // Pending vs. just-confirmed vs. idle.
+        let justConfirmed = '';
+        try { justConfirmed = localStorage.getItem('rm_pending_email') || ''; } catch (e) {}
+        if (pending && pending.toLowerCase() !== confirmed.toLowerCase()) {
+            _renderEmailPending(pending);                 // still awaiting confirmation
+            _showEmailSuccess(false);
+        } else {
+            _renderEmailPending('');                       // nothing pending
+            if (justConfirmed && justConfirmed.toLowerCase() === confirmed.toLowerCase()) {
+                _showEmailSuccess(true);                    // the requested change landed
+            } else {
+                _showEmailSuccess(false);
+            }
+            try { if (justConfirmed) localStorage.removeItem('rm_pending_email'); } catch (e) {}
+        }
+
+        // Keep local cache honest with the CONFIRMED email only (never the pending one).
+        try { if (confirmed && user.email !== confirmed) { user.email = confirmed; localStorage.setItem('user', JSON.stringify(user)); } } catch (e) {}
     } catch (e) {
         console.warn('[Settings] loadAccountEmail failed:', e.message);
-        if (user.email) { emailInput.value = user.email; emailInput.dataset.current = user.email; }
+        if (currentInput && user.email) { currentInput.value = user.email; }
     }
+}
+
+// Mirror the confirmed auth email into profiles.email (primary lookup) and the
+// legacy Users table (secondary). Best-effort: if the column grant isn't present
+// yet, this no-ops and login resolution is unaffected until it's granted.
+async function _syncProfileEmail(authUser) {
+    try {
+        if (!authUser || !authUser.id || !authUser.email) return;
+        const { data: prof } = await _supabase.from('profiles').select('email').eq('id', authUser.id).maybeSingle();
+        const have = (prof && prof.email) || '';
+        if (have.toLowerCase() !== authUser.email.toLowerCase()) {
+            await _supabase.from('profiles').update({ email: authUser.email }).eq('id', authUser.id);
+            if (have) { try { await _supabase.from('Users').update({ email: authUser.email }).eq('email', have); } catch (_) {} }
+        }
+    } catch (e) { /* grant/RLS/network — non-fatal */ }
+}
+
+function _renderEmailPending(pendingAddr) {
+    const box = document.getElementById('emailPendingBox');
+    const addr = document.getElementById('emailPendingAddr');
+    if (!box) return;
+    if (pendingAddr) {
+        if (addr) addr.textContent = pendingAddr;
+        box.style.display = 'block';
+    } else {
+        box.style.display = 'none';
+    }
+}
+function _showEmailSuccess(show) {
+    const note = document.getElementById('emailSuccessNote');
+    if (note) note.style.display = show ? 'flex' : 'none';
+}
+
+function _showEmailError(msg) {
+    const err = document.getElementById('accountEmailError');
+    const input = document.getElementById('accountEmail');
+    if (err) { err.textContent = msg; err.style.display = 'block'; }
+    if (input) input.classList.add('input-error');
+}
+function clearEmailError() {
+    const err = document.getElementById('accountEmailError');
+    const input = document.getElementById('accountEmail');
+    if (err) err.style.display = 'none';
+    if (input) input.classList.remove('input-error');
 }
 
 function _isValidEmail(v) {
@@ -199,42 +274,67 @@ function _isValidEmail(v) {
 }
 
 async function updateAccountEmail() {
-    const emailInput = document.getElementById('accountEmail');
+    const newInput = document.getElementById('accountEmail');
     const btn = document.getElementById('updateEmailBtn');
-    if (!emailInput) return;
+    if (!newInput) return;
 
-    const newEmail = emailInput.value.trim();
-    const current = emailInput.dataset.current || '';
+    const newEmail = newInput.value.trim();
+    const current = newInput.dataset.current || '';
 
-    if (!_isValidEmail(newEmail)) {
-        showSettingsNotificationToast('Please enter a valid email address.', 'error');
+    clearEmailError();
+    _showEmailSuccess(false);
+
+    // Inline format validation — never silently accept a malformed address, and never
+    // rely on the browser's default validation (these are button clicks, not a submit).
+    if (!newEmail || !_isValidEmail(newEmail)) {
+        _showEmailError('Please enter a valid email address.');
         return;
     }
     if (newEmail.toLowerCase() === current.toLowerCase()) {
-        showSettingsNotificationToast('That is already your email.', 'error');
+        _showEmailError('That is already your current email.');
         return;
     }
 
-    if (btn) { btn.disabled = true; btn.textContent = 'Updating…'; }
+    if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
     try {
+        // Secure change: Supabase sends a confirmation link to the NEW address and does
+        // NOT switch the account email until that link is confirmed. We never mutate the
+        // confirmed email locally — the pending state is driven by auth's new_email.
         const { error } = await _supabase.auth.updateUser({ email: newEmail });
         if (error) throw error;
 
-        // Keep the cached profile email in sync for the rest of the app.
-        try {
-            user.email = newEmail;
-            localStorage.setItem('user', JSON.stringify(user));
-        } catch (e) {}
-
-        showSettingsNotificationToast(
-            'Confirmation link sent. Check your new email to finish the change.',
-            'success'
-        );
+        try { localStorage.setItem('rm_pending_email', newEmail); } catch (e) {}
+        newInput.value = '';
+        _renderEmailPending(newEmail);
+        showSettingsNotificationToast('Confirmation link sent to ' + newEmail + '. Your email changes only after you confirm it.', 'success');
     } catch (err) {
         console.error('[Settings] updateAccountEmail:', err);
-        showSettingsNotificationToast(err.message || 'Could not update email.', 'error');
+        _showEmailError(err.message || 'Could not send the confirmation. Please try again.');
     } finally {
         if (btn) { btn.disabled = false; btn.textContent = 'Update Email'; }
+    }
+}
+
+// Re-send the confirmation for a change that's already pending (uses the same secure
+// mechanism — does not create a new/alternate confirmation path).
+async function resendEmailChange() {
+    const btn = document.getElementById('resendEmailBtn');
+    try {
+        const { data: { user: authUser } } = await _supabase.auth.getUser();
+        const pending = authUser && authUser.new_email;
+        if (!pending) {
+            showSettingsNotificationToast('No pending email change to resend.', 'error');
+            _renderEmailPending('');
+            return;
+        }
+        if (btn) { btn.disabled = true; btn.textContent = 'Resending…'; }
+        const { error } = await _supabase.auth.resend({ type: 'email_change', email: pending });
+        if (error) throw error;
+        showSettingsNotificationToast('Confirmation re-sent to ' + pending + '.', 'success');
+    } catch (e) {
+        showSettingsNotificationToast(e.message || 'Could not resend. Please try again.', 'error');
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = 'Resend confirmation'; }
     }
 }
 

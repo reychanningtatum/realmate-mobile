@@ -228,6 +228,56 @@ html.rm-embedded .settings-field > label { overflow-wrap: anywhere; word-break: 
 .toast-error i {
     color: #ef4444;
 }
+
+/* ── Account email: inline validation, pending + success states ─────────── */
+.settings-inline-error {
+    color: #ef4444;
+    font-size: 13px;
+    font-weight: 600;
+    margin-top: 2px;
+}
+.settings-input.input-error {
+    border-color: #ef4444 !important;
+}
+.settings-input.input-error:focus {
+    box-shadow: 0 0 0 3px rgba(239,68,68,0.15);
+}
+.settings-success-note {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #15803d;
+    font-size: 13px;
+    font-weight: 600;
+    margin-top: 8px;
+}
+.settings-pending {
+    background: #fff7ed;
+    border: 1px solid #fed7aa;
+    border-left: 4px solid #f59e0b;
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-top: 8px;
+}
+.settings-pending .sp-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 700;
+    color: #b45309;
+}
+.settings-pending .sp-body {
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--text-sub);
+    margin: 6px 0 10px;
+}
+.settings-pending .sp-resend {
+    width: auto;
+    padding: 8px 16px;
+    font-size: 13px;
+}
 /* ==========================================================================
    📱 MOBILE RESPONSIVE — SETTINGS
    ========================================================================== */

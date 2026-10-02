@@ -832,7 +832,9 @@ async function login(opts){
           await _rmBioForget();
           showLoginError("That saved account no longer exists. Face ID sign-in has been reset — please sign in with your password.");
         } else {
-          showLoginError("No account found with that username.");
+          // Don't reveal whether a username exists (prevents account enumeration):
+          // return the SAME generic error as a real credential failure.
+          showLoginError("Incorrect email or password. Please try again.");
         }
         return;
       }
