@@ -2490,60 +2490,183 @@ async function repositionCover() {
     }
 }
 
-let _coverCropper = null;
-
+// ── Custom cover pan/zoom editor ────────────────────────────────────────────
+// Replaces Cropper.js. The image is a transformed layer inside a fixed 5:3 frame
+// (#coverCropFrame) that matches the displayed cover. Core rules:
+//   • baseScale = max(fw/nw, fh/nh) → the image ALWAYS fully covers the frame, so
+//     there is never empty space / a white strip inside it.
+//   • scale ∈ [baseScale, baseScale*4]; translate(tx,ty) scale(scale), origin 0 0.
+//   • tx ∈ [fw-nw*scale, 0], ty ∈ [fh-nh*scale, 0]: a HARD boundary clamp, nothing
+//     more — the image follows the finger 1:1 and simply cannot cross the edge.
+//     No easing, no spring, no snap-back → no "magnet/sticky" feel.
+// Save stores metadata {zoom, nx, ny} (zoom relative to baseScale, top-left visible
+// point in normalized original-image coords), never a permanent crop. Reopening
+// restores that view from the ORIGINAL image as a fully editable starting state.
+let _coverEd = null;          // active editor state
 let _coverIsNewUpload = false;
+
+function _coverClamp() {
+    const e = _coverEd; if (!e) return;
+    const minTx = e.fw - e.nw * e.scale;   // ≤ 0 (image wider than frame)
+    const minTy = e.fh - e.nh * e.scale;
+    e.tx = Math.min(0, Math.max(minTx, e.tx));
+    e.ty = Math.min(0, Math.max(minTy, e.ty));
+}
+function _coverApply() {
+    const e = _coverEd; if (!e) return;
+    e.img.style.transform = `translate(${e.tx}px, ${e.ty}px) scale(${e.scale})`;
+}
+// Zoom by `factor` around a focal point (fx,fy) in frame coordinates, keeping the
+// image point under the focal pinned so zoom feels anchored, not jumpy.
+function _coverZoomAt(factor, fx, fy) {
+    const e = _coverEd; if (!e) return;
+    const ns = Math.min(e.baseScale * 4, Math.max(e.baseScale, e.scale * factor));
+    if (ns === e.scale) return;
+    const imgX = (fx - e.tx) / e.scale, imgY = (fy - e.ty) / e.scale;
+    e.scale = ns;
+    e.tx = fx - imgX * ns;
+    e.ty = fy - imgY * ns;
+    _coverClamp(); _coverApply();
+}
 
 function openCoverCropModal(src, isNewUpload, savedPosition) {
     _coverIsNewUpload = !!isNewUpload;
     const modal = document.getElementById('coverCropModal');
+    const frame = document.getElementById('coverCropFrame');
     const img = document.getElementById('coverCropImage');
-    img.src = src;
     modal.style.display = 'flex';
     document.body.style.overflow = 'hidden';
-    if (_coverCropper) _coverCropper.destroy();
-    _coverCropper = new Cropper(img, {
-        aspectRatio: 5 / 3,   /* match the dashboard cover display ratio */
-        // viewMode 0 = free movement: the image follows the finger directly and you can
-        // zoom all the way out to the whole original. viewMode 1 clamped the image to the
-        // crop box, which is what made dragging feel "sticky".
-        viewMode: 0,
-        dragMode: 'move',
-        cropBoxResizable: false,
-        cropBoxMovable: false,
-        guides: false,
-        center: true,
-        background: false,
-        autoCropArea: 1,
-        ready() {
-            // Restore the previously saved view (position + zoom) as the STARTING state.
-            // getData/setData are in ORIGINAL-image coordinates → resolution-safe and still
-            // fully editable (the user can zoom back out to the base image from here).
-            if (savedPosition) { try { _coverCropper.setData(savedPosition); } catch (e) {} }
+
+    // crossOrigin so canvas export isn't tainted when the source is a Supabase URL
+    // (reposition). Harmless for the data URLs used on a fresh upload. Supabase public
+    // storage sends Access-Control-Allow-Origin: *, so anonymous requests succeed.
+    const loader = new Image();
+    loader.crossOrigin = 'anonymous';
+    img.crossOrigin = 'anonymous';
+    loader.onload = () => {
+        const fw = frame.clientWidth, fh = frame.clientHeight;
+        const nw = loader.naturalWidth, nh = loader.naturalHeight;
+        const baseScale = Math.max(fw / nw, fh / nh);
+        img.src = src;
+        img.style.width = nw + 'px';
+        img.style.height = nh + 'px';
+        _coverEd = { img, frame, nw, nh, fw, fh, baseScale, scale: baseScale, tx: 0, ty: 0,
+                     drag: null, pinch: null };
+
+        // Restore a previously saved view (new {zoom,nx,ny} metadata). Legacy Cropper
+        // data (has no `zoom`) is ignored → we fall back to a centered cover fit.
+        if (savedPosition && typeof savedPosition.zoom === 'number') {
+            _coverEd.scale = baseScale * savedPosition.zoom;
+            _coverEd.tx = -(savedPosition.nx || 0) * nw * _coverEd.scale;
+            _coverEd.ty = -(savedPosition.ny || 0) * nh * _coverEd.scale;
+        } else {
+            // Center the image within the frame.
+            _coverEd.tx = (fw - nw * baseScale) / 2;
+            _coverEd.ty = (fh - nh * baseScale) / 2;
+        }
+        _coverClamp(); _coverApply();
+    };
+    loader.src = src;
+
+    _coverBindGestures();
+}
+
+let _coverGesturesBound = false;
+function _coverBindGestures() {
+    if (_coverGesturesBound) return;
+    _coverGesturesBound = true;
+    const frame = document.getElementById('coverCropFrame');
+    const pts = new Map();   // active pointers
+
+    const dist = () => {
+        const a = [...pts.values()];
+        return Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y);
+    };
+    const mid = () => {
+        const a = [...pts.values()], r = frame.getBoundingClientRect();
+        return { x: (a[0].x + a[1].x) / 2 - r.left, y: (a[0].y + a[1].y) / 2 - r.top };
+    };
+
+    frame.addEventListener('pointerdown', (ev) => {
+        if (!_coverEd) return;
+        frame.setPointerCapture(ev.pointerId);
+        pts.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+        if (pts.size === 2) { _coverEd.pinch = { d: dist() }; _coverEd.drag = null; }
+        else { _coverEd.drag = { x: ev.clientX, y: ev.clientY }; }
+        frame.style.cursor = 'grabbing';
+    });
+
+    frame.addEventListener('pointermove', (ev) => {
+        if (!_coverEd || !pts.has(ev.pointerId)) return;
+        pts.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+        if (pts.size === 2 && _coverEd.pinch) {
+            const nd = dist();
+            if (_coverEd.pinch.d > 0) {
+                const m = mid();
+                _coverZoomAt(nd / _coverEd.pinch.d, m.x, m.y);
+            }
+            _coverEd.pinch.d = nd;
+        } else if (_coverEd.drag) {
+            // 1:1 follow — add the raw delta, clamp to the boundary, nothing else.
+            _coverEd.tx += ev.clientX - _coverEd.drag.x;
+            _coverEd.ty += ev.clientY - _coverEd.drag.y;
+            _coverEd.drag = { x: ev.clientX, y: ev.clientY };
+            _coverClamp(); _coverApply();
         }
     });
+
+    const endPointer = (ev) => {
+        pts.delete(ev.pointerId);
+        if (_coverEd) {
+            if (pts.size < 2) _coverEd.pinch = null;
+            if (pts.size === 1) { const p = [...pts.values()][0]; _coverEd.drag = { x: p.x, y: p.y }; }
+            if (pts.size === 0) _coverEd.drag = null;
+        }
+        frame.style.cursor = 'grab';
+    };
+    frame.addEventListener('pointerup', endPointer);
+    frame.addEventListener('pointercancel', endPointer);
+
+    frame.addEventListener('wheel', (ev) => {
+        if (!_coverEd) return;
+        ev.preventDefault();
+        const r = frame.getBoundingClientRect();
+        _coverZoomAt(ev.deltaY < 0 ? 1.08 : 1 / 1.08, ev.clientX - r.left, ev.clientY - r.top);
+    }, { passive: false });
 }
 
 function closeCoverCropModal() {
-    if (_coverCropper) { _coverCropper.destroy(); _coverCropper = null; }
+    _coverEd = null;
     document.getElementById('coverCropModal').style.display = 'none';
     document.body.style.overflow = '';
 }
 
 async function applyCoverCrop() {
-    if (!_coverCropper) return;
+    if (!_coverEd) return;
     const btn = document.getElementById('applyCoverCropBtn');
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
     btn.disabled = true;
     try {
-        const canvas = _coverCropper.getCroppedCanvas({ width: 1200, height: 720, fillColor: '#ffffff' });
-        if (!canvas) throw new Error('Could not process image.');
+        const e = _coverEd;
+        // Source rectangle of the ORIGINAL image that is currently visible in the frame.
+        // Frame→image: imageX = (frameX - tx)/scale. The frame spans 0..fw / 0..fh.
+        const sx = -e.tx / e.scale, sy = -e.ty / e.scale;
+        const sw = e.fw / e.scale, sh = e.fh / e.scale;
+        const canvas = document.createElement('canvas');
+        canvas.width = 1200; canvas.height = 720;   // 5:3 display cover
+        const ctx = canvas.getContext('2d');
+        // No fillColor: the image always fully covers the frame, so there is never a gap
+        // to fill — this is what removes the white strip that fillColor used to bake in.
+        ctx.drawImage(e.img, sx, sy, sw, sh, 0, 0, 1200, 720);
         const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.90));
         const file = new File([blob], `cover_${Date.now()}.jpg`, { type: 'image/jpeg' });
-        // Saved view in ORIGINAL-image coordinates — this is the editable metadata we
-        // restore next time (NOT a crop of the source). rounded for clean storage.
-        let position = null;
-        try { position = _coverCropper.getData(true); } catch (e) {}
+        // Editable metadata (NOT a crop): zoom relative to the cover-fit baseline, plus the
+        // top-left visible point in normalized original-image coords. Restored next time.
+        const position = {
+            zoom: e.scale / e.baseScale,
+            nx: sx / e.nw,
+            ny: sy / e.nh
+        };
         // Resolve the authenticated user id RELIABLY. getUser() hits the auth server
         // over the network and on mobile (Capacitor/WKWebView) can return null, which
         // made the path `covers/undefined_*` — and the storage policy enforces the
