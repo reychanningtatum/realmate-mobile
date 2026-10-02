@@ -2478,7 +2478,7 @@ async function showVisibilityInfo(listingId) {
     ov.innerHTML = `<div id="lcVisInfoCard" onclick="event.stopPropagation()">
         <div class="lcvi-icon"><i class="fas fa-eye-slash"></i></div>
         <div class="lcvi-title">Visibility restricted</div>
-        <div class="lcvi-sub">This post is hidden from ${ids.length} user${ids.length !== 1 ? 's' : ''}.</div>
+        <div class="lcvi-sub">Hidden from ${ids.length} user${ids.length !== 1 ? 's' : ''}. You’ll still see AI matches between this post and their posts — but they won’t see any match involving this post. One-way; it doesn’t block them.</div>
         ${listHtml}
         <button class="lcvi-close" onclick="document.getElementById('lcVisInfoOverlay').remove()">Close</button>
     </div>`;
@@ -3114,6 +3114,9 @@ function buildMatchMap() {
     const parsedMine = myListings.filter(isMatchableListing).map(parseListing);
     const parsedAll = allListings.filter(isMatchableListing).map(parseListing);
     const dismissed = getDismissedMatches();
+    // Avoid Matching: authors whose posts I don't want matched with (my own pref).
+    const _avoid = (window._lmAvoidIds instanceof Set) ? window._lmAvoidIds : new Set();
+    const _myId = window._lmMyId != null ? String(window._lmMyId) : null;
 
     // ── General match count for every listing ──
     // Bucket by category so each listing only compares against its partner set
@@ -3126,12 +3129,15 @@ function buildMatchMap() {
     parsedAll.forEach(L => {
         let count = 0;
         const candidates = byCategory.get(PARTNER_MAP[L.category]) || [];
+        const lIsMine = _myId && String(L.userId) === _myId;
         candidates.forEach(O => {
             if (O.userId === L.userId) return;
             // MUST mirror the AI Match Engine's filter EXACTLY (showAllMatches) so the
             // count on a post can never disagree with the matches the engine displays:
             // exclude matches the viewer dismissed, and use the same score>0 threshold.
             if (dismissed.has(String(O.id))) return;
+            // Avoid Matching only affects the counts on MY OWN listings (what I see).
+            if (lIsMine && _avoid.has(String(O.userId))) return;
             if (computeMatchScore(L, O).score > 0) count++;
         });
         matchCountMap.set(String(L.raw.id), count);
@@ -3141,6 +3147,7 @@ function buildMatchMap() {
         parsedAll.forEach(other => {
             if (other.userId === mine.userId) return;
             if (dismissed.has(String(other.id))) return; // user dismissed this match
+            if (_avoid.has(String(other.userId))) return; // I chose to avoid this author
             const { score, reasons } = computeMatchScore(mine, other);
             if (score < 10) return;
 
@@ -3643,6 +3650,12 @@ async function loadLedger(silent) {
             // visibility rule synchronously (a new/edited hidden listing must never
             // enter this viewer's pool live, bypassing this fetch-time filter).
             window._lmMyId = myId; window._lmUnlockedOwners = unlockedOwners;
+            // Avoid Matching: my own avoid_match_user_ids — authors whose posts I don't
+            // want matched with. buildMatchMap uses this to exclude them from MY matches.
+            try {
+                const { data: _av } = await _sb.from('profiles').select('avoid_match_user_ids').eq('id', myId).maybeSingle();
+                window._lmAvoidIds = new Set(((_av && _av.avoid_match_user_ids) || []).map(String));
+            } catch (e) { window._lmAvoidIds = new Set(); }
             allListings = data.filter(l => RMVisibility.visibleToViewer(l, myId, unlockedOwners));
         } catch (e) {
             console.warn('[Visibility] filter failed, showing all:', e);

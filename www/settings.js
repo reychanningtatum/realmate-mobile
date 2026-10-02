@@ -493,92 +493,124 @@ document.addEventListener('rmbr:ready', loadBlockedUsers);
 document.addEventListener('rmbr:ready', loadBlockedPosts);
 document.addEventListener('DOMContentLoaded', function(){ setTimeout(loadBlockedUsers, 900); setTimeout(loadBlockedPosts, 900); });
 
-/* ── Portal Post Visibility — persistent per-owner exclusions ──────────────────
-   Managed set = profiles.portal_hide_user_ids. One-way: only affects the owner's
-   FUTURE posts (snapshotted into listings.hidden_user_ids at creation). Reads use
-   ilike (safe); the only write is an UPDATE of the OWNER'S OWN profile row. No
-   deletes, no touching other tables/rows. */
-let _pvIds = [];            // current excluded user ids
-let _pvNames = {};          // id -> name cache for chips
-let _pvSearchTimer = null;
-
-function _pvEsc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
-
-async function loadPortalVisibility(){
-  const chips = document.getElementById('pvChips'); if(!chips) return;
-  try {
-    const uid = await _privacyUid(); if(!uid) return;
-    const { data, error } = await _supabase.from('profiles')
-      .select('portal_hide_user_ids').eq('id', uid).maybeSingle();
-    if (error) { chips.innerHTML=''; return; }   // column not present yet → silent
-    _pvIds = (data && Array.isArray(data.portal_hide_user_ids)) ? data.portal_hide_user_ids.map(String) : [];
-    if (_pvIds.length) {
-      const idList = _pvIds.map(encodeURIComponent).join(',');
-      const { data: rows } = await _supabase.from('profiles').select('id,full_name').in('id', _pvIds);
-      (rows||[]).forEach(r => { _pvNames[String(r.id)] = r.full_name; });
-    }
-    _pvRenderChips();
-  } catch(e){ /* fail-silent */ }
+/* ── User-preference pickers: Portal Post Visibility + Avoid Matching ──────────
+   Two identical pickers over per-owner text[] columns on profiles:
+     portal_hide_user_ids = users excluded from my FUTURE Portal posts (one-way).
+     avoid_match_user_ids = users whose posts I don't want AI matches with (one-way).
+   Relationships are stored by UNIQUE USER ID only; names/avatars are display data
+   resolved fresh from profiles and kept current via RMProfileLive (realtime). Reads
+   use ilike/select (safe); the only write is an UPDATE of the OWNER'S OWN row. */
+function _prefEsc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+function _prefAvatar(name, url){
+  return (url && String(url).indexOf('ui-avatars.com') === -1)
+    ? url
+    : `https://ui-avatars.com/api/?name=${encodeURIComponent(name || '?')}&background=0f172a&color=32cd32`;
 }
+function _prefCssEsc(id){ return (window.CSS && CSS.escape) ? CSS.escape(id) : String(id); }
 
-function _pvRenderChips(){
-  const chips = document.getElementById('pvChips'); if(!chips) return;
-  if(!_pvIds.length){ chips.innerHTML = '<div class="pv-empty">No one excluded yet. Your posts are visible to everyone (per your Privacy settings).</div>'; return; }
-  chips.innerHTML = _pvIds.map(id =>
-    `<span class="pv-chip">${_pvEsc(_pvNames[id] || 'realmate member')}<button type="button" aria-label="Remove" onclick="pvRemoveUser('${_pvEsc(id)}')"><i class="fas fa-times"></i></button></span>`
-  ).join('');
-}
+function _makeUserPrefPicker(cfg){
+  let ids = [], names = {}, avatars = {}, timer = null;
+  const esc = _prefEsc;
 
-function pvCloseResults(){ const r=document.getElementById('pvResults'); if(r){ r.innerHTML=''; r.classList.remove('open'); } }
-
-async function pvSearchUsers(q){
-  const box = document.getElementById('pvResults'); if(!box) return;
-  q = (q||'').trim();
-  clearTimeout(_pvSearchTimer);
-  if(q.length < 2){ pvCloseResults(); return; }
-  _pvSearchTimer = setTimeout(async () => {
+  async function load(){
+    const chips = document.getElementById(cfg.chipsId); if(!chips) return;
     try {
-      const myUid = await _privacyUid();
-      const { data } = await _supabase.from('profiles')
-        .select('id,full_name').ilike('full_name', '%'+q+'%').limit(8);
-      const rows = (data||[]).filter(u => u.full_name && String(u.id)!==String(myUid) && !_pvIds.includes(String(u.id)));
-      if(!rows.length){ box.innerHTML = '<div class="pv-result-empty">No users found</div>'; box.classList.add('open'); return; }
-      box.innerHTML = rows.map(u =>
-        `<div class="pv-result" onclick="pvAddUser('${_pvEsc(String(u.id))}','${_pvEsc(u.full_name)}')">${_pvEsc(u.full_name)}</div>`
-      ).join('');
-      box.classList.add('open');
-    } catch(e){ pvCloseResults(); }
-  }, 250);
-}
-
-async function pvAddUser(id, name){
-  id = String(id);
-  if(!_pvIds.includes(id)) _pvIds.push(id);
-  _pvNames[id] = name;
-  const inp = document.getElementById('pvUserSearch'); if(inp) inp.value='';
-  pvCloseResults();
-  _pvRenderChips();
-  await _pvSave();
-}
-
-async function pvRemoveUser(id){
-  id = String(id);
-  _pvIds = _pvIds.filter(x => x !== id);
-  _pvRenderChips();
-  await _pvSave();
-}
-
-async function _pvSave(){
-  try {
-    const uid = await _privacyUid(); if(!uid) return;
-    // UPDATE the OWNER'S OWN row only. Not a delete; does not touch listings.
-    const { error } = await _supabase.from('profiles')
-      .update({ portal_hide_user_ids: _pvIds }).eq('id', uid);
-    if (error) throw error;
-    showSettingsNotificationToast('Portal post visibility updated.', 'success');
-  } catch(e){
-    showSettingsNotificationToast('Could not save. Please try again.', 'error');
+      const uid = await _privacyUid(); if(!uid) return;
+      const { data, error } = await _supabase.from('profiles').select(cfg.column).eq('id', uid).maybeSingle();
+      if (error) { chips.innerHTML=''; return; }   // column/grant not present → silent
+      ids = (data && Array.isArray(data[cfg.column])) ? data[cfg.column].map(String) : [];
+      if (ids.length) {
+        const { data: rows } = await _supabase.from('profiles').select('id,full_name,avatar_url').in('id', ids);
+        (rows||[]).forEach(r => { names[String(r.id)] = r.full_name; avatars[String(r.id)] = r.avatar_url; });
+        if (window.RMProfileLive) try { RMProfileLive.prime(rows||[]); } catch(e){}
+      }
+      renderChips();
+    } catch(e){ /* fail-silent */ }
   }
+
+  function renderChips(){
+    const chips = document.getElementById(cfg.chipsId); if(!chips) return;
+    if(!ids.length){ chips.innerHTML = `<div class="pv-empty">${esc(cfg.emptyText)}</div>`; return; }
+    chips.innerHTML = ids.map(id => {
+      const nm = names[id] || 'realmate member';
+      return `<span class="pv-chip" data-uid="${esc(id)}"><img class="pv-chip-av" src="${esc(_prefAvatar(nm, avatars[id]))}" alt=""><span class="pv-chip-name">${esc(nm)}</span><button type="button" aria-label="Remove" onclick="${cfg.prefix}Remove('${esc(id)}')"><i class="fas fa-times"></i></button></span>`;
+    }).join('');
+  }
+
+  function closeResults(){ const r=document.getElementById(cfg.resultsId); if(r){ r.innerHTML=''; r.classList.remove('open'); } }
+
+  function search(q){
+    const box = document.getElementById(cfg.resultsId); if(!box) return;
+    q = (q||'').trim(); clearTimeout(timer);
+    if(q.length < 2){ closeResults(); return; }
+    timer = setTimeout(async () => {
+      try {
+        const myUid = await _privacyUid();
+        const { data } = await _supabase.from('profiles')
+          .select('id,full_name,avatar_url').ilike('full_name', '%'+q+'%').limit(8);
+        const rows = (data||[]).filter(u => u.full_name && String(u.id)!==String(myUid) && !ids.includes(String(u.id)));
+        if (window.RMProfileLive) try { RMProfileLive.prime(rows); } catch(e){}
+        if(!rows.length){ box.innerHTML = '<div class="pv-result-empty">No users found</div>'; box.classList.add('open'); return; }
+        box.innerHTML = rows.map(u => {
+          names[String(u.id)] = u.full_name; avatars[String(u.id)] = u.avatar_url;  // cache for chip + live updates
+          return `<div class="pv-result" data-uid="${esc(String(u.id))}" onclick="${cfg.prefix}Add('${esc(String(u.id))}')"><img class="pv-result-av" src="${esc(_prefAvatar(u.full_name, u.avatar_url))}" alt=""><span>${esc(u.full_name)}</span></div>`;
+        }).join('');
+        box.classList.add('open');
+      } catch(e){ closeResults(); }
+    }, 250);
+  }
+
+  async function add(id){
+    id = String(id);
+    if(!ids.includes(id)) ids.push(id);
+    const inp = document.getElementById(cfg.inputId); if(inp) inp.value='';
+    closeResults(); renderChips(); await save();
+  }
+  async function remove(id){ id = String(id); ids = ids.filter(x => x !== id); renderChips(); await save(); }
+
+  async function save(){
+    try {
+      const uid = await _privacyUid(); if(!uid) return;
+      const patch = {}; patch[cfg.column] = ids;      // UPDATE owner's OWN row only
+      const { error } = await _supabase.from('profiles').update(patch).eq('id', uid);
+      if (error) throw error;
+      // Let the Portal/AI engine on other same-origin docs re-apply live.
+      try { localStorage.setItem('rm_pref_changed', JSON.stringify({ column: cfg.column, t: Date.now() })); } catch(e){}
+      showSettingsNotificationToast(cfg.toastWord + ' updated.', 'success');
+    } catch(e){ showSettingsNotificationToast('Could not save. Please try again.', 'error'); }
+  }
+
+  // Realtime profile change (RMProfileLive): refresh cached name/avatar + repaint
+  // visible chips/results so the list never shows a stale photo/name.
+  function onProfileLive(d){
+    if(!d || !d.id) return; const id = String(d.id); let touched = false;
+    if(d.full_name != null){ names[id] = d.full_name; touched = true; }
+    if(d.avatar_url !== undefined){ avatars[id] = d.avatar_url; touched = true; }
+    if(!touched) return;
+    if(ids.includes(id)) renderChips();
+    const box = document.getElementById(cfg.resultsId);
+    if(box) box.querySelectorAll('.pv-result[data-uid="'+_prefCssEsc(id)+'"]').forEach(row => {
+      const img = row.querySelector('.pv-result-av'); const nm = row.querySelector('span');
+      if(img) img.src = _prefAvatar(names[id], avatars[id]);
+      if(nm && d.full_name != null) nm.textContent = d.full_name;
+    });
+  }
+
+  return { load, search, add, remove, closeResults, onProfileLive };
 }
 
-document.addEventListener('DOMContentLoaded', function(){ setTimeout(loadPortalVisibility, 950); });
+const _pvPicker = _makeUserPrefPicker({ column:'portal_hide_user_ids', inputId:'pvUserSearch', resultsId:'pvResults', chipsId:'pvChips', prefix:'pv', toastWord:'Portal post visibility', emptyText:'No one excluded yet. Your posts are visible to everyone (per your Privacy settings).' });
+const _amPicker = _makeUserPrefPicker({ column:'avoid_match_user_ids', inputId:'amUserSearch', resultsId:'amResults', chipsId:'amChips', prefix:'am', toastWord:'Avoid matching', emptyText:"You're not avoiding anyone. You'll receive AI matches from everyone normally." });
+
+// Globals referenced by the Settings HTML / rendered rows.
+function pvSearchUsers(q){ _pvPicker.search(q); }
+function pvCloseResults(){ _pvPicker.closeResults(); }
+function pvAdd(id){ _pvPicker.add(id); }
+function pvRemove(id){ _pvPicker.remove(id); }
+function amSearchUsers(q){ _amPicker.search(q); }
+function amCloseResults(){ _amPicker.closeResults(); }
+function amAdd(id){ _amPicker.add(id); }
+function amRemove(id){ _amPicker.remove(id); }
+
+window.addEventListener('rm-profile-live', function(e){ const d = e && e.detail; _pvPicker.onProfileLive(d); _amPicker.onProfileLive(d); });
+document.addEventListener('DOMContentLoaded', function(){ setTimeout(function(){ _pvPicker.load(); _amPicker.load(); }, 950); });

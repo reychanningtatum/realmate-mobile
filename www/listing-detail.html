@@ -369,7 +369,7 @@
 <script src="match-engine.js?v=20261001c"></script>
 <script src="developers.js?v=36"></script>
 <script src="rm-track.js?v=3"></script>
-<script src="match-alert.js?v=20261001l"></script>
+<script src="match-alert.js?v=20261001m"></script>
 <script src="notif-badge.js?v=16"></script>
 <script>
 const _sb = supabase.createClient('https://wmegpgrfrtprhuzmgjma.supabase.co', 'sb_publishable_Rm_fIBDUfu3DEyLj0_bWZw_qEqo8cd4');
@@ -1297,9 +1297,7 @@ function openLdLightbox(idx){
   const slides = imgs.map(src => `<div class="ld-lb-slide"><img src="${src}"></div>`).join('');
   lb.innerHTML = `
     <button class="ld-lb-close" onclick="closeLdLightbox()"><i class="fas fa-times"></i></button>
-    ${imgs.length>1 ? `<button class="ld-lb-nav ld-lb-prev" onclick="event.stopPropagation(); navLdLightbox(-1)"><i class="fas fa-chevron-left"></i></button>` : ''}
     <div class="ld-lb-track" id="ldLbTrack" style="transform:translateX(${-_ldLbIdx*100}%)">${slides}</div>
-    ${imgs.length>1 ? `<button class="ld-lb-nav ld-lb-next" onclick="event.stopPropagation(); navLdLightbox(1)"><i class="fas fa-chevron-right"></i></button>` : ''}
     ${imgs.length>1 ? `<span style="position:absolute;bottom:calc(env(safe-area-inset-bottom,0px) + 20px);left:50%;transform:translateX(-50%);color:#fff;font-size:13px;font-weight:700;background:rgba(0,0,0,0.5);padding:4px 14px;border-radius:20px;z-index:2;" id="ldLbCount">${_ldLbIdx+1} / ${imgs.length}</span>` : ''}
   `;
   // Tap the dark backdrop or the image area to close — but NOT when a drag just

@@ -412,6 +412,24 @@
         } catch (e) { /* fail-open */ }
     }
 
+    // Avoid Matching: users whose posts I don't want AI matches with (my own
+    // profiles.avoid_match_user_ids). Recipient-controlled, one-way. A post from an
+    // avoided user is never scored/badged/bannered FOR ME — but my posts still reach
+    // them normally. Fail-open: if the column/grant isn't present, nothing avoided.
+    let _avoidIds = new Set();
+    function _avoidedAuthor(listing) {
+        return !!(listing && listing.user_id && _avoidIds.has(String(listing.user_id)));
+    }
+    async function _loadAvoid() {
+        try {
+            if (!_myUid) return;
+            const { data, error } = await _sb.from('profiles')
+                .select('avoid_match_user_ids').eq('id', _myUid).maybeSingle();
+            if (error) return;   // column/grant absent → avoid nothing
+            _avoidIds = new Set(((data && data.avoid_match_user_ids) || []).map(String));
+        } catch (e) { /* fail-open */ }
+    }
+
     async function loadMine() {
         try {
             let authUid = null;
@@ -472,6 +490,7 @@
             const id = String(l.id);
             if (l.user_id && l.user_id === _myUid) return;          // my own post, never a match for me
             if (l.is_anonymous || l.archived || _isCompleted(l)) return;
+            if (_avoidedAuthor(l)) return;                           // I chose to avoid this author
             if (!_visibleToMe(l)) return;                            // owner hid this post from me
             if (curSet.has(id) || seenSet.has(id) || dismissed.has(id)) return;
             if (!matchesMine(l)) return;
@@ -629,6 +648,7 @@
         if (listing.archived) return;
         const id = String(listing.id);
         if (listing.user_id && _myUid && listing.user_id === _myUid) { _setDiag('note', id+':own'); return; } // my own post
+        if (_avoidedAuthor(listing)) { _setDiag('note', id+':avoided'); return; }  // I chose to avoid this author
         if (!_visibleToMe(listing)) { _setDiag('note', id+':hidden'); return; }   // owner hid this post from me
         const dismissed = getDismissed();
         if (dismissed.has(id)) { _setDiag('note', id+':dismissed'); return; }
@@ -700,6 +720,7 @@
         if (!_sb) { _seenLoaded = true; return; }
         await loadMine();
         await _loadUnlocked();   // owners who've re-unlocked their hidden posts to me
+        await _loadAvoid();      // users whose posts I don't want matches with
         // Seed the seen-set from the backend BEFORE any recordMatches is processed,
         // so already-seen matches are never counted as new on login/reload/new device.
         await _loadSeen();

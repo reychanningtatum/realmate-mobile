@@ -416,3 +416,10 @@ html.rm-embedded .settings-field > label { overflow-wrap: anywhere; word-break: 
 .pv-chip { display: inline-flex; align-items: center; gap: 7px; background: #f1f5f9; color: #334155; border-radius: 999px; padding: 6px 10px 6px 13px; font-size: 13px; font-weight: 600; }
 .pv-chip button { border: none; background: none; color: #94a3b8; cursor: pointer; padding: 0; font-size: 12px; display: flex; align-items: center; }
 .pv-chip button:hover { color: #ef4444; }
+
+/* Portal visibility / Avoid matching — avatars in results + chips */
+.pv-result { display: flex; align-items: center; gap: 10px; }
+.pv-result-av { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; flex-shrink: 0; background: #e2e8f0; }
+.pv-chip { padding-left: 5px; }
+.pv-chip-av { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; flex-shrink: 0; background: #e2e8f0; }
+.pv-chip-name { line-height: 1; }
