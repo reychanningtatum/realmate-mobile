@@ -901,7 +901,7 @@ function addMsgBubble(container, m) {
         container.insertAdjacentHTML('beforeend', html);
         return;
     } else if (type === 'TEXT') {
-        bubble = `<div class="chat-msg-bubble">${esc(m.message_text || '')}</div>`;
+        bubble = `<div class="chat-msg-bubble">${escWithLinks(m.message_text || '')}</div>`;
     } else if (type === 'IMAGE') {
         bubble = `<div class="chat-msg-bubble chat-msg-image-bubble"><img class="chat-msg-image" src="${m.file_url}" alt="Image" onclick="event.stopPropagation();toggleMsgTimestamp(this.closest('.chat-msg-row'));openLightbox('${m.file_url}')" loading="lazy"></div>`;
     } else if (type === 'PDF') {
@@ -1353,6 +1353,47 @@ function fmtConvTime(ts) {
 }
 function fmtSize(b) { if (b < 1024) return b + ' B'; if (b < 1048576) return (b / 1024).toFixed(1) + ' KB'; return (b / 1048576).toFixed(1) + ' MB'; }
 function esc(s) { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+// esc() escapes text nodes but NOT the " character, so it's unsafe for an
+// attribute value (e.g. an href). escAttr() is the attribute-safe variant.
+function escAttr(s) {
+    return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/"/g, '&quot;')
+        .replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// Render message text as safe HTML with bare URLs turned into clickable links
+// that open in a new tab. Every non-URL segment is fully escaped, and only
+// http(s):// and www. URLs are linkified — no other scheme is matched, so a
+// "javascript:" payload can never become a link. The href is attribute-encoded
+// independently of the visible (text-escaped) label so query-string ampersands
+// survive. stopPropagation keeps a link tap from also toggling the timestamp.
+function escWithLinks(s) {
+    if (!s) return '';
+    const urlRe = /((?:https?:\/\/|www\.)[^\s<]+)/gi;
+    let out = '', last = 0, m;
+    while ((m = urlRe.exec(s)) !== null) {
+        out += esc(s.slice(last, m.index));
+        let url = m[0], trail = '';
+        // Peel trailing sentence punctuation that is grammar, not part of the URL.
+        const pm = url.match(/[.,!?;:]+$/);
+        if (pm) { trail = pm[0]; url = url.slice(0, -trail.length); }
+        // Peel a trailing ')' only when it's unbalanced (no matching '(' in URL).
+        while (url.endsWith(')') && (url.split('(').length - 1) < (url.split(')').length - 1)) {
+            trail = ')' + trail; url = url.slice(0, -1);
+        }
+        if (url) {
+            const href = /^www\./i.test(url) ? 'https://' + url : url;
+            out += `<a class="chat-msg-link" href="${escAttr(href)}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">${esc(url)}</a>`;
+        } else {
+            trail = m[0]; // nothing left after peeling — emit the match as text
+        }
+        out += esc(trail);
+        last = m.index + m[0].length;
+    }
+    out += esc(s.slice(last));
+    return out;
+}
 
 // ===== CONTEXT MENU (long press / right click) =====
 let ctxTargetRow = null;

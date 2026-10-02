@@ -558,6 +558,18 @@
   max-width: 100%;
 }
 
+/* Auto-linked URLs inside a text bubble. Inherit the bubble's text colour so
+   contrast stays correct on both the coloured "own" bubble (white text) and the
+   light "other" bubble (dark text), in light and dark mode; underline marks it
+   as a link without otherwise changing the bubble's design. Long URLs wrap via
+   the bubble's existing overflow-wrap rule. */
+.chat-msg-link {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  font-weight: 600;
+}
+
 .chat-msg-row.own .chat-msg-bubble {
   background: var(--chat-bubble-own);
   color: #fff;
