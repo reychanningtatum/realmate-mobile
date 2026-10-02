@@ -1934,4 +1934,12 @@ html[data-theme="dark"] .profile-img-container { border-color: #334155; }
    profile top bar already provides the back button, so this avoids a duplicate. */
 .viewing-other-back { align-items: center; gap: 8px; background: none; border: none; color: var(--primary, #16a34a); font-size: 15px; font-weight: 700; cursor: pointer; padding: 4px 0; margin-bottom: 14px; font-family: inherit; }
 .viewing-other-back:hover { opacity: 0.75; }
-@media (max-width: 768px) { .viewing-other-back { display: none !important; } }
+/* Hide the inline green "Back" button on mobile — the floating circular back in the
+   cover overlay (.mobile-profile-topbar) is the mobile affordance. MUST use the id:
+   this button also carries .rm-mobile-back, whose mobile-back.css rule
+   `.rm-mobile-back{display:inline-flex !important}` loads AFTER this file and (equal
+   class-specificity, later source) was WINNING — so the button rendered as a 24px
+   green block ABOVE the cover, pushing it down. #viewingOtherBack (id specificity)
+   beats the class rule regardless of load order, so the button is truly hidden and
+   the cover is the topmost content. */
+@media (max-width: 768px) { #viewingOtherBack { display: none !important; } }
