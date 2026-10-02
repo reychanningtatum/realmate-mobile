@@ -158,6 +158,18 @@ h1, h2, h3 { font-family: 'Playfair Display', serif; margin: 0; }
 .profile-cover img {
     width: 100%; height: 100%; object-fit: cover; object-position: center;
 }
+/* Cover render layer. The cover is shown as a background-image (not an <img>)
+   so a saved reposition/zoom can be reproduced purely in CSS via
+   background-size + background-position — resolution-independent and, crucially,
+   non-destructive: the stored image stays the full original and only the
+   transform (set inline by updateUI()) frames it. No saved transform →
+   defaults below behave exactly like the old object-fit:cover/center. */
+.profile-cover .cover-bg {
+    position: absolute; inset: 0;
+    background-repeat: no-repeat;
+    background-size: cover;
+    background-position: center;
+}
 .profile-cover-placeholder {
     width: 100%; height: 100%;
     display: flex; align-items: center; justify-content: center;
@@ -1284,7 +1296,7 @@ html[data-theme="dark"] .stats-list-avatar { border-color: #334155; }
         display: flex; align-items: center; justify-content: space-between;
         /* Overlay the cover; sit just below the status bar / Dynamic Island on every
            device via the safe-area inset (falls back to a sensible offset when 0). */
-        position: absolute; top: calc(env(safe-area-inset-top, 0px) + 10px); left: 0; right: 0; height: auto;
+        position: absolute; top: calc(env(safe-area-inset-top, 0px) + 4px); left: 0; right: 0; height: auto;
         padding: 14px 16px; background: transparent;
         border-bottom: none; z-index: 200; pointer-events: none;
     }

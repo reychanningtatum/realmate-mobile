@@ -1010,14 +1010,20 @@ function updateUI() {
 
     document.getElementById("profileImage").src = user.image;
 
-    // Cover photo
+    // Cover photo. Rendered as a background layer (#coverImage is a div, not an
+    // <img>) so a saved reposition/zoom is reproduced non-destructively: the
+    // stored image is always the FULL original, and user.coverTransform only
+    // *frames* it via CSS background-size/position. No transform → cover/center
+    // (identical to the old object-fit behaviour). See applyCoverCrop().
     const coverImg = document.getElementById('coverImage');
     const coverPlaceholder = document.getElementById('coverPlaceholder');
     if (coverImg && user.coverUrl) {
-        coverImg.src = user.coverUrl;
+        coverImg.style.backgroundImage = `url("${user.coverUrl}")`;
+        _applyCoverTransform(coverImg, user.coverTransform);
         coverImg.style.display = 'block';
         if (coverPlaceholder) coverPlaceholder.style.display = 'none';
     } else if (coverImg) {
+        coverImg.style.backgroundImage = '';
         coverImg.style.display = 'none';
         if (coverPlaceholder) coverPlaceholder.style.display = 'flex';
     }
@@ -1363,6 +1369,7 @@ async function loadProfile() {
                             bio: profile.bio || '',
                             relationship: profile.relationship_status || '',
                             coverUrl: profile.cover_url || '',
+                            coverTransform: profile.cover_transform || null,
                             location: profile.location || '',
                             isVerified: !!profile.is_verified,
                             lastSeen: profile.last_seen || '',
@@ -1390,6 +1397,7 @@ async function loadProfile() {
                             bio: profile.bio || user.bio,
                             relationship: profile.relationship_status || '',
                             coverUrl: profile.cover_url || '',
+                            coverTransform: profile.cover_transform || null,
                             location: profile.location || user.location || '',
                             isVerified: !!profile.is_verified,
                             lastSeen: profile.last_seen || '',
@@ -2400,6 +2408,7 @@ window.onload = async () => {
 function uploadCoverPhoto(input) {
     const file = input.files?.[0];
     if (!file) return;
+    _coverNewUploadFile = file;   // keep the full original to upload on save
     const reader = new FileReader();
     reader.onload = e => openCoverCropModal(e.target.result, true);
     reader.readAsDataURL(file);
@@ -2452,12 +2461,46 @@ async function repositionCover() {
     }
 }
 
+// Reproduce a saved cover reposition/zoom on the display layer. `t` is the crop
+// rectangle Cropper reported in natural-image pixels at save time, plus the
+// image's natural size: { x, y, width, height, nW, nH }. We map that rectangle
+// to fill the cover box using the standard CSS background-size + background-
+// position percentage formulas, so it scales with any container width and never
+// touches the underlying full-resolution image. Missing/invalid transform →
+// cover/center (the pre-existing default).
+function _applyCoverTransform(el, t) {
+    try { if (typeof t === 'string') t = JSON.parse(t); } catch { t = null; }
+    const ok = t && [t.x, t.y, t.width, t.height, t.nW, t.nH].every(n => typeof n === 'number' && isFinite(n))
+        && t.width > 0 && t.height > 0 && t.nW > 0 && t.nH > 0;
+    if (!ok) {
+        el.style.backgroundSize = 'cover';
+        el.style.backgroundPosition = 'center';
+        return;
+    }
+    const sw = t.nW / t.width * 100;
+    const sh = t.nH / t.height * 100;
+    const px = (t.nW - t.width) > 0 ? (t.x / (t.nW - t.width)) * 100 : 50;
+    const py = (t.nH - t.height) > 0 ? (t.y / (t.nH - t.height)) * 100 : 50;
+    el.style.backgroundSize = `${sw}% ${sh}%`;
+    el.style.backgroundPosition = `${px}% ${py}%`;
+}
+
 let _coverCropper = null;
 
 let _coverIsNewUpload = false;
+// The ORIGINAL file for a brand-new cover upload. Saving uploads THIS full image
+// (never a cropped canvas) so the source always stays fully re-editable.
+let _coverNewUploadFile = null;
 
 function openCoverCropModal(src, isNewUpload) {
     _coverIsNewUpload = !!isNewUpload;
+    if (!_coverIsNewUpload) _coverNewUploadFile = null;   // repositioning: no new file
+    // Repositioning restores the previously-saved framing as the STARTING state.
+    // Because the editor always loads the full original image (src) and viewMode:1
+    // only prevents zooming out past cover-fit of that original, the user can
+    // always zoom/pan back to the base scale — the saved zoom is a starting
+    // point, never a new minimum. New uploads start at the default framing.
+    const restore = _coverIsNewUpload ? null : (user && user.coverTransform);
     const modal = document.getElementById('coverCropModal');
     const img = document.getElementById('coverCropImage');
     img.src = src;
@@ -2473,6 +2516,17 @@ function openCoverCropModal(src, isNewUpload) {
         guides: false,
         center: true,
         background: false,
+        ready() {
+            let t = restore;
+            try { if (typeof t === 'string') t = JSON.parse(t); } catch { t = null; }
+            if (t && typeof t.width === 'number' && typeof t.height === 'number'
+                && t.width > 0 && t.height > 0) {
+                // Reproduce the saved crop rectangle (natural-image px). setData
+                // pans/zooms the canvas to match; viewMode:1 keeps the full
+                // zoom-out range available from here.
+                try { _coverCropper.setData({ x: t.x, y: t.y, width: t.width, height: t.height }); } catch {}
+            }
+        },
     });
 }
 
@@ -2488,22 +2542,50 @@ async function applyCoverCrop() {
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
     btn.disabled = true;
     try {
-        const canvas = _coverCropper.getCroppedCanvas({ width: 1200, height: 720 });
-        if (!canvas) throw new Error('Could not process image.');
-        const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.90));
-        const file = new File([blob], `cover_${Date.now()}.jpg`, { type: 'image/jpeg' });
+        // Capture the framing as the crop rectangle in NATURAL image pixels plus
+        // the image's natural size. This is the only thing saved for a reposition
+        // — we never bake a cropped/zoomed copy, so repeated edits can never
+        // progressively crop and the user can always zoom back to base scale.
+        const d = _coverCropper.getData(true);              // {x,y,width,height,...} natural px
+        const imgData = _coverCropper.getImageData();        // naturalWidth/naturalHeight
+        const nW = Math.round(imgData.naturalWidth);
+        const nH = Math.round(imgData.naturalHeight);
+        const transform = {
+            x: Math.max(0, Math.round(d.x)),
+            y: Math.max(0, Math.round(d.y)),
+            width: Math.round(d.width),
+            height: Math.round(d.height),
+            nW, nH,
+        };
+        if (!(transform.width > 0 && transform.height > 0 && nW > 0 && nH > 0)) {
+            throw new Error('Could not read image dimensions.');
+        }
+
         const { data: authData } = await _supabase.auth.getUser();
         const userId = authData?.user?.id;
-        const path = `covers/${userId}_${Date.now()}.jpg`;
-        const { error } = await _supabase.storage.from('images').upload(path, file, { upsert: true });
-        if (error) throw error;
-        const url = _supabase.storage.from('images').getPublicUrl(path).data.publicUrl;
-        await _supabase.from('profiles').update({ cover_url: url }).eq('id', userId);
+
+        // Only a brand-new upload writes an image; it uploads the FULL original
+        // (never a cropped canvas). Repositioning reuses the existing original
+        // URL untouched, so the source image stays fully re-editable forever.
+        let url = user.coverUrl;
+        if (_coverIsNewUpload && _coverNewUploadFile) {
+            const ext = (_coverNewUploadFile.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
+            const path = `covers/${userId}_${Date.now()}.${ext}`;
+            const { error } = await _supabase.storage.from('images').upload(
+                path, _coverNewUploadFile, { upsert: true, contentType: _coverNewUploadFile.type || undefined });
+            if (error) throw error;
+            url = _supabase.storage.from('images').getPublicUrl(path).data.publicUrl;
+        }
+        if (!url) throw new Error('No cover image to save.');
+
+        await _supabase.from('profiles').update({ cover_url: url, cover_transform: transform }).eq('id', userId);
         user.coverUrl = url;
+        user.coverTransform = transform;
         localStorage.setItem('user', JSON.stringify(user));
         updateUI();
         const preview = document.getElementById('coverActionSheetPreview');
         if (preview) { preview.src = url; preview.style.display = 'block'; }
+        _coverNewUploadFile = null;
         closeCoverCropModal();
         showPhotoToast(_coverIsNewUpload ? 'Cover photo updated!' : 'Cover photo repositioned!');
     } catch (e) {
