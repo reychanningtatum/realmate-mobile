@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="vendor/fontawesome/css/all.min.css?v=6.5.0">
     <link rel="stylesheet" href="vendor/googlefonts/fonts.css?v=1">
     <link rel="stylesheet" href="forum.css?v=20260716a">
-    <link rel="stylesheet" href="settings.css?v=20261001a">
+    <link rel="stylesheet" href="settings.css?v=20261002a">
     <link rel="stylesheet" href="block-report.css?v=20261001b">
     <link rel="stylesheet" href="mobile-back.css">
     <script src="theme.js?v=20260812a"></script>
@@ -119,6 +119,18 @@
                     <span class="slider"></span>
                 </label>
             </div>
+        </div>
+
+        <!-- ── Portal Post Visibility (persistent per-owner exclusions) ── -->
+        <div class="settings-card">
+            <div class="settings-card-title"><i class="fas fa-eye-slash" style="color: var(--primary);"></i> Portal Post Visibility</div>
+            <p class="settings-card-sub">Hide your <strong>future</strong> Portal posts from specific people. This is <strong>one-way</strong>: they won’t see your new posts, but you’ll still see theirs, still get AI matches involving their posts, and can still message them. It does not block them. Existing posts aren’t changed.</p>
+            <div class="pv-search-wrap">
+                <i class="fas fa-search pv-search-icon"></i>
+                <input type="text" id="pvUserSearch" class="pv-search" placeholder="Search people by name…" autocomplete="off" oninput="pvSearchUsers(this.value)" onblur="setTimeout(pvCloseResults, 150)">
+                <div id="pvResults" class="pv-results"></div>
+            </div>
+            <div id="pvChips" class="pv-chips"></div>
         </div>
 
         <!-- ── Account Settings ──────────────────────────────────────── -->
@@ -248,10 +260,10 @@
 <script src="vendor/supabase-js.min.js?v=2.112.3"></script>
 <script src="block-report.js?v=20261001a"></script>
 <script src="auth-guard.js?v=20260930c"></script>
-<script src="settings.js?v=20261001a"></script>
+<script src="settings.js?v=20261002a"></script>
 <script src="location-engine.js?v=20260809b"></script>
 <script src="match-engine.js?v=20261001c"></script>
-<script src="visibility.js?v=20260812j"></script>
+<script src="visibility.js?v=20261002a"></script>
 <script src="match-alert.js?v=20261001l"></script>
 <script src="notif-badge.js?v=16"></script>
 <!-- Mobile Bottom Navigation -->

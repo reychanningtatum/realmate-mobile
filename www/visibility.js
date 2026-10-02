@@ -38,10 +38,10 @@
         const hiddenUsers = asArray(listing.hidden_user_ids).map(String);
         if (!hiddenUsers.length) return true; // nothing hidden
 
-        // Owner explicitly reached out → don't block the conversation they started.
-        if (unlockedOwnerIds && typeof unlockedOwnerIds.has === 'function'
-            && unlockedOwnerIds.has(String(listing.user_id))) return true;
-
+        // ABSOLUTE per-post hide: a hidden user never sees THIS post until the owner
+        // unhides it. (The old "unlock once the owner shares a conversation" exception
+        // was removed — hide must mean invisible everywhere, per spec. The
+        // unlockedOwnerIds arg is kept for call-site compatibility but is now ignored.)
         if (viewerId && hiddenUsers.includes(String(viewerId))) return false;
         return true;
     }

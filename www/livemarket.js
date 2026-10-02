@@ -2197,6 +2197,18 @@ function buildListingCard(listing, matchLabel = null, fmvResult = null, matchCou
     // "Your Listing" card — the menu belongs on the Portal listing, not there).
     const kebabMenu = opts.hideMenu ? '' : buildCardMenu(listing, { isOwner, canDismiss, isPinned });
 
+    // Visibility indicator — ONLY on the owner's own card, ONLY when this post hides
+    // from ≥1 user. An eye-with-slash; tapping it opens a small "who's excluded"
+    // popup. Never rendered for other viewers (gated on isOwner), so no one else
+    // learns a post is restricted or from whom.
+    const _hiddenCount = (isOwner && window.RMVisibility)
+        ? RMVisibility.asArray(listing.hidden_user_ids).length : 0;
+    const visIndicator = _hiddenCount > 0
+        ? `<button class="lc-vis-indicator" onclick="event.stopPropagation(); showVisibilityInfo('${listing.id}')"
+                 aria-label="Visibility restricted — hidden from ${_hiddenCount} user${_hiddenCount !== 1 ? 's' : ''}"
+                 title="Hidden from ${_hiddenCount} user${_hiddenCount !== 1 ? 's' : ''}"><i class="fas fa-eye-slash"></i></button>`
+        : '';
+
     // Owner's own listing + at least one valid AI match → a beating "AI Matches
     // Found" button in the header, immediately LEFT of the three-dot menu. The
     // rotating orbital "physics" widget sits inside it; the button itself pulses
@@ -2232,6 +2244,7 @@ function buildListingCard(listing, matchLabel = null, fmvResult = null, matchCou
             </div>
             <div class="lc-profile-actions">
                 ${headerMatchBtn}
+                ${visIndicator}
                 ${kebabMenu}
             </div>
         </div>`;
@@ -2418,6 +2431,59 @@ function buildActionBar(listing, isOwner, isMatch = false) {
         <div class="lc-actionbar-info">${offersLabel}</div>
         ${primaryBtn}
     </div>`;
+}
+
+// Owner-only "who is this post hidden from" popup (opened by the eye-slash
+// indicator on the owner's own card). Read-only: resolves the hidden user ids to
+// names from profiles. Shown ONLY to the owner (the indicator itself is gated on
+// isOwner), so excluded users / other viewers never see this.
+async function showVisibilityInfo(listingId) {
+    const l = (typeof _lcFindListing === 'function' ? _lcFindListing(listingId) : null)
+        || (allListings || []).find(x => String(x.id) === String(listingId))
+        || (typeof myListings !== 'undefined' && Array.isArray(myListings) ? myListings.find(x => String(x.id) === String(listingId)) : null);
+    if (!l) return;
+    const ids = (window.RMVisibility ? RMVisibility.asArray(l.hidden_user_ids) : []).map(String).filter(Boolean);
+    let names = [];
+    if (ids.length) {
+        try {
+            const idList = ids.map(encodeURIComponent).join(',');
+            const res = await fetch(`${supabaseUrl}/rest/v1/profiles?select=id,full_name&id=in.(${idList})`,
+                { headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` } });
+            const rows = await res.json();
+            const byId = {}; (rows || []).forEach(r => { byId[String(r.id)] = r.full_name; });
+            names = ids.map(id => escapeHtmlSafe(byId[id] || 'realmate member'));
+        } catch (e) { names = ids.map(() => 'realmate member'); }
+    }
+    let ov = document.getElementById('lcVisInfoOverlay');
+    if (ov) ov.remove();
+    if (!document.getElementById('lcVisInfoCss')) {
+        const st = document.createElement('style'); st.id = 'lcVisInfoCss';
+        st.textContent =
+            '#lcVisInfoOverlay{position:fixed;inset:0;z-index:10001;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:20px;}'
+          + '@media(min-width:769px){#lcVisInfoOverlay{padding-left:260px;}}'
+          + '#lcVisInfoCard{background:#fff;border-radius:16px;max-width:360px;width:100%;padding:22px 20px;box-shadow:0 20px 50px rgba(0,0,0,.25);text-align:center;}'
+          + '#lcVisInfoCard .lcvi-icon{width:48px;height:48px;border-radius:50%;background:#f1f5f9;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;color:#475569;font-size:18px;}'
+          + '#lcVisInfoCard .lcvi-title{font-size:16px;font-weight:800;color:#0f172a;margin-bottom:4px;}'
+          + '#lcVisInfoCard .lcvi-sub{font-size:13px;color:#64748b;margin-bottom:14px;}'
+          + '#lcVisInfoCard .lcvi-list{text-align:left;max-height:40vh;overflow:auto;margin:0 0 16px;}'
+          + '#lcVisInfoCard .lcvi-user{display:flex;align-items:center;gap:8px;font-size:14px;color:#0f172a;padding:7px 10px;border-radius:10px;background:#f8fafc;margin-bottom:6px;}'
+          + '#lcVisInfoCard .lcvi-user i{color:#94a3b8;font-size:12px;}'
+          + '#lcVisInfoCard .lcvi-close{width:100%;height:42px;border-radius:12px;border:1.5px solid #e2e8f0;background:#fff;color:#334155;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;}';
+        document.head.appendChild(st);
+    }
+    ov = document.createElement('div'); ov.id = 'lcVisInfoOverlay';
+    const listHtml = names.length
+        ? `<div class="lcvi-list">${names.map(n => `<div class="lcvi-user"><i class="fas fa-user"></i> ${n}</div>`).join('')}</div>`
+        : '';
+    ov.innerHTML = `<div id="lcVisInfoCard" onclick="event.stopPropagation()">
+        <div class="lcvi-icon"><i class="fas fa-eye-slash"></i></div>
+        <div class="lcvi-title">Visibility restricted</div>
+        <div class="lcvi-sub">This post is hidden from ${ids.length} user${ids.length !== 1 ? 's' : ''}.</div>
+        ${listHtml}
+        <button class="lcvi-close" onclick="document.getElementById('lcVisInfoOverlay').remove()">Close</button>
+    </div>`;
+    ov.addEventListener('click', e => { if (e.target === ov) ov.remove(); });
+    document.body.appendChild(ov);
 }
 
 // ── Market Price Ticker Algorithm ─────────────────
@@ -5318,6 +5384,22 @@ async function submitLMPost() {
             return;
         }
 
+        // Persistent Portal Post Visibility: snapshot the owner's "always hide from"
+        // list (profiles.portal_hide_user_ids) INTO this NEW post's hidden set, unioned
+        // with the per-post selections. This is a one-time snapshot at creation — later
+        // Settings changes never rewrite existing listings. Fail-open: if the column/
+        // migration isn't present, the select errors and we fall back to per-post only.
+        let hiddenForNew = hiddenUsers.map(String);
+        try {
+            if (uid) {
+                const { data: _vp } = await _sb.from('profiles')
+                    .select('portal_hide_user_ids').eq('id', uid).maybeSingle();
+                const persistent = (_vp && Array.isArray(_vp.portal_hide_user_ids))
+                    ? _vp.portal_hide_user_ids.map(String) : [];
+                hiddenForNew = [...new Set([...hiddenForNew, ...persistent])];
+            }
+        } catch (e) { /* column not present yet → per-post only */ }
+
         const row = {
             user_id:      uid,
             user_name:    postName,
@@ -5331,7 +5413,7 @@ async function submitLMPost() {
             archived:     false,
             pinned:       false,
             ..._lmPrune(structured),
-            ...(hiddenUsers.length     ? { hidden_user_ids:  hiddenUsers }     : {})
+            ...(hiddenForNew.length     ? { hidden_user_ids:  hiddenForNew }     : {})
         };
 
         // Robust insert: same column-stripping resilience as the edit path, so a

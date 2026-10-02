@@ -492,3 +492,93 @@ async function unblockBlockedPost(type, id){
 document.addEventListener('rmbr:ready', loadBlockedUsers);
 document.addEventListener('rmbr:ready', loadBlockedPosts);
 document.addEventListener('DOMContentLoaded', function(){ setTimeout(loadBlockedUsers, 900); setTimeout(loadBlockedPosts, 900); });
+
+/* ── Portal Post Visibility — persistent per-owner exclusions ──────────────────
+   Managed set = profiles.portal_hide_user_ids. One-way: only affects the owner's
+   FUTURE posts (snapshotted into listings.hidden_user_ids at creation). Reads use
+   ilike (safe); the only write is an UPDATE of the OWNER'S OWN profile row. No
+   deletes, no touching other tables/rows. */
+let _pvIds = [];            // current excluded user ids
+let _pvNames = {};          // id -> name cache for chips
+let _pvSearchTimer = null;
+
+function _pvEsc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+
+async function loadPortalVisibility(){
+  const chips = document.getElementById('pvChips'); if(!chips) return;
+  try {
+    const uid = await _privacyUid(); if(!uid) return;
+    const { data, error } = await _supabase.from('profiles')
+      .select('portal_hide_user_ids').eq('id', uid).maybeSingle();
+    if (error) { chips.innerHTML=''; return; }   // column not present yet → silent
+    _pvIds = (data && Array.isArray(data.portal_hide_user_ids)) ? data.portal_hide_user_ids.map(String) : [];
+    if (_pvIds.length) {
+      const idList = _pvIds.map(encodeURIComponent).join(',');
+      const { data: rows } = await _supabase.from('profiles').select('id,full_name').in('id', _pvIds);
+      (rows||[]).forEach(r => { _pvNames[String(r.id)] = r.full_name; });
+    }
+    _pvRenderChips();
+  } catch(e){ /* fail-silent */ }
+}
+
+function _pvRenderChips(){
+  const chips = document.getElementById('pvChips'); if(!chips) return;
+  if(!_pvIds.length){ chips.innerHTML = '<div class="pv-empty">No one excluded yet. Your posts are visible to everyone (per your Privacy settings).</div>'; return; }
+  chips.innerHTML = _pvIds.map(id =>
+    `<span class="pv-chip">${_pvEsc(_pvNames[id] || 'realmate member')}<button type="button" aria-label="Remove" onclick="pvRemoveUser('${_pvEsc(id)}')"><i class="fas fa-times"></i></button></span>`
+  ).join('');
+}
+
+function pvCloseResults(){ const r=document.getElementById('pvResults'); if(r){ r.innerHTML=''; r.classList.remove('open'); } }
+
+async function pvSearchUsers(q){
+  const box = document.getElementById('pvResults'); if(!box) return;
+  q = (q||'').trim();
+  clearTimeout(_pvSearchTimer);
+  if(q.length < 2){ pvCloseResults(); return; }
+  _pvSearchTimer = setTimeout(async () => {
+    try {
+      const myUid = await _privacyUid();
+      const { data } = await _supabase.from('profiles')
+        .select('id,full_name').ilike('full_name', '%'+q+'%').limit(8);
+      const rows = (data||[]).filter(u => u.full_name && String(u.id)!==String(myUid) && !_pvIds.includes(String(u.id)));
+      if(!rows.length){ box.innerHTML = '<div class="pv-result-empty">No users found</div>'; box.classList.add('open'); return; }
+      box.innerHTML = rows.map(u =>
+        `<div class="pv-result" onclick="pvAddUser('${_pvEsc(String(u.id))}','${_pvEsc(u.full_name)}')">${_pvEsc(u.full_name)}</div>`
+      ).join('');
+      box.classList.add('open');
+    } catch(e){ pvCloseResults(); }
+  }, 250);
+}
+
+async function pvAddUser(id, name){
+  id = String(id);
+  if(!_pvIds.includes(id)) _pvIds.push(id);
+  _pvNames[id] = name;
+  const inp = document.getElementById('pvUserSearch'); if(inp) inp.value='';
+  pvCloseResults();
+  _pvRenderChips();
+  await _pvSave();
+}
+
+async function pvRemoveUser(id){
+  id = String(id);
+  _pvIds = _pvIds.filter(x => x !== id);
+  _pvRenderChips();
+  await _pvSave();
+}
+
+async function _pvSave(){
+  try {
+    const uid = await _privacyUid(); if(!uid) return;
+    // UPDATE the OWNER'S OWN row only. Not a delete; does not touch listings.
+    const { error } = await _supabase.from('profiles')
+      .update({ portal_hide_user_ids: _pvIds }).eq('id', uid);
+    if (error) throw error;
+    showSettingsNotificationToast('Portal post visibility updated.', 'success');
+  } catch(e){
+    showSettingsNotificationToast('Could not save. Please try again.', 'error');
+  }
+}
+
+document.addEventListener('DOMContentLoaded', function(){ setTimeout(loadPortalVisibility, 950); });

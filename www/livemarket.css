@@ -3348,3 +3348,7 @@ html[data-theme="dark"] #spLockedMsgBtn:hover { background: #162032; }
 @media (min-width: 901px) {
   #lmDetails { display: none !important; }
 }
+
+/* Visibility indicator (owner-only eye-slash on a post hidden from >=1 user) */
+.lc-vis-indicator { border:none; background:none; cursor:pointer; color:#94a3b8; width:30px; height:30px; border-radius:8px; font-size:14px; display:flex; align-items:center; justify-content:center; transition:background .15s,color .15s; }
+.lc-vis-indicator:hover { background:#f1f5f9; color:#475569; }

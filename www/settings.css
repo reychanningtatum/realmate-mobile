@@ -400,3 +400,19 @@ html.rm-embedded .settings-field > label { overflow-wrap: anywhere; word-break: 
 .blocked-row:last-child{border-bottom:none;}
 .blocked-name{font-size:14px;color:#334155;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .blocked-unblock{width:auto;padding:6px 14px;font-size:13px;}
+
+/* ── Portal Post Visibility picker ───────────────────────────────────────── */
+.pv-search-wrap { position: relative; margin-top: 4px; }
+.pv-search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 13px; pointer-events: none; }
+.pv-search { width: 100%; box-sizing: border-box; height: 42px; padding: 0 12px 0 34px; border: 1.5px solid var(--ld-border, #e2e8f0); border-radius: 12px; font-size: 14px; font-family: inherit; color: #0f172a; background: #fff; }
+.pv-search:focus { outline: none; border-color: var(--primary, #16a34a); }
+.pv-results { position: absolute; left: 0; right: 0; top: calc(100% + 4px); background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 12px 30px rgba(15,23,42,.14); z-index: 20; overflow: hidden; display: none; }
+.pv-results.open { display: block; }
+.pv-result { padding: 10px 14px; font-size: 14px; color: #0f172a; cursor: pointer; }
+.pv-result:hover { background: #f1f5f9; }
+.pv-result-empty { padding: 10px 14px; font-size: 13px; color: #94a3b8; }
+.pv-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.pv-empty { font-size: 13px; color: #94a3b8; }
+.pv-chip { display: inline-flex; align-items: center; gap: 7px; background: #f1f5f9; color: #334155; border-radius: 999px; padding: 6px 10px 6px 13px; font-size: 13px; font-weight: 600; }
+.pv-chip button { border: none; background: none; color: #94a3b8; cursor: pointer; padding: 0; font-size: 12px; display: flex; align-items: center; }
+.pv-chip button:hover { color: #ef4444; }
