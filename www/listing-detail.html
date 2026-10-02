@@ -230,7 +230,11 @@
     .ld-lb-track{ display:flex; height:100%; width:100%; will-change:transform; }
     .ld-lb-track.ld-anim{ transition:transform .32s cubic-bezier(.22,.61,.36,1); }
     .ld-lb-slide{ flex:0 0 100%; width:100%; height:100%; display:flex; align-items:center; justify-content:center; }
-    .ld-lightbox img{ max-width:92vw; max-height:calc(100vh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 96px); object-fit:contain; border-radius:10px; -webkit-user-drag:none; user-drag:none; pointer-events:none; }
+    /* pointer-events ENABLED so a long-press reaches the image → iOS "Save Image"
+       callout + desktop right-click "Save image as". -webkit-touch-callout:default
+       re-enables the iOS callout (the container sets user-select:none). Swipe still
+       works: the pointer handlers live on the container and receive bubbled events. */
+    .ld-lightbox img{ max-width:92vw; max-height:calc(100vh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 96px); object-fit:contain; border-radius:10px; -webkit-user-drag:none; user-drag:none; -webkit-touch-callout:default; -webkit-user-select:auto; }
     .ld-lb-nav{ position:absolute; top:50%; transform:translateY(-50%); width:40px; height:40px; border-radius:50%; background:rgba(255,255,255,0.15); border:none; color:#fff; font-size:18px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
     .ld-lb-nav:hover{ background:rgba(255,255,255,0.3); }
     .ld-lb-prev{ left:16px; } .ld-lb-next{ right:16px; }
@@ -365,7 +369,7 @@
 <script src="match-engine.js?v=20261001c"></script>
 <script src="developers.js?v=36"></script>
 <script src="rm-track.js?v=3"></script>
-<script src="match-alert.js?v=20261001i"></script>
+<script src="match-alert.js?v=20261001l"></script>
 <script src="notif-badge.js?v=16"></script>
 <script>
 const _sb = supabase.createClient('https://wmegpgrfrtprhuzmgjma.supabase.co', 'sb_publishable_Rm_fIBDUfu3DEyLj0_bWZw_qEqo8cd4');
@@ -1302,26 +1306,36 @@ function openLdLightbox(idx){
   // happened (a swipe shouldn't also dismiss the viewer).
   lb.addEventListener('click', e=>{
     if (lb._ldDragged) return;
-    if (e.target === lb || e.target.classList.contains('ld-lb-slide')) closeLdLightbox();
+    // Backdrop OR the image area closes (image now receives the tap since
+    // pointer-events is enabled, so match it via its enclosing slide).
+    if (e.target === lb || (e.target.closest && e.target.closest('.ld-lb-slide'))) closeLdLightbox();
   });
 
   // Swipe: follow the finger/mouse live, then animate a snap on release — a real
   // horizontal gallery. Pointer events cover mouse drag AND touch.
   if (imgs.length > 1) {
     const trackEl = () => document.getElementById('ldLbTrack');
-    let sx=0, sy=0, dragging=false, w=0, base=0;
+    let sx=0, sy=0, down=false, dragging=false, w=0, base=0;
     lb.addEventListener('pointerdown', e => {
       if (e.button != null && e.button !== 0) return;   // primary button / touch / pen
-      sx=e.clientX; sy=e.clientY; dragging=true; lb._ldDragged=false;
+      sx=e.clientX; sy=e.clientY; down=true; dragging=false; lb._ldDragged=false;
       w = lb.clientWidth || window.innerWidth;
       base = -_ldLbIdx * w;
-      const t = trackEl(); if (t) t.classList.remove('ld-anim');   // live follow (no transition)
-      try { lb.setPointerCapture(e.pointerId); } catch(_){}
+      // Do NOT capture the pointer yet. A stationary press-hold must reach the
+      // native image "Save Image" callout, which pointer capture would swallow —
+      // we only begin dragging (and capture) once the finger actually moves
+      // horizontally, which a long-press never does.
     });
     lb.addEventListener('pointermove', e => {
-      if (!dragging) return;
-      const dx = e.clientX - sx;
-      if (Math.abs(dx) > 6) lb._ldDragged = true;
+      if (!down) return;
+      const dx = e.clientX - sx, dy = e.clientY - sy;
+      if (!dragging) {
+        // Not a horizontal drag yet → leave the gesture to the browser (long-press).
+        if (Math.abs(dx) < 8 || Math.abs(dx) <= Math.abs(dy)) return;
+        dragging = true; lb._ldDragged = true;
+        const t = trackEl(); if (t) t.classList.remove('ld-anim');   // live follow (no transition)
+        try { lb.setPointerCapture(e.pointerId); } catch(_){}
+      }
       const last = (window._ldImages||[]).length - 1;
       // Rubber-band resistance past the first/last image.
       let off = dx;
@@ -1329,6 +1343,7 @@ function openLdLightbox(idx){
       const t = trackEl(); if (t) t.style.transform = `translateX(${base + off}px)`;
     });
     lb.addEventListener('pointerup', e => {
+      down=false;
       if (!dragging) return; dragging=false;
       const dx = e.clientX - sx, dy = e.clientY - sy;
       const last = (window._ldImages||[]).length - 1;
@@ -1339,7 +1354,7 @@ function openLdLightbox(idx){
       _ldSetTrack(true);                         // animate to the resting slide (snap)
       setTimeout(() => { lb._ldDragged = false; }, 0);
     });
-    lb.addEventListener('pointercancel', () => { if (dragging) { dragging=false; _ldSetTrack(true); } });
+    lb.addEventListener('pointercancel', () => { down=false; if (dragging) { dragging=false; _ldSetTrack(true); } });
 
     // Trackpad / Magic Mouse horizontal swipe is a WHEEL event (deltaX), not a drag.
     // One physical swipe emits a long stream of (inertial) wheel events, so act on

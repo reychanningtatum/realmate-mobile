@@ -34,7 +34,7 @@
     // Shows the live AI-match pipeline state in a small corner pill so we can see
     // exactly where it stops on-device. Only in the TOP document (shell/desktop),
     // not inside content iframes, so there's one pill.
-    var _DBG = !!(user && (user.email === 'reychanbernaldez1019@gmail.com' || user.id === '11dcb156-5514-4dc5-9324-e924f2f4a405'));
+    var _DBG = false;   // diagnostic pill disabled (root cause found: Portal Notifications toggle)
     var _topDoc = (window.self === window.top);
     var _diag = { ctx: _topDoc ? 'TOP' : 'iframe', user: user && user.name ? 'y' : 'n',
                   notifs: localStorage.getItem('rm_portal_notifs') === '0' ? 'OFF' : 'on',
@@ -57,10 +57,11 @@
     if (_DBG && _topDoc) { if (document.body) _renderDiag(); else document.addEventListener('DOMContentLoaded', _renderDiag); }
 
     if (!user || !user.name) return;                // logged-out: nothing to do
-    // Portal Notifications toggle (Settings). '0' = user turned them OFF; any
-    // other value (or absent) = ON by default. When off, suppress the global
-    // AI-match banner and nav badge entirely.
-    if (localStorage.getItem('rm_portal_notifs') === '0') { _setDiag('note', 'RETURN:notifs-off'); return; }
+    // Portal Notifications toggle (Settings). '0' = user turned them OFF. This now
+    // ONLY silences the "New AI Match Found" BANNER (see showBanner); detection and
+    // the red UNREAD BADGES always run so the unread count is accurate regardless of
+    // the toggle. (Previously this early-returned and suppressed badges too.)
+    function _bannerSilenced() { try { return localStorage.getItem('rm_portal_notifs') === '0'; } catch (e) { return false; } }
     // The scoring engine (match-engine.js) is present on every CONTENT page, but NOT
     // on the mobile app-shell (app.html). Rather than go fully inert without it, this
     // file runs in two modes sharing ONE banner implementation:
@@ -177,6 +178,10 @@
                     box-shadow:0 12px 34px -8px rgba(0,0,0,0.55),0 0 0 1px rgba(50,205,50,0.15);
                     color:#fff;font-family:inherit;opacity:0;transition:transform .38s cubic-bezier(.2,.8,.2,1),opacity .38s;cursor:pointer;}
                 #rmMatchBanner.show{transform:translateX(-50%) translateY(0);opacity:1;}
+                /* Desktop: center over the content area (shift right by half the 240px
+                   left sidebar) so it sits top-MIDDLE of the body, not left-of-centre.
+                   Mobile (<769px, incl. the app shell) is unchanged. */
+                @media (min-width:769px){#rmMatchBanner{left:calc(50% + 120px);}}
                 #rmMatchBanner .rmb-icon{flex:0 0 auto;width:38px;height:38px;border-radius:50%;background:rgba(50,205,50,0.15);border:1px solid rgba(50,205,50,0.5);display:flex;align-items:center;justify-content:center;color:#32cd32;font-size:16px;}
                 #rmMatchBanner .rmb-body{flex:1 1 auto;min-width:0;}
                 #rmMatchBanner .rmb-title{font-size:13.5px;font-weight:800;letter-spacing:.2px;line-height:1.2;}
@@ -275,6 +280,9 @@
         return _banner;
     }
     function showBanner(sub, targetId) {
+        // Portal Notifications OFF (Settings) silences the banner ONLY — badges have
+        // already been updated by the caller (refreshBadges runs before showBanner).
+        if (_bannerSilenced()) return;
         // Entering via a tapped AI-match PUSH notification: native-auth.js sets
         // rm_push_match (+ rm_push_match_at timestamp) before routing to the Portal,
         // and livemarket.js opens the Match Engine and highlights these matches.
@@ -384,6 +392,25 @@
     // ── Match state cache (the user's own listings, for realtime scoring) ──
     let _myParsed = [];      // parsed own listings
     let _myUid = _uid;       // auth user id once resolved
+    let _unlockedOwners = (typeof Set !== 'undefined') ? new Set() : null;  // owners who re-unlocked their posts to me
+
+    // Visibility Controls: a listing whose owner hid it from me must NEVER be scored,
+    // badged, or bannered for me — the same RMVisibility rule the Portal applies at
+    // fetch time, now enforced in the realtime AI-match pipeline too. Fail-open: if
+    // RMVisibility isn't loaded, nothing is hidden (prior behavior).
+    function _visibleToMe(listing) {
+        try {
+            if (!window.RMVisibility) return true;
+            return window.RMVisibility.visibleToViewer(listing, _myUid, _unlockedOwners);
+        } catch (e) { return true; }
+    }
+    async function _loadUnlocked() {
+        try {
+            if (window.RMVisibility && window.RMVisibility.fetchUnlockedOwnerIds && _myUid) {
+                _unlockedOwners = await window.RMVisibility.fetchUnlockedOwnerIds(_sb, _myUid);
+            }
+        } catch (e) { /* fail-open */ }
+    }
 
     async function loadMine() {
         try {
@@ -445,6 +472,7 @@
             const id = String(l.id);
             if (l.user_id && l.user_id === _myUid) return;          // my own post, never a match for me
             if (l.is_anonymous || l.archived || _isCompleted(l)) return;
+            if (!_visibleToMe(l)) return;                            // owner hid this post from me
             if (curSet.has(id) || seenSet.has(id) || dismissed.has(id)) return;
             if (!matchesMine(l)) return;
             newly.push({ id, listing: l });
@@ -601,6 +629,7 @@
         if (listing.archived) return;
         const id = String(listing.id);
         if (listing.user_id && _myUid && listing.user_id === _myUid) { _setDiag('note', id+':own'); return; } // my own post
+        if (!_visibleToMe(listing)) { _setDiag('note', id+':hidden'); return; }   // owner hid this post from me
         const dismissed = getDismissed();
         if (dismissed.has(id)) { _setDiag('note', id+':dismissed'); return; }
         const s = getState();
@@ -670,6 +699,7 @@
     (async function boot() {
         if (!_sb) { _seenLoaded = true; return; }
         await loadMine();
+        await _loadUnlocked();   // owners who've re-unlocked their hidden posts to me
         // Seed the seen-set from the backend BEFORE any recordMatches is processed,
         // so already-seen matches are never counted as new on login/reload/new device.
         await _loadSeen();
@@ -702,6 +732,9 @@
                         // A listing that just became completed or archived can no
                         // longer be a match — drop it from the badge set live.
                         if (_isCompleted(row) || row.archived) { noteRemoved(row); }
+                        // Owner just hid this post from me (hidden_user_ids changed) —
+                        // drop any existing match/badge for it live, no refresh needed.
+                        if (!_visibleToMe(row)) { noteRemoved(row); return; }
                         if (row.user_id && _myUid && row.user_id === _myUid) { reloadMineDebounced(); return; }
                         if (_isCompleted(row) || row.archived) return; // handled above
                         noteIncoming(row);

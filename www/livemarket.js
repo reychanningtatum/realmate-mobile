@@ -1295,6 +1295,32 @@ function handleListingRealtimeUpdate(row, eventType) {
     };
     patch(allListings);
     patch(myListings);
+
+    // Visibility Controls: this listing must NEVER enter / stay in this viewer's pool
+    // if its owner hid it from them (same rule loadLedger applies at fetch time).
+    // Enforced on the realtime path too so a brand-new OR just-edited hidden listing
+    // can't slip in live. The owner's own client always keeps its posts (myListings).
+    const _hiddenFromMe = (l) => {
+        try {
+            return window.RMVisibility && window._lmMyId
+                && String(l.user_id) !== String(window._lmMyId)
+                && !window.RMVisibility.visibleToViewer(l, window._lmMyId, window._lmUnlockedOwners);
+        } catch (e) { return false; }
+    };
+    if (_hiddenFromMe(row)) {
+        // Drop it from the pool + remove any rendered card, and re-sync counters so a
+        // live "Hide from User" makes the post vanish for this viewer without a refresh.
+        let dropped = false;
+        [allListings, myListings].forEach(function (arr) {
+            if (!Array.isArray(arr)) return;
+            var i = arr.findIndex(function (l) { return String(l.id) === String(row.id); });
+            if (i !== -1) { arr.splice(i, 1); dropped = true; }
+        });
+        document.querySelectorAll('[id="lc-' + row.id + '"]').forEach(function (c) { c.remove(); });
+        if (dropped) { try { var mmH = syncMatchCountsUI(); if (mmH) window.RMMatchAlert?.recordMatches([...mmH.keys()].map(String)); } catch (e) {} }
+        return;
+    }
+
     // A listing we don't have yet (INSERT of a brand-new post): add it to the pool so
     // it can count as a match immediately (the AI counter updates live below). We do
     // NOT render its card here — that appears on the next pull-to-refresh, keeping the
@@ -3547,6 +3573,10 @@ async function loadLedger(silent) {
         try {
             const myId = (await _sb.auth.getUser()).data?.user?.id || null;
             const unlockedOwners = await RMVisibility.fetchUnlockedOwnerIds(_sb, myId);
+            // Cache so the realtime INSERT/UPDATE handler can enforce the SAME
+            // visibility rule synchronously (a new/edited hidden listing must never
+            // enter this viewer's pool live, bypassing this fetch-time filter).
+            window._lmMyId = myId; window._lmUnlockedOwners = unlockedOwners;
             allListings = data.filter(l => RMVisibility.visibleToViewer(l, myId, unlockedOwners));
         } catch (e) {
             console.warn('[Visibility] filter failed, showing all:', e);
