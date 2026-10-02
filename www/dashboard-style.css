@@ -1918,3 +1918,10 @@ html[data-theme="dark"] .profile-img-container { border-color: #334155; }
   transition: box-shadow .4s ease, background-color .4s ease, border-color .4s ease;
   scroll-margin: 80px;
 }
+
+/* Minimal "Back" button shown when viewing another member's profile (replaces the
+   old green banner). Desktop: plain green arrow + label. Mobile: hidden — the fixed
+   profile top bar already provides the back button, so this avoids a duplicate. */
+.viewing-other-back { align-items: center; gap: 8px; background: none; border: none; color: var(--primary, #16a34a); font-size: 15px; font-weight: 700; cursor: pointer; padding: 4px 0; margin-bottom: 14px; font-family: inherit; }
+.viewing-other-back:hover { opacity: 0.75; }
+@media (max-width: 768px) { .viewing-other-back { display: none !important; } }

@@ -34,7 +34,7 @@
   <link rel="stylesheet" href="vendor/fontawesome/css/all.min.css?v=6.5.0">
   <link rel="stylesheet" href="vendor/cropperjs/cropper.min.css?v=1.6.1">
   <link rel="stylesheet" href="vendor/googlefonts/fonts.css?v=1">
-  <link rel="stylesheet" href="dashboard-style.css?v=20260930a">
+  <link rel="stylesheet" href="dashboard-style.css?v=20261002a">
   <link rel="stylesheet" href="customer-service.css?v=3">
   <link rel="stylesheet" href="mobile-back.css">
   <link rel="stylesheet" href="composer.css?v=20260829e">
@@ -76,14 +76,12 @@
         <button class="mobile-topbar-more" onclick="toggleProfileMoreMenu(event)" aria-label="More options"><i class="fas fa-ellipsis"></i></button>
     </div>
 
-    <!-- Shown only when viewing another user's profile -->
-    <div id="viewingOtherBanner" style="display:none; align-items:center; gap:12px; background:#f0fdf4; border:1px solid #bbf7d0; border-left:4px solid #22c55e; border-radius:14px; padding:12px 20px; margin-bottom:20px; font-size:14px; font-weight:600; color:#15803d;">
-        <i class="fas fa-eye"></i>
-        <span>You are viewing another member's profile.</span>
-        <button onclick="goBack()" style="margin-left:auto; background:#22c55e; color:#fff; border:none; border-radius:10px; padding:8px 16px; font-size:13px; font-weight:700; cursor:pointer;">
-            <i class="fas fa-arrow-left"></i> Go Back
-        </button>
-    </div>
+    <!-- Shown only when viewing another user's profile. Minimal back button (no
+         banner). On mobile the fixed profile top bar already has a back button, so
+         this one is hidden there (see the media query) to avoid two back controls. -->
+    <button id="viewingOtherBack" class="rm-mobile-back viewing-other-back" onclick="goBack()" aria-label="Go back" style="display:none;">
+        <i class="fas fa-arrow-left"></i> <span class="rm-back-label">Back</span>
+    </button>
 
     <div class="profile-layout">
         <div class="bento-card profile-card" id="profileCard">
@@ -650,7 +648,7 @@
 <script src="livemarket.js?v=20261001m"></script>
 <script src="privacy.js?v=20260831a"></script>
 <script src="deactivation.js?v=20260831a"></script>
-<script src="dashboard-script.js?v=20261001a"></script>
+<script src="dashboard-script.js?v=20261002b"></script>
 <script src="emoji-picker.js?v=20260928d"></script>
 <script src="home.js?v=20260930i"></script>
 <script src="feed-video.js?v=20260929a"></script>

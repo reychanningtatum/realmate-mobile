@@ -1423,8 +1423,8 @@ async function loadProfile() {
     if (effectivelyViewingOther) {
         document.querySelectorAll('.edit-only, .post-controls, #postForm, #editProfileBtn, .menu-dots')
             .forEach(el => el && (el.style.display = 'none'));
-        const backBtn = document.getElementById('viewingOtherBanner');
-        if (backBtn) backBtn.style.display = 'flex';
+        const backBtn = document.getElementById('viewingOtherBack');
+        if (backBtn) backBtn.style.display = 'inline-flex';
     }
 
     updateUI();
@@ -2397,11 +2397,38 @@ window.onload = async () => {
     }
 };
 
+// Downscale a data URL to a max dimension before handing it to Cropper. A raw
+// phone photo (e.g. 4000px) makes Cropper's drag/zoom laggy on mobile because it
+// transforms a huge canvas every move; the final cover is only 1200x720, so a
+// ~1600px working image is visually identical but drags/zooms smoothly. Pure
+// client-side, no state churn, no timing hacks. Falls back to the original on error.
+function _downscaleDataUrl(dataUrl, maxDim) {
+    return new Promise(resolve => {
+        try {
+            const img = new Image();
+            img.onload = () => {
+                const scale = Math.min(1, maxDim / Math.max(img.naturalWidth, img.naturalHeight));
+                if (scale >= 1) { resolve(dataUrl); return; }   // already small enough
+                const c = document.createElement('canvas');
+                c.width = Math.round(img.naturalWidth * scale);
+                c.height = Math.round(img.naturalHeight * scale);
+                c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+                resolve(c.toDataURL('image/jpeg', 0.92));
+            };
+            img.onerror = () => resolve(dataUrl);
+            img.src = dataUrl;
+        } catch (e) { resolve(dataUrl); }
+    });
+}
+
 function uploadCoverPhoto(input) {
     const file = input.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = e => openCoverCropModal(e.target.result, true);
+    reader.onload = async e => {
+        const small = await _downscaleDataUrl(e.target.result, 1600);
+        openCoverCropModal(small, true);
+    };
     reader.readAsDataURL(file);
 }
 
@@ -2492,13 +2519,24 @@ async function applyCoverCrop() {
         if (!canvas) throw new Error('Could not process image.');
         const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.90));
         const file = new File([blob], `cover_${Date.now()}.jpg`, { type: 'image/jpeg' });
-        const { data: authData } = await _supabase.auth.getUser();
-        const userId = authData?.user?.id;
-        const path = `covers/${userId}_${Date.now()}.jpg`;
+        // Resolve the authenticated user id RELIABLY. getUser() hits the auth server
+        // over the network and on mobile (Capacitor/WKWebView) can return null, which
+        // made the path `covers/undefined_*` — and the storage policy enforces the
+        // uploader's own uid in the path, so that failed with "new row violates RLS".
+        // getSession() reads the stored token locally (no network); fall back to the
+        // cached user. Abort cleanly if we truly can't identify the signed-in user.
+        let userId = null;
+        try { const { data } = await _supabase.auth.getSession(); userId = data?.session?.user?.id || null; } catch (e) {}
+        if (!userId) { try { const { data } = await _supabase.auth.getUser(); userId = data?.user?.id || null; } catch (e) {} }
+        if (!userId) { try { userId = (JSON.parse(localStorage.getItem('user') || '{}') || {}).id || null; } catch (e) {} }
+        if (!userId) throw new Error('You appear to be signed out. Please reopen the app and try again.');
+        const path = `covers/${userId}_${Date.now()}.jpg`;   // uid in path → satisfies the per-user storage policy
         const { error } = await _supabase.storage.from('images').upload(path, file, { upsert: true });
         if (error) throw error;
         const url = _supabase.storage.from('images').getPublicUrl(path).data.publicUrl;
-        await _supabase.from('profiles').update({ cover_url: url }).eq('id', userId);
+        // Persist to the profile; surface any error instead of silently failing.
+        const { error: updErr } = await _supabase.from('profiles').update({ cover_url: url }).eq('id', userId);
+        if (updErr) throw updErr;
         user.coverUrl = url;
         localStorage.setItem('user', JSON.stringify(user));
         updateUI();
