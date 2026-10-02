@@ -1282,7 +1282,9 @@ html[data-theme="dark"] .stats-list-avatar { border-color: #334155; }
        cover; only the two buttons capture clicks. */
     .mobile-profile-topbar {
         display: flex; align-items: center; justify-content: space-between;
-        position: absolute; top: 44px; left: 0; right: 0; height: auto;   /* pushed lower so the buttons clear the status bar */
+        /* Overlay the cover; sit just below the status bar / Dynamic Island on every
+           device via the safe-area inset (falls back to a sensible offset when 0). */
+        position: absolute; top: calc(env(safe-area-inset-top, 0px) + 10px); left: 0; right: 0; height: auto;
         padding: 14px 16px; background: transparent;
         border-bottom: none; z-index: 200; pointer-events: none;
     }
@@ -1408,12 +1410,17 @@ html[data-theme="dark"] .stats-list-avatar { border-color: #334155; }
        then grow the cover by the same inset so its visible height below the
        status bar is unchanged. Pulling the card (not just the cover) avoids the
        negative-margin-inside-the-card edge case that left a strip above it. */
-    /* We do NOT render behind the status bar (that needed native/device work and
-       kept regressing). The webview already sits below the status bar, so the
-       Dashboard content just runs FLUSH to the top of the web view — kill any
-       safe-area top padding (which was leaving a white strip above the cover) and
-       drop the cover's negative-margin/inset math so it starts right at the top. */
-    html.rm-embedded body { padding-top: 0; }
+    /* COVER IS THE TOPMOST PROFILE CONTENT (immersive).
+       safe-area.css adds `body{padding-top:env(safe-area-inset-top)}` to protect
+       content from the status bar — but on the profile page that inset renders as a
+       visible WHITE BLOCK above the full-bleed cover (whenever the webview extends
+       into the safe area / the earlier rm-embedded-only override didn't apply). The
+       profile's first element is the cover, which is MEANT to occupy the top of the
+       screen, so kill the body top padding here (this stylesheet only loads on the
+       profile page, so no other page is affected) — the cover then runs to the very
+       top with no white strip, and the floating back/more buttons below carry the
+       safe-area offset so they still clear the status bar. No negative margins. */
+    body { padding-top: 0 !important; }
     .profile-card {
         margin-top: 0;
     }
