@@ -528,14 +528,9 @@
             <span style="font-size:15px; font-weight:700; color:#0f172a;">Reposition Cover Photo</span>
             <button onclick="closeCoverCropModal()" style="background:none; border:none; color:#64748b; font-size:18px; cursor:pointer;"><i class="fas fa-times"></i></button>
         </div>
-        <!-- Custom pan/zoom editor: a fixed 5:3 frame (matches the displayed cover) with
-             the image transformed inside it. The image follows the finger 1:1 and is
-             clamped so it always fully covers the frame (no empty space, no white strip,
-             no magnet). Drag to reposition, pinch / wheel to zoom. -->
-        <div style="padding:16px; background:#0f172a;">
-            <div id="coverCropFrame" style="position:relative; width:100%; aspect-ratio:5/3; overflow:hidden; border-radius:10px; background:#0f172a; touch-action:none; cursor:grab;">
-                <img id="coverCropImage" src="" style="position:absolute; left:0; top:0; transform-origin:0 0; will-change:transform; max-width:none; user-select:none; -webkit-user-drag:none; pointer-events:none;">
-            </div>
+        <!-- Crop canvas area stays dark for image contrast (per spec). -->
+        <div style="padding:16px; max-height:60vh; overflow:hidden; background:#0f172a;">
+            <img id="coverCropImage" src="" style="display:block; max-width:100%;">
         </div>
         <div style="padding:12px 20px; border-top:1px solid #e2e8f0; display:flex; justify-content:flex-end; gap:10px;">
             <button onclick="closeCoverCropModal()" style="padding:10px 20px; border-radius:10px; border:1px solid #e2e8f0; background:#f1f5f9; color:#0f172a; font-size:13px; font-weight:700; cursor:pointer;">Cancel</button>
@@ -653,7 +648,7 @@
 <script src="livemarket.js?v=20261001m"></script>
 <script src="privacy.js?v=20260831a"></script>
 <script src="deactivation.js?v=20260831a"></script>
-<script src="dashboard-script.js?v=20261002d"></script>
+<script src="dashboard-script.js?v=20261002e"></script>
 <script src="emoji-picker.js?v=20260928d"></script>
 <script src="home.js?v=20260930i"></script>
 <script src="feed-video.js?v=20260929a"></script>
