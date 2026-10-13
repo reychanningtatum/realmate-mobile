@@ -247,6 +247,19 @@
     } catch (e) { return !!(f && f.__subpage); }
   }
 
+  // Chat and Notifications are ROOT-ONLY destinations. Both open a member's
+  // profile INSIDE their own iframe (location.href = dashboard.html?user_id=…), so
+  // that frame can be left parked on a profile: by leaving via the navbar instead
+  // of Back, or because Back is a history.back() over the session history that all
+  // iframes SHARE and can pop a different frame's entry. The shell then "restored
+  // the tab exactly as left" — i.e. showed the last viewed profile when the user
+  // tapped Chat / Notifications. An explicit navbar tap on these tabs must always
+  // land on the tab's own page, so a frame (or a suspended tab's saved URL) that
+  // is on any other page is never restored for them — the root is loaded instead.
+  // (Portal deliberately keeps its listing detail; Feed keeps its own behaviour.)
+  var ROOT_ONLY = { chat: true, notifications: true };
+  function pageOf(url) { return String(url || '').split('#')[0].split('?')[0].split('/').pop(); }
+
   function go(tab, forceSrc) {
     if (!TABS[tab] && !forceSrc) return;
     closeNavMenu();
@@ -258,11 +271,15 @@
     // just return the content to the top (Portal: the top of the active sub-tab).
     if (tab === current && !forceSrc) {
       var curFrame = frames[tab];
+      // Root-only tab parked on another page → fall through to a clean root load
+      // (never history.back(): the shared history may pop some other frame).
+      if (!(ROOT_ONLY[tab] && curFrame && onSubpage(curFrame))) {
       if (curFrame && onSubpage(curFrame)) { try { curFrame.contentWindow.history.back(); } catch (e) {} return; }
       // Feed: re-tapping resets any active filter (Saved/hashtag) to the plain feed
       // at the top — idempotent, never a reload — so repeated taps can't break it.
       try { var _fw = curFrame && curFrame.contentWindow; if (_fw && typeof _fw.__feedNavHome === 'function') { _fw.__feedNavHome(); return; } } catch (e) {}
       scrollFrameTop(tab); return;
+      }
     }
     // Remember where we came from so an in-shell "Back" (rmBack) can return
     // there — e.g. Portal → Profile → Back should land on Portal, not the
@@ -303,7 +320,10 @@
     }
 
     var cached = frames[tab];
-    if (cached && !forceSrc) {
+    // A root-only tab whose live frame wandered onto another page is NOT revealed
+    // as-is; it drops through to the fresh-load path below, which loads the root.
+    var parked = !!(cached && !forceSrc && ROOT_ONLY[tab] && onSubpage(cached));
+    if (cached && !forceSrc && !parked) {
       // Show the tab EXACTLY as the user left it — INCLUDING a sub-page (Portal →
       // a listing detail). Re-entering Portal after a Feed round-trip keeps that
       // listing detail on screen; its Back button (goBack → rmBack → a single
@@ -333,6 +353,9 @@
     // user left it (its sub-page/query + scroll), not the bare tab root.
     var _resume = (!forceSrc && suspended[tab]) ? suspended[tab] : null;
     if (_resume) delete suspended[tab];
+    // Same rule for a SUSPENDED root-only tab: if it was freed while parked on
+    // another page (a profile), resume at the tab root, not that saved URL.
+    if (_resume && ROOT_ONLY[tab] && pageOf(_resume.url) !== pageOf(TABS[tab])) _resume = null;
     var _srcUrl = forceSrc || (_resume && _resume.url) || TABS[tab];
     var f = document.createElement('iframe');
     f.className = 'rm-frame';
