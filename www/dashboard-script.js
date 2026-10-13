@@ -2429,6 +2429,12 @@ async function applyCrop() {
 
 document.getElementById("fileInput").addEventListener("change", function () {
     if (!this.files[0]) return;
+    // The "Choose File" source has no accept filter — never take a video/document.
+    if (!(this.files[0].type || '').startsWith('image/')) {
+        this.value = "";
+        (window.showToast || function(){})('Please choose a photo.', 'error');
+        return;
+    }
     // Store original file so applyCrop can upload it separately
     window._pendingOriginalFile = new File(
         [this.files[0]],

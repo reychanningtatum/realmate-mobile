@@ -108,6 +108,12 @@ function previewMedia(event) {
     const video = document.getElementById("videoPreview");
 
     if (!file) return;
+    // Photos only — video uploads are not supported anywhere in the app.
+    if (!file.type.startsWith('image/')) {
+        event.target.value = "";
+        if (typeof showToast === 'function') showToast('Only photos can be uploaded.', 'error');
+        return;
+    }
 
     container.style.display = "block";
     const url = URL.createObjectURL(file);
@@ -539,7 +545,7 @@ async function createForumPost() {
         let mediaUrl = null;
         let mediaType = null;
 
-        if (mediaInput && mediaInput.files[0]) {
+        if (mediaInput && mediaInput.files[0] && mediaInput.files[0].type.startsWith('image/')) {
             const file = await compressImage(mediaInput.files[0]);
             const filePath = `posts/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
             await _supabase.storage.from('forum-media').upload(filePath, file);
