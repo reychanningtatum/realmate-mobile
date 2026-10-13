@@ -239,6 +239,10 @@
   padding: 1px 7px; border-radius: 50px; text-transform: uppercase; letter-spacing: 0.02em;
 }
 .hf-c-badge i { font-size: 9px; }
+/* Verified account check — duplicated from home.css because the profile page
+   (dashboard.html) renders Feed cards without loading home.css. */
+.hf-verified { color: var(--primary, #32cd32); font-size: 0.95em; margin-left: 3px; vertical-align: -1px; flex-shrink: 0; }
+.hf-c-name .hf-verified { margin-left: -2px; }
 .hf-c-text { font-size: 14px; color: #1c1e21; line-height: 1.45; margin-top: 2px; word-break: break-word; }
 .hf-c-photo {
   display: block; max-width: 220px; max-height: 220px; margin-top: 6px;
