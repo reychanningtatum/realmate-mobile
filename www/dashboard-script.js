@@ -1543,6 +1543,9 @@ async function _loadProfileRun() {
                         };
                         localStorage.setItem("user", JSON.stringify(user));
                     }
+                } else if (effectivelyViewingOther && profErr && user && user.id === targetId) {
+                    // A re-run (live relationship change) whose fetch FAILED: keep the
+                    // details already loaded for this same user rather than blanking them.
                 } else if (effectivelyViewingOther) {
                     // Profile row missing — show blank rather than current user's data
                     user = {
@@ -1688,15 +1691,15 @@ async function _loadProfileRun() {
 
     // About: show the SAME locked-state gate as Posts/Listings (not just a hidden
     // card) so a non-realmate consistently sees "Become realmates to view post,
-    // listings and about" across all three sections (#12). The private sublines
-    // are hidden regardless. Runs AFTER updateUI() populated them, so this is the
-    // final word.
+    // listings and about" across all three sections (#12).
+    // The header detail line (location / years / languages / relationship) is
+    // part of the profile header, like the name and counts — it is rendered once
+    // by updateUI() from the viewed user's own profile row and is NOT touched
+    // here. This gate used to hide it after the access lookup resolved, which is
+    // why the details appeared and then vanished.
     const _aboutCard = document.querySelector('.about-card');
     if (effectivelyViewingOther && !_canPosts) {
         if (_aboutCard) _aboutCard.innerHTML = _realmateGateHtml(user.name, 'about');
-        ['locationLine', 'relationshipLine', 'yearsLine', 'languagesLine'].forEach(function (id) {
-            var el = document.getElementById(id); if (el) el.style.display = 'none';
-        });
     } else if (_aboutCard && _aboutCard.querySelector('[data-gate-kind]') && _aboutCardTemplate) {
         // Access is now granted (e.g. you just became realmates) but the card is
         // still showing the gate from a PRIOR render. There's no "un-gate" for it
