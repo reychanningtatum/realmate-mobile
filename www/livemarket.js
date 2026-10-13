@@ -2852,7 +2852,8 @@ const _LM_SEARCH_SOFT = new Set(['condo', 'condominium', 'unit', 'property', 'pr
     'house', 'apartment', 'residential', 'real', 'estate', 'place', 'space']);
 
 function _lmSearchNorm(s) {
-    return String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    return String(s || '').normalize('NFKD').toLowerCase().replace(/[\u0300-\u036f]/g, '')   // NFKD also folds styled Unicode "fonts" to plain letters
+       
         .replace(/[^a-z0-9]+/g, ' ').trim();
 }
 // Fold spelling variants of one concept into a single token:

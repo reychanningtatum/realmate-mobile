@@ -149,6 +149,8 @@
             const after = lower.slice(end, end + 24);
             let value = parseFloat(num.replace(/,/g, ''));
             if (!(value > 0)) continue;
+            // "₱14,000 / sqm" is a RATE, not the price of the property.
+            if (/^\s*(?:\/|per\b)\s*(?:sqm|sq\b|sq\.|square)/.test(after)) continue;
             if (unit) {
                 // "500 m from MRT" is metres, not millions.
                 if (unit === 'm' && !cur && /^\s*(?:from|away|walk|radius)\b/.test(after)) continue;
@@ -701,6 +703,10 @@
             if (EXACT_ONLY_PROJECTS.has(projLower)) continue;
             const npw = projLower.split(/\s+/).length;
             const projLen = projLower.length;
+            // A short one-word name (an acronym like "TREC") is exact-only: one edit
+            // is a quarter of the word, so "REC" in a broker's licence line ("REB,
+            // REA, REC") or "the rec room" would otherwise become a project.
+            if (npw === 1 && projLen <= 4) continue;
             // Digits in a name are DISTINCTIVE and must not be fuzzed away: "hotel"
             // must not become "Hotel101", "west" must not become "100 West", "peaklane"
             // must not become "202 Peaklane". A candidate phrase must contain every
@@ -933,13 +939,24 @@
         try { return extractProject(text) || null; } catch (e) { return null; }
     }
 
+    // Captions pasted from social media are often typed in styled Unicode
+    // "fonts" (𝗣𝗥𝗜𝗖𝗘: ₱𝟯𝟬,𝟰𝟯𝟲,𝟬𝟬𝟬) — different code points that only LOOK like
+    // letters and digits, so no extractor could read them. NFKC folds them back to
+    // plain characters. Extraction reads this folded text; the stored post and what
+    // is displayed as the original are never changed.
+    function _plainText(text) {
+        const t = String(text == null ? '' : text);
+        try { return /[^\u0000-\u024f\u20b1]/.test(t) ? t.normalize('NFKC') : t; } catch (e) { return t; }
+    }
+
     function splitProperties(text) {
-        const raw = String(text == null ? '' : text);
-        const cached = _propSplitCache.get(raw);
+        const key = String(text == null ? '' : text);
+        const cached = _propSplitCache.get(key);
         if (cached) return cached;
+        const raw = _plainText(key);
         // Bounded work: a caption is user input parsed for every viewer (and
         // server-side), so an oversized post is simply treated as one property.
-        if (raw.length > _PROP_MAX_CHARS) return { multi: false, sections: [raw], primary: raw };
+        if (raw.length > _PROP_MAX_CHARS) return { multi: false, sections: [raw], primary: raw };   // not cached: cheap
         const lines = raw.split('\n');
         const n = lines.length;
         if (n > _PROP_MAX_LINES) return { multi: false, sections: [raw], primary: raw };
@@ -997,7 +1014,7 @@
             ? { multi: true, sections, primary: sections[0] }
             : { multi: false, sections: [raw], primary: raw };
         if (_propSplitCache.size > 2000) _propSplitCache.clear();
-        _propSplitCache.set(raw, out);
+        _propSplitCache.set(key, out);
         return out;
     }
 
