@@ -385,7 +385,7 @@
 <script src="mates.js?v=20260930c"></script>
 <script src="nav-menu.js?v=20260930a"></script>
 <script src="location-engine.js?v=20260809b"></script>
-<script src="match-engine.js?v=20261014b"></script>
+<script src="match-engine.js?v=20261014c"></script>
 <script src="developers.js?v=36"></script>
 <script src="rm-track.js?v=3"></script>
 <script src="match-alert.js?v=20261001m"></script>
@@ -566,15 +566,31 @@ function detectProjectName(text){
   //     lowercase marketing ("prime residences") is excluded, and rejects
   //     location/use/marketing lead words.
   const SUFFIX = 'residences?|residenza|towers?|suites?|enclave|palazzo|terraces?|residency';
-  const re = new RegExp('\\b([A-Za-z0-9&\'’.-]+(?:\\s+[A-Za-z0-9&\'’.-]+){0,2})\\s+(' + SUFFIX + ')\\b', 'ig');
-  const STOP = /^(?:the|new|old|for|near|along|in|at|of|prime|luxury|modern|brand|best|great|ideal|our|this)$/i;
+  // Walk back from each suffix over the proper-noun words that name it ("The
+  // Seasons Residences"), stopping at the first word that isn't part of a name.
+  // A name used only as a reference point ("near … Residences") is a location
+  // reference, not this listing's project.
+  const sufRe = new RegExp('\\b(' + SUFFIX + ')\\b', 'ig');
+  const NOT_NAME = /^(?:for|sale|rent|lease|unit|units|condo|condominium|bedrooms?|br|studio|new|old|near|along|in|at|of|prime|luxury|modern|brand|best|great|ideal|our|this|any|a|an)$/i;
+  const LANDMARK = /(?:\bnear(?:by)?|\bbeside|\bacross(?:\s+from)?|\bopposite|\bbehind|\bfacing|\balong|\bclose\s+to|\bnext\s+to|\bin\s+front\s+of|\bwalking\s+distance\s+(?:to|from)|\b(?:mins?|minutes?|steps?|meters?|km)\s+(?:away\s+)?(?:to|from)|\bviews?\s+of|\boverlooking|\bvicinity\s+of)\s+(?:the\s+)?$/i;
   let m;
-  while((m = re.exec(t))){
-    const words = m[1].split(/\s+/);
-    if(!words.every(w => /^[A-Z]/.test(w))) continue;   // proper nouns only
-    if(STOP.test(words[0])) continue;                    // not a place/use/marketing lead
-    const suf = m[2].charAt(0).toUpperCase() + m[2].slice(1).toLowerCase();
-    return _titleCaseName(m[1]) + ' ' + suf;
+  while((m = sufRe.exec(t))){
+    const lineStart = t.lastIndexOf('\n', m.index) + 1;
+    const pre = t.slice(lineStart, m.index).replace(/\s+$/, '');
+    const toks = pre ? pre.split(/\s+/) : [], words = [];
+    while(toks.length && words.length < 3){
+      const w = toks[toks.length - 1].replace(/^[^A-Za-z0-9]+/, '');
+      if(!/^[A-Z0-9][A-Za-z0-9&'’.-]*$/.test(w)) break;
+      if(NOT_NAME.test(w) || /^\d/.test(w)) break;                    // "2BR", "59" are specs, not part of a name
+      if(/^the$/i.test(w)){ words.unshift(w); toks.pop(); break; }   // "The" can only lead a name
+      words.unshift(w); toks.pop();
+    }
+    if(!words.some(w => !/^the$/i.test(w))) continue;                 // needs a real proper-noun word
+    if(LANDMARK.test(toks.join(' ') + ' ')) continue;
+    // "2BR Canopy Suite" names a unit layout, not a development.
+    if(toks.length && /^(?:\d[\s-]*(?:br|bed\w*)|studio|bedrooms?)$/i.test(toks[toks.length - 1].replace(/[^A-Za-z0-9-]/g, ''))) continue;
+    const suf = m[1].charAt(0).toUpperCase() + m[1].slice(1).toLowerCase();
+    return _titleCaseName(words.join(' ')) + ' ' + suf;
   }
   return null;
 }
@@ -889,6 +905,22 @@ function ldSpecificLocation(t, mainLoc){
   });
   return parts.join(', ');
 }
+// A stated RANGE is shown as the range ("1-2BR" → "1–2 Bedrooms", "80-100sqm" →
+// "80–100 sqm"), not collapsed to one end of it.
+function ldBedRange(t){
+  const m = t.match(/\b(studio|[1-5])\s*(?:-|–|to|or|\/)\s*([1-5])\s*-?\s*(?:br|bed\s*rooms?|bedrooms?)\b/i);
+  if (!m) return '';
+  const lo = /studio/i.test(m[1]) ? 'Studio' : m[1], hi = m[2];
+  if (lo !== 'Studio' && parseInt(lo, 10) >= parseInt(hi, 10)) return '';
+  return lo + '–' + hi + ' Bedrooms';
+}
+function ldSizeRange(t){
+  const m = t.match(new RegExp('\\b(\\d[\\d,.]*)\\s*(?:sqm\\s*)?(?:-|–|to)\\s*(\\d[\\d,.]*)\\s*' + _LD_SQM, 'i'));
+  if (!m) return '';
+  const lo = parseFloat(m[1].replace(/,/g, '')), hi = parseFloat(m[2].replace(/,/g, ''));
+  return (lo > 0 && hi > lo && hi <= lo * 10) ? lo.toLocaleString('en-PH') + '–' + hi.toLocaleString('en-PH') + ' sqm' : '';
+}
+
 // Building facts, only as stated. The unit count is the LARGEST "N units" the
 // post gives (its total — "30 units … each floor 10 units … 9 units at 25 sqm"),
 // and only for a whole building; a unit post saying "2 units left" is not that.
@@ -926,8 +958,8 @@ function ldProfile(text, hasProject){
   const type = ldPropertyType(text), kind = ldPropertyKind(type);
   if (kind === 'unit') {
     return { type, kind, title: '', specs: [
-      { ic:'fa-bed',           lbl:'Unit Type',   val:type },
-      { ic:'fa-vector-square', lbl:'Unit Size',   val:ldUnitSize(text) },
+      { ic:'fa-bed',           lbl:'Unit Type',   val:ldBedRange(text) || type },
+      { ic:'fa-vector-square', lbl:'Unit Size',   val:ldSizeRange(text) || ldUnitSize(text) },
       { ic:'fa-couch',         lbl:'Unit Fitout', val:ldFitout(text) },
     ], always: true };
   }

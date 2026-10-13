@@ -756,6 +756,18 @@
     // actual exact/distance comparison. One trailing token is removed.
     const GENERIC_TYPE_SUFFIX = /\s+(?:residences?|place|tower|towers|homes?|suites?|condominium|condo|park|plaza|village|estates?|heights|court|gardens?)$/i;
 
+    // Words that only ever relate things to each other. They can sit next to a
+    // project name but are never a corrupted part of one.
+    const _FUZZY_FUNCTION_WORDS = new Set(['a', 'an', 'the', 'in', 'at', 'on', 'of', 'to', 'for', 'by', 'from', 'with',
+        'and', 'or', 'near', 'within', 'around', 'along', 'beside', 'across', 'inside', 'outside', 'only', 'any', 'all',
+        'is', 'are', 'be', 'no', 'not', 'my', 'our', 'your', 'this', 'that', 'area', 'vicinity']);
+
+    // A project named only as a REFERENCE POINT — "near One Salcedo", "walking
+    // distance to Greenbelt Residences", "across Park Terraces" — tells you where
+    // the property is, not what it is. Such a mention is a location reference and
+    // does not make that project the listing's project.
+    const _PROJECT_AS_LANDMARK = /(?:\bnear(?:by)?|\bnearby\s+to|\bbeside|\bacross(?:\s+from)?|\bopposite|\bbehind|\bfacing|\balong|\bclose\s+to|\bnext\s+to|\bin\s+front\s+of|\bwalking\s+distance\s+(?:to|from)|\b(?:mins?|minutes?|steps?|meters?|km)\s+(?:away\s+)?(?:to|from)|\bview(?:s)?\s+of|\boverlooking|\bvicinity\s+of)\s+(?:the\s+)?$/i;
+
     function fuzzyMatchProject(text) {
         const allProjects = [...KNOWN_PROJECTS, ...getLearnedProjects()];
         // Strip edge punctuation from each token ("veranda," → "veranda", "60k."
@@ -821,6 +833,14 @@
                 // (brand) must not become "amara" (project), and "monthly" must not
                 // become "Montala". Only single-token phrases can collide this way.
                 if (npw === 1 && (COMPANY_NAME_SET.has(phrase) || PROJECT_STOP_WORDS.has(phrase))) continue;
+                // Same rule inside a multi-word phrase: a function word or everyday
+                // word is itself, not a misspelt piece of a project name. Without
+                // this, "in Salcedo" (a place the buyer wants to be IN) was two edits
+                // from "One Salcedo" and a LOCATION became a PROJECT.
+                if (npw > 1) {
+                    const pt = phrase.split(' '), jt = projLower.split(/\s+/);
+                    if (pt.some((w, k) => w !== jt[k] && (_FUZZY_FUNCTION_WORDS.has(w) || PROJECT_STOP_WORDS.has(w)))) continue;
+                }
                 const dist = levenshtein(phrase, projLower, threshold);
                 if (dist > 0 && dist <= threshold && dist < bestDist) {
                     bestDist = dist;
@@ -855,7 +875,8 @@
             while ((hit = upper.indexOf(projU, from)) !== -1) {
                 const b = hit > 0 ? upper[hit - 1] : ' ';
                 const a = (hit + projU.length < upper.length) ? upper[hit + projU.length] : ' ';
-                if (!/[A-Z0-9]/.test(b) && !/[A-Z0-9]/.test(a)) { idx = hit; break; }
+                if (!/[A-Z0-9]/.test(b) && !/[A-Z0-9]/.test(a) &&
+                    !_PROJECT_AS_LANDMARK.test(upper.slice(Math.max(0, hit - 40), hit))) { idx = hit; break; }
                 from = hit + 1;
             }
             if (idx === -1 || idx >= earliest) continue;
