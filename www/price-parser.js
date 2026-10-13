@@ -20,7 +20,7 @@
         if (!text) return 0;
         const raw = String(text);
         const lower = raw.toLowerCase();
-        let m = lower.match(/(\d+\.?\d*)\s*m(?:illion)?/);
+        let m = lower.match(/(\d+\.?\d*)\s*m(?:illion|il|n)?\b/);
         if (m) return parseFloat(m[1]) * 1e6;
         if ((m = lower.match(/(\d+\.?\d*)\s*k\b/))) return parseFloat(m[1]) * 1e3;
         m = raw.replace(/,/g, '').match(/\b(\d{7,9})\b/);

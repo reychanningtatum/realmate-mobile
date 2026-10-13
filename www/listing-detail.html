@@ -579,7 +579,7 @@ function parse(text){
   // Single source of the highlighted peso figure (price-parser.js), so the
   // Admin panel's Sold totals sum exactly what's shown here. 0 → no price.
   let price = (window.RM_PRICE ? RM_PRICE.extractAmount(text) : 0) || null;
-  if(price===null){ let m=lower.match(/(\d+\.?\d*)\s*m(?:illion)?/);
+  if(price===null){ let m=lower.match(/(\d+\.?\d*)\s*m(?:illion|il|n)?\b/);
     if(m) price=parseFloat(m[1])*1e6;
     else if((m=lower.match(/(\d+\.?\d*)\s*k\b/))) price=parseFloat(m[1])*1e3;
     else { m=text.replace(/,/g,'').match(/\b(\d{7,9})\b/); if(m) price=parseFloat(m[1]); }

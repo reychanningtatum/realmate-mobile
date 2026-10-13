@@ -170,7 +170,7 @@ const COMPANY_NAMES = ['alveo land corp','alveo land','alveo','smdc','dmci','aya
 
 function fmtP(n) { if(n>=1e6) return '₱'+(n/1e6).toFixed(1).replace(/\.0$/,'')+'M'; if(n>=1e3) return '₱'+(n/1e3).toFixed(0)+'K'; return '₱'+n.toFixed(0); }
 function extractSqm(t) { const m = t.match(/(\d+)\s*(?:sqm|sq\.?\s*m)/i); return m ? parseInt(m[1]) : null; }
-function extractPrice(t) { let m=t.toLowerCase().match(/(\d+\.?\d*)\s*m(?:illion)?/); if(m) return parseFloat(m[1])*1e6; m=t.replace(/,/g,'').match(/\b(\d{7,9})\b/); return m?parseFloat(m[1]):null; }
+function extractPrice(t) { let m=t.toLowerCase().match(/(\d+\.?\d*)\s*m(?:illion|il|n)?\b/); if(m) return parseFloat(m[1])*1e6; m=t.replace(/,/g,'').match(/\b(\d{7,9})\b/); return m?parseFloat(m[1]):null; }
 function extractUnit(t) { const l=t.toLowerCase(); if(/\bstudio\b/.test(l)) return 'Studio'; if(/\b1\s*br\b|1\s*bed/i.test(t)) return '1BR'; if(/\b2\s*br\b|2\s*bed/i.test(t)) return '2BR'; if(/\b3\s*br\b|3\s*bed/i.test(t)) return '3BR'; if(/\b4\s*br\b|4\s*bed/i.test(t)) return '4BR'; return null; }
 function extractProject(t) { const u=t.toUpperCase(); let e=Infinity,f=null; for(const p of KNOWN_PROJECTS){const i=u.indexOf(p.toUpperCase()); if(i!==-1&&i<e){e=i;f=p;}} return f; }
 function clamp(v,lo,hi){return Math.max(lo,Math.min(hi,v));}
