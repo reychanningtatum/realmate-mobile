@@ -639,6 +639,13 @@ function timeAgo(dateStr) {
 // Realmates at a time. Desktop ignores this — the tabs are hidden and all three
 // panels always show in their own columns.
 function switchProfileTab(tab) {
+    // Idempotent: selecting the tab that is already showing is a no-op, so repeated
+    // taps (or the deep-link landing on a tab the user already picked) never
+    // re-toggle classes or re-lay-out the panels.
+    const _btn = document.querySelector('.profile-tab[data-tab="' + tab + '"]');
+    const _panel = document.querySelector('.profile-tab-panel[data-tab-panel="' + tab + '"]');
+    if (_btn && _panel && _btn.classList.contains('active') && _panel.classList.contains('tab-active')
+        && document.querySelectorAll('.profile-tab.active').length === 1) return;
     document.querySelectorAll('.profile-tab').forEach(b =>
         b.classList.toggle('active', b.dataset.tab === tab));
     document.querySelectorAll('.profile-tab-panel').forEach(p =>
@@ -686,7 +693,11 @@ function _deepLinkToListings() {
     const card = document.querySelector('.listings-card');
     // Realmates-only listings on another member's profile are hidden entirely —
     // just leave the visitor at the top of the profile.
-    if (card && card.style.display !== 'none') switchProfileTab('listings');
+    // The tab was already selected up front (see _initProfileTabState); this only
+    // re-asserts it, and never overrides a different tab the visitor picked while
+    // the profile was still loading.
+    if (card && card.style.display !== 'none'
+        && (!_profileTabUserPick || _profileTabUserPick === 'listings')) switchProfileTab('listings');
 
     // RETURNING from a listing detail opened off THIS profile's listings? Restore the
     // exact scroll instead of jumping to the top (see lmOpenListing + listing-detail
@@ -702,7 +713,9 @@ function _deepLinkToListings() {
 
     if (restore) {
         _restoreProfileListingsScroll(restore.y);
-    } else {
+    } else if (!_profileUserMoved) {
+        // Only reset to the top if the visitor hasn't scrolled yet — never yank the
+        // page back after they have started reading.
         try {
             window.scrollTo(0, 0);
             document.querySelectorAll('.main-content').forEach(el => { el.scrollTop = 0; });
@@ -714,6 +727,29 @@ function _deepLinkToListings() {
     const qs = params.toString();
     history.replaceState(null, '', location.pathname + (qs ? '?' + qs : ''));
 }
+
+// The destination tab is STATE established the moment the page starts, not a
+// side effect applied once the profile finishes loading. With ?view=listings the
+// Listings tab is selected immediately and shows its normal loading state, so a
+// tap on "Listings" while the profile is still loading changes nothing (same
+// destination → no-op) instead of exposing a half-built panel that the loader
+// then rewrites step by step. Also records what the visitor does during the
+// load, so the deep-link above can't fight their choice.
+const _LISTINGS_LOADING_HTML = `<div class="listings-loading"><i class="fas fa-spinner fa-spin"></i> Loading listings…</div>`;
+let _profileTabUserPick = null;    // tab the visitor tapped themselves (null = none yet)
+let _profileUserMoved = false;     // visitor scrolled since the page started
+(function _initProfileTabState() {
+    try {
+        document.querySelectorAll('.profile-tab').forEach(b =>
+            b.addEventListener('click', () => { _profileTabUserPick = b.dataset.tab; }, true));
+        const moved = () => { _profileUserMoved = true; };
+        ['wheel', 'touchmove'].forEach(ev => window.addEventListener(ev, moved, { passive: true, once: true }));
+        if (new URLSearchParams(window.location.search).get('view') !== 'listings') return;
+        switchProfileTab('listings');
+        const wrap = document.getElementById('recentListingsBody');
+        if (wrap && !wrap.children.length) wrap.innerHTML = _LISTINGS_LOADING_HTML;
+    } catch (e) {}
+})();
 
 // Re-assert the scroll for a short window because the profile + its listings render
 // in batches after load; stops if the visitor scrolls themselves. Handles whichever
@@ -1357,11 +1393,29 @@ function _renderDeactivatedProfileState() {
     });
 }
 
-async function loadProfile() {
+// loadProfile() is a single-flight operation. While a load is running, another
+// call never starts a competing one (two concurrent runs each rewrote the header,
+// listings and wall — the visible "blinking"). It returns the SAME in-flight
+// promise, and — because a caller usually means "something changed" — queues at
+// most ONE follow-up run for when the current one finishes.
+let _profileLoad = null;
+let _profileLoadAgain = false;
+let _profileLoadedAuthId = null;   // auth user the last completed load ran as
+function loadProfile() {
+    if (_profileLoad) { _profileLoadAgain = true; return _profileLoad; }
+    _profileLoad = (async () => {
+        try {
+            do { _profileLoadAgain = false; await _loadProfileRun(); } while (_profileLoadAgain);
+        } finally { _profileLoad = null; }
+    })();
+    return _profileLoad;
+}
+async function _loadProfileRun() {
     if (_supabase) {
         try {
             const _authUser = (await _supabase.auth.getUser()).data.user;
             const myAuthId = _authUser?.id;
+            _profileLoadedAuthId = myAuthId || null;
 
             // UGC safety (App Store Guideline 1.2): a blocked user's profile cannot
             // be viewed. Wait for RMBR's block list, then bounce back to the feed.
@@ -1821,7 +1875,34 @@ function _initListingHoverExpand(card) {
 // when a sold listing ticks past its 24h window and is swept away.
 let _dashListingsCtx = null;
 function reloadDashboardListings() {
-    if (_dashListingsCtx) renderRecentListings(_dashListingsCtx.targetId, _dashListingsCtx.canView);
+    if (_dashListingsCtx) renderRecentListings(_dashListingsCtx.targetId, _dashListingsCtx.canView, true);
+}
+
+// Listings render is single-flight per destination (owner id + access). A second
+// request for the SAME destination while one is running reuses that run instead
+// of starting a duplicate fetch; a data-change refresh (changed=true) queues ONE
+// follow-up. A request for a DIFFERENT destination supersedes the old run, whose
+// late results are then discarded (see the `live()` checks) so only the intended
+// owner's listings can ever be painted.
+let _listingsRun = null;   // { key, token, promise, again }
+let _listingsSeq = 0;
+function renderRecentListings(targetId, canView = true, changed = false) {
+    const key = String(targetId) + '|' + (canView ? 1 : 0);
+    if (_listingsRun && _listingsRun.key === key) {
+        if (changed) _listingsRun.again = true;
+        return _listingsRun.promise;
+    }
+    const run = { key, token: ++_listingsSeq, again: false, promise: null };
+    _listingsRun = run;
+    run.promise = (async () => {
+        try {
+            do {
+                run.again = false;
+                await _renderRecentListingsRun(targetId, canView, () => _listingsRun === run);
+            } while (run.again && _listingsRun === run);
+        } finally { if (_listingsRun === run) _listingsRun = null; }
+    })();
+    return run.promise;
 }
 
 // Keep Profile → Listings in sync with Portal → My Listings (the SAME `listings`
@@ -1852,7 +1933,7 @@ window.addEventListener('storage', function (e) {
     }
 });
 
-async function renderRecentListings(targetId, canView = true) {
+async function _renderRecentListingsRun(targetId, canView, live) {
     _dashListingsCtx = { targetId, canView };
     if (canView && targetId) _subscribeProfileListings(targetId);   // live sync with Portal
     const card = document.querySelector('.listings-card');
@@ -1870,7 +1951,12 @@ async function renderRecentListings(targetId, canView = true) {
 
     if (!wrap || !_supabase || !targetId) return;
 
-    wrap.innerHTML = `<div class="listings-loading"><i class="fas fa-spinner fa-spin"></i> Loading listings…</div>`;
+    // Show the loading state only when there is nothing of THIS owner's on screen
+    // yet. A refresh of already-rendered listings swaps the cards in one step at
+    // the end instead of flashing back to the spinner.
+    const _hasContent = wrap.dataset.listingsFor === String(targetId)
+        && wrap.children.length > 0 && !wrap.querySelector('.listings-loading');
+    if (!_hasContent) wrap.innerHTML = _LISTINGS_LOADING_HTML;
 
     try {
         // Fetch the complete set of the user's active listings (newest first) with
@@ -1884,6 +1970,7 @@ async function renderRecentListings(targetId, canView = true) {
             .order('created_at', { ascending: false });
 
         if (error) throw error;
+        if (!live()) return;   // superseded by a newer destination — discard
 
         // Drop any sold listing past its 24h window from the owner's own view and
         // finalize its deletion in the DB (owner has permission here). The permanent
@@ -1896,7 +1983,9 @@ async function renderRecentListings(targetId, canView = true) {
             finally { allListings = before; }
         }
 
+        if (!live()) return;
         if (!visible || visible.length === 0) {
+            wrap.dataset.listingsFor = String(targetId);
             wrap.innerHTML = `
                 <div class="profile-empty-state">
                     <i class="fas fa-house-circle-check"></i>
@@ -1970,6 +2059,8 @@ async function renderRecentListings(targetId, canView = true) {
             }
         } catch (e) { console.warn('[renderRecentListings] match counts failed', e); }
 
+        if (!live()) return;
+        wrap.dataset.listingsFor = String(targetId);
         wrap.classList.add('lm-post-embed');
         wrap.innerHTML = '';
         // Render from `visible` directly. Do NOT round-trip through the original
@@ -2473,7 +2564,13 @@ window.onload = async () => {
     if (_supabase) {
         await loadProfile();
         _supabase.auth.onAuthStateChange((event, session) => {
-            if (event === 'SIGNED_IN') loadProfile();
+            // supabase-js re-emits SIGNED_IN whenever the tab regains focus. Only a
+            // DIFFERENT signed-in user needs the profile rebuilt; the same user is
+            // already loaded (or loading), so re-running would only re-render.
+            if (event !== 'SIGNED_IN') return;
+            const uid = session && session.user && session.user.id;
+            if (_profileLoad || (uid && uid === _profileLoadedAuthId)) return;
+            loadProfile();
         });
     }
 };
