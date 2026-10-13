@@ -458,11 +458,17 @@
   @media(max-width:860px){
     .desktop-only{display:none!important;}
     .nav-in{height:60px;}
-    /* Fixed mobile topbar: the statement (.announce) + logo (.nav) stay pinned to
-       the top of the screen while the page scrolls underneath. The content's top
-       padding is set to this bar's height in JS (rmSyncTopbar), since the
-       statement can wrap to two lines on narrow screens. */
-    .mtopbar{display:block;position:fixed;top:0;left:0;right:0;z-index:60;background:var(--bg);}
+    /* Mobile app-shell layout: the DOCUMENT never scrolls — .content is the one
+       scroll container. The topbar (statement + logo) is sticky inside it and the
+       bottom CTA is fixed over a non-scrolling page, so neither can ever travel
+       with the scroll. (They used to be position:fixed over a scrolling document,
+       which the iOS web view intermittently let slide with the page — topbar
+       scrolled away, CTA stranded mid-screen.) */
+    html,body{height:100%;overflow:hidden;}
+    .content{position:fixed;inset:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;
+      overscroll-behavior-y:contain;scroll-behavior:smooth;
+      padding-top:0;padding-bottom:calc(82px + env(safe-area-inset-bottom));}
+    .mtopbar{display:block;position:sticky;top:0;z-index:60;background:var(--bg);}
     .announce{padding-top:calc(9px + env(safe-area-inset-top));}
     nav{position:static;}
     /* On mobile the sticky bottom bar carries Sign In + Get Started, so the
@@ -509,7 +515,6 @@
       background:rgba(6,12,22,0.92);backdrop-filter:blur(16px);
       border-top:1px solid rgba(255,255,255,0.08);}
     .m-cta .btn{flex:1;}
-    body{padding-bottom:82px;}
   }
   @media(max-width:420px){
     .wrap{padding:0 18px;}
@@ -1027,22 +1032,22 @@
     }
     window.scrollTo({ top: Math.max(0, Math.round(y)), behavior:'smooth' });
   }
-  function rmTop(){ window.scrollTo({top:0,behavior:'smooth'}); }
+  // On mobile the scroll container is .content (the document itself never scrolls).
+  function rmTop(){
+    var c = document.querySelector('.content');
+    if (c && window.matchMedia && window.matchMedia('(max-width:860px)').matches) c.scrollTo({top:0,behavior:'smooth'});
+    else window.scrollTo({top:0,behavior:'smooth'});
+  }
 
-  // Mobile only: the topbar (statement + logo) is position:fixed, so it no longer
-  // takes space in the flow. Pad the content down by the bar's real height so the
-  // page scrolls UNDERNEATH it with no gap and nothing peeks above the statement.
-  // The statement can wrap to two lines, so measure at runtime and re-measure on
-  // resize / orientation change. Desktop reverts to the CSS safe-area padding.
+  // The mobile topbar used to be position:fixed and needed the content padded down
+  // by its height. It is sticky (in flow) now, so this only clears that padding.
   function rmSyncTopbar(){
     try{
       var bar=document.querySelector('.mtopbar'), content=document.querySelector('.content');
       if(!bar||!content) return;
-      if(window.matchMedia && window.matchMedia('(max-width:860px)').matches){
-        content.style.paddingTop = Math.round(bar.getBoundingClientRect().height) + 'px';
-      } else {
-        content.style.paddingTop = '';
-      }
+      // The mobile topbar is sticky (in flow) now, so no top padding is needed on
+      // either layout — just clear any value left behind.
+      content.style.paddingTop = '';
     }catch(e){}
   }
   window.addEventListener('load', rmSyncTopbar);
