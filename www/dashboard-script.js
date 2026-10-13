@@ -1055,9 +1055,10 @@ function updateUI() {
     const coverPlaceholder = document.getElementById('coverPlaceholder');
     if (coverImg && user.coverUrl) {
         coverImg.style.backgroundImage = `url("${user.coverUrl}")`;
-        _applyCoverTransform(coverImg, user.coverTransform);
+        // Show the frame BEFORE framing: the framing needs its real pixel size.
         coverImg.style.display = 'block';
         if (coverPlaceholder) coverPlaceholder.style.display = 'none';
+        _applyCoverTransform(coverImg, user.coverTransform);
     } else if (coverImg) {
         coverImg.style.backgroundImage = '';
         coverImg.style.display = 'none';
@@ -2649,17 +2650,45 @@ function _applyCoverTransform(el, t) {
     try { if (typeof t === 'string') t = JSON.parse(t); } catch { t = null; }
     const ok = t && [t.x, t.y, t.width, t.height, t.nW, t.nH].every(n => typeof n === 'number' && isFinite(n))
         && t.width > 0 && t.height > 0 && t.nW > 0 && t.nH > 0;
-    if (!ok) {
+    el._coverT = ok ? t : null;
+    // Re-frame whenever the cover frame changes size (window resize, the frame
+    // first becoming visible) — the framing below depends on the frame's real
+    // pixel size, not just its percentages.
+    if (!el._coverRO && typeof ResizeObserver === 'function') {
+        el._coverRO = new ResizeObserver(() => _layoutCover(el));
+        el._coverRO.observe(el);
+    }
+    _layoutCover(el);
+}
+// Frame the saved crop rectangle inside the cover WITHOUT distorting the image.
+// The rectangle is saved in the editor's 5:3 shape, but the frame is not always
+// 5:3 (desktop is a wide strip). Sizing the background as independent width/height
+// percentages forced that rectangle to fill the frame exactly, stretching the
+// picture on desktop. Instead: scale the image uniformly so the rectangle COVERS
+// the frame, centred on the rectangle's centre and clamped to the image edges —
+// identical to the old result whenever the frame is 5:3, never stretched otherwise.
+function _layoutCover(el) {
+    const t = el._coverT;
+    if (!t) {
         el.style.backgroundSize = 'cover';
         el.style.backgroundPosition = 'center';
         return;
     }
-    const sw = t.nW / t.width * 100;
-    const sh = t.nH / t.height * 100;
-    const px = (t.nW - t.width) > 0 ? (t.x / (t.nW - t.width)) * 100 : 50;
-    const py = (t.nH - t.height) > 0 ? (t.y / (t.nH - t.height)) * 100 : 50;
-    el.style.backgroundSize = `${sw}% ${sh}%`;
-    el.style.backgroundPosition = `${px}% ${py}%`;
+    const cw = el.clientWidth, ch = el.clientHeight;
+    if (!(cw > 0 && ch > 0)) {
+        // Not laid out yet (hidden) — aspect-safe placeholder; the ResizeObserver
+        // re-frames it properly as soon as the frame has a size.
+        el.style.backgroundSize = 'cover';
+        el.style.backgroundPosition = 'center';
+        return;
+    }
+    const scale = Math.max(cw / t.width, ch / t.height);
+    const bw = t.nW * scale, bh = t.nH * scale;
+    const clamp = (v, lo) => Math.min(0, Math.max(lo, v));
+    const left = clamp(cw / 2 - (t.x + t.width / 2) * scale, cw - bw);
+    const top  = clamp(ch / 2 - (t.y + t.height / 2) * scale, ch - bh);
+    el.style.backgroundSize = `${bw}px ${bh}px`;
+    el.style.backgroundPosition = `${left}px ${top}px`;
 }
 
 let _coverCropper = null;
