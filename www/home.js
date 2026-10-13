@@ -88,7 +88,9 @@ async function _resolveLiveAuthors(rows) {
             const liveName = p.full_name || r.user_name;
             r.user_name = liveName;
             r.user_img  = _homeAvatarFor(liveName, p.avatar_url);
-            r.user_verified = !!p.is_verified;
+            // Only trust the badge when the row resolved by user_id — a legacy
+            // name-only row could otherwise borrow a verified account's name.
+            r.user_verified = !!(r.user_id && p.is_verified);
         }
     });
 }
