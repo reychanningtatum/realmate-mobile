@@ -183,6 +183,22 @@
     .ld-detail-time i{ font-size:11px; }
     .ld-detail-text{ font-size:14.5px; line-height:1.65; color:var(--ld-text); white-space:pre-wrap; overflow-wrap:anywhere; }
 
+    /* ── Multiple properties in one post (secondary entries) ── */
+    .ld-multi-card{ margin:12px 14px 0; padding:16px 20px; }
+    .ld-multi-label{ font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:#94a3b8; }
+    .ld-multi-count{ font-size:16px; font-weight:800; color:var(--ld-text); margin-top:4px; }
+    .ld-multi-note{ font-size:12.5px; font-weight:500; color:var(--ld-sub); margin:4px 0 6px; line-height:1.5; }
+    .ld-multi-item{ border-top:1px solid rgba(148,163,184,0.25); }
+    .ld-multi-item summary{ list-style:none; display:flex; align-items:center; gap:10px; padding:12px 0; cursor:pointer; }
+    .ld-multi-item summary::-webkit-details-marker{ display:none; }
+    .ld-multi-main{ flex:1; min-width:0; display:flex; flex-direction:column; gap:2px; }
+    .ld-multi-title{ font-size:14.5px; font-weight:700; color:var(--ld-text); overflow-wrap:anywhere; }
+    .ld-multi-meta{ font-size:12.5px; font-weight:500; color:var(--ld-sub); }
+    .ld-multi-price{ font-size:13.5px; font-weight:800; color:#16a34a; white-space:nowrap; }
+    .ld-multi-chev{ font-size:11px; color:#94a3b8; transition:transform .2s; }
+    .ld-multi-item[open] .ld-multi-chev{ transform:rotate(180deg); }
+    .ld-multi-text{ font-size:13.5px; line-height:1.6; color:var(--ld-text); white-space:pre-wrap; overflow-wrap:anywhere; padding:0 0 14px; }
+
     /* ── Posted-by card ── */
     .ld-poster-card{ margin:12px 14px 0; padding:16px 18px; cursor:pointer; }
     .ld-poster-label{ font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:#94a3b8; margin-bottom:12px; }
@@ -366,7 +382,7 @@
 <script src="mates.js?v=20260930c"></script>
 <script src="nav-menu.js?v=20260930a"></script>
 <script src="location-engine.js?v=20260809b"></script>
-<script src="match-engine.js?v=20261013a"></script>
+<script src="match-engine.js?v=20261013b"></script>
 <script src="developers.js?v=36"></script>
 <script src="rm-track.js?v=3"></script>
 <script src="match-alert.js?v=20261001m"></script>
@@ -594,8 +610,40 @@ function fmtPrice(price, range){
 }
 
 // Build the structured detail model used to render the sectioned card.
+// A post can list several properties. Its identity (location, project, price,
+// unit, size…) is the FIRST property section only — match-engine.js
+// splitProperties — so later properties never leak into the highlight.
+function ldPrimaryText(content){
+  const t = content || '';
+  try { return (window.RM_MATCH && RM_MATCH.primaryText) ? RM_MATCH.primaryText(t) : t; } catch(e){ return t; }
+}
+
+// The other properties named in the same post, as secondary entries. Each is
+// read from its OWN section; a field that section doesn't state is left out.
+function ldOtherProperties(content){
+  let split = null;
+  try { split = (window.RM_MATCH && RM_MATCH.splitProperties) ? RM_MATCH.splitProperties(content || '') : null; } catch(e){}
+  if(!split || !split.multi) return { count: 1, others: [] };
+  const others = split.sections.slice(1).map(sec => {
+    const firstLine = (sec.split('\n').find(l => l.trim()) || '').replace(/^[^\w(]+/u, '').trim();
+    let project = null, loc = '', amount = 0, unit = null;
+    try { project = RM_MATCH.extractProject(sec); } catch(e){}
+    try { loc = window.RM_LOC ? RM_LOC.displayLocation(sec) : ''; } catch(e){}
+    try { amount = RM_MATCH.extractAmount(sec); } catch(e){}
+    try { unit = RM_MATCH.extractUnit(sec); } catch(e){}
+    const monthly = amount && /\/\s*mo|per\s*month|a\s*month|monthly/i.test(sec);
+    return {
+      title: project || firstLine || 'Property',
+      meta: [loc, unit, _xSqm(sec)].filter(Boolean).join(' · '),
+      price: amount ? ('₱' + Math.round(amount).toLocaleString('en-PH') + (monthly ? '/month' : '')) : '',
+      text: sec
+    };
+  });
+  return { count: split.sections.length, others };
+}
+
 function extractDetails(listing){
-  const raw = listing.content || '';
+  const raw = ldPrimaryText(listing.content);
   const p = parse(raw);
   // Phase 1 structured-first: prefer structured columns, else parse content.
   const developer=(listing.developer!=null&&String(listing.developer).trim()!==''?String(listing.developer):_xDev(raw)),
@@ -972,7 +1020,7 @@ async function loadListing(){
   // Most specific single locality for the highlight (e.g. "New Manila, Quezon
   // City"), collapsing redundant parents and picking the first city on ambiguity.
   let locDisplay = (window.RM_LOC)
-    ? window.RM_LOC.displayLocation(listing.content || '')
+    ? window.RM_LOC.displayLocation(ldPrimaryText(listing.content))
     : (d.locs.length ? d.locs.join(', ') : '');
   // Dataset backfill: when the post text names no location but we've recognized a
   // known project, show that project's location from the shared developer dataset
@@ -1054,15 +1102,33 @@ async function loadListing(){
     <!-- Row 2 — Unit Details widgets. Same always-on, "—"-fallback behaviour. -->
     <div class="ld-sec ld-specs-card ld-specs-wrap">
       ${[
-        {ic:'fa-bed',           lbl:'Unit Type',   val:ldUnitType(listing.content||'')},
-        {ic:'fa-vector-square', lbl:'Unit Size',   val:ldUnitSize(listing.content||'')},
-        {ic:'fa-couch',         lbl:'Unit Fitout', val:ldFitout(listing.content||'')},
+        {ic:'fa-bed',           lbl:'Unit Type',   val:ldUnitType(ldPrimaryText(listing.content))},
+        {ic:'fa-vector-square', lbl:'Unit Size',   val:ldUnitSize(ldPrimaryText(listing.content))},
+        {ic:'fa-couch',         lbl:'Unit Fitout', val:ldFitout(ldPrimaryText(listing.content))},
       ].map(s=>`<div class="ld-spec">
           <span class="ld-spec-ic"><i class="fas ${s.ic}"></i></span>
           <span class="ld-spec-val${s.val?'':' ld-spec-val-empty'}">${s.val?safeText(String(s.val)):'—'}</span>
           <span class="ld-spec-lbl">${s.lbl}</span>
         </div>`).join('')}
     </div>
+
+    ${(() => {
+      const mp = ldOtherProperties(listing.content);
+      if (!mp.others.length) return '';
+      return `<div class="ld-sec ld-multi-card">
+        <div class="ld-multi-label">Multiple properties in this post</div>
+        <div class="ld-multi-count">${mp.count} properties mentioned</div>
+        <div class="ld-multi-note">The details above are for the first property. The others are listed here as posted.</div>
+        ${mp.others.map(o => `<details class="ld-multi-item">
+          <summary>
+            <span class="ld-multi-main"><span class="ld-multi-title">${safeText(o.title)}</span>${o.meta ? `<span class="ld-multi-meta">${safeText(o.meta)}</span>` : ''}</span>
+            ${o.price ? `<span class="ld-multi-price">${safeText(o.price)}</span>` : ''}
+            <i class="fas fa-chevron-down ld-multi-chev"></i>
+          </summary>
+          <div class="ld-multi-text">${safeText(o.text)}</div>
+        </details>`).join('')}
+      </div>`;
+    })()}
 
     <!-- Property Detail — the seller's EXACT original posting, verbatim.
          Never rewritten, reformatted, trimmed, or re-extracted. -->

@@ -221,7 +221,10 @@ function similarityScore(subject, comp) {
 // Phase 1 structured-first: prefer structured listing columns when present, else
 // fall back to parsing content. Output is identical when all columns are NULL.
 function fmvFieldsFor(listing) {
-    const p = parseListingText(listing && listing.content);
+    // A multi-property post is valued as its FIRST property only (match-engine.js).
+    const _c = listing && listing.content;
+    const _g = (typeof window !== 'undefined') ? window : globalThis;
+    const p = parseListingText((_c && _g.RM_MATCH && _g.RM_MATCH.primaryText) ? _g.RM_MATCH.primaryText(_c) : _c);
     if (!listing) return p;
     const has = v => v != null && String(v).trim() !== '';
     return {

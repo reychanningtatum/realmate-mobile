@@ -1768,6 +1768,14 @@ function _xTurnover(t) { if (/\brfo\b|\bready\s*for\s*occupancy\b/i.test(t)) ret
 // (enhanceListingText) and the photo-card detail view (buildListingDetails) so the
 // description never repeats data already shown above it. Returns the leftover body
 // plus any word attached to the price (e.g. "negotiable") for the price display.
+// The part of a caption that defines the listing's identity: its FIRST property
+// section when a post lists several (match-engine.js splitProperties). All
+// structured fields are read from this; the full caption is still what's shown.
+function _lmPrimaryText(t) {
+    try { return (window.RM_MATCH && RM_MATCH.primaryText) ? RM_MATCH.primaryText(t || '') : (t || ''); }
+    catch (_) { return t || ''; }
+}
+
 function stripListingFields(raw) {
     let body = raw || '';
     const locations = extractLocations(raw);
@@ -1889,7 +1897,7 @@ function stripListingFields(raw) {
 }
 
 function enhanceListingText(listing) {
-    const raw = listing.content || '';
+    const raw = _lmPrimaryText(listing.content);
 
     const locations = extractLocations(raw);
     const projectFull = extractProjectFull(raw);
@@ -1953,7 +1961,7 @@ function formatFullPrice(price, priceRange) {
 // Reuses the same AI extractors as enhanceListingText() — no parsing logic is
 // changed here; this only lays the extracted fields out for the two-column card.
 function buildListingDetails(listing) {
-    const raw = listing.content || '';
+    const raw = _lmPrimaryText(listing.content);
     const locations = extractLocations(raw);
     const projectFull = extractProjectFull(raw);
     const project = projectFull ? projectFull.project : null;
@@ -2569,7 +2577,7 @@ function buildMarketPrices(listings) {
     const buckets = {};
 
     listings.forEach(l => {
-        const text = l.content || '';
+        const text = _lmPrimaryText(l.content);
         // Phase 1 structured-first: prefer structured columns, else parse content.
         const price = (l.price != null && l.price !== '') ? Number(l.price) : extractPrice(text);
         const unit  = (l.unit_type != null && String(l.unit_type).trim() !== '') ? String(l.unit_type) : extractUnit(text);
@@ -3548,7 +3556,7 @@ function applyFilters() {
     // engine, fall back to the legacy exact-tag (lowercased) comparison.
     if (loc) {
         if (window.RM_LOC && window.RM_LOC.matchesFilter) {
-            pool = pool.filter(l => window.RM_LOC.matchesFilter(((l.location_city || l.location_area) ? [l.location_area, l.location_city].filter(Boolean).join(', ') : (l.content || '')), loc));
+            pool = pool.filter(l => window.RM_LOC.matchesFilter(((l.location_city || l.location_area) ? [l.location_area, l.location_city].filter(Boolean).join(', ') : _lmPrimaryText(l.content)), loc));
         } else {
             const locLower = loc.toLowerCase();
             pool = pool.filter(l => extractLocations((l.location_city || l.location_area) ? [l.location_area, l.location_city].filter(Boolean).join(' ') : (l.content || '')).some(x => x.toLowerCase() === locLower));

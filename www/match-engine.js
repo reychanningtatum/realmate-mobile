@@ -905,9 +905,101 @@
     // fields (category/userId) and the `raw` reference are refreshed on a hit so a
     // status/flag change is still reflected.
     const _parseListingCache = new Map();
+    // ── Multi-property posts ────────────────────────────────────────────────
+    // A broker often lists several properties in ONE post. Mixing them makes a
+    // nonsense listing (project A at project C's price, matching buyers in every
+    // city mentioned), so a post is split into its property sections and the
+    // FIRST one is the listing's canonical identity — location, project, price,
+    // unit, size and features are read from that section only. Nothing is ever
+    // borrowed from a later section; a field the first section doesn't state
+    // stays empty. The stored post text is never altered.
+    //
+    // A new section starts at a line when the text so far already describes a
+    // property and one of these holds:
+    //   • the line is a repeated header marker ("🧧 PROJECT", "1. PROJECT") that
+    //     owns the detail lines beneath it;
+    //   • it follows a blank line and its paragraph has its own price and its
+    //     own unit/size/project — or simply names a different project;
+    //   • the line is a complete entry by itself ("Kroma 1BR 18M").
+    const _PROP_IDENT = /\b\d\s*(?:br|bed(?:room)?s?)\b|\bstudio\b|\bpenthouse\b|\bloft\b|\btownhouse\b|\d\s*(?:sqm|sq\.?\s*m\b)/i;
+    const _propSplitCache = new Map();
+
+    function _propMarker(line) {
+        const m = line.match(/^\s*((?:[^\w\s₱("'“‘\[])+|\d{1,2}[.)])\s*\S/u);
+        return m ? (/^\d/.test(m[1]) ? '#' : m[1]) : null;   // "1." / "2)" are one marker
+    }
+    function _propProject(text) {
+        try { return extractProject(text) || null; } catch (e) { return null; }
+    }
+
+    function splitProperties(text) {
+        const raw = String(text == null ? '' : text);
+        const cached = _propSplitCache.get(raw);
+        if (cached) return cached;
+        const lines = raw.split('\n');
+        const n = lines.length;
+        const blank = lines.map(l => !l.trim());
+        const hasPrice = lines.map((l, i) => !blank[i] && _priceCandidates(l).some(c => c.score > 0));
+        const hasIdent = lines.map((l, i) => !blank[i] && _PROP_IDENT.test(l));
+        const marker = lines.map((l, i) => blank[i] ? null : _propMarker(l));
+        const headerish = i => !!marker[i] && /[a-z]{2}/i.test(lines[i]) && !hasPrice[i];
+        // A header marker titles a section; a bullet that prefixes nearly every
+        // line ("- 2BR", "✅ furnished") is just list formatting, not a boundary.
+        const markerUses = new Map(), markerLines = new Map();
+        let textLines = 0;
+        for (let i = 0; i < n; i++) {
+            if (blank[i]) continue;
+            textLines++;
+            if (marker[i]) markerLines.set(marker[i], (markerLines.get(marker[i]) || 0) + 1);
+            if (headerish(i)) markerUses.set(marker[i], (markerUses.get(marker[i]) || 0) + 1);
+        }
+        const isHeader = i => headerish(i) && markerUses.get(marker[i]) >= 2 && markerLines.get(marker[i]) <= textLines * 0.4;
+        const any = (arr, a, b) => { for (let i = a; i < b; i++) if (arr[i]) return true; return false; };
+        const count = (a, b) => { let c = 0; for (let i = a; i < b; i++) if (!blank[i]) c++; return c; };
+        const join = (a, b) => lines.slice(a, b).join('\n');
+
+        const starts = [0];
+        let cur = 0;
+        for (let i = 1; i < n; i++) {
+            if (blank[i]) continue;
+            const curPrice = any(hasPrice, cur, i), curIdent = any(hasIdent, cur, i);
+            if (!curPrice && !curIdent) continue;
+            let split = false;
+            if (isHeader(i)) {
+                let end = i + 1; while (end < n && !isHeader(end)) end++;
+                split = count(i, end) >= 2 && (any(hasPrice, i, end) || any(hasIdent, i, end));
+            } else if (blank[i - 1]) {
+                let end = i + 1; while (end < n && !blank[end]) end++;
+                if (curPrice && any(hasPrice, i, end) && (any(hasIdent, i, end) || _propProject(join(i, end)))) split = true;
+                else {
+                    const next = _propProject(join(i, end));
+                    const prev = next && _propProject(join(cur, i));
+                    split = !!(next && prev && String(next).toLowerCase() !== String(prev).toLowerCase());
+                }
+            }
+            if (!split && curPrice && hasPrice[i] && (hasIdent[i] || _propProject(lines[i]))) split = true;
+            if (split) { starts.push(i); cur = i; }
+        }
+        const sections = starts.map((s, k) => join(s, k + 1 < starts.length ? starts[k + 1] : n).trim()).filter(Boolean);
+        const out = (sections.length >= 2)
+            ? { multi: true, sections, primary: sections[0] }
+            : { multi: false, sections: [raw], primary: raw };
+        if (_propSplitCache.size > 2000) _propSplitCache.clear();
+        _propSplitCache.set(raw, out);
+        return out;
+    }
+
+    // The text that defines a listing's identity: its first property section
+    // (the whole text for an ordinary single-property post).
+    function primaryText(text) { return splitProperties(text).primary; }
+    // Public extractors read the primary section, so every consumer — cards,
+    // Listing Detail, search, FMV, the match engine — agrees on one identity.
+    function _onPrimary(fn) { return function (text) { const a = Array.prototype.slice.call(arguments, 1); return fn.apply(null, [primaryText(text)].concat(a)); }; }
+
     function parseListing(listing) {
-        const text = listing.content || '';
-        const key = (listing.id != null) ? (listing.id + ' ' + text + '|s|' + [listing.price, listing.unit_type, listing.location_city, listing.location_area, listing.project].map(function(v){ return v == null ? '' : v; }).join('|')) : null;
+        const fullText = listing.content || '';
+        const text = primaryText(fullText);
+        const key = (listing.id != null) ? (listing.id + ' ' + fullText + '|s|' + [listing.price, listing.unit_type, listing.location_city, listing.location_area, listing.project].map(function(v){ return v == null ? '' : v; }).join('|')) : null;
         if (key !== null) {
             const hit = _parseListingCache.get(key);
             if (hit) {
@@ -1106,22 +1198,24 @@
         levenshtein,
         normalizeSeparators,
         separatorInsensitivePattern,
-        extractLocations,
+        extractLocations: _onPrimary(extractLocations),
         getLocationZone,
         locationProximity,
         fuzzyMatchProject,
-        extractProjectFull,
-        extractProject,
-        extractFeatures,
-        extractBudgetRange,
-        extractPriceRange,
-        extractPrice,
-        extractAmount,
+        extractProjectFull: _onPrimary(extractProjectFull),
+        extractProject: _onPrimary(extractProject),
+        extractFeatures: _onPrimary(extractFeatures),
+        extractBudgetRange: _onPrimary(extractBudgetRange),
+        extractPriceRange: _onPrimary(extractPriceRange),
+        extractPrice: _onPrimary(extractPrice),
+        extractAmount: _onPrimary(extractAmount),
         _unitToken,
         _unitRank,
         _smallerUnit,
-        extractUnit,
+        extractUnit: _onPrimary(extractUnit),
         getLearnedProjects,
+        splitProperties,
+        primaryText,
         parseListing,
         computeMatchScore,
     };
