@@ -177,6 +177,7 @@
         const intent = _priceIntent(raw, category);
         // No stated transaction → fall back to the wording of the post as a whole.
         const isRent = intent ? intent === 'rent' : /\b(?:rent|rental|lease|monthly)\b/.test(lower);
+        const demand = category ? /WILLING|\bWT[BRL]\b/i.test(String(category)) : /\bwilling\s+to\b|\bwt[brl]\b|\blooking\s+(?:for|to)\b/.test(lower);
         const out = [];
         _PRICE_NUM.lastIndex = 0;
         let m;
@@ -209,9 +210,13 @@
 
             // The role this figure plays for the post's transaction.
             const monthly = _PRICE_PER_MONTH.test(after);
+            // In a REQUIREMENT ("willing to…") every figure is what the poster will
+            // pay — a budget — so the income / reference roles only exist for offers.
             let role = 'price';
-            if (intent === 'sale' && (monthly || _PRICE_INCOME_BEFORE.test(before))) role = 'income';
-            else if (intent === 'rent' && !monthly && _PRICE_SALE_REF_BEFORE.test(before)) role = 'reference';
+            if (!demand) {
+                if (intent === 'sale' && (monthly || _PRICE_INCOME_BEFORE.test(before))) role = 'income';
+                else if (intent === 'rent' && !monthly && _PRICE_SALE_REF_BEFORE.test(before)) role = 'reference';
+            }
 
             let score = 0;
             if (cur) score += 4;
@@ -1119,15 +1124,169 @@
 
     // The text that defines a listing's identity: its first property section
     // (the whole text for an ordinary single-property post).
-    function primaryText(text) { return splitProperties(text).primary; }
+    // ── Requirement posts (buyers / renters) ────────────────────────────────
+    // A "willing to…" post is a REQUIREMENT, and one post often carries several:
+    //
+    //     WTL:
+    //      2 bedroom at Sapphire Bloc/The Imperium/ Residences at the Galleon
+    //      Budget: 120,000/month
+    //      1 bedroom or 2 bedroom at Two Serendra
+    //      Budget: 75,000/month
+    //     WTB:
+    //      1 bedroom and 2 bedroom at Two Serendra
+    //      Budget: FMV
+    //
+    // That is two intents (lease, buy); the lease intent has two options; the
+    // first option accepts any of three projects; "1 bedroom or 2 bedroom" accepts
+    // either. Nothing here is one property, so the structure is read FIRST and
+    // every project / unit / budget / term stays with the requirement it was
+    // written under. Budgets are what the poster will pay — never income.
+    //   -> null for a non-requirement post, else
+    //      { multi, groups: [{ intent, options: [{ projects, units, furnishing,
+    //                                              budget, terms, text }] }] }
+    const _REQ_HEADER = /^\s*(wtl|wtb|wtr|willing\s+to\s+(?:lease|rent|buy)|looking\s+to\s+(?:lease|rent|buy))\s*[:\-–]?\s*$/i;
+    const _REQ_UNIT = /\bstudio\b|\b(?:[1-5]|one|two|three|four|five)\s*-?\s*(?:br\b|bed\s*rooms?|bedrooms?)/i;
+    const _REQ_BUDGET = /\bbudget\b|\bprice\s*range\b/i;
+    const _REQ_TERM = /\b(?:lease|term|payment|advance|deposit|cash|buyer|move[\s-]*in|renewable|months?|years?|parking|pets?|floor|view|sqm|financing|loan|bank|occupancy|urgent|asap)\b/i;
+    const _REQ_FURN = /\b(?:fully|full|semi)[\s-]*furnished\b|\bunfurnished\b|\bfurnished\b|\bbare(?:\s*shell)?\b/i;
+    const _reqCache = new Map();
+
+    function _reqIntent(token) {
+        const t = String(token || '').toLowerCase();
+        if (/wtb|buy/.test(t)) return 'WILLING TO BUY';
+        if (/wtr|rent/.test(t)) return 'WILLING TO RENT';
+        return 'WILLING TO LEASE';
+    }
+    function _reqUnits(text) {
+        const w = { one: 1, two: 2, three: 3, four: 4, five: 5 }, out = [];
+        const re = /\b(studio)\b|\b([1-5]|one|two|three|four|five)\s*-?\s*(?:br\b|bed\s*rooms?|bedrooms?)/gi;
+        let m;
+        while ((m = re.exec(text))) {
+            const u = m[1] ? 'Studio' : ((/^\d$/.test(m[2]) ? m[2] : w[m[2].toLowerCase()]) + 'BR');
+            if (!out.includes(u)) out.push(u);
+        }
+        return out.sort((a, b) => (a === 'Studio' ? 0 : parseInt(a, 10)) - (b === 'Studio' ? 0 : parseInt(b, 10)));
+    }
+    function _reqFurnishing(text) {
+        const m = String(text).match(_REQ_FURN);
+        if (!m) return '';
+        const f = m[0].toLowerCase();
+        if (/semi/.test(f)) return 'Semi-Furnished';
+        if (/unfurnished|bare/.test(f)) return 'Unfurnished';
+        return 'Fully Furnished';
+    }
+    // The projects a requirement line accepts, as alternatives. "… at A/B/ C" names
+    // them after the unit; each is canonicalised when the engine knows it and kept
+    // exactly as written when it doesn't — a name is never dropped or invented.
+    function _reqProjects(line) {
+        let rest = String(line).replace(/^[\s•·▪◦*\-–—>]+/, '');
+        const unitRe = /\bstudio\b|\b(?:[1-5]|one|two|three|four|five)\s*-?\s*(?:br\b|bed\s*rooms?|bedrooms?)/gi;
+        let last = -1, m;
+        while ((m = unitRe.exec(rest))) last = m.index + m[0].length;
+        if (last >= 0) rest = rest.slice(last);
+        const at = rest.match(/^\s*(?:unit\s*)?(?:at|in|@)\s+(.+)$/i);
+        if (!at) { const p = extractProject(line); return p ? [p] : []; }
+        const names = at[1].replace(new RegExp(_REQ_FURN.source + '.*$', 'i'), '').replace(/[\s,.;:]+$/, '');
+        const out = [];
+        names.split(/\s*\/\s*|\s+or\s+|\s*;\s*/i).forEach(piece => {
+            const p = piece.trim().replace(/^(?:the\s+)?(?=the\s)/i, '');
+            if (!p || p.length < 3) return;
+            const known = extractProject(p);
+            const name = known || p.replace(/\s+/g, ' ');
+            if (!out.some(x => x.toLowerCase() === name.toLowerCase())) out.push(name);
+        });
+        return out;
+    }
+    function _reqBudget(line) {
+        const said = String(line).replace(/^.*?\b(?:budget|price\s*range)\b\s*[:\-–]?\s*/i, '').trim();
+        const c = _priceCandidates(line, 'WILLING TO BUY').filter(x => x.role === 'price')[0];
+        if (!c) return { amount: null, monthly: false, text: said };              // "FMV", "open", "negotiable" — kept as written
+        const tail = line.slice(c.index).replace(/^[\d,.\s]*(?:k|m|million|mn|mil|thousand)?\b/i, '')
+            .replace(/^\s*(?:\/|per|a)?\s*(?:month|mo\b|monthly)?\s*/i, '').replace(/^[\s,.;:\-–]+|[\s,.;:]+$/g, '');
+        return { amount: c.value, monthly: !!c.monthly, text: said, note: tail };
+    }
+
+    function extractRequirements(text, category) {
+        const key = String(text == null ? '' : text);
+        const ck = String(category || '') + '\u0001' + key;
+        if (_reqCache.has(ck)) return _reqCache.get(ck);
+        const done = v => { if (_reqCache.size > 2000) _reqCache.clear(); _reqCache.set(ck, v); return v; };
+        const raw = _plainText(key);
+        if (!raw.trim() || raw.length > _PROP_MAX_CHARS) return done(null);
+        const lines = raw.split('\n');
+        if (lines.length > _PROP_MAX_LINES) return done(null);
+
+        // 1) Intent groups: "WTL:" / "WTB:" header lines. No header → one group
+        //    taking the listing's own category (requirement posts only).
+        const heads = [];
+        lines.forEach((l, i) => { const m = l.match(_REQ_HEADER); if (m) heads.push({ i, intent: _reqIntent(m[1]) }); });
+        let spans;
+        if (heads.length) spans = heads.map((h, k) => ({ intent: h.intent, a: h.i + 1, b: k + 1 < heads.length ? heads[k + 1].i : lines.length }));
+        else if (/^WILLING/i.test(String(category || '').trim())) spans = [{ intent: String(category).toUpperCase().trim(), a: 0, b: lines.length }];
+        else return done(null);
+
+        const groups = spans.map(sp => {
+            const options = [];
+            let cur = null, ended = false;
+            const open = () => { cur = { reqLines: [], budget: null, terms: [], lines: [] }; options.push(cur); };
+            for (let i = sp.a; i < sp.b && !ended; i++) {
+                const line = lines[i], t = line.trim();
+                if (!t) continue;
+                const isBudget = _REQ_BUDGET.test(t);
+                const isReq = !isBudget && (_REQ_UNIT.test(t) || !!extractProject(t));
+                if (isReq && (!cur || cur.budget)) open();                 // a new requirement after a budget = a new option
+                if (!cur) { if (isBudget) open(); else continue; }          // text before the first requirement isn't one
+                if (isReq) cur.reqLines.push(t);
+                else if (isBudget && !cur.budget) cur.budget = _reqBudget(t);
+                else if (_REQ_TERM.test(t)) cur.terms.push(t.replace(/^[\s•·▪◦*\-–—>]+/, ''));
+                else if (cur.budget && !lines[i - 1].trim()) { ended = true; continue; }   // closing note after the last option
+                else continue;
+                cur.lines.push(t);
+            }
+            return {
+                intent: sp.intent,
+                options: options.filter(o => o.reqLines.length || o.budget).map(o => {
+                    const reqText = o.reqLines.join('\n');
+                    const projects = [];
+                    o.reqLines.forEach(l => _reqProjects(l).forEach(p => { if (!projects.some(x => x.toLowerCase() === p.toLowerCase())) projects.push(p); }));
+                    return { projects, units: _reqUnits(reqText), furnishing: _reqFurnishing(reqText),
+                             budget: o.budget, terms: o.terms, text: o.lines.join('\n') };
+                }),
+            };
+        }).filter(g => g.options.length);
+        if (!groups.length) return done(null);
+        const nOptions = groups.reduce((n, g) => n + g.options.length, 0);
+        const multi = groups.length > 1 || nOptions > 1 || groups[0].options[0].projects.length > 1;
+        return done({ multi, groups });
+    }
+
+    // The ONE requirement a multi-requirement post is matched on: the first
+    // option of the group whose intent is the listing's category (a post filed
+    // under WILLING TO BUY is matched on its WTB requirement, not on the lease
+    // options written above it); otherwise the first requirement in the post.
+    function _canonicalRequirement(text, category) {
+        const req = extractRequirements(text, category);
+        if (!req || !req.multi) return null;
+        const c = String(category || '').toUpperCase();
+        const want = /BUY/.test(c) ? /BUY/ : /RENT|LEASE/.test(c) ? /RENT|LEASE/ : null;
+        const g = (want && req.groups.find(x => want.test(x.intent))) || req.groups[0];
+        return g.options[0];
+    }
+
+    // A requirement post is read through its canonical requirement; any other
+    // post through its first property section.
+    function primaryText(text, category) {
+        const opt = _canonicalRequirement(text, category);
+        return opt ? opt.text : splitProperties(text).primary;
+    }
     // Public extractors read the primary section, so every consumer — cards,
     // Listing Detail, search, FMV, the match engine — agrees on one identity.
-    function _onPrimary(fn) { return function (text) { const a = Array.prototype.slice.call(arguments, 1); return fn.apply(null, [primaryText(text)].concat(a)); }; }
+    function _onPrimary(fn) { return function (text) { const a = Array.prototype.slice.call(arguments, 1); return fn.apply(null, [primaryText(text, typeof a[0] === 'string' ? a[0] : undefined)].concat(a)); }; }
 
     function parseListing(listing) {
         const fullText = listing.content || '';
-        const text = primaryText(fullText);
-        const key = (listing.id != null) ? (listing.id + ' ' + fullText + '|s|' + [listing.price, listing.unit_type, listing.location_city, listing.location_area, listing.project].map(function(v){ return v == null ? '' : v; }).join('|')) : null;
+        const text = primaryText(fullText, listing.category);
+        const key = (listing.id != null) ? (listing.id + ' ' + fullText + '|s|' + [listing.category, listing.price, listing.unit_type, listing.location_city, listing.location_area, listing.project].map(function(v){ return v == null ? '' : v; }).join('|')) : null;
         if (key !== null) {
             const hit = _parseListingCache.get(key);
             if (hit) {
@@ -1346,6 +1505,7 @@
         getLearnedProjects,
         splitProperties,
         primaryText,
+        extractRequirements,
         parseListing,
         computeMatchScore,
     };

@@ -154,6 +154,19 @@
     .ld-hl-price{ font-size:21px; font-weight:800; color:var(--ld-green); letter-spacing:-0.01em; margin-top:3px; line-height:1.15; }
     /* No Property Name → Price leads the card (larger, no top gap). */
     .ld-hl-price-lead{ font-size:25px; margin-top:0; }
+    /* ── Multi-requirement posts (WTL / WTB, options) ── */
+    .ld-hl-reqsum{ font-size:13.5px; font-weight:600; color:var(--ld-sub); margin-top:5px; line-height:1.35; }
+    .ld-req-card{ margin:12px 14px 0; padding:6px 20px 14px; }
+    .ld-req-group{ padding-top:14px; }
+    .ld-req-group + .ld-req-group{ margin-top:14px; border-top:1px solid rgba(148,163,184,0.3); }
+    .ld-req-intent{ font-size:16px; font-weight:800; color:var(--ld-text); display:flex; flex-direction:column; gap:3px; }
+    .ld-req-intent-tag{ font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:#94a3b8; }
+    .ld-req-option{ margin-top:12px; }
+    .ld-req-option + .ld-req-option{ padding-top:12px; border-top:1px dashed rgba(148,163,184,0.35); }
+    .ld-req-opt-lbl{ font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--ld-green); margin-bottom:6px; }
+    .ld-req-row{ display:flex; align-items:flex-start; gap:10px; font-size:14px; line-height:1.45; color:var(--ld-text); padding:3px 0; overflow-wrap:anywhere; }
+    .ld-req-row i{ width:16px; text-align:center; font-size:12.5px; color:#94a3b8; margin-top:4px; flex-shrink:0; }
+    .ld-req-or{ color:#94a3b8; font-weight:500; }
     .ld-hl-fin{ font-size:12.5px; font-weight:500; color:var(--ld-sub); margin-top:6px; line-height:1.4; overflow-wrap:anywhere; }
     .ld-hl-fin-lbl{ font-weight:700; text-transform:uppercase; letter-spacing:0.04em; font-size:10.5px; color:#94a3b8; margin-right:4px; }
     .ld-hl-subloc{ font-size:12.5px; font-weight:500; color:var(--ld-sub); margin-top:3px; line-height:1.35; overflow-wrap:anywhere; }
@@ -385,7 +398,7 @@
 <script src="mates.js?v=20260930c"></script>
 <script src="nav-menu.js?v=20260930a"></script>
 <script src="location-engine.js?v=20260809b"></script>
-<script src="match-engine.js?v=20261014c"></script>
+<script src="match-engine.js?v=20261014d"></script>
 <script src="developers.js?v=36"></script>
 <script src="rm-track.js?v=3"></script>
 <script src="match-alert.js?v=20261001m"></script>
@@ -921,6 +934,63 @@ function ldSizeRange(t){
   return (lo > 0 && hi > lo && hi <= lo * 10) ? lo.toLocaleString('en-PH') + '–' + hi.toLocaleString('en-PH') + ' sqm' : '';
 }
 
+// ── Requirement posts with several requirements (WTL / WTB, options) ──
+// The engine's requirement model (match-engine.js extractRequirements), or null
+// when the post is a single requirement / an ordinary listing. Presenting such a
+// post under ONE project would misstate it, so it gets its own view: a headline
+// for the whole requirement and a card that keeps every intent, option,
+// project, unit, budget and term where the poster put it.
+function ldRequirements(listing){
+  try {
+    const r = (window.RM_MATCH && RM_MATCH.extractRequirements) ? RM_MATCH.extractRequirements(listing.content || '', listing.category) : null;
+    return (r && r.multi) ? r : null;
+  } catch(e){ return null; }
+}
+function ldReqIntentLabel(intent){ return /BUY/.test(intent) ? 'Willing to Buy' : /RENT/.test(intent) ? 'Willing to Rent' : 'Willing to Lease'; }
+function ldReqTitle(req){
+  const abbr = i => /BUY/.test(i) ? 'WTB' : /RENT/.test(i) ? 'WTR' : 'WTL';
+  if (req.groups.length > 1) return req.groups.map(g => abbr(g.intent)).join(' / ') + ' Requirements';
+  const g = req.groups[0];
+  return g.options.length > 1 ? 'Multiple ' + abbr(g.intent) + ' Requirements' : ldReqIntentLabel(g.intent) + ' — ' + g.options[0].projects.length + ' Project Options';
+}
+function ldReqSummary(req){
+  return req.groups.map(g => {
+    const n = g.options.length, buy = /BUY/.test(g.intent);
+    return n + ' ' + (buy ? 'purchase' : 'lease') + ' ' + (n === 1 ? 'requirement' : 'options');
+  }).join(' · ');
+}
+function ldReqUnits(units){
+  if (!units || !units.length) return '';
+  const names = units.map(u => u === 'Studio' ? 'Studio' : u.replace('BR', ''));
+  const beds = names.filter(n => n !== 'Studio');
+  if (!beds.length) return 'Studio';
+  const list = names.length > 1 ? names.slice(0, -1).join(', ') + ' or ' + names[names.length - 1] : names[0];
+  return list + ' Bedroom';
+}
+// A budget is what the poster will pay: an amount (per month for a lease), or
+// the instruction they wrote ("FMV") — which is kept as written, never priced.
+function ldReqBudget(b){
+  if (!b) return '';
+  if (b.amount == null) return b.text || '';
+  return '₱' + Math.round(b.amount).toLocaleString('en-PH') + (b.monthly ? '/month' : '') + (b.note ? ' ' + b.note : '');
+}
+function ldRequirementsCard(req){
+  const row = (ic, html) => `<div class="ld-req-row"><i class="fas ${ic}"></i><span>${html}</span></div>`;
+  return `<div class="ld-sec ld-req-card">
+    ${req.groups.map((g, gi) => `<div class="ld-req-group">
+      <div class="ld-req-intent"><span class="ld-req-intent-tag">${gi === 0 ? 'Primary intent' : 'Also'}</span>${safeText(ldReqIntentLabel(g.intent))}</div>
+      ${g.options.map((o, oi) => `<div class="ld-req-option">
+        ${g.options.length > 1 ? `<div class="ld-req-opt-lbl">Option ${oi + 1}</div>` : ''}
+        ${o.projects.length ? row('fa-building', o.projects.map(p => safeText(p)).join('<span class="ld-req-or"> or </span>')) : ''}
+        ${ldReqUnits(o.units) ? row('fa-bed', safeText(ldReqUnits(o.units))) : ''}
+        ${o.furnishing ? row('fa-couch', safeText(o.furnishing)) : ''}
+        ${ldReqBudget(o.budget) ? row('fa-wallet', '<b>Budget:</b> ' + safeText(ldReqBudget(o.budget))) : ''}
+        ${o.terms.map(t => row('fa-file-signature', safeText(t))).join('')}
+      </div>`).join('')}
+    </div>`).join('')}
+  </div>`;
+}
+
 // Building facts, only as stated. The unit count is the LARGEST "N units" the
 // post gives (its total — "30 units … each floor 10 units … 9 units at 25 sqm"),
 // and only for a whole building; a unit post saying "2 units left" is not that.
@@ -1193,6 +1263,7 @@ async function loadListing(){
   }
   const isAnon = listing.is_anonymous;
   const d = extractDetails(listing);
+  const req = ldRequirements(listing);
   const _ldText = ldPrimaryText(listing.content);
   const profile = ldProfile(_ldText, !!d.project);
   // A rent/lease amount is per month when the post says so.
@@ -1269,12 +1340,14 @@ async function loadListing(){
          display-only, never modifies the seller's original post below. -->
     <div class="ld-sec ld-hl-card${imgs.length?'':' ld-hl-card--nohero'}">
       <div class="ld-hl-main">
-        ${(d.project || profile.title) ? `<div class="ld-hl-name">${safeText(d.project || profile.title)}</div>` : ''}
+        ${req ? `<div class="ld-hl-name">${safeText(ldReqTitle(req))}</div>`
+              : ((d.project || profile.title) ? `<div class="ld-hl-name">${safeText(d.project || profile.title)}</div>` : '')}
         ${isSold ? `<div class="ld-sold-banner${ldIsWilling(listing.category)?' ld-sold-banner-willing':''}"><i class="fas fa-check-circle"></i> ${safeText(ldCompletionText(listing.category))}</div>` : ''}
+        ${req ? `<div class="ld-hl-reqsum">${safeText(ldReqSummary(req))}</div>` : `
         <div class="ld-hl-price${(d.project || profile.title)?'':' ld-hl-price-lead'}${priceStr?'':' ld-hl-empty'}">${priceStr?priceStr:'—'}</div>
         <div class="ld-hl-loc"><i class="fas fa-location-dot"></i> <span class="${locDisplay?'':'ld-hl-empty'}">${locDisplay?safeText(locDisplay):'—'}</span></div>
         ${(() => { const sl = ldSpecificLocation(_ldText, locDisplay); return sl ? `<div class="ld-hl-subloc">${safeText(sl)}</div>` : ''; })()}
-        ${ldSecondaryFigures(listing).map(x => `<div class="ld-hl-fin"><span class="ld-hl-fin-lbl">${x.label}</span> ${safeText(x.text)}</div>`).join('')}
+        ${ldSecondaryFigures(listing).map(x => `<div class="ld-hl-fin"><span class="ld-hl-fin-lbl">${x.label}</span> ${safeText(x.text)}</div>`).join('')}`}
       </div>
       ${(()=>{ const pd=formatPostDate(listing.created_at); return pd.day ? `<div class="ld-hl-date">
         <span class="ld-hl-date-lbl"><i class="far fa-clock"></i> Posted</span>
@@ -1284,7 +1357,8 @@ async function loadListing(){
     </div>
 
     <!-- Row 2 — Unit Details widgets. Same always-on, "—"-fallback behaviour. -->
-    ${profile.specs.length ? `<div class="ld-sec ld-specs-card ld-specs-wrap">
+    ${req ? ldRequirementsCard(req) : ''}
+    ${(!req && profile.specs.length) ? `<div class="ld-sec ld-specs-card ld-specs-wrap">
       ${profile.specs.map(s=>`<div class="ld-spec">
           <span class="ld-spec-ic"><i class="fas ${s.ic}"></i></span>
           <span class="ld-spec-val${s.val?'':' ld-spec-val-empty'}">${s.val?safeText(String(s.val)):'—'}</span>
@@ -1293,7 +1367,7 @@ async function loadListing(){
     </div>` : ''}
 
     ${(() => {
-      const mp = ldOtherProperties(listing.content);
+      const mp = req ? { others: [] } : ldOtherProperties(listing.content);
       if (!mp.others.length) return '';
       return `<div class="ld-sec ld-multi-card">
         <div class="ld-multi-label">Multiple properties in this post</div>
