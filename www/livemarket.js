@@ -2773,14 +2773,110 @@ function executeSearch() {
     applyFilters();
 }
 
-// Multi-term match across a listing's content, category, and (non-anon) agent.
-// All whitespace-separated terms must appear, so "for sale bgc" matches a
-// FOR SALE listing whose content mentions BGC.
-function listingMatchesQuery(l, q) {
-    const hay = ((l.content || '') + ' ' + (l.category || '') + ' ' +
-        (l.is_anonymous ? '' : (l.user_name || ''))).toLowerCase();
-    return (q || '').toLowerCase().trim().split(/\s+/).filter(Boolean).every(t => hay.includes(t));
+// ── Portal search intelligence ─────────────────────────────────────────────
+// Keyword search, not phrase search. The query is split into meaningful terms
+// and each term is matched against the listing's own fields — project, location,
+// category, unit type, agent, then the caption — as whole words (or a word
+// prefix / one-letter typo), never as a loose mid-word substring. A listing is a
+// result when at least one meaningful term matches; the more terms and the
+// stronger the field, the higher it ranks. So "Makati condo" still finds a Makati
+// listing whose caption never says "condo".
+const _LM_SEARCH_STOP = new Set(['a', 'an', 'the', 'in', 'at', 'on', 'of', 'to', 'for', 'and', 'or', 'with',
+    'near', 'around', 'by', 'from', 'is', 'are', 'any', 'some', 'me', 'my', 'looking', 'need', 'want', 'find', 'show']);
+// Generic property words: they add relevance when present, but when the query
+// also names something specific ("Makati condo") they can't qualify a listing on
+// their own — otherwise every condo anywhere would come back.
+const _LM_SEARCH_SOFT = new Set(['condo', 'condominium', 'unit', 'property', 'propertie', 'listing', 'home',
+    'house', 'apartment', 'residential', 'real', 'estate', 'place', 'space']);
+
+function _lmSearchNorm(s) {
+    return String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, ' ').trim();
 }
+// Fold spelling variants of one concept into a single token:
+// "1 bedroom" / "1-BR" / "1 bed" → "1br";  "for sale" → "forsale".
+function _lmSearchCanon(s) {
+    return _lmSearchNorm(s)
+        .replace(/\b(\d)\s*(?:bedrooms?|beds?|br)\b/g, '$1br')
+        .replace(/\bfor (sale|rent|lease)\b/g, 'for$1')
+        .replace(/\bwilling to (buy|rent|lease)\b/g, 'willingto$1');
+}
+function _lmSearchStem(w) { return (w.length > 3 && w.endsWith('s') && !w.endsWith('ss')) ? w.slice(0, -1) : w; }
+function _lmSearchWords(s) {
+    const out = new Set();
+    (_lmSearchNorm(s) + ' ' + _lmSearchCanon(s)).split(' ').forEach(w => { if (w) out.add(_lmSearchStem(w)); });
+    return out;
+}
+function _lmSearchTerms(q) {
+    const seen = new Set();
+    return _lmSearchCanon(q).split(' ').map(_lmSearchStem).filter(t => {
+        if (!t || seen.has(t) || _LM_SEARCH_STOP.has(t)) return false;
+        if (t.length < 2 || /^\d+$/.test(t)) return false;   // a lone digit / number says nothing by itself
+        seen.add(t); return true;
+    });
+}
+// One edit apart (substitution, insertion or deletion) — forgives a single typo.
+function _lmSearchNear(a, b) {
+    if (Math.abs(a.length - b.length) > 1) return false;
+    let i = 0, j = 0, edits = 0;
+    while (i < a.length && j < b.length) {
+        if (a[i] === b[j]) { i++; j++; continue; }
+        if (++edits > 1) return false;
+        if (a.length > b.length) i++; else if (b.length > a.length) j++; else { i++; j++; }
+    }
+    return edits + (a.length - i) + (b.length - j) <= 1;
+}
+// How well one term matches a set of words: 1 whole word, 0.6 word prefix,
+// 0.5 one-letter typo, 0 none.
+function _lmSearchHit(term, words) {
+    if (words.has(term)) return 1;
+    let best = 0;
+    if (term.length >= 3) {
+        for (const w of words) {
+            if (w.startsWith(term)) return 0.6;
+            if (term.length >= 5 && !best && _lmSearchNear(term, w)) best = 0.5;
+        }
+    }
+    return best;
+}
+function _lmSearchFields(l) {
+    const content = l.content || '';
+    let locs = [], project = '';
+    try { locs = extractLocations(content) || []; } catch (_) {}
+    try { project = extractProject(content) || ''; } catch (_) {}
+    return [
+        { w: 5, words: _lmSearchWords([l.project, project].filter(Boolean).join(' ')) },
+        { w: 5, words: _lmSearchWords([l.location_area, l.location_city].concat(locs).filter(Boolean).join(' ')) },
+        { w: 4, words: _lmSearchWords(l.category) },
+        { w: 4, words: _lmSearchWords(l.unit_type) },
+        { w: 3, words: _lmSearchWords(l.is_anonymous ? '' : l.user_name) },
+        { w: 2, words: _lmSearchWords(content) },
+    ];
+}
+// Relevance of a listing for a query: 0 = not a result. Higher = more of the
+// query matched, in more important fields.
+function listingSearchScore(l, q) {
+    const terms = _lmSearchTerms(q);
+    if (!terms.length) return 0;
+    const fields = _lmSearchFields(l);
+    const specific = terms.filter(t => !_LM_SEARCH_SOFT.has(t));
+    let score = 0, matched = 0, specificMatched = 0;
+    terms.forEach(t => {
+        let best = 0;
+        // Unit-type terms ("1br", "studio") are as telling as the unit_type field.
+        const unitTerm = /^\dbr$|^studio$/.test(t);
+        fields.forEach(f => {
+            const hit = _lmSearchHit(t, f.words);
+            if (hit) best = Math.max(best, hit * ((unitTerm && f.w < 4) ? 4 : f.w));
+        });
+        if (best) { score += best; matched++; if (!_LM_SEARCH_SOFT.has(t)) specificMatched++; }
+    });
+    if (!matched) return 0;
+    if (specific.length && !specificMatched) return 0;   // only a generic word matched
+    return matched * 100 + score;
+}
+function listingMatchesQuery(l, q) { return listingSearchScore(l, q) > 0; }
+// ── /Portal search intelligence ────────────────────────────────────────────
 
 // ── Portal search suggestions (people + posts, Portal-scoped) ───────────────
 // Real-time: another tab/iframe/device changed the Portal recent-search list —
@@ -2882,10 +2978,13 @@ function renderPortalSuggest(q) {
         }
     } catch (e) {}
 
-    // Posts — listings matched across content + category + agent (all terms must match)
+    // Posts — the most relevant listings for the typed keywords (see listingSearchScore).
     const posts = allListings
-        .filter(l => listingMatchesQuery(l, q))
-        .slice(0, 6);
+        .map(l => ({ l, s: listingSearchScore(l, q) }))
+        .filter(x => x.s > 0)
+        .sort((a, b) => b.s - a.s)
+        .slice(0, 6)
+        .map(x => x.l);
 
     window.__portalSuggest = { people, posts };
 
@@ -3438,7 +3537,11 @@ function applyFilters() {
     // blocks (Block user) and individually blocked listings (Block post).
     if (window.RMBR) pool = pool.filter(l => !(RMBR.isBlocked(l.user_id, l.user_name) || RMBR.isPostBlocked('listing', l.id)));
 
-    if (q)   pool = pool.filter(l => listingMatchesQuery(l, q));
+    // Search refines the pool built above; each result keeps its relevance so the
+    // sort below can put the best matches first.
+    const searchRel = new Map();
+    if (q) pool = pool.filter(l => { const s = listingSearchScore(l, q); if (s > 0) searchRel.set(l.id, s); return s > 0; });
+    const byRelevance = (a, b) => (searchRel.get(b.id) || 0) - (searchRel.get(a.id) || 0);
     // Location filter. With the shared engine the dropdown value is level-encoded
     // ("region:NCR" / "prov:Cavite" / "city:Makati") and matching is hierarchy-
     // aware — a region/province matches every listing within it. Without the
@@ -3493,11 +3596,13 @@ function applyFilters() {
     // between posts of the same age (previously it sorted by score alone, so a newer
     // match landed below an older high-scoring one).
     if (activeCategory === 'MATCHES') {
-        pool.sort((a, b) =>
+        pool.sort((a, b) => byRelevance(a, b) ||
             (new Date(b.created_at) - new Date(a.created_at)) ||
             ((matchMap.get(b.id)?.matchScore || 0) - (matchMap.get(a.id)?.matchScore || 0)));
     } else {
-        pool.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        // Most relevant search results first; newest first when equally relevant
+        // (and always, when there is no search).
+        pool.sort((a, b) => byRelevance(a, b) || (new Date(b.created_at) - new Date(a.created_at)));
     }
     // Nexus personalization re-rank (spec §6): reorder the ALREADY-ELIGIBLE matches
     // by behavioural relevance to the current user. Gated by NEXUS_ENGINE +
