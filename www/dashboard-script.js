@@ -1990,11 +1990,22 @@ async function renderRecentListings(targetId, canView = true) {
     }
 }
 
+// Shrink a picked profile/cover photo BEFORE it reaches the crop editor, so the
+// editor, the saved framing and the stored file all refer to the same pixels.
+// Re-encodes as JPEG (PNG photos stay multi-MB). Fail-open: returns the original.
+async function _rmShrinkPhoto(file, maxPx) {
+    try {
+        return (typeof compressImage === 'function')
+            ? await compressImage(file, { maxPx: maxPx, quality: 0.85, forceJpeg: true }) : file;
+    } catch (e) { return file; }
+}
+
 async function uploadImage(file, path) {
     if(!_supabase) return null;
     try {
         const fileName = `${path}/${Date.now()}_${file.name.replace(/\s/g, '_')}`;
-        const { data, error } = await _supabase.storage.from('images').upload(fileName, file);
+        // Unique (timestamped) name → safe to cache for a year.
+        const { data, error } = await _supabase.storage.from('images').upload(fileName, file, { cacheControl: '31536000' });
         if (error) throw error;
         const { data: { publicUrl } } = _supabase.storage.from('images').getPublicUrl(fileName);
         return publicUrl;
@@ -2435,15 +2446,18 @@ document.getElementById("fileInput").addEventListener("change", function () {
         (window.showToast || function(){})('Please choose a photo.', 'error');
         return;
     }
-    // Store original file so applyCrop can upload it separately
-    window._pendingOriginalFile = new File(
-        [this.files[0]],
-        `original_${Date.now()}_${this.files[0].name}`,
-        { type: this.files[0].type }
-    );
-    const reader = new FileReader();
-    reader.onload = (e) => openCropModal(e.target.result);
-    reader.readAsDataURL(this.files[0]);
+    // Store the (compressed, max 1600px) original so applyCrop can upload it
+    // separately — it is only ever used as the source for re-cropping.
+    _rmShrinkPhoto(this.files[0], 1600).then((picked) => {
+        window._pendingOriginalFile = new File(
+            [picked],
+            `original_${Date.now()}_${picked.name}`,
+            { type: picked.type }
+        );
+        const reader = new FileReader();
+        reader.onload = (e) => openCropModal(e.target.result);
+        reader.readAsDataURL(picked);
+    });
 });
 
 
@@ -2457,10 +2471,14 @@ window.onload = async () => {
     }
 };
 
-function uploadCoverPhoto(input) {
-    const file = input.files?.[0];
-    if (!file) return;
-    _coverNewUploadFile = file;   // keep the full original to upload on save
+async function uploadCoverPhoto(input) {
+    const raw = input.files?.[0];
+    if (!raw) return;
+    if (!(raw.type || '').startsWith('image/')) { (window.showToast || function(){})('Please choose a photo.', 'error'); return; }
+    // Compressed (max 2000px) BEFORE the editor opens, so the saved framing's
+    // natural-pixel coordinates match the stored image exactly.
+    const file = await _rmShrinkPhoto(raw, 2000);
+    _coverNewUploadFile = file;   // uploaded as-is on save (never a cropped canvas)
     const reader = new FileReader();
     reader.onload = e => openCoverCropModal(e.target.result, true);
     reader.readAsDataURL(file);
@@ -2624,7 +2642,7 @@ async function applyCoverCrop() {
             const ext = (_coverNewUploadFile.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
             const path = `covers/${userId}_${Date.now()}.${ext}`;
             const { error } = await _supabase.storage.from('images').upload(
-                path, _coverNewUploadFile, { upsert: true, contentType: _coverNewUploadFile.type || undefined });
+                path, _coverNewUploadFile, { upsert: true, cacheControl: '31536000', contentType: _coverNewUploadFile.type || undefined });
             if (error) throw error;
             url = _supabase.storage.from('images').getPublicUrl(path).data.publicUrl;
         }
