@@ -305,6 +305,18 @@ body:has(#matchView[style*="display: block"]) .portal-search-fab { display: none
   background: white; color: var(--text-main);
   outline: none; transition: border-color 0.2s, box-shadow 0.2s;
 }
+/* ✕ clear — sits inside the right edge of the search field */
+.search-wrap:has(.search-clear-btn:not([hidden])) input { padding-right: 38px; }
+.search-clear-btn {
+  position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+  width: 24px; height: 24px; padding: 0; border: none; border-radius: 50%;
+  background: #e2e8f0; color: #475569; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.search-clear-btn[hidden] { display: none; }
+.search-clear-btn i { position: static; transform: none; font-size: 11px; color: inherit; }
+.search-clear-btn:hover { background: #cbd5e1; }
+html[data-theme="dark"] .search-clear-btn { background: #334155; color: #cbd5e1; }
 .search-wrap input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-soft); }
 
 /* Portal search suggestions dropdown */

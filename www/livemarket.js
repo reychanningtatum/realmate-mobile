@@ -2756,12 +2756,42 @@ function onSearchInput() {
     // An emptied box means "no search": drop the committed term so the tab's
     // full list comes back, instead of staying filtered by text that is gone.
     if (!q) _clearSearchIfInputEmpty();
+    _syncSearchClearBtn();
     // On focus / empty input, pull the account-synced Recent searches (made on
     // other devices), then re-render the list in place.
     if (!q && window.RMSearchHistory && RMSearchHistory.sync) {
         RMSearchHistory.sync('recent', _refreshPortalSuggest);
     }
     renderPortalSuggest(q);
+}
+
+// The ✕ at the right edge of the search bar shows whenever there is something to
+// clear: text in the box or a committed search.
+function _syncSearchClearBtn() {
+    const btn = document.getElementById('searchClearBtn');
+    if (!btn) return;
+    const raw = (document.getElementById('searchInput')?.value || '').trim();
+    btn.hidden = !(raw || activeSearchQuery);
+}
+
+// ✕ — leave search entirely: empty the box, drop the committed term, and land on
+// Live Market at its true top with its normal list. Live Market's own category /
+// location / Pinned choices are kept, and My Listings / AI Matches keep theirs —
+// only the search is cleared. No reload.
+function clearPortalSearch() {
+    const inp = document.getElementById('searchInput');
+    activeSearchQuery = '';
+    if (inp) { inp.value = ''; inp.blur(); }
+    closePortalSuggest();
+    _syncSearchClearBtn();
+    const marketTab = document.querySelector('.seg-tab[data-seg="MARKET"]');
+    if (marketTab && activeSegTab !== 'MARKET') selectSegTab(marketTab);   // re-renders Live Market and resets scroll
+    else applyFilters();
+    // The Portal scrolls the window on mobile and .main-content on desktop — put
+    // whichever is the real scroller at its very start.
+    const mc = document.querySelector('.main-content');
+    if (mc) mc.scrollTop = 0;
+    window.scrollTo(0, 0);
 }
 
 // The committed search term must never outlive the text in the box. Search only
@@ -2772,6 +2802,7 @@ function _clearSearchIfInputEmpty() {
     const raw = (document.getElementById('searchInput')?.value || '').trim();
     if (raw || !activeSearchQuery) return;
     activeSearchQuery = '';
+    _syncSearchClearBtn();
     applyFilters();
 }
 
@@ -2788,6 +2819,7 @@ function _refreshPortalSuggest() {
 function executeSearch() {
     const raw = (document.getElementById('searchInput')?.value || '').trim();
     activeSearchQuery = raw.toLowerCase();
+    _syncSearchClearBtn();
     if (raw && window.RMSearchHistory) RMSearchHistory.add('recent', raw);   // persist recent
     closePortalSuggest();
     document.getElementById('searchInput')?.blur();   // dismiss the keyboard on the "check"/search key
