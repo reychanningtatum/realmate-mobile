@@ -2207,7 +2207,11 @@ function logout() {
 }
 
 // ── Photo Action Sheet ──
+// The photo / cover menus (Reposition, Photo Library, Take Photo, Change Photo) are
+// OWNER-ONLY. On someone else's profile a tap just opens the picture full-size, and
+// every edit entry point below refuses to run as a second line of defence.
 function openPhotoActionSheet() {
+    if (effectivelyViewingOtherProfile()) { viewFullPhoto(); return; }
     const sheet = document.getElementById("photoActionSheet");
     const preview = document.getElementById("actionSheetPreview");
     const nameEl = document.getElementById("actionSheetName");
@@ -2226,6 +2230,7 @@ function closePhotoActionSheet() {
 // NOT open the keyboard and does NOT lock page scroll — it's a lightweight popover.
 function togglePhotoInlineMenu(e) {
     if (e) e.stopPropagation();
+    if (effectivelyViewingOtherProfile()) { closePhotoInlineMenu(); viewFullPhoto(); return; }
     const menu = document.getElementById("photoInlineMenu");
     if (!menu) return;
     if (menu.style.display === "none" || !menu.style.display) openPhotoInlineMenu();
@@ -2257,6 +2262,7 @@ function _photoMenuOutside(e) {
 function changeImage(source) {
     closePhotoActionSheet();
     closePhotoInlineMenu();
+    if (effectivelyViewingOtherProfile()) return;
     const fi = document.getElementById("fileInput");
     if (!fi) return;
     try {
@@ -2359,6 +2365,7 @@ function openCropModal(src) {
 
 async function repositionPhoto() {
     closePhotoActionSheet();
+    if (effectivelyViewingOtherProfile()) return;
     const originalSrc = user.imageOriginal || document.getElementById("profileImage").src;
 
     // Fetch as blob → convert to data URL to avoid tainted canvas CORS error
@@ -2473,7 +2480,7 @@ window.onload = async () => {
 
 async function uploadCoverPhoto(input) {
     const raw = input.files?.[0];
-    if (!raw) return;
+    if (!raw || effectivelyViewingOtherProfile()) return;
     if (!(raw.type || '').startsWith('image/')) { (window.showToast || function(){})('Please choose a photo.', 'error'); return; }
     // Compressed (max 2000px) BEFORE the editor opens, so the saved framing's
     // natural-pixel coordinates match the stored image exactly.
@@ -2485,6 +2492,7 @@ async function uploadCoverPhoto(input) {
 }
 
 function openCoverActionSheet() {
+    if (effectivelyViewingOtherProfile()) { viewFullCover(); return; }
     const sheet = document.getElementById('coverActionSheet');
     const preview = document.getElementById('coverActionSheetPreview');
     if (user.coverUrl) {
@@ -2511,11 +2519,13 @@ function viewFullCover() {
 
 function changeCoverPhoto() {
     closeCoverActionSheet();
+    if (effectivelyViewingOtherProfile()) return;
     document.getElementById('coverPhotoInput').click();
 }
 
 async function repositionCover() {
     closeCoverActionSheet();
+    if (effectivelyViewingOtherProfile()) return;
     if (!user.coverUrl) { changeCoverPhoto(); return; }
     try {
         const res = await fetch(user.coverUrl);
