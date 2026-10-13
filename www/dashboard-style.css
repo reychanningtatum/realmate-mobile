@@ -1646,9 +1646,13 @@ html[data-theme="dark"] .stats-list-avatar { border-color: #334155; }
        inside a display:none ancestor and make it permanently unrenderable,
        even when toggled open via the topbar trigger). */
     .profile-action-col .profile-more-menu-wrap .btn-more-options { display: none; }
-    /* Anchored to the fixed top bar's trigger position again, since that's
-       the active trigger now (not the in-header wrapper). */
-    #profileMoreMenu { position: fixed; top: 58px; right: 16px; left: auto; transform: none; }
+    /* Opened from the cover top bar's "···" button. The exact top/right are set
+       from that button's on-screen position when it opens (_placeProfileMoreMenu);
+       the values here are only the no-JS fallback and follow the same safe-area
+       offset as the top bar (inset + 6px bar offset + 14px padding + 38px button
+       + 8px gap). z-index sits above the top bar (200) so the menu is never
+       painted underneath it. */
+    #profileMoreMenu { position: fixed; top: calc(env(safe-area-inset-top, 0px) + 66px); right: 16px; left: auto; transform: none; z-index: 210; }
     /* Edit Profile now lives inside this menu on mobile (hidden by default,
        see base rule near .profile-more-menu a). */
     .profile-more-menu .mobile-only-menu-item { display: flex; }

@@ -13,16 +13,46 @@ document.addEventListener('click', (e) => {
     }
 });
 
+// The "···" menu has two triggers that share ONE menu element: the in-header
+// button (desktop — the menu is absolutely positioned under it by CSS) and the
+// round button in the mobile cover top bar. The menu is not a child of that top
+// bar, so on mobile it is position:fixed and must be placed from the button's
+// real on-screen position each time it opens. It used to sit at a hard-coded
+// top:58px, which on phones with a status-bar inset landed ON the button — and
+// the top bar stacks above the menu, so the menu showed up behind the button.
+function _placeProfileMoreMenu(menu, trigger) {
+    menu.style.top = ''; menu.style.right = '';
+    if (!trigger || !trigger.classList || !trigger.classList.contains('mobile-topbar-more')) return;
+    const r = trigger.getBoundingClientRect();
+    menu.style.top = Math.round(r.bottom + 8) + 'px';
+    menu.style.right = Math.max(8, Math.round(window.innerWidth - r.right)) + 'px';
+}
+function _closeProfileMoreMenu() {
+    const menu = document.getElementById('profileMoreMenu');
+    if (menu) menu.classList.remove('open');
+    window.removeEventListener('scroll', _closeProfileMoreMenu, true);
+    window.removeEventListener('resize', _closeProfileMoreMenu);
+}
 function toggleProfileMoreMenu(e) {
     if (e) e.stopPropagation();
     const menu = document.getElementById('profileMoreMenu');
-    if (menu) menu.classList.toggle('open');
+    if (!menu) return;
+    if (menu.classList.contains('open')) { _closeProfileMoreMenu(); return; }
+    // A menu item's own onclick also calls this to close; only a real trigger
+    // button (re)positions and opens it.
+    const trigger = e && e.currentTarget && e.currentTarget.tagName === 'BUTTON' ? e.currentTarget : null;
+    _placeProfileMoreMenu(menu, trigger);
+    menu.classList.add('open');
+    // The mobile trigger scrolls with the cover while the menu is fixed, so close
+    // the menu rather than leave it detached from its button.
+    window.addEventListener('scroll', _closeProfileMoreMenu, true);
+    window.addEventListener('resize', _closeProfileMoreMenu);
 }
 document.addEventListener('click', (e) => {
     const wrap = document.querySelector('.profile-more-menu-wrap');
     const menu = document.getElementById('profileMoreMenu');
     if (menu && wrap && !wrap.contains(e.target)) {
-        menu.classList.remove('open');
+        _closeProfileMoreMenu();
     }
 });
 
