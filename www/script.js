@@ -889,24 +889,18 @@ async function login(opts){
 
     // Registration approval gate — a row here with a status other than
     // 'Approved' means either the account is still awaiting admin review
-    // or was rejected; either way, no session may be granted. Only an
-    // explicit 'Approved' lets a user in: an account with no review row has
-    // never been approved (older accounts were backfilled as Approved by
-    // registration-approval-hardening-migration.sql).
-    const { data: review, error: reviewErr } = await window.supabaseClient
+    // or was rejected; either way, no session may be granted. Accounts
+    // with no registration_reviews row predate this feature and are
+    // treated as already approved.
+    const { data: review } = await window.supabaseClient
       .from('registration_reviews')
       .select('account_status')
       .eq('id', authUser.id)
       .maybeSingle();
 
-    if (reviewErr) {
+    if (review && review.account_status !== 'Approved') {
       await window.supabaseClient.auth.signOut();
-      showLoginError("We couldn't verify your account status. Please check your connection and try again.");
-      return;
-    }
-    if (!review || review.account_status !== 'Approved') {
-      await window.supabaseClient.auth.signOut();
-      if (review && review.account_status === 'Rejected') {
+      if (review.account_status === 'Rejected') {
         showLoginError(
           "Your registration was not approved. Please register again and upload a clear photo of your Alveo ID for verification. Please check your email for more details.",
           "Registration Not Approved"

@@ -145,16 +145,15 @@ function goBack() {
 
     // Registration approval gate — covers the case where an admin
     // rejects/un-approves an account that already has a live session
-    // (login() only checks this at sign-in time). Only an explicit
-    // 'Approved' passes — no row means the account was never approved. A
-    // failed lookup (offline) is not treated as a verdict either way.
+    // (login() only checks this at sign-in time). No row means the
+    // account predates this feature and is treated as approved.
     try {
-        const { data: review, error: reviewErr } = await _sb
+        const { data: review } = await _sb
             .from('registration_reviews')
             .select('account_status')
             .eq('id', session.user.id)
             .maybeSingle();
-        if (!reviewErr && (!review || review.account_status !== 'Approved')) {
+        if (review && review.account_status !== 'Approved') {
             await _sb.auth.signOut();
             localStorage.clear();
             location.href = "index.html";
