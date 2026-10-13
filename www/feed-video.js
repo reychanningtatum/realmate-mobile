@@ -18,7 +18,9 @@
   var _override = null;                            // session choice: true=muted,false=unmuted,null=use Settings
 
   function settingWantsMuted() {
-    try { return localStorage.getItem(PREF_KEY) !== 'on'; } catch (e) { return true; }
+    // The Settings toggle was removed (no more video uploads) — remaining Feed
+    // videos always start muted; a tap on the mute button still unmutes.
+    return true;
   }
   // The current desired MUTE preference for the Feed (Settings default unless the
   // user has tapped a mute button this session).
