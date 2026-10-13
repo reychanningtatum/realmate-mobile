@@ -18,6 +18,9 @@
 
     function extractAmount(text) {
         if (!text) return 0;
+        // The match engine's scored price reader is the source of truth wherever
+        // it is loaded; the patterns below are only the standalone fallback.
+        if (global.RM_MATCH && global.RM_MATCH.extractAmount) return global.RM_MATCH.extractAmount(text);
         const raw = String(text);
         const lower = raw.toLowerCase();
         let m = lower.match(/(\d+\.?\d*)\s*m(?:illion|il|n)?\b/);

@@ -149,7 +149,7 @@
 <script src="auth-guard.js?v=20261013a"></script>
 <script src="nav-menu.js?v=20260930a"></script>
 <script src="location-engine.js?v=20260809b"></script>
-<script src="match-engine.js?v=20261001c"></script>
+<script src="match-engine.js?v=20261013a"></script>
 <script src="match-alert.js?v=20261001m"></script>
 <script src="notif-badge.js?v=16"></script>
 <script>
@@ -170,6 +170,7 @@ function timeAgo(d) {
 }
 
 function extractPrice(text) {
+  if (window.RM_MATCH && RM_MATCH.extractAmount) return RM_MATCH.extractAmount(text) || null;
   const lower = text.toLowerCase();
   let m = lower.match(/(\d+\.?\d*)\s*m(?:illion|il|n)?\b/);
   if (m) return parseFloat(m[1]) * 1e6;

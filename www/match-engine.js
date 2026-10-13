@@ -114,43 +114,103 @@
         'Gentry Corporate Plaza','Alveo Financial Tower','Tryne Enterprise Plaza',
     ];
 
+    // ── Price intelligence ──────────────────────────────────────────────────
+    // Captions are free text, so a number is only a price when it READS like one.
+    // Every amount in the caption becomes a candidate and is scored on the
+    // evidence around it — peso sign, K/M unit, "price"/"rent" wording, "/month",
+    // "negotiable" — while figures that are clearly something else ("1 month",
+    // "2 months deposit", "80sqm", "2BR", unit/phone numbers) are skipped and
+    // side amounts (dues, deposit, parking, per-sqm) rank below the asking price.
+    // The best-scoring candidate wins; ties go to the one written first.
+    const _PRICE_NUM = /(₱|\bphp\.?|\bpesos?|\bp(?=\s?\d))?\s*(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)(?:\s*(million|mil|mn|m|thousand|k)\b)?/gi;
+    const _PRICE_NOT_MONEY = /^\s*(?:sqm|sq\b|sq\.|square|br\b|bed|bath|t&b|months?\b|mos?\b|yrs?\b|years?\b|days?\b|mins?\b|minutes?\b|km|meters?\b|floors?\b|flr|(?:st|nd|rd|th)\b|%|pax|slots?|cars?\b|parking|units?\b|storey|hectares?|has?\b|x\s*\d|f\b)/;
+    const _PRICE_LABEL_BEFORE = /(?:price|asking|selling|tcp|srp|rent|rental|lease|rate|budget|net|gross)\W*(?:is|of|at)?\W*$/;
+    const _PRICE_SIDE_BEFORE = /(?:dues?|assoc\w*|hoa|cusa|deposit|advance|reserv\w*|down\s*payment|dp|equity|amort\w*|parking|fees?|penalt\w*|commission|comm|utilit\w*|bills?|discount|less|rebate|cash\s*out|cashout)\W*(?:is|of|at|slot)?\W*$/;
+    const _PRICE_ID_BEFORE = /(?:unit|tower|bldg|building|lot|blk|block|phase|floor|room|no\.?|#|\+)\s*$/;
+    const _PRICE_PER_MONTH = /^\s*(?:\/|per\b|a\b|an\b|every\b)?\s*(?:month|mo\b|mos\b|mth)/;
+    const _PRICE_TERMS_AFTER = /^\s*\(?(?:net|gross|nego|inclusive|incl\b|all[- ]?in|firm|fixed|only|tcp|pesos?\b|php\b)/;
+    const _PRICE_SIDE_AFTER = /^\s*(?:(?:\/|per\b)\s*(?:sqm|sq\b|sq\.)|w\/o|without|deposit|advance|dues|reserv|dp\b|down\b)/;
+
+    function _priceCandidates(text) {
+        const raw = String(text || '');
+        const lower = raw.toLowerCase();
+        const isRent = /\b(?:rent|rental|lease|monthly)\b/.test(lower);
+        const out = [];
+        _PRICE_NUM.lastIndex = 0;
+        let m;
+        while ((m = _PRICE_NUM.exec(lower)) !== null) {
+            const cur = m[1], num = m[2], unit = m[3];
+            const start = m.index + m[0].search(/\d/);
+            const end = m.index + m[0].length;
+            // A digit run glued to a word or a longer number ("T2", "0917-…") isn't an amount.
+            if (!cur && start > 0 && /[a-z0-9.,]/.test(lower[start - 1])) continue;
+            const lineStart = lower.lastIndexOf('\n', start - 1) + 1;
+            const before = lower.slice(Math.max(lineStart, start - 40), cur ? m.index : start);
+            const after = lower.slice(end, end + 24);
+            let value = parseFloat(num.replace(/,/g, ''));
+            if (!(value > 0)) continue;
+            if (unit) {
+                // "500 m from MRT" is metres, not millions.
+                if (unit === 'm' && !cur && /^\s*(?:from|away|walk|radius)\b/.test(after)) continue;
+                value *= (unit === 'k' || unit === 'thousand') ? 1e3 : 1e6;
+            } else {
+                if (_PRICE_NOT_MONEY.test(after) || /^[\d-]/.test(after)) continue;
+                if (cur ? value < 1000 : value < 10000) continue;
+                if (!cur) {
+                    const digits = num.replace(/[,.]/g, '');
+                    if (digits[0] === '0' || digits.length > 10 || _PRICE_ID_BEFORE.test(before)) continue;
+                }
+            }
+            if (value > 2e10) continue;
+
+            let score = 0;
+            if (cur) score += 4;
+            if (unit) score += 2;
+            if (num.includes(',')) score += 1;
+            if (_PRICE_LABEL_BEFORE.test(before)) score += 3;
+            if (_PRICE_SIDE_BEFORE.test(before)) score -= 4;
+            if (_PRICE_PER_MONTH.test(after) || _PRICE_TERMS_AFTER.test(after)) score += 2;
+            if (_PRICE_SIDE_AFTER.test(after)) score -= 3;
+            if (isRent) score += (value >= 3e3 && value <= 3e6) ? 1 : (value >= 1e7 ? -2 : 0);
+            else if (value >= 3e5) score += 1;
+            out.push({ value, score, index: start });
+        }
+        return out;
+    }
+
+    function _bestPrice(text) {
+        let best = null;
+        for (const c of _priceCandidates(text)) if (!best || c.score > best.score) best = c;
+        return best;
+    }
+
+    // The single asking price of a caption (leading figure of a range), or 0.
+    function extractAmount(text) {
+        const best = _bestPrice(text);
+        return best ? best.value : 0;
+    }
+
+    // A real "30-40M" / "100 to 150K" range has two nearby bounds; "Tower 2 - 75k"
+    // or "1 or 2 months" does not.
     function extractPriceRange(text) {
-        const lower = text.toLowerCase();
-        const rangeM = lower.match(/(\d+\.?\d*)\s*m?\s*(?:-|to|or)\s*(\d+\.?\d*)\s*m(?:illion)?/);
-        if (rangeM) return { low: parseFloat(rangeM[1]), high: parseFloat(rangeM[2]), unit: 'M' };
+        const lower = String(text || '').toLowerCase();
+        const ok = (lo, hi) => lo > 0 && hi > lo && hi <= lo * 20;
+        const rangeM = lower.match(/(\d+\.?\d*)\s*m?\s*(?:-|to|or)\s*(\d+\.?\d*)\s*m(?:illion|il|n)?\b/);
+        if (rangeM && ok(parseFloat(rangeM[1]), parseFloat(rangeM[2])))
+            return { low: parseFloat(rangeM[1]), high: parseFloat(rangeM[2]), unit: 'M' };
         // K-denominated range e.g. "100 to 150K", "100K-150K" (typical for rent/lease budgets)
         const rangeK = lower.match(/(\d+\.?\d*)\s*k?\s*(?:-|to|or)\s*(\d+\.?\d*)\s*k\b/);
-        if (rangeK) return { low: parseFloat(rangeK[1]), high: parseFloat(rangeK[2]), unit: 'K' };
+        if (rangeK && ok(parseFloat(rangeK[1]), parseFloat(rangeK[2])))
+            return { low: parseFloat(rangeK[1]), high: parseFloat(rangeK[2]), unit: 'K' };
         return null;
     }
 
     function extractPrice(text) {
-        const lower = text.toLowerCase();
-        // Detect price range e.g. "30-40M", "30 to 40M", "30M-40M"
-        const rangeM = lower.match(/(\d+\.?\d*)\s*m?\s*(?:-|to|or)\s*(\d+\.?\d*)\s*m(?:illion)?/);
-        if (rangeM) return parseFloat(rangeM[2]) * 1_000_000; // use upper bound for matching
-        // Detect K-denominated range e.g. "100 to 150K", "100K-150K"
-        const rangeK = lower.match(/(\d+\.?\d*)\s*k?\s*(?:-|to|or)\s*(\d+\.?\d*)\s*k\b/);
-        if (rangeK) return parseFloat(rangeK[2]) * 1_000;
-        const lines = text.split(/\n/).map(l => l.trim()).filter(Boolean);
-        // Try each line first (price alone on a line is unambiguous)
-        for (const line of lines) {
-            const lo = line.toLowerCase();
-            let m = lo.match(/^(?:php|₱|p)?\s*(\d+\.?\d*)\s*m(?:illion)?(?:\b|$)/);
-            if (m) return parseFloat(m[1]) * 1_000_000;
-            m = lo.match(/^(?:php|₱|p)?\s*(\d+\.?\d*)\s*k\b/);
-            if (m) return parseFloat(m[1]) * 1_000;
-            m = line.replace(/,/g, '').match(/^(\d{7,9})$/);
-            if (m) return parseFloat(m[1]);
-        }
-        // Fallback: scan full text
-        let m = lower.match(/(\d+\.?\d*)\s*m(?:illion)?(?:\b|$)/);
-        if (m) return parseFloat(m[1]) * 1_000_000;
-        m = lower.match(/(\d+\.?\d*)\s*k\b/);
-        if (m) return parseFloat(m[1]) * 1_000;
-        m = text.replace(/,/g, '').match(/\b(\d{7,9})\b/);
-        if (m) return parseFloat(m[1]);
-        return null;
+        // A range ("30-40M") is matched on its upper bound.
+        const range = extractPriceRange(text);
+        if (range) return range.high * (range.unit === 'K' ? 1_000 : 1_000_000);
+        const best = _bestPrice(text);
+        return best ? best.value : null;
     }
 
     function _unitToken(str) {
@@ -767,22 +827,13 @@
     }
 
     function extractBudgetRange(text) {
-        const lower = text.toLowerCase().replace(/,/g, '');
-        const prices = [];
-        const patterns = [
-            /(\d+\.?\d*)\s*m(?:illion)?/gi,
-            /(?:₱|php|p)\s*(\d+\.?\d*)\s*m/gi,
-            /\b(\d{7,9})\b/g,
-            /(\d+)\s*k/gi,
-        ];
-        for (const pat of patterns) {
-            let m;
-            while ((m = pat.exec(lower)) !== null) {
-                let val = parseFloat(m[1]);
-                if (pat.source.includes('k')) val *= 1000;
-                else if (pat.source.includes('m')) val *= 1_000_000;
-                if (val > 0) prices.push(val);
-            }
+        const cands = _priceCandidates(text);
+        const main = cands.filter(c => c.score > 0);
+        const prices = (main.length ? main : cands).map(c => c.value);
+        const range = extractPriceRange(text);
+        if (range) {
+            const mult = range.unit === 'K' ? 1_000 : 1_000_000;
+            prices.push(range.low * mult, range.high * mult);
         }
         if (!prices.length) return null;
         return { min: Math.min(...prices), max: Math.max(...prices) };
@@ -1065,6 +1116,7 @@
         extractBudgetRange,
         extractPriceRange,
         extractPrice,
+        extractAmount,
         _unitToken,
         _unitRank,
         _smallerUnit,
