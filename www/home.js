@@ -4222,10 +4222,12 @@ document.addEventListener('DOMContentLoaded', () => {
         document.documentElement.scrollTop || 0,
         mc ? mc.scrollTop : 0
     );
-    const REVEAL_ZONE = 8;   // within this many px of the top → always shown
-    const HIDE_AFTER  = 80;  // only start hiding past this scroll depth
-    const DOWN_DELTA  = 6;   // downward movement needed to hide (ignore jitter)
-    const UP_DELTA    = 6;   // upward movement needed to reveal (ignore jitter)
+    // The bar's visibility is a function of POSITION, not scroll speed: it is
+    // shown at the true top of the feed and minimized anywhere else. JITTER is
+    // only the movement needed, measured from where the bar was last shown,
+    // before a scroll counts as real (a tap can nudge the page by a pixel).
+    const JITTER = 6;
+    const atTop = y => y < 1;
 
     // The write-a-post box is pinned into the SAME sticky top bar as the search
     // (CSS makes it sticky on mobile), so both show/hide together as one unit —
@@ -4236,12 +4238,13 @@ document.addEventListener('DOMContentLoaded', () => {
     function setHidden(next) {
         if (next === hidden) return;
         hidden = next;
+        if (!next) shownAtY = getY();                            // measure the next scroll from here
         wrap.classList.toggle('search-hidden', next);            // slide the sticky search bar up
         if (postCard) postCard.classList.toggle('post-hidden', next); // and the write-a-post box (same top bar)
         fab.classList.toggle('show', next);                     // FAB takes over while minimized
     }
 
-    let lastY = getY();
+    let shownAtY = getY();
     let ticking = false;
     // Mirror the Portal top-bar behaviour exactly: the top bar (search +
     // write-a-post) shows ONLY at the actual top of the feed; any scroll away
@@ -4249,14 +4252,17 @@ document.addEventListener('DOMContentLoaded', () => {
     // the FAB stays available while scrolling in either direction and at the
     // bottom-most post; tapping it peeks the bar back in place (see endDrag), and
     // the next scroll re-minimizes it. Reaching the true top shows it normally.
+    //
+    // The distance is measured from where the bar was SHOWN, not from the previous
+    // frame. Comparing frame-to-frame meant a slow scroll (a few px per frame)
+    // never crossed the threshold, so after a FAB tap the bar stayed up while the
+    // user drifted upward — still far from the top.
     function evaluate() {
         const y = getY();
-        const dy = y - lastY;
-        if (input && input.value)             setHidden(false); // never hide mid-search
-        else if (y <= REVEAL_ZONE)            setHidden(false); // at the actual top → top bar shown normally
-        else if (Math.abs(dy) >= DOWN_DELTA)  setHidden(true);  // any scroll away from top → minimize into the FAB
-        lastY = y;
         ticking = false;
+        if (atTop(y)) { setHidden(false); shownAtY = y; return; }     // true top → shown
+        if (input && document.activeElement === input) return;       // typing — leave it; the keyboard shifts the viewport
+        if (!hidden && Math.abs(y - shownAtY) >= JITTER) setHidden(true); // moved, and not at the top → minimize (search text is kept)
     }
     function onScroll() { if (!ticking) { ticking = true; requestAnimationFrame(evaluate); } }
     window.addEventListener('scroll', onScroll, { passive: true });
