@@ -75,11 +75,11 @@ async function _resolveLiveAuthors(rows) {
 
     const byId = {}, byName = {};
     if (uids.length) {
-        const { data } = await _supaHome.from('profiles').select('id,full_name,avatar_url').in('id', uids);
+        const { data } = await _supaHome.from('profiles').select('id,full_name,avatar_url,is_verified').in('id', uids);
         (data || []).forEach(p => { byId[p.id] = p; });
     }
     if (names.length) {
-        const { data } = await _supaHome.from('profiles').select('id,full_name,avatar_url').in('full_name', names);
+        const { data } = await _supaHome.from('profiles').select('id,full_name,avatar_url,is_verified').in('full_name', names);
         (data || []).forEach(p => { byName[p.full_name] = p; });
     }
     live.forEach(r => {
@@ -88,8 +88,17 @@ async function _resolveLiveAuthors(rows) {
             const liveName = p.full_name || r.user_name;
             r.user_name = liveName;
             r.user_img  = _homeAvatarFor(liveName, p.avatar_url);
+            r.user_verified = !!p.is_verified;
         }
     });
+}
+
+// Green verified check shown after an author's name (posts, shared embeds,
+// comments). user_verified is set by _resolveLiveAuthors from the admin-only
+// profiles.is_verified flag; never shown on anonymous rows.
+function _verifiedBadge(row) {
+    return (row && row.user_verified && !row.is_anonymous)
+        ? ' <i class="fas fa-circle-check hf-verified" title="Verified"></i>' : '';
 }
 
 // ── Helpers ───────────────────────────────────────
@@ -1300,7 +1309,7 @@ function buildHomePostCard(post, stats) {
         <div class="hf-post-header">
             <img loading="lazy" decoding="async" class="hf-post-avatar" src="${img}" onerror="this.src='${avatarUrl(name)}'"${!isAnon && post.user_id ? ` style="cursor:pointer;" onclick="rmGoProfile('${post.user_id}')"` : ''}>
             <div class="hf-post-meta">
-                <div class="hf-post-name"${!isAnon && post.user_id ? ` style="cursor:pointer;" onclick="rmGoProfile('${post.user_id}')"` : ''}>${safeText(name)}${post.shared_post_id ? ' <span class="hf-shared-tag"><i class="fas fa-share"></i> shared a post</span>' : ''}</div>
+                <div class="hf-post-name"${!isAnon && post.user_id ? ` style="cursor:pointer;" onclick="rmGoProfile('${post.user_id}')"` : ''}>${safeText(name)}${_verifiedBadge(post)}${post.shared_post_id ? ' <span class="hf-shared-tag"><i class="fas fa-share"></i> shared a post</span>' : ''}</div>
                 <div class="hf-post-time">${timeAgo(post.created_at)} ${privacyBadge(post.privacy)}</div>
             </div>
             <button class="hf-post-menu-btn" onclick="togglePostMenu('${post.id}')"><i class="fas fa-ellipsis-h"></i></button>
@@ -1400,7 +1409,7 @@ function buildSharedEmbed(orig) {
         <div class="hf-shared-head">
             <img loading="lazy" decoding="async" src="${img}" onerror="this.src='${avatarUrl(name)}'"${profileClick}>
             <div>
-                <div class="hf-shared-name"${profileClick}>${safeText(name)}</div>
+                <div class="hf-shared-name"${profileClick}>${safeText(name)}${_verifiedBadge(orig)}</div>
                 <div class="hf-shared-time">${timeAgo(orig.created_at)}</div>
             </div>
         </div>
@@ -2689,7 +2698,7 @@ function renderFeedComment(c, postId, isReply, postAuthor) {
         <img loading="lazy" decoding="async" class="hf-c-avatar" src="${img}" onerror="this.src='${avatarUrl(c.user_name)}'">
         <div class="hf-c-main">
             <div class="hf-c-bubble">
-                <div class="hf-c-name">${safeText(c.user_name || 'Member')}${isAuthor ? '<span class="hf-c-badge"><i class="fas fa-circle-check"></i> Author</span>' : ''}</div>
+                <div class="hf-c-name">${safeText(c.user_name || 'Member')}${_verifiedBadge(c)}${isAuthor ? '<span class="hf-c-badge"><i class="fas fa-circle-check"></i> Author</span>' : ''}</div>
                 ${c.content ? `<div class="hf-c-text">${linkifyContent(c.content)}</div>` : ''}
             </div>
             ${c.media_url ? `<img loading="lazy" decoding="async" class="hf-c-photo" src="${c.media_url}" onclick="openHomeImgLightbox('${c.media_url}')">` : ''}
@@ -3227,7 +3236,7 @@ function sharePost(postId) {
     document.getElementById('shareOriginalPreview').innerHTML = `
         <div class="hf-shared-head">
             <img loading="lazy" decoding="async" src="${target.user_img || avatarUrl(name)}" onerror="this.src='${avatarUrl(name)}'">
-            <div><div class="hf-shared-name">${safeText(name)}</div><div class="hf-shared-time">${timeAgo(target.created_at)}</div></div>
+            <div><div class="hf-shared-name">${safeText(name)}${_verifiedBadge(target)}</div><div class="hf-shared-time">${timeAgo(target.created_at)}</div></div>
         </div>
         ${target.content ? `<div class="hf-shared-text">${linkifyContent(target.content)}</div>` : ''}`;
     document.getElementById('sharePostModal').style.display = 'flex';
