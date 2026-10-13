@@ -281,4 +281,4 @@ workflows:
     publishing:
       app_store_connect:
         auth: integration           # authenticate with the "Codemagic Realmate" API key
-        submit_to_testflight: true  # upload the .ipa and release it to TestFlight
+        submit_to_testflight: false # upload only — no external beta-review submission (no external testers); internal testers still get the build
