@@ -409,6 +409,8 @@
 
     // inject HTML once the body exists (this script may be loaded in <head>)
     let overlay;
+    let _blurCloseTimer = null;   // pending "keyboard dismissed with nothing typed → close"
+    let _openFocusTimer = null;   // pending focus of the overlay input after opening
     function init() {
         if (overlay) return;
         // skip FAB on home page (has its own search bar)
@@ -475,11 +477,22 @@
         // Dismissing the keyboard (its "check"/Done) blurs the input. If nothing was
         // typed, close the overlay too — but defer so a tap on a result/recent row runs
         // its own handler first (those navigate + closeOverlay themselves).
+        // The close is tied to the input STILL being unfocused when the check runs,
+        // and is cancelled the moment the input is focused again or the overlay is
+        // (re)opened. Without that, one tap on the page's search bar raced itself on
+        // iOS: its focus event opened the overlay and focused this input, then the
+        // same tap's click event moved focus back to the bar (blurring this input)
+        // and reopened the overlay — and the blur's delayed close then shut the
+        // overlay that had just been reopened, leaving the keyboard up over a closed
+        // panel and making the search flicker open/closed.
         soInput.addEventListener('blur', () => {
-            setTimeout(() => {
+            clearTimeout(_blurCloseTimer);
+            _blurCloseTimer = setTimeout(() => {
+                if (document.activeElement === soInput) return;   // focus came back — keep it open
                 if (overlay.classList.contains('open') && !(soInput.value || '').trim()) closeOverlay();
             }, 150);
         });
+        soInput.addEventListener('focus', () => { clearTimeout(_blurCloseTimer); });
         document.addEventListener('keydown', e => { if (e.key === 'Escape') closeOverlay(); });
 
         wireUniversalInputs();
@@ -560,8 +573,17 @@
     }
 
     function openOverlay() {
+        clearTimeout(_blurCloseTimer);            // a pending blur-close must not shut a fresh open
+        const so = document.getElementById('soInput');
+        // Already open (the same tap fires both focus and click on the page's bar):
+        // just make sure the input has focus — don't run the open sequence twice.
+        if (overlay.classList.contains('open')) {
+            if (so && document.activeElement !== so) so.focus();
+            return;
+        }
         overlay.classList.add('open');
-        setTimeout(() => document.getElementById('soInput').focus(), 50);
+        clearTimeout(_openFocusTimer);
+        _openFocusTimer = setTimeout(() => { if (overlay.classList.contains('open') && so) so.focus(); }, 50);
         // Pull account-synced history (searches from other devices); refresh the
         // empty state only if the user hasn't started typing yet.
         _soSyncOnce(function () {
@@ -573,7 +595,10 @@
         });
     }
     function closeOverlay() {
+        clearTimeout(_blurCloseTimer); clearTimeout(_openFocusTimer);
         overlay.classList.remove('open');
+        // Drop the keyboard with the panel, so it can never stay up over a closed overlay.
+        try { const so = document.getElementById('soInput'); if (so && document.activeElement === so) so.blur(); } catch (e) {}
         // Reset so it never reopens with a half-typed query / stale results —
         // navigating away should not preserve the open search state.
         try {
