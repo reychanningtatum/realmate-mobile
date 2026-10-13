@@ -2915,26 +2915,104 @@ function _lmSearchFields(l) {
         { w: 2, words: _lmSearchWords(content) },
     ];
 }
+// ── Query intent ──
+// A query mixes different kinds of information. "Makati condominium for sale" is
+// a LOCATION (Makati), a CATEGORY (For Sale) and a keyword (condominium). What
+// the query states as a category, location or unit type is a hard requirement,
+// checked against the listing's own category / location / unit — before any
+// relevance ranking. Whatever is left is ranked as keywords.
+const _LM_SEARCH_CATS = {
+    forsale: 'FOR SALE', forrent: 'FOR RENT', forlease: 'FOR LEASE',
+    willingtobuy: 'WILLING TO BUY', willingtorent: 'WILLING TO RENT', willingtolease: 'WILLING TO LEASE',
+    wtb: 'WILLING TO BUY', wtr: 'WILLING TO RENT', wtl: 'WILLING TO LEASE',
+};
+let _lmIntentMemo = { q: null, intent: null };
+function _lmSearchIntent(q) {
+    if (_lmIntentMemo.q === q) return _lmIntentMemo.intent;
+    const cats = new Set(), units = [], locs = [], locWords = new Set();
+    // Locations: the shared location engine names them (aliases included —
+    // "bonifacio global city" is BGC). Each shortest phrase it recognises is
+    // consumed, so its words aren't also treated as plain keywords.
+    const words = _lmSearchNorm(q).split(' ').filter(Boolean);
+    for (let n = Math.min(4, words.length); n >= 1; n--) {
+        for (let i = 0; i + n <= words.length; i++) {
+            const span = words.slice(i, i + n);
+            if (span.some(w => locWords.has(w)) || span.every(w => _LM_SEARCH_STOP.has(w))) continue;
+            let found = [];
+            try { found = extractLocations(span.join(' ')) || []; } catch (_) {}
+            if (!found.length) continue;
+            // Prefer the tightest phrase: only take a longer span if no part of it names the place alone.
+            if (n > 1) {
+                let partial = false;
+                for (let m = 1; m < n && !partial; m++) for (let j = 0; j + m <= n && !partial; j++) {
+                    try { partial = (extractLocations(span.slice(j, j + m).join(' ')) || []).length > 0; } catch (_) {}
+                }
+                if (partial) continue;
+            }
+            found.forEach(t => { if (!locs.includes(t)) locs.push(t); });
+            span.forEach(w => locWords.add(_lmSearchStem(w)));
+        }
+    }
+    const terms = [];
+    _lmSearchTerms(q).forEach(t => {
+        if (_LM_SEARCH_CATS[t]) cats.add(_LM_SEARCH_CATS[t]);
+        else if (/^\dbr$|^studio$/.test(t)) units.push(t);
+        else if (!locWords.has(t)) terms.push(t);
+    });
+    const intent = { cats, locs, units, terms };
+    _lmIntentMemo = { q, intent };
+    return intent;
+}
+function _lmSearchLocText(l) {
+    return (l.location_city || l.location_area)
+        ? [l.location_area, l.location_city].filter(Boolean).join(', ')
+        : _lmPrimaryText(l.content);
+}
+function _lmSearchInLocation(l, tag) {
+    const text = _lmSearchLocText(l);
+    try { if (window.RM_LOC && RM_LOC.matchesFilter) return !!RM_LOC.matchesFilter(text, 'city:' + tag); } catch (_) {}
+    let tags = []; try { tags = extractLocations(text) || []; } catch (_) {}
+    return tags.some(x => String(x).toLowerCase() === String(tag).toLowerCase());
+}
+
 // Relevance of a listing for a query: 0 = not a result. Higher = more of the
 // query matched, in more important fields.
 function listingSearchScore(l, q) {
-    const terms = _lmSearchTerms(q);
-    if (!terms.length) return 0;
-    const fields = _lmSearchFields(l);
-    const specific = terms.filter(t => !_LM_SEARCH_SOFT.has(t));
-    let score = 0, matched = 0, specificMatched = 0;
-    terms.forEach(t => {
-        let best = 0;
-        // Unit-type terms ("1br", "studio") are as telling as the unit_type field.
-        const unitTerm = /^\dbr$|^studio$/.test(t);
-        fields.forEach(f => {
-            const hit = _lmSearchHit(t, f.words);
-            if (hit) best = Math.max(best, hit * ((unitTerm && f.w < 4) ? 4 : f.w));
+    const intent = _lmSearchIntent(q);
+    if (!intent.cats.size && !intent.locs.length && !intent.units.length && !intent.terms.length) return 0;
+    let score = 0, matched = 0;
+    // 1) Hard requirements, from the listing's real fields — never from wording
+    //    in its caption (a For Rent post that mentions "for sale" stays For Rent).
+    if (intent.cats.size) {
+        if (!intent.cats.has(String(l.category || '').toUpperCase().trim())) return 0;
+        score += 4; matched++;
+    }
+    if (intent.locs.length) {
+        if (!intent.locs.some(tag => _lmSearchInLocation(l, tag))) return 0;
+        score += 5; matched++;
+    }
+    if (intent.units.length) {
+        const unitWords = _lmSearchWords((l.unit_type || '') + ' ' + _lmPrimaryText(l.content));
+        if (!intent.units.some(u => unitWords.has(u))) return 0;
+        score += 4; matched++;
+    }
+    // 2) Keywords: ranked. A specific keyword ("Kroma") must match to qualify; a
+    //    generic one ("condominium") only adds relevance when something else in
+    //    the query already identifies the listing.
+    const terms = intent.terms;
+    if (terms.length) {
+        const fields = _lmSearchFields(l);
+        const specific = terms.filter(t => !_LM_SEARCH_SOFT.has(t));
+        let kw = 0, specificMatched = 0;
+        terms.forEach(t => {
+            let best = 0;
+            fields.forEach(f => { const hit = _lmSearchHit(t, f.words); if (hit) best = Math.max(best, hit * f.w); });
+            if (best) { score += best; kw++; if (!_LM_SEARCH_SOFT.has(t)) specificMatched++; }
         });
-        if (best) { score += best; matched++; if (!_LM_SEARCH_SOFT.has(t)) specificMatched++; }
-    });
-    if (!matched) return 0;
-    if (specific.length && !specificMatched) return 0;   // only a generic word matched
+        if (specific.length && !specificMatched) return 0;   // names something this listing isn't
+        if (!matched && !kw) return 0;                        // nothing matched at all
+        matched += kw;
+    }
     return matched * 100 + score;
 }
 function listingMatchesQuery(l, q) { return listingSearchScore(l, q) > 0; }
