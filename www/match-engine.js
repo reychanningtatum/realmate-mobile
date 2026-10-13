@@ -41,6 +41,26 @@
         if (/\b(?:can|could|may|might|would)\s+be\s+(?:converted|used|turned|developed|transformed)\b/.test(pre)) return true;
         return false;
     }
+    // A post offering a WHOLE property — a building, warehouse, compound, hotel —
+    // describes what it contains ("30 units", "9 units at 25 sqm (Studio Type)",
+    // "1 unit at 41 sqm 1 bedroom"). Those are its composition, not units for
+    // sale, so the property type is the building and no unit type is derived.
+    // Returns the type label, or '' when the post is about a unit / lot / house.
+    function _wholeProperty(text) {
+        const t = String(text || '').replace(/\r/g, '');
+        const TYPES = [
+            [/\boffice\s+building\b/, 'Office Building'],
+            [/\bcommercial\s+building\b/, 'Commercial Building'],
+            [/\bapartment\s+(?:building|complex)\b/, 'Apartment Building'],
+            [/\b(?:residential|mixed[\s-]*use|\d+[\s-]*(?:store?y|stories|storeys|floors?|levels?))\s+building\b/, 'Building'],
+            [/\bbuilding\s+for\s+(?:sale|lease|rent)\b/, 'Building'],
+            [/\bwarehouse\b/, 'Warehouse'],
+            [/\b(?:hotel|dormitory|boarding\s+house)\b/, 'Building'],
+        ];
+        for (const [re, label] of TYPES) if (_hlSubject(t, re)) return label;
+        return '';
+    }
+
     // Does `re` occur as a genuine SUBJECT anywhere (ignoring possible-use mentions)?
     function _hlSubject(text, re) {
         const g = new RegExp(re.source, 'gi');
@@ -131,10 +151,32 @@
     const _PRICE_TERMS_AFTER = /^\s*\(?(?:net|gross|nego|inclusive|incl\b|all[- ]?in|firm|fixed|only|tcp|pesos?\b|php\b)/;
     const _PRICE_SIDE_AFTER = /^\s*(?:(?:\/|per\b)\s*(?:sqm|sq\b|sq\.)|w\/o|without|deposit|advance|dues|reserv|dp\b|down\b)/;
 
-    function _priceCandidates(text) {
+    // ── What is being transacted ──
+    // A figure only means something relative to the post's PRIMARY transaction.
+    // "Commercial building FOR SALE … GF-3F: lease at 250,000 per month … PRICE:
+    // ₱250,000,000" is a sale: the 250M is the asking price and the monthly figure
+    // is income the property produces. In a rental the roles are reversed: the
+    // monthly figure is the price and a "selling price" mention is a reference.
+    // Intent comes from the listing's category when known, else from the first
+    // explicit statement in the post (its headline) — never from a stray word.
+    const _PRICE_INCOME_BEFORE = /(?:leased?|rented|rental|rent|tenanted|occupied|earn(?:s|ing)?|generat\w+|income|yield\w*|revenue|collect\w+|roi)\W*(?:out\W*)?(?:is|of|at|for|to|around|about)?\W*$/;
+    const _PRICE_SALE_REF_BEFORE = /(?:selling\s*price|sale\s*price|market\s*value|zonal(?:\s*value)?|apprais\w+|assessed\s*value|bought|acquired|purchased|worth|valued)\W*(?:is|of|at|for|around|about)?\W*$/;
+    function _priceIntent(text, category) {
+        const c = String(category || '').toUpperCase();
+        if (/SALE|BUY/.test(c)) return 'sale';
+        if (/RENT|LEASE/.test(c)) return 'rent';
+        const m = String(text || '').toLowerCase().match(/\bfor\s+(sale|rent|lease)\b|\bwilling\s+to\s+(buy|rent|lease)\b|\b(wtb|wtr|wtl)\b/);
+        if (!m) return null;
+        const w = m[1] || m[2] || m[3];
+        return (w === 'sale' || w === 'buy' || w === 'wtb') ? 'sale' : 'rent';
+    }
+
+    function _priceCandidates(text, category) {
         const raw = String(text || '');
         const lower = raw.toLowerCase();
-        const isRent = /\b(?:rent|rental|lease|monthly)\b/.test(lower);
+        const intent = _priceIntent(raw, category);
+        // No stated transaction → fall back to the wording of the post as a whole.
+        const isRent = intent ? intent === 'rent' : /\b(?:rent|rental|lease|monthly)\b/.test(lower);
         const out = [];
         _PRICE_NUM.lastIndex = 0;
         let m;
@@ -165,31 +207,60 @@
             }
             if (value > 2e10) continue;
 
+            // The role this figure plays for the post's transaction.
+            const monthly = _PRICE_PER_MONTH.test(after);
+            let role = 'price';
+            if (intent === 'sale' && (monthly || _PRICE_INCOME_BEFORE.test(before))) role = 'income';
+            else if (intent === 'rent' && !monthly && _PRICE_SALE_REF_BEFORE.test(before)) role = 'reference';
+
             let score = 0;
             if (cur) score += 4;
             if (unit) score += 2;
             if (num.includes(',')) score += 1;
             if (_PRICE_LABEL_BEFORE.test(before)) score += 3;
             if (_PRICE_SIDE_BEFORE.test(before)) score -= 4;
-            if (_PRICE_PER_MONTH.test(after) || _PRICE_TERMS_AFTER.test(after)) score += 2;
+            if (monthly || _PRICE_TERMS_AFTER.test(after)) score += 2;
             if (_PRICE_SIDE_AFTER.test(after)) score -= 3;
             if (isRent) score += (value >= 3e3 && value <= 3e6) ? 1 : (value >= 1e7 ? -2 : 0);
             else if (value >= 3e5) score += 1;
-            out.push({ value, score, index: start });
+            out.push({ value, score, index: start, role, monthly });
         }
         return out;
     }
 
-    function _bestPrice(text) {
+    // The asking price: the best-scoring figure whose role IS the price. Income
+    // and reference figures never stand in for it — a post that states no asking
+    // price has none.
+    function _bestPrice(text, category) {
         let best = null;
-        for (const c of _priceCandidates(text)) if (!best || c.score > best.score) best = c;
+        for (const c of _priceCandidates(text, category)) {
+            if (c.role !== 'price') continue;
+            if (!best || c.score > best.score) best = c;
+        }
         return best;
     }
 
     // The single asking price of a caption (leading figure of a range), or 0.
-    function extractAmount(text) {
-        const best = _bestPrice(text);
+    function extractAmount(text, category) {
+        const best = _bestPrice(text, category);
         return best ? best.value : 0;
+    }
+
+    // Every figure with a role, for display: the asking price plus the secondary
+    // ones, each with the line it was written on (the source text is the truth).
+    //   -> { intent, price, income: [{ value, monthly, line }], reference: [...] }
+    function extractFinancials(text, category) {
+        const raw = String(text || '');
+        const lineOf = i => {
+            const a = raw.lastIndexOf('\n', i - 1) + 1, b = raw.indexOf('\n', i);
+            return raw.slice(a, b === -1 ? raw.length : b).replace(/^[\s•·▪◦*\-–—>]+/, '').trim();
+        };
+        const best = _bestPrice(raw, category);
+        const out = { intent: _priceIntent(raw, category), price: best ? best.value : null, income: [], reference: [] };
+        _priceCandidates(raw, category).forEach(c => {
+            if (c.role === 'income' || c.role === 'reference') out[c.role].push({ value: c.value, monthly: !!c.monthly, line: lineOf(c.index) });
+        });
+        return out;
     }
 
     // A real "30-40M" / "100 to 150K" range has two nearby bounds; "Tower 2 - 75k"
@@ -207,11 +278,11 @@
         return null;
     }
 
-    function extractPrice(text) {
+    function extractPrice(text, category) {
         // A range ("30-40M") is matched on its upper bound.
         const range = extractPriceRange(text);
         if (range) return range.high * (range.unit === 'K' ? 1_000 : 1_000_000);
-        const best = _bestPrice(text);
+        const best = _bestPrice(text, category);
         return best ? best.value : null;
     }
 
@@ -249,6 +320,7 @@
     }
 
     function extractUnit(text) {
+        if (_wholeProperty(text)) return null;   // a building's unit mix is composition, not the unit offered
         text = _normBeds(text);
         const lower = text.toLowerCase();
         // Detect unit range across any combo: "Studio or 1BR", "2-BEDROOM OR 3-BEDROOM", "1BR or 2 Bedroom"
@@ -832,8 +904,8 @@
         return FEATURE_KEYWORDS.filter(f => lower.includes(f));
     }
 
-    function extractBudgetRange(text) {
-        const cands = _priceCandidates(text);
+    function extractBudgetRange(text, category) {
+        const cands = _priceCandidates(text, category).filter(c => c.role === 'price');
         const main = cands.filter(c => c.score > 0);
         const prices = (main.length ? main : cands).map(c => c.value);
         const range = extractPriceRange(text);
@@ -885,6 +957,8 @@
     // together, and bedroom counts are matched at the specific level (1BR ≠ 2BR).
     function unitTypesForMatch(raw) {
         const text = (raw || '').replace(/\r/g, '');
+        const whole = _wholeProperty(text);
+        if (whole) return [whole === 'Commercial Building' || whole === 'Apartment Building' ? 'Building' : whole];
         if (_hlSubject(text, /\bpent[\s-]*house\b/))                 return ['Penthouse'];
         if (_hlSubject(text, /\btown[\s-]*house\b/))                 return ['Townhouse'];
         if (_hlSubject(text, /\bhouse\s*(?:and|&|\+)?\s*lot\b/))     return ['House and Lot'];
@@ -961,7 +1035,11 @@
         const n = lines.length;
         if (n > _PROP_MAX_LINES) return { multi: false, sections: [raw], primary: raw };
         const blank = lines.map(l => !l.trim());
-        const hasPrice = lines.map((l, i) => !blank[i] && _priceCandidates(l).some(c => c.score > 0));
+        // Whether a line carries an asking price is judged with the WHOLE post's
+        // intent, so income lines in a sale ("lease at 250,000 per month") don't
+        // read as separately priced properties.
+        const _intentCat = { sale: 'FOR SALE', rent: 'FOR RENT' }[_priceIntent(raw)] || '';
+        const hasPrice = lines.map((l, i) => !blank[i] && _priceCandidates(l, _intentCat).some(c => c.role === 'price' && c.score > 0));
         const hasIdent = lines.map((l, i) => !blank[i] && _PROP_IDENT.test(l));
         const marker = lines.map((l, i) => blank[i] ? null : _propMarker(l));
         const headerish = i => !!marker[i] && /[a-z]{2}/i.test(lines[i]) && !hasPrice[i];
@@ -1055,8 +1133,8 @@
                 : extractProject(text),
             price: (listing.price != null && listing.price !== '')
                 ? Number(listing.price)
-                : extractPrice(text),
-            budget: extractBudgetRange(text),
+                : extractPrice(text, listing.category),
+            budget: extractBudgetRange(text, listing.category),
             features: extractFeatures(text),
             userId: listing.user_id,
             raw: listing
@@ -1238,6 +1316,8 @@
         extractPriceRange: _onPrimary(extractPriceRange),
         extractPrice: _onPrimary(extractPrice),
         extractAmount: _onPrimary(extractAmount),
+        extractFinancials: _onPrimary(extractFinancials),
+        wholeProperty: function (text) { return _wholeProperty(primaryText(text)); },
         _unitToken,
         _unitRank,
         _smallerUnit,

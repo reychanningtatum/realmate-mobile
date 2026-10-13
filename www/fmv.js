@@ -226,6 +226,11 @@ function fmvFieldsFor(listing) {
     const _g = (typeof window !== 'undefined') ? window : globalThis;
     const p = parseListingText((_c && _g.RM_MATCH && _g.RM_MATCH.primaryText) ? _g.RM_MATCH.primaryText(_c) : _c);
     if (!listing) return p;
+    // The asking price comes from the engine's role-aware reader when it is
+    // loaded, so rental income inside a for-sale post is never taken as its price.
+    if (_c && _g.RM_MATCH && _g.RM_MATCH.extractPrice) {
+        try { p.price = _g.RM_MATCH.extractPrice(_c, listing.category); } catch (e) {}
+    }
     const has = v => v != null && String(v).trim() !== '';
     return {
         ...p,

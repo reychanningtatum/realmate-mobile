@@ -154,6 +154,8 @@
     .ld-hl-price{ font-size:21px; font-weight:800; color:var(--ld-green); letter-spacing:-0.01em; margin-top:3px; line-height:1.15; }
     /* No Property Name → Price leads the card (larger, no top gap). */
     .ld-hl-price-lead{ font-size:25px; margin-top:0; }
+    .ld-hl-fin{ font-size:12.5px; font-weight:500; color:var(--ld-sub); margin-top:6px; line-height:1.4; overflow-wrap:anywhere; }
+    .ld-hl-fin-lbl{ font-weight:700; text-transform:uppercase; letter-spacing:0.04em; font-size:10.5px; color:#94a3b8; margin-right:4px; }
     .ld-hl-subloc{ font-size:12.5px; font-weight:500; color:var(--ld-sub); margin-top:3px; line-height:1.35; overflow-wrap:anywhere; }
     .ld-hl-loc{ display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:600; color:var(--ld-text); margin-top:6px; line-height:1.1; overflow-wrap:anywhere; }
     .ld-hl-loc i{ color:var(--ld-green); font-size:13px; flex-shrink:0; }
@@ -383,7 +385,7 @@
 <script src="mates.js?v=20260930c"></script>
 <script src="nav-menu.js?v=20260930a"></script>
 <script src="location-engine.js?v=20260809b"></script>
-<script src="match-engine.js?v=20261014a"></script>
+<script src="match-engine.js?v=20261014b"></script>
 <script src="developers.js?v=36"></script>
 <script src="rm-track.js?v=3"></script>
 <script src="match-alert.js?v=20261001m"></script>
@@ -577,7 +579,7 @@ function detectProjectName(text){
   return null;
 }
 
-function parse(text){
+function parse(text, category){
   const lower=text.toLowerCase();
   // Shared PH location engine (location-engine.js) — hierarchy-aware and
   // word-boundary safe, so "New Manila" resolves to Quezon City instead of also
@@ -595,7 +597,7 @@ function parse(text){
   const projectPhrase = project;
   // Single source of the highlighted peso figure (match-engine.js), so the
   // Admin panel's Sold totals sum exactly what's shown here. 0 → no price.
-  let price = (window.RM_MATCH && RM_MATCH.extractAmount ? RM_MATCH.extractAmount(text) : 0) || null;
+  let price = (window.RM_MATCH && RM_MATCH.extractAmount ? RM_MATCH.extractAmount(text, category) : 0) || null;
   if(price===null && !(window.RM_MATCH && RM_MATCH.extractAmount)){ let m=lower.match(/(\d+\.?\d*)\s*m(?:illion|il|n)?\b/);
     if(m) price=parseFloat(m[1])*1e6;
     else if((m=lower.match(/(\d+\.?\d*)\s*k\b/))) price=parseFloat(m[1])*1e3;
@@ -645,7 +647,7 @@ function ldOtherProperties(content){
 
 function extractDetails(listing){
   const raw = ldPrimaryText(listing.content);
-  const p = parse(raw);
+  const p = parse(raw, listing.category);
   // Phase 1 structured-first: prefer structured columns, else parse content.
   const developer=(listing.developer!=null&&String(listing.developer).trim()!==''?String(listing.developer):_xDev(raw)),
         unitType=(listing.unit_type!=null&&String(listing.unit_type).trim()!==''?String(listing.unit_type):_xType(raw)),
@@ -887,6 +889,36 @@ function ldSpecificLocation(t, mainLoc){
   });
   return parts.join(', ');
 }
+// Building facts, only as stated. The unit count is the LARGEST "N units" the
+// post gives (its total — "30 units … each floor 10 units … 9 units at 25 sqm"),
+// and only for a whole building; a unit post saying "2 units left" is not that.
+function ldStoreys(t){
+  const m = t.match(/\b(\d{1,3})[\s-]*(?:store?y|storeys|stories)\b/i);
+  return m ? m[1] + (m[1] === '1' ? ' Storey' : ' Storeys') : '';
+}
+function ldUnitCount(t){
+  try { if (!(window.RM_MATCH && RM_MATCH.wholeProperty && RM_MATCH.wholeProperty(t))) return ''; } catch(e){ return ''; }
+  let max = 0, m; const re = /\b(\d{1,4})\s+units?\b/gi;
+  while ((m = re.exec(t))) max = Math.max(max, parseInt(m[1], 10));
+  return max > 1 ? max + ' Units' : '';
+}
+// Figures that are NOT the asking price, shown small beneath it in the post's
+// own words: income a property for sale produces ("GF-3F: lease at 250,000 per
+// month"), or a sale figure mentioned in a rental.
+function ldSecondaryFigures(listing){
+  let fin = null;
+  try { fin = (window.RM_MATCH && RM_MATCH.extractFinancials) ? RM_MATCH.extractFinancials(listing.content || '', listing.category) : null; } catch(e){}
+  if (!fin) return [];
+  const seen = new Set(), out = [];
+  const add = (label, items) => (items || []).forEach(x => {
+    if (!x.line || seen.has(x.line) || out.length >= 2) return;
+    seen.add(x.line); out.push({ label, text: x.line });
+  });
+  add('Rental income', fin.income);
+  add('Sale reference', fin.reference);
+  return out;
+}
+
 // The highlight model for one listing: its type, kind and the spec widgets that
 // are meaningful for that kind. Condo-style units keep the classic three
 // (always shown); other property types list only what the post states.
@@ -904,6 +936,11 @@ function ldProfile(text, hasProject){
   const bed = _hlBedCountSubject(text);
   const specs = [];
   if (!title) specs.push({ ic:'fa-layer-group', lbl:'Property Type', val:type });
+  if (kind === 'commercial') {
+    const st = ldStoreys(text), un = ldUnitCount(text);
+    if (st) specs.push({ ic:'fa-building', lbl:'Storeys', val: st });
+    if (un) specs.push({ ic:'fa-table-cells', lbl:'Units', val: un });
+  }
   if (kind === 'house' && bed) specs.push({ ic:'fa-bed', lbl:'Bedrooms', val: bed === 1 ? '1 Bedroom' : bed + ' Bedrooms' });
   if (kind === 'lot') specs.push({ ic:'fa-vector-square', lbl:'Lot Area', val: lot || any });
   else {
@@ -1205,6 +1242,7 @@ async function loadListing(){
         <div class="ld-hl-price${(d.project || profile.title)?'':' ld-hl-price-lead'}${priceStr?'':' ld-hl-empty'}">${priceStr?priceStr:'—'}</div>
         <div class="ld-hl-loc"><i class="fas fa-location-dot"></i> <span class="${locDisplay?'':'ld-hl-empty'}">${locDisplay?safeText(locDisplay):'—'}</span></div>
         ${(() => { const sl = ldSpecificLocation(_ldText, locDisplay); return sl ? `<div class="ld-hl-subloc">${safeText(sl)}</div>` : ''; })()}
+        ${ldSecondaryFigures(listing).map(x => `<div class="ld-hl-fin"><span class="ld-hl-fin-lbl">${x.label}</span> ${safeText(x.text)}</div>`).join('')}
       </div>
       ${(()=>{ const pd=formatPostDate(listing.created_at); return pd.day ? `<div class="ld-hl-date">
         <span class="ld-hl-date-lbl"><i class="far fa-clock"></i> Posted</span>
