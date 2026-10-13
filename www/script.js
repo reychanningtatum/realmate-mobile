@@ -1472,7 +1472,10 @@ async function registerUser(){
       // Persist the username on the profile so it's findable at login (case-
       // insensitively) and by the taken-username check — not just in auth
       // metadata, which the client can't query.
-      await window.supabaseClient.from('profiles').upsert({ id: userId, username, alveo_id_file: path });
+      // Also write the email here: username login resolves username → profiles.email,
+      // and this row must carry it even if the DB's new-user trigger didn't create
+      // the profile (it used to fail on a blank birthday, leaving email empty).
+      await window.supabaseClient.from('profiles').upsert({ id: userId, username, email, alveo_id_file: path });
 
       // Queues the account for admin review — account_status defaults to
       // 'Pending Approval' at the DB level (registration-approval-migration.sql).
