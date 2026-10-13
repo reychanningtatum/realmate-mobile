@@ -133,7 +133,7 @@
                 <div class="so-history-item" onclick="window.__openHistoryItem(${i})">
                     ${soHistoryMedia(item)}
                     <span class="so-history-term">${esc(item.label)}</span>
-                    <button type="button" class="so-history-remove" onclick="event.stopPropagation();window.__removeHistoryItem(${i})"><i class="fas fa-xmark"></i></button>
+                    <button type="button" class="so-history-remove" data-hidx="${i}" data-hkey="${escAttr(window.RMSearchHistory ? String(RMSearchHistory.keyOf(item)) : '')}" onclick="event.stopPropagation();window.__removeHistoryItem(this)"><i class="fas fa-xmark"></i></button>
                 </div>
             `).join('')}
         `;
@@ -162,8 +162,20 @@
             ? 'listing-detail.html?id=' + item.id
             : 'dashboard.html?user_id=' + item.id;   // person/profile
     };
-    window.__removeHistoryItem = function (i) {
-        const item = getSearchHistory()[i];
+    // Removes exactly ONE entry, identified by its unique history key (carried on
+    // the button) — not by list position, which can be stale if the list changed
+    // (e.g. a cross-device sync) between render and tap. Falls back to the index
+    // only when no key is available. The overlay stays open (see the blur rule).
+    window.__removeHistoryItem = function (ref) {
+        const list = getSearchHistory();
+        let item = null;
+        if (ref && ref.dataset) {
+            const k = ref.dataset.hkey;
+            if (k && window.RMSearchHistory) item = list.find(x => String(RMSearchHistory.keyOf(x)) === k) || null;
+            else item = list[Number(ref.dataset.hidx)] || null;
+        } else {
+            item = list[ref] || null;
+        }
         if (item && window.RMSearchHistory) RMSearchHistory.remove(_soScope(), RMSearchHistory.keyOf(item));
         document.getElementById('soResults').innerHTML = renderEmptyState();
     };
@@ -411,6 +423,7 @@
     let overlay;
     let _blurCloseTimer = null;   // pending "keyboard dismissed with nothing typed → close"
     let _openFocusTimer = null;   // pending focus of the overlay input after opening
+    let _pressInsidePanel = false; // a tap/click is in progress inside the search panel
     function init() {
         if (overlay) return;
         // skip FAB on home page (has its own search bar)
@@ -485,8 +498,31 @@
         // and reopened the overlay — and the blur's delayed close then shut the
         // overlay that had just been reopened, leaving the keyboard up over a closed
         // panel and making the search flicker open/closed.
+        // This rule is ONLY for the keyboard being dismissed. Tapping something inside
+        // the panel (the X beside a recent search, Clear All, a result row) also
+        // moves focus off the input, and used to be mistaken for that — which is why
+        // removing one recent search closed the whole search. A press that starts
+        // inside the panel is tracked from pointerdown to click, and a blur during
+        // it never schedules a close.
+        const _panel = overlay.firstElementChild;
+        const _pressStart = e => { _pressInsidePanel = !!(_panel && _panel.contains(e.target) && e.target !== soInput); };
+        const _pressEnd = () => { _pressInsidePanel = false; };
+        overlay.addEventListener('pointerdown', _pressStart, true);
+        overlay.addEventListener('touchstart', _pressStart, { capture: true, passive: true });
+        // The press ends at its click (capture, so a handler that stops propagation
+        // can't leave it set), when it is cancelled, or when it turns into a scroll.
+        overlay.addEventListener('click', _pressEnd, true);
+        overlay.addEventListener('pointercancel', _pressEnd, true);
+        overlay.addEventListener('touchcancel', _pressEnd, true);
+        overlay.addEventListener('scroll', _pressEnd, true);
+        // Keep the cursor (and the phone keyboard) in the search box while removing
+        // history entries, so several can be removed in a row.
+        overlay.addEventListener('mousedown', e => {
+            if (e.target.closest && e.target.closest('.so-history-remove, .so-history-clear')) e.preventDefault();
+        });
         soInput.addEventListener('blur', () => {
             clearTimeout(_blurCloseTimer);
+            if (_pressInsidePanel) return;   // focus left because of a tap inside the panel
             _blurCloseTimer = setTimeout(() => {
                 if (document.activeElement === soInput) return;   // focus came back — keep it open
                 if (overlay.classList.contains('open') && !(soInput.value || '').trim()) closeOverlay();
