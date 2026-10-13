@@ -467,6 +467,17 @@ async function loadConversations() {
 // plus the visible item on top. Shared by the full-list render below and by
 // _updateConvRow's single-row surgical update, so both stay in sync by
 // construction instead of two copies of the same template drifting apart.
+// One-line description of a message for the conversation list / peek preview.
+// A photo reads as a sentence ("You sent a photo" / "Sent a photo") — never its
+// filename. Returns { text, self } where self means the text already names the
+// sender, so the caller must not add its own "You: " prefix.
+function _msgPreviewText(m, own) {
+    const type = (m.message_type || 'TEXT').toUpperCase();
+    if (type === 'IMAGE') return { text: own ? 'You sent a photo' : 'Sent a photo', self: true };
+    if (type === 'TEXT') return { text: m.message_text || '', self: false };
+    return { text: `📎 ${m.file_name || m.message_type}`, self: false };
+}
+
 function _convRowHtml(c, matchMsg, lf) {
     const pinned = _getConvFlagSet('pinned');
     const muted = _getConvFlagSet('muted');
@@ -493,8 +504,9 @@ function _convRowHtml(c, matchMsg, lf) {
         if (lm.is_unsent) {
             preview = lm.sender_id === currentUser.id ? 'You unsent a message' : 'Message unsent';
         } else {
-            preview = lm.sender_id === currentUser.id ? 'You: ' : '';
-            preview += lm.message_type === 'TEXT' ? (lm.message_text || '') : `📎 ${lm.file_name || lm.message_type}`;
+            const own = lm.sender_id === currentUser.id;
+            const p = _msgPreviewText(lm, own);
+            preview = (own && !p.self ? 'You: ' : '') + p.text;
         }
     }
     const time = lm ? fmtConvTime(lm.created_at) : '';
@@ -1983,7 +1995,7 @@ async function openMsgPreview(convId) {
         const own = m.sender_id === currentUser.id;
         const text = m.is_unsent
             ? (own ? 'You unsent a message' : 'Message unsent')
-            : (m.message_type === 'TEXT' ? (m.message_text || '') : `📎 ${m.file_name || m.message_type}`);
+            : _msgPreviewText(m, own).text;
         return `<div class="chat-preview-msg${own ? ' own' : ''}">${esc(text)}</div>`;
     }).join('');
 }
