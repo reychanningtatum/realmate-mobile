@@ -338,17 +338,36 @@ function goBack() {
         // SELECT policy silently filters the UPDATE event out — the change then
         // only appears on a later fetch/navigation, i.e. "syncs but not realtime").
         try { if (session.access_token && _sb.realtime && _sb.realtime.setAuth) _sb.realtime.setAuth(session.access_token); } catch (e) {}
+        const _RM_PROFILE_SYNC_COLS = ['full_name', 'username', 'nickname', 'job_title', 'division',
+            'business_group', 'team_name', 'bio', 'relationship_status', 'cover_url', 'cover_transform',
+            'location', 'years_experience', 'languages'];
+        let _rmProfileSelfSig = null;
         _sb.channel('profile-self-' + session.user.id)
             .on('postgres_changes',
                 { event: 'UPDATE', schema: 'public', table: 'profiles', filter: 'id=eq.' + session.user.id },
                 function (payload) {
+                    const n = payload && payload.new;
+                    if (!n) return;
                     try {
-                        const newUrl = payload && payload.new && payload.new.avatar_url;
-                        if (!newUrl) return;
+                        const newUrl = n.avatar_url;
                         const u = JSON.parse(localStorage.getItem('user')) || {};
                         if (u.id && u.id !== session.user.id) return;
-                        if (u.image === newUrl) return;   // already current — skip echo / same-device
-                        window.rmApplyAvatarUpdate(newUrl, payload.new.avatar_original_url);
+                        // already current — skip echo / same-device
+                        if (newUrl && u.image !== newUrl) window.rmApplyAvatarUpdate(newUrl, n.avatar_original_url);
+                    } catch (e) {}
+                    // Everything else on the profile (cover photo + framing, Edit
+                    // Profile fields): the avatar path above used to be the ONLY
+                    // thing this handler applied, so those changes never reached the
+                    // user's other devices live. Signal the profile page to re-read
+                    // its own row. The signature skips unrelated writes (last_seen
+                    // heartbeats, avatar-only updates) so they never trigger a refetch.
+                    try {
+                        const sig = JSON.stringify(_RM_PROFILE_SYNC_COLS.map(function (c) { return n[c] == null ? '' : n[c]; }));
+                        if (sig === _rmProfileSelfSig) return;
+                        _rmProfileSelfSig = sig;
+                        window.dispatchEvent(new CustomEvent('rm-profile-self-changed'));
+                        // Other app-shell documents on this device (see rm_avatar_changed).
+                        localStorage.setItem('rm_profile_self_changed', String(Date.now()));
                     } catch (e) {}
                 })
             .subscribe(function (status) {

@@ -1236,6 +1236,57 @@ function _rmRepaintOwnProfileAvatars(url) {
 window.addEventListener('rm-avatar-changed', _rmSyncOwnAvatarFromCache);
 window.addEventListener('storage', function (e) { if (e.key === 'rm_avatar_changed') _rmSyncOwnAvatarFromCache(); });
 
+// Own profile edited elsewhere (another device, or another app-shell document) —
+// auth-guard's realtime handler fires rm-profile-self-changed / the
+// rm_profile_self_changed storage ping. Re-read MY row and repaint, so a new
+// cover photo / reposition and Edit Profile changes appear live. The DB row is
+// the source of truth here (no fallback to cached values), so a field CLEARED on
+// the other device clears here too. Waits while an editor is open so it never
+// rewrites what the user is in the middle of changing; our own save's echo
+// refetches identical values and is a no-op.
+let _rmProfileLiveTimer = null;
+function _rmProfileEditorOpen() {
+    return ['editModal', 'coverCropModal', 'cropModal'].some(function (id) {
+        const el = document.getElementById(id);
+        return el && el.style.display && el.style.display !== 'none';
+    });
+}
+function _rmQueueOwnProfileSync(delay) {
+    if (_viewUserId) return;   // viewing another user — not my profile
+    clearTimeout(_rmProfileLiveTimer);
+    _rmProfileLiveTimer = setTimeout(_rmSyncOwnProfileLive, delay || 250);
+}
+async function _rmSyncOwnProfileLive() {
+    try {
+        if (_viewUserId || !_supabase || typeof user === 'undefined' || !user || !user.id) return;
+        if (_rmProfileEditorOpen()) return _rmQueueOwnProfileSync(1500);
+        const { data: p } = await _supabase.from('profiles').select('*').eq('id', user.id).maybeSingle();
+        if (!p || _rmProfileEditorOpen()) { if (p) _rmQueueOwnProfileSync(1500); return; }
+        const next = Object.assign({}, user, {
+            name: p.full_name || user.name,
+            username: p.username || user.username || '',
+            nickname: p.nickname || '',
+            job: p.job_title || '',
+            division: p.division || '',
+            group: p.business_group || '',
+            team: p.team_name || '',
+            bio: p.bio || '',
+            relationship: p.relationship_status || '',
+            coverUrl: p.cover_url || '',
+            coverTransform: p.cover_transform || null,
+            location: p.location || '',
+            yearsExperience: p.years_experience || '',
+            languages: p.languages || ''
+        });
+        if (JSON.stringify(next) === JSON.stringify(user)) return;
+        user = next;
+        localStorage.setItem('user', JSON.stringify(user));
+        if (typeof updateUI === 'function') updateUI();
+    } catch (_) {}
+}
+window.addEventListener('rm-profile-self-changed', function () { _rmQueueOwnProfileSync(); });
+window.addEventListener('storage', function (e) { if (e.key === 'rm_profile_self_changed') _rmQueueOwnProfileSync(); });
+
 // Any follow/Realmate relationship change from OUTSIDE this tab (another tab or a
 // live DB event — e.g. the other party accepting my follow request) → re-run
 // loadProfile while viewing someone else's profile, so the Follow / Accept
@@ -2006,12 +2057,7 @@ async function saveProfile() {
         user.group = '';
     }
     user.relationship = document.getElementById("editRelationship").value;
-    // Relationship Status is REQUIRED (Division and Group remain optional).
-    if (!user.relationship || !user.relationship.trim()) {
-        if (btn) { btn.disabled = false; btn.innerHTML = 'Save Changes'; }
-        _editAlert('Please select your Relationship Status.', 'error');
-        return;
-    }
+    // Relationship Status is optional — blank saves as null and hides the line.
 
     // City must be empty or an exact match from the verified list — the
     // strict combobox (see initSearchableSelect above) already clears any
