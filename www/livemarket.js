@@ -2753,12 +2753,34 @@ let activeSearchQuery = '';
 // runs solely on Enter or when a suggestion is clicked (executeSearch).
 function onSearchInput() {
     const q = (document.getElementById('searchInput')?.value || '').trim();
+    // An emptied box means "no search": drop the committed term so the tab's
+    // full list comes back, instead of staying filtered by text that is gone.
+    if (!q) _clearSearchIfInputEmpty();
     // On focus / empty input, pull the account-synced Recent searches (made on
     // other devices), then re-render the list in place.
     if (!q && window.RMSearchHistory && RMSearchHistory.sync) {
-        RMSearchHistory.sync('recent', () => renderPortalSuggest(''));
+        RMSearchHistory.sync('recent', _refreshPortalSuggest);
     }
     renderPortalSuggest(q);
+}
+
+// The committed search term must never outlive the text in the box. Search only
+// ever DERIVES a filtered view in applyFilters() — allListings is never touched —
+// so a term left committed after its text was deleted is what made every tab
+// look empty ("No listings found") until the page was reloaded.
+function _clearSearchIfInputEmpty() {
+    const raw = (document.getElementById('searchInput')?.value || '').trim();
+    if (raw || !activeSearchQuery) return;
+    activeSearchQuery = '';
+    applyFilters();
+}
+
+// Re-render the suggestion dropdown for whatever is in the box RIGHT NOW. Late
+// events (the recent-search sync finishing, a history change from another
+// device) used to redraw it as the Recent list even though the user had typed
+// since — swapping the dropdown's content under them (the "blinking").
+function _refreshPortalSuggest() {
+    renderPortalSuggest((document.getElementById('searchInput')?.value || '').trim());
 }
 
 // Commit the typed text as the active search and update the Portal to show the
@@ -2892,7 +2914,7 @@ function listingMatchesQuery(l, q) { return listingSearchScore(l, q) > 0; }
 window.addEventListener('rmsh-remote', function (e) {
     if (e && e.detail && e.detail.scope === 'recent') {
         const box = document.getElementById('portalSuggest');
-        if (box && box.classList.contains('open')) { try { renderPortalSuggest(''); } catch (_) {} }
+        if (box && box.classList.contains('open')) { try { _refreshPortalSuggest(); } catch (_) {} }
     }
 });
 
@@ -3068,6 +3090,7 @@ function closePortalSuggest() {
 // Recent-searches dropdown too. Deferred so a tap on a suggestion/recent row runs
 // its own handler first (those close the dropdown + navigate themselves).
 function onPortalSearchBlur() {
+    _clearSearchIfInputEmpty();   // keyboard dismissed on an emptied box → show the full list again
     setTimeout(closePortalSuggest, 150);
 }
 
@@ -3098,11 +3121,11 @@ function portalRecentClick(idx) {
 }
 function portalDelRecentKey(key) {
     if (window.RMSearchHistory) RMSearchHistory.remove('recent', key);
-    renderPortalSuggest('');   // re-render the recent list in place
+    _refreshPortalSuggest();   // re-render the recent list in place
 }
 function portalClearRecent() {
     if (window.RMSearchHistory) RMSearchHistory.clear('recent');
-    renderPortalSuggest('');
+    _refreshPortalSuggest();
 }
 
 function escapeHtmlSafe(s) {
