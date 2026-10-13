@@ -923,6 +923,7 @@
     //   • the line is a complete entry by itself ("Kroma 1BR 18M").
     const _PROP_IDENT = /\b\d\s*(?:br|bed(?:room)?s?)\b|\bstudio\b|\bpenthouse\b|\bloft\b|\btownhouse\b|\d\s*(?:sqm|sq\.?\s*m\b)/i;
     const _propSplitCache = new Map();
+    const _PROP_MAX_CHARS = 12000, _PROP_MAX_LINES = 400;
 
     function _propMarker(line) {
         const m = line.match(/^\s*((?:[^\w\s₱("'“‘\[])+|\d{1,2}[.)])\s*\S/u);
@@ -936,8 +937,12 @@
         const raw = String(text == null ? '' : text);
         const cached = _propSplitCache.get(raw);
         if (cached) return cached;
+        // Bounded work: a caption is user input parsed for every viewer (and
+        // server-side), so an oversized post is simply treated as one property.
+        if (raw.length > _PROP_MAX_CHARS) return { multi: false, sections: [raw], primary: raw };
         const lines = raw.split('\n');
         const n = lines.length;
+        if (n > _PROP_MAX_LINES) return { multi: false, sections: [raw], primary: raw };
         const blank = lines.map(l => !l.trim());
         const hasPrice = lines.map((l, i) => !blank[i] && _priceCandidates(l).some(c => c.score > 0));
         const hasIdent = lines.map((l, i) => !blank[i] && _PROP_IDENT.test(l));
@@ -958,8 +963,13 @@
         const count = (a, b) => { let c = 0; for (let i = a; i < b; i++) if (!blank[i]) c++; return c; };
         const join = (a, b) => lines.slice(a, b).join('\n');
 
+        // Project lookup is the costly step: run it at most once per paragraph and
+        // remember the current section's project instead of re-reading its text.
+        const paraProject = new Map();
+        const projectAt = (a, b) => { if (!paraProject.has(a)) paraProject.set(a, _propProject(join(a, b))); return paraProject.get(a); };
         const starts = [0];
-        let cur = 0;
+        let cur = 0, curProject = null;
+        for (let e = 0; e <= n; e++) { if (e === n || blank[e]) { curProject = projectAt(0, e); break; } }
         for (let i = 1; i < n; i++) {
             if (blank[i]) continue;
             const curPrice = any(hasPrice, cur, i), curIdent = any(hasIdent, cur, i);
@@ -970,15 +980,17 @@
                 split = count(i, end) >= 2 && (any(hasPrice, i, end) || any(hasIdent, i, end));
             } else if (blank[i - 1]) {
                 let end = i + 1; while (end < n && !blank[end]) end++;
-                if (curPrice && any(hasPrice, i, end) && (any(hasIdent, i, end) || _propProject(join(i, end)))) split = true;
-                else {
-                    const next = _propProject(join(i, end));
-                    const prev = next && _propProject(join(cur, i));
-                    split = !!(next && prev && String(next).toLowerCase() !== String(prev).toLowerCase());
-                }
+                const next = projectAt(i, end);
+                if (curPrice && any(hasPrice, i, end) && (any(hasIdent, i, end) || next)) split = true;
+                else split = !!(next && curProject && String(next).toLowerCase() !== String(curProject).toLowerCase());
+                if (!split && !curProject) curProject = next;   // the section's project may be named in a later paragraph
             }
-            if (!split && curPrice && hasPrice[i] && (hasIdent[i] || _propProject(lines[i]))) split = true;
-            if (split) { starts.push(i); cur = i; }
+            if (!split && curPrice && hasPrice[i] && (hasIdent[i] || projectAt(i, i + 1))) split = true;
+            if (split) {
+                starts.push(i); cur = i;
+                let end = i + 1; while (end < n && !blank[end]) end++;
+                curProject = projectAt(i, end);
+            }
         }
         const sections = starts.map((s, k) => join(s, k + 1 < starts.length ? starts[k + 1] : n).trim()).filter(Boolean);
         const out = (sections.length >= 2)
