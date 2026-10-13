@@ -624,7 +624,7 @@
         // People results — no listings, no forum, no other Portal content.
         if (IS_REALMATES_PAGE) {
             const pr = await sb.from('profiles').select('id,full_name,avatar_url,job_title,division')
-                .or(`full_name.ilike.${pat},job_title.ilike.${pat},division.ilike.${pat}`).limit(12);
+                .or(`full_name.ilike.${pat},job_title.ilike.${pat},division.ilike.${pat}`).eq('is_hidden', false).limit(12);
             let _people = pr.data || [];
             if (window.RMDeact) { try { _people = await RMDeact.filterItemsByOwner(_people, 'id'); } catch (e) {} }
             renderResults(_people, []);
@@ -638,7 +638,7 @@
         const postSource = _soHistoryContext() === 'forum' ? 'forum' : 'home';
         const [pr, postRes] = await Promise.all([
             sb.from('profiles').select('id,full_name,avatar_url,job_title,division')
-              .or(`full_name.ilike.${pat},job_title.ilike.${pat},division.ilike.${pat}`).limit(6),
+              .or(`full_name.ilike.${pat},job_title.ilike.${pat},division.ilike.${pat}`).eq('is_hidden', false).limit(6),
             sb.from('forum_posts').select('id, content, user_name, user_id, privacy, created_at')
               .or(`content.ilike.${pat},user_name.ilike.${pat}`)
               .eq('source', postSource).order('created_at', { ascending: false }).limit(30)

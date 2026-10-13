@@ -3600,6 +3600,7 @@ async function loadSuggestedRealmates() {
     const user = getUser();
     const { data: profiles } = await _supaHome.from('profiles')
         .select('id, full_name, avatar_url, job_title')
+        .eq('is_hidden', false)   // never suggest hidden system/staff accounts (Support, Apple demo)
         .order('created_at', { ascending: false }).limit(12);
     if (!profiles || !profiles.length) return;
 
@@ -3672,6 +3673,7 @@ async function loadActiveMembers() {
         const { data, error } = await _supaHome
             .from('profiles')
             .select('id, full_name, avatar_url, job_title, last_seen')
+            .eq('is_hidden', false)   // exclude hidden system/staff accounts
             .gte('last_seen', cutoff)
             .order('last_seen', { ascending: false })
             .limit(5);
@@ -3681,6 +3683,7 @@ async function loadActiveMembers() {
             const { data: fallback } = await _supaHome
                 .from('profiles')
                 .select('id, full_name, avatar_url, job_title')
+                .eq('is_hidden', false)   // exclude hidden system/staff accounts
                 .limit(5);
 
             if (!fallback?.length) {
@@ -3966,6 +3969,7 @@ async function runHomeSearch(q) {
         _supaHome.from('profiles')
             .select('id, full_name, avatar_url, job_title, division')
             .or(`full_name.ilike.${pattern},job_title.ilike.${pattern},division.ilike.${pattern}`)
+            .eq('is_hidden', false)
             .limit(6),
         _supaHome.from('forum_posts')
             .select('id, content, user_name, user_id, created_at')

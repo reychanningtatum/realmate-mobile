@@ -71,6 +71,7 @@ async function runSearch(q) {
         _sbSearch.from('profiles')
             .select('id, full_name, avatar_url, job_title, division, bio')
             .or(`full_name.ilike.${pattern},job_title.ilike.${pattern},division.ilike.${pattern}`)
+            .eq('is_hidden', false)
             .limit(20),
         _sbSearch.from('listings')
             .select('id, content, category, user_name, user_id, created_at, hidden_user_ids')
