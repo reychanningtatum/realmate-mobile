@@ -328,9 +328,9 @@ async function submitStory() {
         const { data: authData } = await _supaHome.auth.getUser();
         const uid = authData?.user?.id;
 
-        const file = input.files[0];
+        const file = await _feedCompress(input.files[0]);
         const path = `stories/${uid || 'anon'}_${Date.now()}.${file.name.split('.').pop()}`;
-        const { error: uploadErr } = await _supaHome.storage.from('images').upload(path, file, { upsert: true });
+        const { error: uploadErr } = await _supaHome.storage.from('images').upload(path, file, FEED_UPLOAD_OPTS);
         if (uploadErr) throw uploadErr;
 
         const imageUrl = _supaHome.storage.from('images').getPublicUrl(path).data.publicUrl;
@@ -808,8 +808,24 @@ function hideHomePostMention() {
     if (box) { box.style.display = 'none'; box.innerHTML = ''; }
 }
 
+// Feed media is PHOTOS ONLY (no video uploads), compressed before upload and
+// served with a long cache lifetime — every upload path is uniquely named, so a
+// cached copy can never go stale. Keeps Supabase egress down.
+const FEED_PHOTO_OPTS  = { maxPx: 1600, quality: 0.82, forceJpeg: true };
+const FEED_UPLOAD_OPTS = { upsert: true, cacheControl: '31536000' };
+function _feedPhotosOnly(files) {
+    const all = Array.from(files || []);
+    const photos = all.filter(f => (f.type || '').startsWith('image/'));
+    if (photos.length < all.length) (window.showToast || function(){})('Only photos can be posted — videos are not supported.', 'info');
+    return photos;
+}
+async function _feedCompress(file, opts) {
+    try { return (typeof compressImage === 'function') ? await compressImage(file, opts || FEED_PHOTO_OPTS) : file; }
+    catch (e) { return file; }
+}
+
 function previewHomeMedia(input) {
-    _homePostFiles = Array.from(input.files);
+    _homePostFiles = _feedPhotosOnly(input.files);
     const preview = document.getElementById('homePostMediaPreview');
     preview.innerHTML = '';
     _homePostFiles.forEach((file, i) => {
@@ -867,10 +883,12 @@ async function submitHomePost() {
         const { data: authData } = await _supaHome.auth.getUser();
         let imageUrls = [], videoUrl = null;
 
-        for (const file of _homePostFiles) {
-            const isVideo = file.type.startsWith('video/');
+        for (const rawFile of _homePostFiles) {
+            const isVideo = rawFile.type.startsWith('video/');
+            if (isVideo) continue;   // photos only
+            const file = await _feedCompress(rawFile);
             const path = `posts/${Date.now()}_${file.name}`;
-            const { error } = await _supaHome.storage.from('images').upload(path, file, { upsert: true });
+            const { error } = await _supaHome.storage.from('images').upload(path, file, FEED_UPLOAD_OPTS);
             if (error) throw error;
             const url = _supaHome.storage.from('images').getPublicUrl(path).data.publicUrl;
             if (isVideo) videoUrl = url;
@@ -1365,8 +1383,6 @@ function buildHomePostCard(post, stats) {
                     <input type="text" class="hf-comment-input" id="hfcinput-${post.id}" placeholder="Write a comment… @ to tag"
                         onkeydown="onCommentKeydown(event, '${post.id}')" oninput="onCommentInput('${post.id}', this)" onblur="closeEmojiPickerOnBlur('hfcinput-${post.id}')">
                     <button type="button" class="hf-cinput-tool" title="Emoji" onclick="openEmojiPicker('hfcinput-${post.id}', this)"><i class="far fa-face-smile"></i></button>
-                    <label class="hf-cinput-tool" title="Add photo" for="hfcphoto-${post.id}"><i class="far fa-image"></i></label>
-                    <input type="file" id="hfcphoto-${post.id}" hidden accept="image/*" onchange="stageCommentPhoto('${post.id}', this)">
                 </div>
                 <button type="button" class="hf-comment-send" title="Send" onclick="submitHomeComment('${post.id}')"><i class="fas fa-paper-plane"></i></button>
             </div>
@@ -1933,9 +1949,9 @@ function _ensureHomeEditModal() {
             '<textarea id="homeEditText" style="width:100%;height:150px;max-height:34vh;overflow-y:auto;flex:0 0 auto;border:1.5px solid #e2e8f0;border-radius:12px;padding:14px;font-size:17px;line-height:1.5;font-family:inherit;color:#0f172a;resize:none;box-sizing:border-box;" placeholder="Edit your post"></textarea>' +
             '<div id="homeEditPhotos" style="margin-top:14px;display:none;flex:0 0 auto;">' +
               '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">' +
-                '<span style="font-size:11px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.04em;">Photos &amp; videos</span>' +
-                '<label for="homeEditFile" style="font-size:14px;font-weight:700;color:#0ea5e9;cursor:pointer;"><i class="far fa-image"></i> Add photos/videos</label>' +
-                '<input type="file" id="homeEditFile" accept="image/*,video/*" multiple hidden onchange="onEditPhotosPicked(this)">' +
+                '<span style="font-size:11px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.04em;">Photos</span>' +
+                '<label for="homeEditFile" style="font-size:14px;font-weight:700;color:#0ea5e9;cursor:pointer;"><i class="far fa-image"></i> Add photos</label>' +
+                '<input type="file" id="homeEditFile" accept="image/*" multiple hidden onchange="onEditPhotosPicked(this)">' +
               '</div>' +
               '<div id="homeEditPhotoGrid" style="display:flex;flex-wrap:wrap;gap:8px;"></div>' +
             '</div>' +
@@ -2018,7 +2034,7 @@ function _renderEditPhotoGrid() {
 }
 // File-input handler: append newly chosen photos/videos (capped at the max total).
 function onEditPhotosPicked(input) {
-    const chosen = Array.from(input.files || []);
+    const chosen = _feedPhotosOnly(input.files);
     const room = Math.max(0, HOME_EDIT_MAX_MEDIA - _editExistingMedia.length - _editNewFiles.length);
     if (chosen.length > room) (window.showToast || function(){})('Up to ' + HOME_EDIT_MAX_MEDIA + ' items — extras skipped.', 'info');
     _editNewFiles = _editNewFiles.concat(chosen.slice(0, room));
@@ -2049,11 +2065,12 @@ async function saveEditPost() {
         if (_editMediaEditable) {
             const uploaded = [];   // {url, type}
             for (let i = 0; i < _editNewFiles.length; i++) {
-                const file = _editNewFiles[i];
+                const file = await _feedCompress(_editNewFiles[i]);
                 const isVideo = (file.type || '').startsWith('video/');
-                const ext  = (file.name.split('.').pop() || (isVideo ? 'mp4' : 'jpg'));
+                if (isVideo) continue;   // photos only
+                const ext  = (file.name.split('.').pop() || 'jpg');
                 const path = `posts/${Date.now()}_${i}.${ext}`;
-                const { error: upErr } = await _supaHome.storage.from('images').upload(path, file, { upsert: true });
+                const { error: upErr } = await _supaHome.storage.from('images').upload(path, file, FEED_UPLOAD_OPTS);
                 if (upErr) throw upErr;
                 uploaded.push({ url: _supaHome.storage.from('images').getPublicUrl(path).data.publicUrl, type: isVideo ? 'video' : 'image' });
             }

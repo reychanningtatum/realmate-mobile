@@ -250,9 +250,9 @@
                     <div id="homePostMediaPreview" class="home-post-media-preview"></div>
                     <div class="create-post-type-row">
                         <label class="create-post-media-btn" for="homePostMedia">
-                            <i class="fas fa-image" style="color:#45b649;"></i> Photo / Video
+                            <i class="fas fa-image" style="color:#45b649;"></i> Photo
                         </label>
-                        <input type="file" id="homePostMedia" hidden accept="image/*,video/*" multiple onchange="previewHomeMedia(this)">
+                        <input type="file" id="homePostMedia" hidden accept="image/*" multiple onchange="previewHomeMedia(this)">
                         <button type="button" class="create-post-media-btn" id="typeBtnAlbum" onclick="setPostType('album')">
                             <i class="fas fa-images" style="color:#0ea5e9;"></i> Album
                         </button>
@@ -293,7 +293,6 @@
                 </div>
                 <div class="create-post-shortcuts">
                     <button onclick="expandCreatePost('photo')"><i class="fas fa-image" style="color:#22c55e;"></i> Photo</button>
-                    <button onclick="expandCreatePost('photo')"><i class="fas fa-video" style="color:#22c55e;"></i> Video</button>
                     <button onclick="openCongratsBuilder()"><i class="fas fa-hands-clapping" style="color:#22c55e;"></i> Congratulate</button>
                 </div>
             </div>
@@ -627,7 +626,7 @@
 <script src="vendor/cropperjs/cropper.min.js?v=1.6.1"></script>
 <script src="native-auth.js?v=11"></script>
 <script src="vendor/supabase-js.min.js?v=2.112.3"></script>
-<script src="compress.js"></script>
+<script src="compress.js?v=20261013a"></script>
 <script src="rm-sound.js?v=20260831a"></script>
 <script src="mates.js?v=20260930c"></script>
 <script src="follows.js?v=20260918b"></script>
@@ -650,7 +649,7 @@
 <script src="deactivation.js?v=20260831a"></script>
 <script src="dashboard-script.js?v=20261013a"></script>
 <script src="emoji-picker.js?v=20260928d"></script>
-<script src="home.js?v=20261013c"></script>
+<script src="home.js?v=20261013d"></script>
 <script src="feed-video.js?v=20260929a"></script>
 <script src="block-report.js?v=20261001a"></script>
 <script src="congrats.js?v=20260810b"></script>

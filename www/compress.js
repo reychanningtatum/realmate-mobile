@@ -2,7 +2,9 @@
 // Uses Canvas to resize + re-encode. No external library needed.
 // Videos are passed through unchanged.
 
-async function compressImage(file, { maxPx = 1200, quality = 0.82 } = {}) {
+// forceJpeg: re-encode PNG/WebP photos as JPEG (on a white background) and always
+// re-encode — a PNG photo stays multi-MB even after resizing.
+async function compressImage(file, { maxPx = 1200, quality = 0.82, forceJpeg = false } = {}) {
     if (!file.type.startsWith('image/')) return file;
 
     return new Promise((resolve) => {
@@ -15,7 +17,7 @@ async function compressImage(file, { maxPx = 1200, quality = 0.82 } = {}) {
             let { width, height } = img;
             if (width <= maxPx && height <= maxPx) {
                 // Already small enough — skip re-encoding only if under 300KB
-                if (file.size <= 300 * 1024) { resolve(file); return; }
+                if (file.size <= 300 * 1024 && !(forceJpeg && file.type !== 'image/jpeg')) { resolve(file); return; }
             }
 
             const scale = Math.min(1, maxPx / Math.max(width, height));
@@ -25,14 +27,17 @@ async function compressImage(file, { maxPx = 1200, quality = 0.82 } = {}) {
             const canvas = document.createElement('canvas');
             canvas.width  = width;
             canvas.height = height;
-            canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+            const ctx = canvas.getContext('2d');
+            if (forceJpeg) { ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, width, height); }
+            ctx.drawImage(img, 0, 0, width, height);
 
-            const outType = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+            const outType = (!forceJpeg && file.type === 'image/png') ? 'image/png' : 'image/jpeg';
             const q = outType === 'image/png' ? undefined : quality;
 
             canvas.toBlob(blob => {
-                const compressed = new File([blob], file.name, { type: outType, lastModified: Date.now() });
-                resolve(compressed);
+                if (!blob) { resolve(file); return; }
+                const outName = forceJpeg ? file.name.replace(/\.[^.]+$/, '') + '.jpg' : file.name;
+                resolve(new File([blob], outName, { type: outType, lastModified: Date.now() }));
             }, outType, q);
         };
 
