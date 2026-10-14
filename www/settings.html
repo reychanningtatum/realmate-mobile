@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <script src="rm-bugs.js?v=20261014b"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <style id="rm-flash-guard">html{background-color:#f4f7fa}</style>
@@ -186,6 +187,30 @@
         </div>
 
         <div class="settings-card">
+            <div class="settings-card-title"><i class="fas fa-bug" style="color: var(--primary);"></i> Bug Reports &amp; Diagnostics</div>
+            <p class="settings-card-sub">Help us fix problems faster. When something goes wrong, realmate sends a short technical report to our team.</p>
+
+            <div class="settings-row">
+                <div>
+                    <div class="settings-row-label">Send bug reports automatically</div>
+                    <div class="settings-row-desc">Includes the error, the screen you were on, recent taps and your device type. Never includes your messages, passwords or anything you type.</div>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" id="toggleBugReports" onchange="saveBugReportsPref(this.checked)">
+                    <span class="slider"></span>
+                </label>
+            </div>
+
+            <hr class="settings-divider">
+
+            <div class="settings-field">
+                <label class="settings-row-label" for="bugReportNote">Report a problem</label>
+                <textarea id="bugReportNote" class="settings-input" rows="3" maxlength="2000" placeholder="What happened? What were you trying to do?" style="resize:vertical;min-height:84px;"></textarea>
+                <button class="settings-btn" id="bugReportBtn" onclick="submitBugReport()" style="margin-top:8px;">Send Report</button>
+            </div>
+        </div>
+
+        <div class="settings-card">
             <div class="settings-card-title"><i class="fas fa-file-shield" style="color: var(--primary);"></i> Legal</div>
             <p class="settings-card-sub">Review the terms you agreed to and how your data is handled.</p>
             <div style="display:flex; gap:10px; flex-wrap:wrap;">
@@ -274,7 +299,7 @@
 <script src="block-report.js?v=20261001a"></script>
 <script src="auth-guard.js?v=20261013b"></script>
 <script src="profile-live.js?v=20261001a"></script>
-<script src="settings.js?v=20261013a"></script>
+<script src="settings.js?v=20261014a"></script>
 <script src="location-engine.js?v=20260809b"></script>
 <script src="match-engine.js?v=20261014g"></script>
 <script src="visibility.js?v=20261002a"></script>

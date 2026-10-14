@@ -90,6 +90,37 @@ function savePortalNotifsPref(isOn) {
 }
 
 /* ============================================================
+   🐞 BUG REPORTS — automatic diagnostics ON / OFF + manual report
+   rm-bugs.js owns the flag (localStorage `rm_bug_reports`, default ON)
+   and the sending; this only reflects and changes it.
+   ============================================================ */
+function initBugReportsToggle() {
+    const toggle = document.getElementById('toggleBugReports');
+    if (toggle) toggle.checked = !window.RMBugs || window.RMBugs.isEnabled();
+}
+
+function saveBugReportsPref(isOn) {
+    if (window.RMBugs) window.RMBugs.setEnabled(isOn);
+    else localStorage.setItem('rm_bug_reports', isOn ? '1' : '0');
+    showSettingsNotificationToast(
+        isOn ? 'Automatic bug reports turned on.' : 'Automatic bug reports turned off.', 'success'
+    );
+}
+
+async function submitBugReport() {
+    const box = document.getElementById('bugReportNote');
+    const btn = document.getElementById('bugReportBtn');
+    const note = (box && box.value || '').trim();
+    if (note.length < 5) { showSettingsNotificationToast('Please describe the problem first.', 'error'); return; }
+    if (!window.RMBugs) { showSettingsNotificationToast('Could not send right now. Please try again.', 'error'); return; }
+    btn.disabled = true;
+    const ok = await window.RMBugs.report(note);
+    btn.disabled = false;
+    if (ok) { box.value = ''; showSettingsNotificationToast('Thanks! Your report was sent to our team.', 'success'); }
+    else showSettingsNotificationToast('Could not send right now. Please try again.', 'error');
+}
+
+/* ============================================================
    🔒 PRIVACY — Public Account + Public Following
    Persisted to profiles (other users read these to decide access),
    NOT localStorage. is_public / public_follow default false (Private +
@@ -383,6 +414,7 @@ function logout() {
  */
 window.onload = () => {
     initPortalNotifsToggle();
+    initBugReportsToggle();
     loadAccountEmail();
     loadPrivacyToggles();
     initBiometricToggle();
