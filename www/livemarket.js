@@ -6358,15 +6358,30 @@ async function handleAddMateFromLocked() {
         fab.style.top  = posY + 'px';
         fab.style.right = 'auto';
     });
+    let dragEndedAt = 0, holdTimer = null;
     function endDrag(e) {
         if (!dragging) return;
         dragging = false;
         fab.classList.remove('dragging');
         try { fab.releasePointerCapture(e.pointerId); } catch (_) {}
-        if (!moved) setMinimized(false); // tap → restore the top bar (scroll unchanged)
+        if (moved) dragEndedAt = Date.now();
     }
     fab.addEventListener('pointerup', endDrag);
     fab.addEventListener('pointercancel', endDrag);
+    // Tap → restore the top bar (scroll unchanged). This runs on CLICK, not on
+    // pointerup: restoring the bar hides the FAB (pointer-events:none), and doing
+    // that on pointerup left the browser's follow-up click with no FAB to land on,
+    // so it hit whatever was underneath — e.g. a card's "View Listing" button.
+    // The click that ends a drag is ignored.
+    fab.addEventListener('click', () => {
+        if (Date.now() - dragEndedAt < 400) return;
+        setMinimized(false);
+        // The button fades out over ~0.25s. Keep it the tap target until it is
+        // gone, so a quick second tap on it does not reach what is behind it.
+        fab.style.pointerEvents = 'auto';
+        clearTimeout(holdTimer);
+        holdTimer = setTimeout(() => { fab.style.pointerEvents = ''; }, 350);
+    });
 
     // Keep the dragged FAB on-screen if the viewport is resized/rotated.
     window.addEventListener('resize', () => {

@@ -4290,29 +4290,31 @@ document.addEventListener('DOMContentLoaded', () => {
         posY = clamp(baseY + dy, 6, window.innerHeight - size - 6);
         fab.style.left = posX + 'px'; fab.style.top = posY + 'px'; fab.style.right = 'auto';
     });
+    let dragEndedAt = 0, holdTimer = null;
     function endDrag(e) {
         if (!dragging) return; dragging = false;
         fab.classList.remove('dragging');
         try { fab.releasePointerCapture(e.pointerId); } catch (_) {}
-        if (!moved) {
-            // Tap → show the top bar (search + write-a-post) IN PLACE, wherever
-            // the user is (including the bottom-most post). No scrolling — both
-            // are sticky, so they simply slide down into view. The next scroll
-            // re-minimizes them into the FAB (see evaluate). This mirrors Portal
-            // and is NOT a jump-to-top like tapping the Feed tab.
-            setHidden(false);
-            // The tap hides the FAB (pointer-events:none), so WebKit's follow-up
-            // "ghost" click would fall THROUGH to whatever is now under it — e.g.
-            // a post's Share button. Swallow that one click so tapping Search only
-            // ever triggers Search, never something behind it.
-            var swallow = function (ev) {
-                ev.preventDefault(); ev.stopPropagation();
-                document.removeEventListener('click', swallow, true);
-            };
-            document.addEventListener('click', swallow, true);
-            setTimeout(function () { document.removeEventListener('click', swallow, true); }, 500);
-        }
+        if (moved) dragEndedAt = Date.now();
     }
+    // Tap → show the top bar (search + write-a-post) IN PLACE, wherever the user
+    // is (including the bottom-most post). No scrolling — both are sticky, so
+    // they simply slide down into view. The next scroll re-minimizes them into
+    // the FAB (see evaluate). This mirrors Portal and is NOT a jump-to-top like
+    // tapping the Feed tab.
+    // It runs on CLICK, not on pointerup: showing the bar hides the FAB
+    // (pointer-events:none), and doing that on pointerup left the browser's
+    // follow-up click with no FAB to land on, so it hit whatever was underneath —
+    // e.g. a post's Share button. The click that ends a drag is ignored.
+    fab.addEventListener('click', () => {
+        if (Date.now() - dragEndedAt < 400) return;
+        setHidden(false);
+        // The button fades out over ~0.25s. Keep it the tap target until it is
+        // gone, so a quick second tap on it does not reach what is behind it.
+        fab.style.pointerEvents = 'auto';
+        clearTimeout(holdTimer);
+        holdTimer = setTimeout(() => { fab.style.pointerEvents = ''; }, 350);
+    });
     fab.addEventListener('pointerup', endDrag);
     fab.addEventListener('pointercancel', endDrag);
     window.addEventListener('resize', () => {
