@@ -1401,164 +1401,341 @@
         return check(a, b) || check(b, a);
     }
 
-    function _scorePair(mine, other) {
-        // Score = earned / possible over the criteria that ACTUALLY APPLY to this
-        // pair (both sides have the data). Optional fields that are missing are
-        // EXCLUDED from the denominator — never counted as a mismatch — so a listing
-        // that matches exactly on every available criterion reaches ~99% instead of
-        // being capped at 75% by an unearnable "project" slot. The final percentage
-        // is earned/possible * 99 (99, not 100 — a deliberate small margin).
-        let earned = 0, possible = 0;
-        let reasons = [];
-        let details = {};
+    // ── Match scoring ───────────────────────────────────────────────────────
+    // Whether two posts match at all is decided by three gates that have not
+    // changed: complementary transaction, same place, overlapping unit type.
+    //
+    // HOW GOOD the match is comes from weighing each criterion by how much it
+    // matters to a deal, and by what is actually known about it:
+    //   • aligned     → full credit
+    //   • partly so   → part credit (a price a little over budget)
+    //   • unresolved  → half credit: a criterion that matters to this pair but
+    //                   cannot be judged from the two posts (an "FMV" budget, a
+    //                   missing price). Never a match, never a conflict.
+    //   • conflict    → little or no credit, and a ceiling on the whole score
+    //   • not stated by the side that would require it → left out entirely
+    // So a perfect project + unit match with an unvalidated price is strong, not
+    // perfect; and a criterion nobody asked for costs nothing.
+    const MATCH_WEIGHTS = { location: 15, project: 25, unit: 25, price: 30, size: 8, features: 5, floor: 4 };
+    const UNRESOLVED_CREDIT = 0.5;
+    // Score ceilings. A match with nothing beyond the core criteria confirmed
+    // stops short of the top; a real conflict caps the score outright.
+    const CAP_CORE_ONLY = 95, CAP_ANY_CONFLICT = 89, CAP_MODERATE_CONFLICT = 69, CAP_PROJECT_CONFLICT = 65, CAP_MAJOR_CONFLICT = 55;
 
+    // Labels are earned by the score: a high-sounding word needs a high number.
+    function matchGrade(score) {
+        const s = Number(score) || 0;
+        return s >= 90 ? 'Excellent' : s >= 80 ? 'Strong' : s >= 70 ? 'Good' : s >= 60 ? 'Potential' : s >= 50 ? 'Possible' : 'Weak';
+    }
+
+    // Optional source of a fair-market-value estimate for a listing:
+    // fn(rawListing) → { value, comparables } or null. Nothing is assumed when
+    // no reliable estimate exists — an FMV budget then stays unresolved.
+    let _fmvResolver = null;
+    function setFmvResolver(fn) { _fmvResolver = (typeof fn === 'function') ? fn : null; }
+    const _isFmvNote = note => /\b(fmv|fair\s+market(\s+value)?|market\s+(value|price))\b/i.test(String(note || ''));
+
+    function _money(v, perMonth) {
+        const n = Number(v);
+        let s;
+        if (n >= 1e6) s = '₱' + String(Math.round(n / 1e4) / 100) + 'M';
+        else s = '₱' + Math.round(n).toLocaleString('en-US');
+        return s + (perMonth ? '/month' : '');
+    }
+    const _pct = x => Math.round(x * 100) + '%';
+    function _orList(items) {
+        const a = items.filter(Boolean);
+        return a.length <= 1 ? (a[0] || '') : a.slice(0, -1).join(', ') + ' or ' + a[a.length - 1];
+    }
+    // "2 Bedrooms" → "2BR"; "Office" → "office".
+    function _unitShort(t) {
+        const m = /^(\d+)\s*Bedrooms?$/i.exec(String(t || ''));
+        return m ? m[1] + 'BR' : String(t || '').toLowerCase();
+    }
+    const _article = w => (/^[aeiou]/i.test(w) ? 'an ' : 'a ') + w;
+    const _title = s => String(s || '').toLowerCase().replace(/\b[a-z]/g, c => c.toUpperCase()).replace(/\bTo\b/g, 'to');
+
+    function _scorePair(mine, other) {
         // Category must be complementary (required)
         const partnerCat = PARTNER_MAP[mine.category];
         if (!partnerCat || other.category !== partnerCat) return { score: 0, reasons: [], details: {} };
-        details.category = { match: true, mine: mine.category, theirs: other.category };
 
-        // ── 4 MAIN INDICATORS (each 25pts = 100pts total) ──
+        const details = { category: { match: true, mine: mine.category, theirs: other.category } };
+        const buyerSide = mine.category.includes('WILLING') ? mine : other;
+        const sellerSide = buyerSide === mine ? other : mine;
+        const criteria = [];   // { key, weight, credit, state }
+        const caps = [];
+        const add = (key, credit, state) => criteria.push({ key, weight: MATCH_WEIGHTS[key], credit, state });
 
         // 1. Location — HARD REQUIREMENT, EXACT ONLY. Two listings match only when
         // they share the SAME location. Different specific locations are a
         // fundamental incompatibility and must NOT match — e.g. BGC and Makati are
-        // both in Metro Manila but are different places, so "Willing to Rent → BGC"
-        // vs "For Rent → Makati" is NOT a match. A missing/unknown location on
-        // either side also can't establish a shared place, so it rejects too.
-        // (Accuracy over quantity — the old "nearby" partial credit is removed.)
+        // both in Metro Manila but are different places. A missing/unknown location
+        // on either side also can't establish a shared place, so it rejects too.
         //
         // One exception, which is not a relaxation: the SAME PROJECT is the same
         // place by definition. When both sides name one project and at least one
         // of them simply doesn't state a location ("Two Serendra / 2BR / 25M"), the
         // shared project establishes the shared location. Two stated locations
         // that differ still reject, same project name or not.
-        const sameProject = _sameProject(mine, other);
+        const sharedName = _sameProject(mine, other);
         const proximity = locationProximity(mine.locations, other.locations);
+        // A requirement written as "studio in Makati" carries "Makati" as the name
+        // it asked for. A place is not a project: it is judged as the location it
+        // is, and earns nothing as a project.
+        const placeKeys = (mine.locations || []).concat(other.locations || []).map(_projKey);
+        const isPlace = name => {
+            const k = _projKey(name).replace(/\b(only|area|vicinity|preferably)\b/g, ' ').replace(/\s+/g, ' ').trim();
+            if (placeKeys.includes(k)) return true;
+            // A short name the location engine recognises and no project list does
+            // ("Salcedo Village") is a neighbourhood.
+            return k.split(' ').length <= 2 && extractLocations(k).length > 0 && !extractProject(k);
+        };
+        const projectsOf = side => ((side.projectNames && side.projectNames.length) ? side.projectNames : (side.project ? [side.project] : [])).filter(n => !isPlace(n));
+        const sameProject = (sharedName && !isPlace(sharedName)) ? sharedName : null;
+        let overlap = [];
         if (proximity === 'exact') {
-            const overlap = mine.locations.filter(l => other.locations.includes(l));
-            earned += 25; possible += 25;
-            reasons.push(`Location: ${overlap.join(', ')}`);
-            details.location = { match: 'exact', value: overlap.join(', '), points: 25 };
-        } else if (sameProject && !(mine.locations.length && other.locations.length)) {
-            earned += 25; possible += 25;
-            reasons.push(`Location: same project (${sameProject})`);
-            details.location = { match: 'project', value: sameProject, points: 25 };
+            overlap = mine.locations.filter(l => other.locations.includes(l));
+            details.location = { match: 'exact', value: overlap.join(', ') };
+        } else if (sharedName && !(mine.locations.length && other.locations.length)) {
+            details.location = { match: 'project', value: sharedName };
         } else return { score: 0, reasons: [], details: {} };
+        add('location', 1, 'match');
 
-        // 2. Project match — APPLICABLE only when BOTH sides state a project. If only
-        // one (or neither) does, it's unknown, not a mismatch → excluded from scoring
-        // so it can't drag the percentage down.
+        // 2. Project. A criterion only when the BUYER names one — a buyer who asked
+        // for an area accepts any project in it. Named and the same → aligned.
+        // Named, and the listing is a different project → a conflict with what was
+        // asked for. Named, and the listing doesn't say → unresolved.
+        const wantedProjects = projectsOf(buyerSide), offeredProject = projectsOf(sellerSide)[0] || null;
+        const buyerNamesProject = wantedProjects.length > 0;
         if (sameProject) {
-            possible += 25; earned += 25;
-            reasons.push(`Project: ${sameProject}`);
-            details.project = { match: true, value: sameProject, points: 25 };
-        } else if (mine.project && other.project) {
-            possible += 25;
-            details.project = { match: false, mine: mine.project, theirs: other.project };
+            add('project', 1, 'match');
+            details.project = { match: true, value: sameProject };
+        } else if (buyerNamesProject && offeredProject) {
+            add('project', 0, 'conflict');
+            caps.push(CAP_PROJECT_CONFLICT);
+            details.project = { match: false, mine: mine.project, theirs: other.project, wanted: wantedProjects.slice(), offered: offeredProject };
+        } else if (buyerNamesProject) {
+            add('project', UNRESOLVED_CREDIT, 'unresolved');
+            details.project = { match: 'unresolved', wanted: wantedProjects.slice() };
         }
 
-        // 3. Unit type match — MANDATORY, matched at the specific type level. A
-        // listing is never a match if the Unit Type differs: 1BR ≠ 2BR ≠ 3BR, and
-        // Office ≠ Commercial Space ≠ Residential Lot. Both sides must state a unit
-        // type and the specific types must overlap ("2BR or 3BR" keeps both counts).
+        // 3. Unit type — MANDATORY, matched at the specific type level. A listing is
+        // never a match if the Unit Type differs: 1BR ≠ 2BR ≠ 3BR, and Office ≠
+        // Commercial Space ≠ Residential Lot. Both sides must state a unit type and
+        // the specific types must overlap ("2BR or 3BR" accepts either).
         const mineTypes = mine.unitTypes || [];
         const otherTypes = other.unitTypes || [];
         if (!mineTypes.length || !otherTypes.length) return { score: 0, reasons: [], details: {} };
         const typeOverlap = mineTypes.filter(u => otherTypes.includes(u));
         if (!typeOverlap.length) return { score: 0, reasons: [], details: {} };
-        earned += 25; possible += 25;
-        reasons.push(`Unit: ${typeOverlap.join(' or ')}`);
-        details.unit = { match: true, value: typeOverlap.join(' or '), points: 25 };
+        add('unit', 1, 'match');
+        details.unit = { match: true, value: typeOverlap.join(' or '), accepted: (buyerSide.unitTypes || []).slice() };
 
-        // 4. Price/budget compatibility — DIRECTION-AWARE + PROPORTIONAL.
-        // Compare the BUYER's max budget (the ceiling they said they'd spend) against
-        // the SELLER's asking price. Never a hard yes/no filter:
-        //   • seller <= budget cap  → within budget (affordable) → full 25 pts
-        //   • seller  > budget cap  → above budget → points DECAY with the % over,
-        //     so a small overage still scores well while a big one scores little.
-        // This fixes the old bug where any price up to 20% over the cap was treated
-        // as "in budget" (e.g. ₱19M counted as within a ₱16M budget).
-        const buyerSide = mine.category.includes('WILLING') ? mine : other;
-        const sellerPrice = mine.category.includes('FOR') ? mine.price : other.price;
-        const buyerBudget = buyerSide.budget;
-        // A budget stated as an instruction ("FMV") is not a cap: there is no
-        // amount to compare, so price is NOT a criterion for this pair — it neither
-        // adds nor costs points, and never rejects. The instruction is reported.
-        if (!buyerBudget && buyerSide.budgetNote) {
-            reasons.push(`Budget: ${buyerSide.budgetNote} (no fixed cap)`);
-            details.price = { match: 'open', seller: sellerPrice || null, note: buyerSide.budgetNote, points: 0 };
-        }
-        if (/\bcash\s+buyer\b/i.test((buyerSide.terms || []).join(' '))) reasons.push('Cash buyer');
+        // 4. Price — always material, always RELATIONAL: the buyer's position
+        // against the seller's asking price. Only these two figures are compared;
+        // both come from the role-aware price reader, so rental income, per-sqm
+        // rates and reference amounts never enter here.
+        const sellerPrice = sellerSide.price || null;
+        const buyerBudget = buyerSide.budget || null;
+        const note = (!buyerBudget && buyerSide.budgetNote) ? buyerSide.budgetNote : '';
         if (sellerPrice && buyerBudget) {
-            possible += 25;   // price is a real, available criterion for this pair
             const cap = buyerBudget.max, floor = buyerBudget.min;
             if (sellerPrice <= cap) {
                 if (sellerPrice >= floor * 0.6) {
-                    earned += 25;
-                    reasons.push('Price within budget');
-                    details.price = { match: 'within', seller: sellerPrice, budget: buyerBudget, points: 25 };
+                    add('price', 1, 'match');
+                    details.price = { match: 'within', seller: sellerPrice, budget: buyerBudget };
                 } else {
-                    // Affordable, but well under the buyer's stated budget (unusual gap).
-                    earned += 15;
-                    reasons.push('Price under budget');
-                    details.price = { match: 'below', seller: sellerPrice, budget: buyerBudget, points: 15 };
+                    // Affordable, but far under what the buyer said they would spend —
+                    // usually a sign the two are not describing the same thing.
+                    add('price', 0.8, 'partial');
+                    details.price = { match: 'below', seller: sellerPrice, budget: buyerBudget };
                 }
             } else {
-                // Above the cap — the larger the overage, the smaller the contribution.
+                // Above the cap — the larger the overage, the smaller the credit, and
+                // past a point the price is a conflict that caps the whole match.
                 const over = (sellerPrice - cap) / cap;
-                const pts = over <= 0.05 ? 20 : over <= 0.15 ? 13 : over <= 0.30 ? 7 : 2;
-                earned += pts;
-                reasons.push('Price above budget');
-                details.price = { match: 'above', seller: sellerPrice, budget: buyerBudget, over: over, points: pts };
+                if (over <= 0.05) add('price', 0.65, 'partial');
+                else if (over <= 0.15) add('price', 0.3, 'conflict');
+                else if (over <= 0.30) { add('price', 0.15, 'conflict'); caps.push(CAP_MODERATE_CONFLICT); }
+                else { add('price', 0, 'conflict'); caps.push(CAP_MAJOR_CONFLICT); }
+                details.price = { match: 'above', seller: sellerPrice, budget: buyerBudget, over: over };
             }
+        } else if (sellerPrice && note && _isFmvNote(note)) {
+            // "Budget: FMV" — the buyer will pay what the property is fairly worth.
+            // That is not a cap, not an unlimited budget and not the asking price:
+            // whether this price suits them depends on the fair market value.
+            let fmv = null;
+            try { fmv = _fmvResolver ? _fmvResolver(sellerSide.raw) : null; } catch (e) { fmv = null; }
+            if (fmv && fmv.value > 0) {
+                const ratio = sellerPrice / fmv.value;
+                if (ratio <= 1.05) add('price', 1, 'match');
+                else if (ratio <= 1.15) add('price', 0.5, 'partial');
+                else if (ratio <= 1.30) { add('price', 0.15, 'conflict'); caps.push(CAP_MODERATE_CONFLICT); }
+                else { add('price', 0, 'conflict'); caps.push(CAP_MAJOR_CONFLICT); }
+                details.price = { match: 'fmv', seller: sellerPrice, note: note, fmv: fmv.value, ratio: ratio, comparables: fmv.comparables || null };
+            } else {
+                add('price', UNRESOLVED_CREDIT, 'unresolved');
+                details.price = { match: 'fmv-unresolved', seller: sellerPrice, note: note };
+            }
+        } else {
+            // One side — or both — gives no comparable amount. Unknown, not a match.
+            add('price', UNRESOLVED_CREDIT, 'unresolved');
+            details.price = { match: 'unresolved', seller: sellerPrice, budget: buyerBudget, note: note,
+                              missing: (!sellerPrice && !buyerBudget) ? 'both' : !sellerPrice ? 'asking' : 'budget' };
+        }
+        const cashBuyer = /\bcash\s+buyer\b/i.test((buyerSide.terms || []).join(' '));
+
+        // Secondary criteria. Each applies only when the buyer's side states it;
+        // what only the seller mentions is extra information, not a requirement.
+        const bf = buyerSide.features || [], sf = sellerSide.features || [];
+        if (bf.length && sf.length) {
+            const common = bf.filter(f => sf.includes(f));
+            add('features', common.length ? Math.max(0.5, common.length / bf.length) : 0.2, common.length ? (common.length === bf.length ? 'match' : 'partial') : 'unresolved');
+            details.features = { match: common.length > 0, common: common, wanted: bf.slice() };
+        } else if (bf.length) {
+            add('features', UNRESOLVED_CREDIT, 'unresolved');
+            details.features = { match: false, common: [], wanted: bf.slice(), unstated: true };
         }
 
-        // Feature overlap — applicable only when BOTH sides list features (capped).
-        const allMineFeatures = mine.features;
-        const allOtherFeatures = other.features;
-        if (allMineFeatures.length && allOtherFeatures.length) {
-            possible += 10;
-            const common = allMineFeatures.filter(f => allOtherFeatures.includes(f));
-            if (common.length > 0) {
-                earned += Math.min(common.length * 5, 10);
-                reasons.push(`Features: ${common.join(', ')}`);
-                details.features = { match: true, common, points: Math.min(common.length * 5, 10) };
-            }
-        }
-
-        // Size/sqm matching — applicable only when BOTH sides state a size.
+        // Size/sqm and floor band — applicable only when BOTH sides state one.
         const sizeRegex = /(\d+)\s*(?:sqm|sq\.?\s*m)/i;
-        const mineSize = (mine.raw?.content || '').match(sizeRegex);
-        const otherSize = (other.raw?.content || '').match(sizeRegex);
-        if (mineSize && otherSize) {
-            possible += 10;
-            const ms = parseInt(mineSize[1]), os = parseInt(otherSize[1]);
-            if (Math.abs(ms - os) <= 10) {
-                earned += 10;
-                reasons.push(`Size: ~${os} sqm`);
-                details.size = { match: true, value: os, points: 10 };
-            }
+        const bSize = ((buyerSide.raw && buyerSide.raw.content) || '').match(sizeRegex);
+        const sSize = ((sellerSide.raw && sellerSide.raw.content) || '').match(sizeRegex);
+        if (bSize && sSize) {
+            const want = parseInt(bSize[1]), got = parseInt(sSize[1]);
+            const gap = Math.abs(want - got), rel = want ? gap / want : 1;
+            if (gap <= 10 || rel <= 0.10) add('size', 1, 'match');
+            else if (rel <= 0.25) add('size', 0.5, 'partial');
+            else add('size', 0, 'conflict');
+            details.size = { match: gap <= 10 || rel <= 0.10, value: got, wanted: want };
         }
-
-        // Floor preference — applicable only when BOTH sides state a floor band.
         const floorRegex = /\b(high|mid|low)\s*floor\b/i;
-        const mineFloor = (mine.raw?.content || '').match(floorRegex);
-        const otherFloor = (other.raw?.content || '').match(floorRegex);
-        if (mineFloor && otherFloor) {
-            possible += 5;
-            if (mineFloor[1].toLowerCase() === otherFloor[1].toLowerCase()) {
-                earned += 5;
-                reasons.push(`${otherFloor[1]} floor`);
-            }
+        const bFloor = ((buyerSide.raw && buyerSide.raw.content) || '').match(floorRegex);
+        const sFloor = ((sellerSide.raw && sellerSide.raw.content) || '').match(floorRegex);
+        if (bFloor && sFloor) {
+            const same = bFloor[1].toLowerCase() === sFloor[1].toLowerCase();
+            add('floor', same ? 1 : 0, same ? 'match' : 'conflict');
+            details.floor = { match: same, value: sFloor[1].toLowerCase(), wanted: bFloor[1].toLowerCase() };
         }
 
-        // Normalize over the criteria that actually applied. 99 (not 100) keeps a
-        // deliberate small margin even for an all-exact match. Missing optional fields
-        // were never added to `possible`, so they don't dilute the score.
-        const score = possible > 0 ? Math.min(99, Math.round((earned / possible) * 99)) : 0;
+        // Weighted compatibility over the criteria that apply to this pair.
+        let earned = 0, possible = 0;
+        criteria.forEach(c => { earned += c.weight * c.credit; possible += c.weight; });
+        let score = possible > 0 ? Math.round((earned / possible) * 100) : 0;
+        // 99, never 100. And without anything beyond the core criteria confirmed
+        // (a size, a floor, a requested feature) the top of the scale is not reached.
+        const corroborated = criteria.some(c => (c.key === 'size' || c.key === 'floor' || c.key === 'features') && c.state === 'match');
+        caps.push(corroborated ? 99 : CAP_CORE_ONLY);
+        // Nothing with a real conflict in it is an Excellent match.
+        if (criteria.some(c => c.state === 'conflict')) caps.push(CAP_ANY_CONFLICT);
+        score = Math.max(1, Math.min(score, Math.min.apply(null, caps)));
+
         // Which requirement of a multi-requirement post produced this match.
         details.requirement = { intent: buyerSide.category, projects: buyerSide.projectNames || [], unitTypes: buyerSide.unitTypes || [] };
-        return { score, reasons, details };
+        details.criteria = criteria.map(c => ({ key: c.key, state: c.state, credit: c.credit, weight: c.weight }));
+        details.grade = matchGrade(score);
+        details.analysis = _analyseMatch({ buyerSide, sellerSide, details, sameProject, overlap, typeOverlap, cashBuyer, criteria, wantedProjects, offeredProject,
+            wantedPlaces: ((buyerSide.projectNames && buyerSide.projectNames.length) ? buyerSide.projectNames : []).filter(isPlace) });
+        const reasons = details.analysis.matches.concat(details.analysis.unresolved, details.analysis.conflicts);
+        return { score, grade: details.grade, reasons, details, analysis: details.analysis };
+    }
+
+    // The explanation of a match, written from the comparison itself: why the two
+    // posts match, what is aligned, what is still open, and what conflicts. It
+    // states only what the posts (or a supplied FMV estimate) say.
+    function _analyseMatch(c) {
+        const d = c.details, buyer = c.buyerSide, seller = c.sellerSide;
+        const rent = /RENT|LEASE/.test(buyer.category);
+        const who = rent ? 'tenant' : 'buyer';
+        const verb = /BUY/.test(buyer.category) ? 'buy' : /LEASE/.test(buyer.category) ? 'lease' : 'rent';
+        const offer = /SALE/.test(seller.category) ? 'for sale' : /LEASE/.test(seller.category) ? 'for lease' : 'for rent';
+        const money = v => _money(v, rent);
+        const matches = [], unresolved = [], conflicts = [];
+
+        matches.push(`Transaction: ${_title(buyer.category)} ↔ ${_title(seller.category)}`);
+        const wantedProjects = c.wantedProjects;
+        if (d.project && d.project.match === true) matches.push(`Project: ${d.project.value}`);
+        else if (d.project && d.project.match === false) conflicts.push(`Project: the ${who} named ${_orList(d.project.wanted)}; this is ${d.project.offered}`);
+        else if (d.project) unresolved.push(`Project: the listing does not name its project (${who} wants ${_orList(d.project.wanted)})`);
+        matches.push(d.location.match === 'exact' ? `Location: ${d.location.value}` : `Location: same project (${d.location.value})`);
+        const accepted = (buyer.unitTypes || []).map(_unitShort);
+        const got = c.typeOverlap.map(_unitShort);
+        matches.push(`Unit type: ${c.typeOverlap.join(' or ')}` + (accepted.length > got.length ? ` (${who} accepts ${_orList(accepted)})` : ''));
+        if (c.cashBuyer) matches.push('Cash buyer');
+
+        // Price — one line for the list, one sentence for the summary.
+        const p = d.price;
+        let priceSentence = '', priceIsCaveat = true;
+        if (p.match === 'within') {
+            matches.push(`Price: ${money(p.seller)} asking is within the ${money(p.budget.max)} budget`);
+            priceSentence = `The ${money(p.seller)} asking price is within the ${who}'s ${money(p.budget.max)} budget.`;
+            priceIsCaveat = false;
+        } else if (p.match === 'below') {
+            unresolved.push(`Price: ${money(p.seller)} asking is far below the ${who}'s ${money(p.budget.min)}–${money(p.budget.max)} range — confirm it is the same kind of unit`);
+            priceSentence = `the ${money(p.seller)} asking price is well under the ${who}'s stated range, so it is worth confirming both describe the same kind of unit.`;
+        } else if (p.match === 'above') {
+            const gap = `${money(p.seller - p.budget.max)} (${_pct(p.over)}) over the ${money(p.budget.max)} budget`;
+            (p.over <= 0.05 ? unresolved : conflicts).push(`Price: ${money(p.seller)} asking is ${gap}`);
+            priceSentence = `the ${money(p.seller)} asking price is ${gap}` + (p.over <= 0.05 ? ', a gap that may be negotiable.' : '.');
+        } else if (p.match === 'fmv') {
+            const basis = `an estimated fair market value of ${money(p.fmv)}` + (p.comparables ? ` (${p.comparables} comparable listings)` : '');
+            if (p.ratio <= 1.05) {
+                matches.push(`Price: ${money(p.seller)} asking is ${p.ratio < 0.95 ? 'below' : 'in line with'} ${basis}`);
+                priceSentence = `The ${who} will pay fair market value, and the ${money(p.seller)} asking price is ${p.ratio < 0.95 ? 'below' : 'in line with'} ${basis}.`;
+                priceIsCaveat = false;
+            } else {
+                (p.ratio <= 1.15 ? unresolved : conflicts).push(`Price: ${money(p.seller)} asking is ${_pct(p.ratio - 1)} above ${basis}`);
+                priceSentence = `the ${who} will pay fair market value, and the ${money(p.seller)} asking price is ${_pct(p.ratio - 1)} above ${basis}.`;
+            }
+        } else if (p.match === 'fmv-unresolved') {
+            unresolved.push(`Price: the ${who}'s budget is ${p.note}, not an amount — ${money(p.seller)} asking needs FMV validation`);
+            priceSentence = `the ${who} specified ${p.note} rather than a fixed budget, so the ${money(p.seller)} asking price still needs to be validated against fair market value.`;
+        } else if (p.missing === 'budget') {
+            unresolved.push(p.note ? `Price: the ${who}'s budget is "${p.note}", not an amount — ${money(p.seller)} asking is unconfirmed`
+                                   : `Price: the ${who} states no budget — ${money(p.seller)} asking is unconfirmed`);
+            priceSentence = `the ${who} did not give a budget amount, so whether the ${money(p.seller)} asking price suits them is unconfirmed.`;
+        } else if (p.missing === 'asking') {
+            unresolved.push(`Price: no asking price stated` + (p.budget ? ` — cannot be checked against the ${money(p.budget.max)} budget` : (p.note ? ` (${who}'s budget: ${p.note})` : '')));
+            priceSentence = `the listing states no asking price, so it cannot be checked against the ${who}'s ` + (p.budget ? `${money(p.budget.max)} budget.` : 'budget.');
+        } else {
+            unresolved.push('Price: neither side states an amount');
+            priceSentence = 'neither side states a price, so price compatibility is unknown.';
+        }
+
+        if (d.features) {
+            const distinct = list => list.filter(f => !list.some(g => g !== f && g.includes(f)));
+            if (d.features.common.length) matches.push(`Features: ${distinct(d.features.common).join(', ')}`);
+            const open = distinct(d.features.wanted.filter(f => !d.features.common.includes(f)));
+            if (open.length) unresolved.push(`Not confirmed by the listing: ${open.join(', ')}`);
+        }
+        if (d.size) (d.size.match ? matches : (Math.abs(d.size.value - d.size.wanted) / d.size.wanted <= 0.25 ? unresolved : conflicts))
+            .push(d.size.match ? `Size: ~${d.size.value} sqm` : `Size: ${d.size.value} sqm against the ${d.size.wanted} sqm asked for`);
+        if (d.floor) (d.floor.match ? matches : conflicts).push(d.floor.match ? `Floor: ${d.floor.value} floor` : `Floor: ${d.floor.value} floor; the ${who} asked for ${d.floor.wanted} floor`);
+
+        // Summary.
+        const priceConflict = c.criteria.some(x => x.key === 'price' && x.state === 'conflict');
+        const projectConflict = !!(d.project && d.project.match === false);
+        let head;
+        if (projectConflict) head = `Same area and unit type, but not the project the ${who} named.`;
+        else if (priceConflict) head = `The property fits the requirement, but the asking price is above ${d.price.match === 'fmv' ? 'fair market value' : `the ${who}'s budget`}.`;
+        else if (c.sameProject) head = 'Strong compatibility on the core requirement.';
+        else head = 'Compatible on location and unit type.';
+        // A place is quoted as the buyer wrote it ("Salcedo Village only"), which can
+        // be narrower than the city it resolves to.
+        const where = wantedProjects.length ? `at ${_orList(wantedProjects)}` : c.wantedPlaces.length ? `in ${_orList(c.wantedPlaces)}`
+            : (buyer.locations && buyer.locations.length ? `in ${_orList(buyer.locations)}` : '');
+        const sellerWhere = c.sameProject ? `at ${c.sameProject}` : c.offeredProject ? `at ${c.offeredProject}` : (c.overlap.length ? `in ${c.overlap.join(', ')}` : '');
+        const wantUnits = _orList(accepted);
+        const core = `The ${who} is looking to ${verb} ${accepted.length ? _article(wantUnits) : 'a unit'}${where ? ' ' + where : ''}, and the listing ${offer} is ${_article(_orList(got))}${sellerWhere ? ' ' + sellerWhere : ''}.`;
+        const cash = c.cashBuyer ? ` The ${who} is also a cash buyer.` : '';
+        const price = priceIsCaveat ? ' However, ' + priceSentence : ' ' + priceSentence;
+        const projectOpen = (d.project && d.project.match === 'unresolved')
+            ? ` The listing does not name its project, so whether it is ${_orList(d.project.wanted)} is unconfirmed.` : '';
+        // Any conflict the sentences above have not already covered is said plainly.
+        const other = conflicts.filter(x => !/^(Price|Project):/.test(x)).map(x => x.charAt(0).toLowerCase() + x.slice(1));
+        const extra = other.length ? ` One point conflicts — ${other.join('; ')}.` : '';
+        return { summary: head + ' ' + core + cash + projectOpen + price + extra, matches: matches, unresolved: unresolved, conflicts: conflicts };
     }
 
     // Every transaction intent a listing can be matched under: its category, plus
@@ -1633,5 +1810,8 @@
         candidateCategories,
         parseListing,
         computeMatchScore,
+        matchGrade,
+        setFmvResolver,
+        MATCH_WEIGHTS,
     };
 })(typeof window !== 'undefined' ? window : this);

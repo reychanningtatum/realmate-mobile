@@ -1927,6 +1927,15 @@ html[data-theme="dark"] .lc-stat-match:hover { border-color: #166534; }
   font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;
   color: var(--ac); margin-bottom: 6px;
 }
+.match-analysis-summary {
+  margin: 0 0 8px; font-size: 12.5px; line-height: 1.5; color: var(--text-main);
+}
+.match-analysis-group {
+  margin: 8px 0 2px; font-size: 10px; font-weight: 800; text-transform: uppercase;
+  letter-spacing: 0.8px; color: var(--text-sub);
+}
+.match-analysis .match-detail-row { align-items: flex-start; line-height: 1.4; }
+.match-analysis .match-detail-row i { margin-top: 2px; flex-shrink: 0; }
 html[data-theme="dark"] .listing-card .match-analysis {
   background: color-mix(in srgb, var(--ac) 16%, #1e293b);
   border-color: color-mix(in srgb, var(--ac) 32%, transparent);

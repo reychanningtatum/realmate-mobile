@@ -2162,7 +2162,7 @@ function buildListingCard(listing, matchLabel = null, fmvResult = null, matchCou
 
     const matchScore = matchLabel?.matchScore || 0;
     const matchPct = Math.min(99, Math.round((matchScore / 100) * 100));
-    const matchGrade = matchPct >= 70 ? 'Excellent' : matchPct >= 45 ? 'Strong' : matchPct >= 25 ? 'Good' : 'Possible';
+    const matchGrade = _matchGrade(matchPct);
     const matchReasons = matchLabel?.matchReasons || [];
     const isDismissedByMe = getDismissedMatches().has(String(listing.id));
     const matchBanner = (matchLabel && !isDismissedByMe) ? `
@@ -4261,11 +4261,14 @@ function showAllMatches(listingId, scrollToId, noFlash) {
 // Location + Unit Type gate, so only listings past BOTH gates ever reach this
 // view. The score and analysis then reflect the remaining criteria (project,
 // price, features, size, floor).
+// The label for a score comes from the engine (RM_MATCH.matchGrade), so every
+// screen uses one conservative scale: Excellent 90+, Strong 80+, Good 70+,
+// Potential 60+, Possible 50+, Weak below.
 function _matchGrade(pct) {
-    return pct >= 70 ? 'Excellent' : pct >= 45 ? 'Strong' : pct >= 25 ? 'Good' : 'Possible';
+    return window.RM_MATCH.matchGrade(pct);
 }
 function _matchColor(pct) {
-    return pct >= 70 ? '#16a34a' : pct >= 45 ? '#2563eb' : pct >= 25 ? '#f59e0b' : '#94a3b8';
+    return pct >= 90 ? '#16a34a' : pct >= 80 ? '#2563eb' : pct >= 70 ? '#0d9488' : pct >= 60 ? '#f59e0b' : '#94a3b8';
 }
 
 // Match Success bar — percentage + grade + the original animated progress bar.
@@ -4283,58 +4286,31 @@ function buildMatchSuccessBar(pct, grade, color) {
     return el;
 }
 
-// AI Analysis — the original per-criterion detail rows (check / warn / cross).
+// Engine Analysis — the engine's own explanation of the match (details.analysis,
+// written in match-engine.js from the comparison): a short summary, then what
+// matches, what still needs validating, and what conflicts.
 function buildAiAnalysis(details, color) {
+    const a = details && details.analysis;
+    if (!a) return null;
     const check = '<i class="fas fa-check-circle" style="color:#16a34a;font-size:12px;"></i>';
     const warn  = '<i class="fas fa-exclamation-circle" style="color:#f59e0b;font-size:12px;"></i>';
-    const cross = '<i class="fas fa-times-circle" style="color:#cbd5e1;font-size:12px;"></i>';
-    let rows = '';
+    const cross = '<i class="fas fa-times-circle" style="color:#dc2626;font-size:12px;"></i>';
+    // Every line originates in a post's text (a project name is kept as the
+    // poster wrote it), so each is escaped before it reaches the page.
     const esc = v => escapeHtmlSafe(String(v == null ? '' : v)).replace(/'/g, '&#39;');
-    if (details.location) {
-        // Every value below originates in a post's text (a project name is kept as
-        // the poster wrote it), so each is escaped before it reaches the page.
-        if (details.location.match === 'exact') rows += `<div class="match-detail-row">${check} <span>Location match: <strong>${esc(details.location.value)}</strong></span></div>`;
-        else if (details.location.match === 'project') rows += `<div class="match-detail-row">${check} <span>Same location: both at <strong>${esc(details.location.value)}</strong></span></div>`;
-        else if (details.location.match === 'nearby') rows += `<div class="match-detail-row">${warn} <span>Nearby area: ${esc(details.location.theirs)}</span></div>`;
-    }
-    if (details.project) {
-        if (details.project.match) rows += `<div class="match-detail-row">${check} <span>Same project: <strong>${esc(details.project.value)}</strong></span></div>`;
-        else if (details.project.theirs) rows += `<div class="match-detail-row">${cross} <span>Different project: ${esc(details.project.theirs)}</span></div>`;
-    }
-    if (details.unit) {
-        if (details.unit.match) rows += `<div class="match-detail-row">${check} <span>Unit type: <strong>${esc(details.unit.value)}</strong></span></div>`;
-        else rows += `<div class="match-detail-row">${cross} <span>Unit: ${esc(details.unit.theirs || 'N/A')} (yours: ${esc(details.unit.mine)})</span></div>`;
-    }
-    if (details.price) {
-        const fmtP = v => '₱' + (v / 1e6).toFixed(1) + 'M';
-        const _seller = details.price.seller;
-        const _cap = details.price.budget ? details.price.budget.max : null;
-        const _budgetTxt = _cap != null ? ` · ${fmtP(_cap)} budget` : '';
-        const m = details.price.match;
-        if (m === 'open') {
-            // The buyer gave an instruction, not an amount ("FMV") — there is no cap
-            // to be inside or outside of.
-            rows += `<div class="match-detail-row">${check} <span>Budget: <strong>${esc(details.price.note)}</strong> (no fixed cap)${_seller ? ` · ${fmtP(_seller)} asking` : ''}</span></div>`;
-        } else if (m === 'within' || m === 'exact') {
-            rows += `<div class="match-detail-row">${check} <span>Price in budget: <strong>${fmtP(_seller)}</strong> asking${_budgetTxt}</span></div>`;
-        } else if (m === 'below') {
-            rows += `<div class="match-detail-row">${check} <span>Price under budget: <strong>${fmtP(_seller)}</strong> asking${_budgetTxt}</span></div>`;
-        } else if (m === 'above' || m === 'close') {
-            // Accurate, dynamic — NEVER "in budget" when the asking price exceeds it.
-            const over = (_cap != null) ? (_seller - _cap) : null;
-            const overTxt = (over != null && over > 0) ? `${fmtP(over)} over budget` : 'above budget';
-            rows += `<div class="match-detail-row">${warn} <span>Price ${overTxt}: ${fmtP(_seller)} asking${_budgetTxt}</span></div>`;
-        } else {
-            rows += `<div class="match-detail-row">${cross} <span>Price: ${fmtP(_seller)} outside budget</span></div>`;
-        }
-    }
-    if (details.features?.match) rows += `<div class="match-detail-row">${check} <span>Features: <strong>${esc(details.features.common.join(', '))}</strong></span></div>`;
-    if (details.size?.match) rows += `<div class="match-detail-row">${check} <span>Size: <strong>~${esc(details.size.value)} sqm</strong></span></div>`;
-    if (!rows) return null;
+    const line = t => {
+        const s = String(t), i = s.indexOf(': ');
+        return i > 0 ? `${esc(s.slice(0, i))}: <strong>${esc(s.slice(i + 2))}</strong>` : esc(s);
+    };
+    const group = (title, items, icon) => (items && items.length)
+        ? `<div class="match-analysis-group">${title}</div>` + items.map(t => `<div class="match-detail-row">${icon} <span>${line(t)}</span></div>`).join('')
+        : '';
+    const body = group('What matches', a.matches, check) + group('Needs validation', a.unresolved, warn) + group('Conflicts', a.conflicts, cross);
+    if (!a.summary && !body) return null;
     const el = document.createElement('div');
     el.className = 'match-analysis';
     el.style.setProperty('--ac', color);
-    el.innerHTML = `<div class="match-analysis-title">${brainWidget()} Engine Analysis</div>${rows}`;
+    el.innerHTML = `<div class="match-analysis-title">${brainWidget()} Engine Analysis</div><p class="match-analysis-summary">${esc(a.summary)}</p>${body}`;
     return el;
 }
 
