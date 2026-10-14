@@ -20,7 +20,8 @@
  *
  * Privacy: ON by default; the user can switch it off in Settings (stored per
  * device in localStorage 'rm_bug_reports' = '0'). Never sends input values,
- * query strings or URL hashes (those can hold reset/confirm tokens).
+ * on-screen text, logged object contents, query strings or URL hashes; emails,
+ * phones, ids, tokens and keys are redacted from everything that is sent.
  *
  * Public API (window.RMBugs):
  *   capture(errOrMessage, extra?)  — report a handled error explicitly
@@ -37,7 +38,7 @@
   var AUTH_KEY = 'sb-wmegpgrfrtprhuzmgjma-auth-token';
   var RPC_URL = SUPABASE_URL + '/rest/v1/rpc/report_bugs';
   var PREF_KEY = 'rm_bug_reports';
-  var APP_VERSION = '20261014b';
+  var APP_VERSION = '20261014c';
 
   var MAX_PER_SESSION = 15, MAX_BATCH = 10, FLUSH_MS = 4000, MAX_CRUMBS = 20;
 
@@ -83,6 +84,7 @@
       .replace(/(bearer\s+|access_token["':=\s]+|refresh_token["':=\s]+|apikey["':=\s]+|password["':=\s]+)[^\s"',}]+/gi, '$1<redacted>')
       .replace(/\b(sb_(publishable|secret)_|sbp_|sk-)[\w-]{8,}/g, '<key>')
       .replace(/[\w.+-]+@[\w-]+\.[\w.-]+/g, '<email>')
+      .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, '<id>')
       .replace(/(\+?63|\b0)9\d{2}[\s-]?\d{3}[\s-]?\d{4}\b/g, '<phone>')
       .replace(/\b[A-Za-z0-9_-]{40,}\b/g, '<token>');
   }
@@ -133,7 +135,7 @@
       crumbs: _crumbs.slice()
     };
     if (extra && typeof extra === 'object') {
-      try { var ex = scrub(JSON.stringify(extra)); c.extra = ex.length <= 1500 ? JSON.parse(ex) : { truncated: ex.slice(0, 1500) }; } catch (e) {}
+      try { var ex = {}; Object.keys(extra).slice(0, 12).forEach(function (k) { var v = extra[k]; if (v == null || typeof v !== 'object') ex[k] = typeof v === 'string' ? clip(scrub(v), 200) : v; }); c.extra = ex; } catch (e) {}
     }
     return c;
   }
@@ -212,12 +214,27 @@
     return SRC_NOISE.test(m + ' ' + String(src || ''));
   }
 
+  // Summarise a non-Error object WITHOUT its data (it may be a listing, a chat
+  // message or a profile): keep only error-shaped fields, else just its keys.
+  function describe(o) {
+    try {
+      var f = ['code', 'status', 'name', 'message', 'details', 'hint', 'error', 'error_description'];
+      var out = [];
+      for (var i = 0; i < f.length; i++) {
+        var v = o[f[i]];
+        if (v != null && typeof v !== 'object') out.push(f[i] + '=' + clip(String(v), 160));
+      }
+      if (out.length) return '{' + out.join(', ') + '}';
+      return '{keys: ' + Object.keys(o).slice(0, 12).join(',') + '}';
+    } catch (e) { return '{object}'; }
+  }
+
   function fromError(kind, err, extra) {
     if (!enabled()) return;
     var msg, stack;
     if (err && typeof err === 'object') {
       msg = (err.name && err.message) ? err.name + ': ' + err.message : (err.message || err.error_description || err.msg || '');
-      if (!msg) { try { msg = JSON.stringify(err); } catch (e) { msg = String(err); } }
+      if (!msg) msg = describe(err);
       stack = err.stack || '';
     } else { msg = String(err); stack = ''; }
     if (isNoise(msg, stack)) return;
@@ -253,7 +270,7 @@
           var errObj = null, parts = [];
           args.forEach(function (a) {
             if (a instanceof Error) { errObj = errObj || a; parts.push(a.name + ': ' + a.message); }
-            else if (a && typeof a === 'object') { try { parts.push(clip(JSON.stringify(a), 300)); } catch (e) { parts.push(String(a)); } }
+            else if (a && typeof a === 'object') parts.push(describe(a));
             else parts.push(String(a));
           });
           var msg = parts.join(' ');
@@ -300,8 +317,15 @@
       try {
         var el = ev.target && ev.target.closest ? ev.target.closest('button,a,[onclick],[role="button"],.mob-nav-item') : null;
         if (!el) return;
-        var label = (el.getAttribute('aria-label') || el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 40);
-        crumb('tap', el.tagName.toLowerCase() + (el.id ? '#' + el.id : '') + (label ? ' "' + label + '"' : ''));
+        // Never the element's visible text (it can be a person's name or message);
+        // only developer-set identifiers: id, aria-label, onclick handler name, icon.
+        var aria = (el.getAttribute('aria-label') || '').slice(0, 40);
+        var oc = ((el.getAttribute('onclick') || '').match(/^[\w.$]+/) || [''])[0].slice(0, 40);
+        var ic = el.querySelector && el.querySelector('i[class*="fa-"]');
+        var icon = ic ? ((ic.className.match(/fa-(?!solid|regular|brands|fw)[\w-]+/) || [''])[0]) : '';
+        var href = el.tagName === 'A' ? cleanUrl(el.getAttribute('href') || '').slice(0, 60) : '';
+        crumb('tap', el.tagName.toLowerCase() + (el.id ? '#' + el.id : '') + (oc ? ' ' + oc + '()' : '') +
+              (icon ? ' [' + icon + ']' : '') + (href ? ' ' + href : '') + (aria ? ' "' + aria + '"' : ''));
       } catch (e) {}
     }, true);
   } catch (e) {}
