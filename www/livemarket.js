@@ -6301,12 +6301,15 @@ async function handleAddMateFromLocked() {
 
     let minimized = false;
     let openedAtY = null; // scroll position where the Search button opened the bar; null otherwise
+    let openedAt = 0;     // when it did
+    let settling = false; // the list may still be gliding from before the press
     function setMinimized(next) {
         if (next === minimized) return;
         minimized = next;
         topWrap.classList.toggle('nav-min', next);
         fab.classList.toggle('show', next);
         openedAtY = null;
+        settling = false;
     }
 
     // ── Scroll: down past a threshold minimizes; returning to the top expands. ──
@@ -6330,6 +6333,15 @@ async function handleAddMateFromLocked() {
         // bar up: opening the keyboard scrolls the page, and minimizing on that
         // scroll pulled the bar from under the finger so the next tap hit a card.
         else if (!typingInBar()) {
+            // The list can still be gliding when the Search button is pressed. That
+            // glide is not the user scrolling away from the bar, so it must not
+            // close the bar it just opened: while scroll events keep streaming in
+            // without a pause since the press, only follow the position. The first
+            // scroll that starts after the list has come to rest closes it.
+            if (settling) {
+                if (scrollGap < 150) { openedAtY = y; lastY = y; ticking = false; return; }
+                settling = false;
+            }
             if (dy >= DOWN_DELTA && y > MIN_AFTER) setMinimized(true);
             // Opened from the Search button partway down the list: any real scroll
             // from there — up or down — closes it again. Measured from where it was
@@ -6341,7 +6353,15 @@ async function handleAddMateFromLocked() {
         lastY = y;
         ticking = false;
     }
-    function onScroll() { if (!ticking) { ticking = true; requestAnimationFrame(evaluate); } }
+    let lastScrollAt = 0, scrollGap = Infinity; // time of the last scroll event, and the pause before the current one
+    function onScroll() {
+        const now = Date.now();
+        if (!ticking) {
+            scrollGap = now - Math.max(lastScrollAt, openedAt);
+            ticking = true; requestAnimationFrame(evaluate);
+        }
+        lastScrollAt = now;
+    }
     window.addEventListener('scroll', onScroll, { passive: true });
     if (mc) mc.addEventListener('scroll', onScroll, { passive: true });
 
@@ -6374,29 +6394,39 @@ async function handleAddMateFromLocked() {
         fab.style.right = 'auto';
     });
     let dragEndedAt = 0, holdTimer = null;
+    // Tap → restore the top bar (scroll unchanged).
+    function openBar() {
+        setMinimized(false);
+        openedAtY = getScrollY();
+        openedAt = Date.now();
+        settling = true;
+        // Restoring the bar hides this button. The browser's follow-up click
+        // arrives a moment after the finger lifts, and with the button already
+        // gone it used to hit whatever was underneath — e.g. a card's "View
+        // Listing". Keep the button the tap target until that click (and a quick
+        // second tap) has passed.
+        fab.style.pointerEvents = 'auto';
+        clearTimeout(holdTimer);
+        holdTimer = setTimeout(() => { fab.style.pointerEvents = ''; }, 400);
+    }
     function endDrag(e) {
         if (!dragging) return;
         dragging = false;
         fab.classList.remove('dragging');
         try { fab.releasePointerCapture(e.pointerId); } catch (_) {}
         if (moved) dragEndedAt = Date.now();
+        // Open on the finger lifting, not on the click: iOS sends no click for a
+        // tap that lands while the list is still moving, so waiting for one made
+        // the button need a second press.
+        else if (e.type === 'pointerup') openBar();
     }
     fab.addEventListener('pointerup', endDrag);
     fab.addEventListener('pointercancel', endDrag);
-    // Tap → restore the top bar (scroll unchanged). This runs on CLICK, not on
-    // pointerup: restoring the bar hides the FAB (pointer-events:none), and doing
-    // that on pointerup left the browser's follow-up click with no FAB to land on,
-    // so it hit whatever was underneath — e.g. a card's "View Listing" button.
-    // The click that ends a drag is ignored.
+    // Keyboard activation arrives as a click with no pointer events. The click
+    // that follows a tap or ends a drag lands here too and changes nothing.
     fab.addEventListener('click', () => {
-        if (Date.now() - dragEndedAt < 400) return;
-        setMinimized(false);
-        openedAtY = getScrollY();
-        // The button fades out over ~0.25s. Keep it the tap target until it is
-        // gone, so a quick second tap on it does not reach what is behind it.
-        fab.style.pointerEvents = 'auto';
-        clearTimeout(holdTimer);
-        holdTimer = setTimeout(() => { fab.style.pointerEvents = ''; }, 350);
+        if (Date.now() - dragEndedAt < 400 || !minimized) return;
+        openBar();
     });
 
     // Keep the dragged FAB on-screen if the viewport is resized/rotated.
