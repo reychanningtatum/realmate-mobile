@@ -398,7 +398,7 @@
 <script src="mates.js?v=20260930c"></script>
 <script src="nav-menu.js?v=20260930a"></script>
 <script src="location-engine.js?v=20260809b"></script>
-<script src="match-engine.js?v=20261014f"></script>
+<script src="match-engine.js?v=20261014g"></script>
 <script src="developers.js?v=36"></script>
 <script src="rm-track.js?v=3"></script>
 <script src="match-alert.js?v=20261001m"></script>
@@ -1365,6 +1365,20 @@ async function loadListing(){
           <span class="ld-spec-lbl">${s.lbl}</span>
         </div>`).join('')}
     </div>` : ''}
+
+    ${(() => {
+      // A whole property's make-up (unit mix, floors, tenancy, parking) — part of
+      // the ONE property above, never separate listings.
+      if (req) return '';
+      let comp = [];
+      try { comp = (window.RM_MATCH && RM_MATCH.extractComposition) ? RM_MATCH.extractComposition(listing.content || '', listing.category) : []; } catch(e) {}
+      if (!comp.length) return '';
+      const label = /building|hotel|dormitory|apartment/i.test(profile.type || '') ? 'Building Composition' : 'Property Composition';
+      return `<div class="ld-sec ld-req-card ld-comp-card">
+        <div class="ld-req-group"><div class="ld-req-intent"><span class="ld-req-intent-tag">${label}</span></div>
+        ${comp.map(c => `<div class="ld-req-row"><i class="fas fa-layer-group"></i><span>${safeText(c)}</span></div>`).join('')}</div>
+      </div>`;
+    })()}
 
     ${(() => {
       const mp = req ? { others: [] } : ldOtherProperties(listing.content);

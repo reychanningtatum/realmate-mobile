@@ -1028,6 +1028,11 @@
     //     own unit/size/project — or simply names a different project;
     //   • the line is a complete entry by itself ("Kroma 1BR 18M").
     const _PROP_IDENT = /\b\d\s*(?:br|bed(?:room)?s?)\b|\bstudio\b|\bpenthouse\b|\bloft\b|\btownhouse\b|\d\s*(?:sqm|sq\.?\s*m\b)/i;
+    // A line that counts the units, rooms or doors INSIDE a property ("Has 30
+    // units in 4F-6F", "9 units at 25 sqm (Studio Type)", "1 unit at 41 sqm 1
+    // bedroom", "12 office units") describes what the property is made of. It
+    // never identifies a separate property, whatever sizes or bedrooms it names.
+    const _PROP_COMPOSITION = /^\W*(?:(?:has|with|have|consists?\s+of|composed\s+of)\s+)?(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|twelve)\s*(?:x\s*)?(?:[a-z-]+\s+){0,2}(?:units?|rooms?|doors?|studios?|bedrooms?|apartments?|offices?|stalls?|spaces?)\b(?!\s*(?:for\s+(?:sale|rent|lease)|available\s+for))/i;
     const _propSplitCache = new Map();
     const _PROP_MAX_CHARS = 12000, _PROP_MAX_LINES = 400;
 
@@ -1049,6 +1054,25 @@
         try { return /[^\u0000-\u024f\u20b1]/.test(t) ? t.normalize('NFKC') : t; } catch (e) { return t; }
     }
 
+    // What a whole property — a building, a warehouse, a hotel — is made of:
+    // its unit mix, floor allocation, tenancy and parking, as the author wrote
+    // them. These lines describe the ONE property being advertised; they are
+    // never listings of their own. Empty for anything that is not a whole property.
+    const _COMPOSITION_LINE = /\b\d+\s*(?:x\s*)?(?:[a-z-]+\s+){0,2}(?:units?|rooms?|doors?|studios?|apartments?|offices?|stalls?)\b|^\W*(?:g\/?f|ground\s+floor|basement|roof\s*deck|\d+(?:st|nd|rd|th)?\s*(?:f|flr|floor)s?)\b|\bparking\b|\b(?:tenants?|leased|occupied|occupancy)\b/i;
+    function extractComposition(text) {
+        const t = _plainText(text);
+        if (!_wholeProperty(t)) return [];
+        const out = [];
+        for (const raw of t.split('\n')) {
+            const line = raw.replace(/^[\s•·●▪◦‣\-–—*✅✔️☑️➤►▶→👉📍🔹🔸]+/u, '').replace(/\s+/g, ' ').trim();
+            if (!line || line.length > 140 || !_COMPOSITION_LINE.test(line)) continue;
+            if (/\b(?:price|selling|asking)\b|\b(?:lot|floor)\s+area\b/i.test(line)) continue;   // the headline figures, shown elsewhere
+            if (!out.includes(line)) out.push(line);
+            if (out.length >= 12) break;
+        }
+        return out;
+    }
+
     function splitProperties(text) {
         const key = String(text == null ? '' : text);
         const cached = _propSplitCache.get(key);
@@ -1066,7 +1090,7 @@
         // read as separately priced properties.
         const _intentCat = { sale: 'FOR SALE', rent: 'FOR RENT' }[_priceIntent(raw)] || '';
         const hasPrice = lines.map((l, i) => !blank[i] && _priceCandidates(l, _intentCat).some(c => c.role === 'price' && c.score > 0));
-        const hasIdent = lines.map((l, i) => !blank[i] && _PROP_IDENT.test(l));
+        const hasIdent = lines.map((l, i) => !blank[i] && _PROP_IDENT.test(l) && !_PROP_COMPOSITION.test(l));
         const marker = lines.map((l, i) => blank[i] ? null : _propMarker(l));
         const headerish = i => !!marker[i] && /[a-z]{2}/i.test(lines[i]) && !hasPrice[i];
         // A header marker titles a section; a bullet that prefixes nearly every
@@ -1079,7 +1103,12 @@
             if (marker[i]) markerLines.set(marker[i], (markerLines.get(marker[i]) || 0) + 1);
             if (headerish(i)) markerUses.set(marker[i], (markerUses.get(marker[i]) || 0) + 1);
         }
-        const isHeader = i => headerish(i) && markerUses.get(marker[i]) >= 2 && markerLines.get(marker[i]) <= textLines * 0.4;
+        // A marker on two ADJACENT lines is a list ("• Parking at GF" / "• Has 30
+        // units"): its items belong to whatever the list sits under. Only a marker
+        // whose uses are spread apart — each owning lines of its own — titles sections.
+        const listMarkers = new Set();
+        for (let i = 1; i < n; i++) if (marker[i] && !blank[i - 1] && marker[i - 1] === marker[i]) listMarkers.add(marker[i]);
+        const isHeader = i => headerish(i) && !listMarkers.has(marker[i]) && markerUses.get(marker[i]) >= 2 && markerLines.get(marker[i]) <= textLines * 0.4;
         const any = (arr, a, b) => { for (let i = a; i < b; i++) if (arr[i]) return true; return false; };
         const count = (a, b) => { let c = 0; for (let i = a; i < b; i++) if (!blank[i]) c++; return c; };
         const join = (a, b) => lines.slice(a, b).join('\n');
@@ -1798,6 +1827,7 @@
         extractAmount: _onPrimary(extractAmount),
         extractFinancials: _onPrimary(extractFinancials),
         wholeProperty: function (text) { return _wholeProperty(primaryText(text)); },
+        extractComposition: function (text, category) { return extractComposition(primaryText(text, category)); },
         _unitToken,
         _unitRank,
         _smallerUnit,
