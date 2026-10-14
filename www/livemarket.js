@@ -4268,17 +4268,21 @@ function buildAiAnalysis(details, color) {
     const warn  = '<i class="fas fa-exclamation-circle" style="color:#f59e0b;font-size:12px;"></i>';
     const cross = '<i class="fas fa-times-circle" style="color:#cbd5e1;font-size:12px;"></i>';
     let rows = '';
+    const esc = v => escapeHtmlSafe(String(v == null ? '' : v)).replace(/'/g, '&#39;');
     if (details.location) {
-        if (details.location.match === 'exact') rows += `<div class="match-detail-row">${check} <span>Location match: <strong>${details.location.value}</strong></span></div>`;
-        else if (details.location.match === 'nearby') rows += `<div class="match-detail-row">${warn} <span>Nearby area: ${details.location.theirs}</span></div>`;
+        // Every value below originates in a post's text (a project name is kept as
+        // the poster wrote it), so each is escaped before it reaches the page.
+        if (details.location.match === 'exact') rows += `<div class="match-detail-row">${check} <span>Location match: <strong>${esc(details.location.value)}</strong></span></div>`;
+        else if (details.location.match === 'project') rows += `<div class="match-detail-row">${check} <span>Same location: both at <strong>${esc(details.location.value)}</strong></span></div>`;
+        else if (details.location.match === 'nearby') rows += `<div class="match-detail-row">${warn} <span>Nearby area: ${esc(details.location.theirs)}</span></div>`;
     }
     if (details.project) {
-        if (details.project.match) rows += `<div class="match-detail-row">${check} <span>Same project: <strong>${details.project.value}</strong></span></div>`;
-        else if (details.project.theirs) rows += `<div class="match-detail-row">${cross} <span>Different project: ${details.project.theirs}</span></div>`;
+        if (details.project.match) rows += `<div class="match-detail-row">${check} <span>Same project: <strong>${esc(details.project.value)}</strong></span></div>`;
+        else if (details.project.theirs) rows += `<div class="match-detail-row">${cross} <span>Different project: ${esc(details.project.theirs)}</span></div>`;
     }
     if (details.unit) {
-        if (details.unit.match) rows += `<div class="match-detail-row">${check} <span>Unit type: <strong>${details.unit.value}</strong></span></div>`;
-        else rows += `<div class="match-detail-row">${cross} <span>Unit: ${details.unit.theirs || 'N/A'} (yours: ${details.unit.mine})</span></div>`;
+        if (details.unit.match) rows += `<div class="match-detail-row">${check} <span>Unit type: <strong>${esc(details.unit.value)}</strong></span></div>`;
+        else rows += `<div class="match-detail-row">${cross} <span>Unit: ${esc(details.unit.theirs || 'N/A')} (yours: ${esc(details.unit.mine)})</span></div>`;
     }
     if (details.price) {
         const fmtP = v => '₱' + (v / 1e6).toFixed(1) + 'M';
@@ -4286,7 +4290,11 @@ function buildAiAnalysis(details, color) {
         const _cap = details.price.budget ? details.price.budget.max : null;
         const _budgetTxt = _cap != null ? ` · ${fmtP(_cap)} budget` : '';
         const m = details.price.match;
-        if (m === 'within' || m === 'exact') {
+        if (m === 'open') {
+            // The buyer gave an instruction, not an amount ("FMV") — there is no cap
+            // to be inside or outside of.
+            rows += `<div class="match-detail-row">${check} <span>Budget: <strong>${esc(details.price.note)}</strong> (no fixed cap)${_seller ? ` · ${fmtP(_seller)} asking` : ''}</span></div>`;
+        } else if (m === 'within' || m === 'exact') {
             rows += `<div class="match-detail-row">${check} <span>Price in budget: <strong>${fmtP(_seller)}</strong> asking${_budgetTxt}</span></div>`;
         } else if (m === 'below') {
             rows += `<div class="match-detail-row">${check} <span>Price under budget: <strong>${fmtP(_seller)}</strong> asking${_budgetTxt}</span></div>`;
@@ -4299,8 +4307,8 @@ function buildAiAnalysis(details, color) {
             rows += `<div class="match-detail-row">${cross} <span>Price: ${fmtP(_seller)} outside budget</span></div>`;
         }
     }
-    if (details.features?.match) rows += `<div class="match-detail-row">${check} <span>Features: <strong>${details.features.common.join(', ')}</strong></span></div>`;
-    if (details.size?.match) rows += `<div class="match-detail-row">${check} <span>Size: <strong>~${details.size.value} sqm</strong></span></div>`;
+    if (details.features?.match) rows += `<div class="match-detail-row">${check} <span>Features: <strong>${esc(details.features.common.join(', '))}</strong></span></div>`;
+    if (details.size?.match) rows += `<div class="match-detail-row">${check} <span>Size: <strong>~${esc(details.size.value)} sqm</strong></span></div>`;
     if (!rows) return null;
     const el = document.createElement('div');
     el.className = 'match-analysis';
