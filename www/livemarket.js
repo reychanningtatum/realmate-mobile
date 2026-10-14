@@ -2753,6 +2753,7 @@ let activeSearchQuery = '';
 // runs solely on Enter or when a suggestion is clicked (executeSearch).
 function onSearchInput() {
     const q = (document.getElementById('searchInput')?.value || '').trim();
+    _portalSuggestOpen = true;   // tapping or typing in the search box opens the dropdown
     // An emptied box means "no search": drop the committed term so the tab's
     // full list comes back, instead of staying filtered by text that is gone.
     if (!q) _clearSearchIfInputEmpty();
@@ -2811,6 +2812,7 @@ function _clearSearchIfInputEmpty() {
 // device) used to redraw it as the Recent list even though the user had typed
 // since — swapping the dropdown's content under them (the "blinking").
 function _refreshPortalSuggest() {
+    if (!_portalSuggestOpen) return;   // a late sync must not reopen a dropdown the user closed
     renderPortalSuggest((document.getElementById('searchInput')?.value || '').trim());
 }
 
@@ -2818,6 +2820,9 @@ function _refreshPortalSuggest() {
 // matching results. Called on Enter and on suggestion clicks — never while typing.
 function executeSearch() {
     const raw = (document.getElementById('searchInput')?.value || '').trim();
+    // The keyboard's "check"/Done on an empty box is not a search: dismiss the
+    // keyboard and leave Recent searches showing.
+    if (!raw && !activeSearchQuery) { document.getElementById('searchInput')?.blur(); return; }
     activeSearchQuery = raw.toLowerCase();
     _syncSearchClearBtn();
     if (raw && window.RMSearchHistory) RMSearchHistory.add('recent', raw);   // persist recent
@@ -3193,16 +3198,21 @@ function portalSuggestPost(i) {
     lmOpenListing(l.id);
 }
 
+// Whether the search dropdown (Recent searches / suggestions) is meant to be
+// showing. It is opened by the search box (tap or typing) and closed ONLY by
+// closePortalSuggest(), which is called for a deliberate action: a tap outside
+// the search area, a scroll of the Portal, picking a row, running a search, ✕,
+// or Escape. Losing focus is not one of them.
+let _portalSuggestOpen = false;
 function closePortalSuggest() {
+    _portalSuggestOpen = false;
     const box = document.getElementById('portalSuggest');
     if (box) { box.classList.remove('open'); }
 }
-// Dismissing the keyboard (its "check"/Done) blurs the search box — close the
-// Recent-searches dropdown too. Deferred so a tap on a suggestion/recent row runs
-// its own handler first (those close the dropdown + navigate themselves).
+// Dismissing the keyboard (its "check"/Done) blurs the search box. That leaves the
+// Recent-searches dropdown open — the user may still want to pick from it.
 function onPortalSearchBlur() {
     _clearSearchIfInputEmpty();   // keyboard dismissed on an emptied box → show the full list again
-    setTimeout(closePortalSuggest, 150);
 }
 
 // ── Portal recent-searches (persistent, per-user) ──────────────────────────
@@ -3250,6 +3260,17 @@ function jsEscSafe(s) {
 document.addEventListener('click', e => {
     if (!e.target.closest('.search-wrap')) closePortalSuggest();
 });
+// Scrolling the Portal closes the dropdown; scrolling INSIDE the dropdown does
+// not. This listens for the scroll gesture itself (a finger moving, a wheel
+// turning) and where it started, rather than for scroll events — the page also
+// scrolls on its own when the keyboard opens or closes, and that is not the user
+// scrolling the Portal.
+(function () {
+    const inSearch = t => !!(t && t.closest && t.closest('.search-wrap'));
+    const onGesture = e => { if (_portalSuggestOpen && !inSearch(e.target)) closePortalSuggest(); };
+    document.addEventListener('touchmove', onGesture, { passive: true });
+    document.addEventListener('wheel', onGesture, { passive: true });
+})();
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closePortalSuggest(); });
 
 function selectMarketCat(btn) {
@@ -6318,7 +6339,11 @@ async function handleAddMateFromLocked() {
     const DOWN_DELTA = 6;   // downward movement needed to minimize (ignore jitter)
     let lastY = getScrollY();
     let ticking = false;
+    const touchScreen = !!(window.matchMedia && window.matchMedia('(hover: none), (pointer: coarse)').matches);
+    // The bar is in use — typing in one of its fields, or its search dropdown is
+    // open. Closing the dropdown (tap outside, Portal scroll) frees the bar again.
     function typingInBar() {
+        if (_portalSuggestOpen) return true;
         const a = document.activeElement;
         return !!a && topWrap.contains(a) && /^(INPUT|TEXTAREA)$/.test(a.tagName);
     }
@@ -6327,7 +6352,10 @@ async function handleAddMateFromLocked() {
         const dy = y - lastY;
         // Any real scroll closes the Recent-searches dropdown so it doesn't hang over
         // the feed; it only reopens on a fresh focus of the search box (not on scroll-up).
-        if (Math.abs(dy) >= DOWN_DELTA) closePortalSuggest();
+        // On touch screens the gesture listener beside closePortalSuggest() does
+        // this instead: there the page also scrolls by itself when the keyboard
+        // opens or closes, which must not close the dropdown.
+        if (Math.abs(dy) >= DOWN_DELTA && !touchScreen) closePortalSuggest();
         if (y <= TOP_ZONE) { setMinimized(false); openedAtY = null; }
         // Typing in one of the bar's own fields (search, location search) keeps the
         // bar up: opening the keyboard scrolls the page, and minimizing on that
