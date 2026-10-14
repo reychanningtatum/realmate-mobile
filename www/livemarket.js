@@ -3362,14 +3362,22 @@ function buildMatchMap() {
     // ── General match count for every listing ──
     // Bucket by category so each listing only compares against its partner set
     // (computeMatchScore also early-returns on non-complementary categories).
+    // A post with several requirements (WTL + WTB) can match under each of their
+    // intents, so it is bucketed — and looks for partners — under all of them.
+    const intentsOf = p => {
+        const out = [p.category];
+        (p.variants || []).forEach(v => { if (!out.includes(v.category)) out.push(v.category); });
+        return out;
+    };
     const byCategory = new Map();
-    parsedAll.forEach(p => {
-        const arr = byCategory.get(p.category);
-        if (arr) arr.push(p); else byCategory.set(p.category, [p]);
-    });
+    parsedAll.forEach(p => intentsOf(p).forEach(cat => {
+        const arr = byCategory.get(cat);
+        if (arr) arr.push(p); else byCategory.set(cat, [p]);
+    }));
     parsedAll.forEach(L => {
         let count = 0;
-        const candidates = byCategory.get(PARTNER_MAP[L.category]) || [];
+        const candidates = [];
+        intentsOf(L).forEach(cat => (byCategory.get(PARTNER_MAP[cat]) || []).forEach(O => { if (!candidates.includes(O)) candidates.push(O); }));
         const lIsMine = _myId && String(L.userId) === _myId;
         candidates.forEach(O => {
             if (O.userId === L.userId) return;

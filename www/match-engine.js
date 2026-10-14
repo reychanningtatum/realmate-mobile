@@ -1296,34 +1296,112 @@
                 return hit;
             }
         }
-        const parsed = {
-            id: listing.id,
-            category: listing.category,
-            // Phase 1 structured-first: prefer the structured column when present,
-            // else fall back to parsing content (identical when the column is NULL).
-            locations: (listing.location_city || listing.location_area)
+        const structured = v => v != null && String(v).trim() !== '';
+        // When the post doesn't say where it is but names a project the developer
+        // dataset knows, the project's own location is its location ("Two Serendra
+        // 2BR 25M" is in BGC). Only fills a blank; the post always wins.
+        const locationsFor = (txt, project) => {
+            let locs = (listing.location_city || listing.location_area)
                 ? extractLocations([listing.location_area, listing.location_city].filter(Boolean).join(' '))
-                : extractLocations(text),
-            unit: extractUnit(text),
-            unitTypes: (listing.unit_type != null && String(listing.unit_type).trim() !== '')
-                ? [String(listing.unit_type)]
-                : unitTypesForMatch(text),
-            project: (listing.project != null && String(listing.project).trim() !== '')
-                ? String(listing.project)
-                : extractProject(text),
-            price: (listing.price != null && listing.price !== '')
-                ? Number(listing.price)
-                : extractPrice(text, listing.category),
-            budget: extractBudgetRange(text, listing.category),
-            features: extractFeatures(text),
-            userId: listing.user_id,
-            raw: listing
+                : extractLocations(txt);
+            if (!locs.length && project) {
+                try {
+                    const rec = global.RM_DEVELOPERS && global.RM_DEVELOPERS.getProject && global.RM_DEVELOPERS.getProject(project);
+                    if (rec && rec.location) locs = extractLocations(String(rec.location));
+                } catch (e) { /* dataset optional */ }
+            }
+            return locs;
         };
+        const build = (txt, category, useColumns, option) => {
+            const project = (useColumns && structured(listing.project)) ? String(listing.project) : extractProject(txt);
+            return {
+                id: listing.id,
+                category: category,
+                // Phase 1 structured-first: prefer the structured column when present,
+                // else fall back to parsing content (identical when the column is NULL).
+                locations: locationsFor(txt, project),
+                unit: extractUnit(txt),
+                unitTypes: (useColumns && structured(listing.unit_type)) ? [String(listing.unit_type)] : unitTypesForMatch(txt),
+                project: project,
+                // Every project the requirement accepts, as written — so a project the
+                // engine has no record of can still be matched by its name.
+                projectNames: option ? option.projects.slice() : (project ? [project] : []),
+                price: (useColumns && listing.price != null && listing.price !== '') ? Number(listing.price) : extractPrice(txt, category),
+                budget: extractBudgetRange(txt, category),
+                // A budget given as an instruction, not an amount ("FMV").
+                budgetNote: (option && option.budget && option.budget.amount == null) ? (option.budget.text || '') : '',
+                terms: option ? option.terms.slice() : [],
+                features: extractFeatures(txt),
+                userId: listing.user_id,
+                raw: listing
+            };
+        };
+        const req = extractRequirements(fullText, listing.category);
+        let parsed;
+        if (req && req.multi) {
+            // One post, several requirements: each is matchable in its own right,
+            // under its OWN transaction intent. The canonical one (for display and
+            // for callers that read a single identity) is the requirement for the
+            // listing's category.
+            const variants = [], canon = _canonicalRequirement(fullText, listing.category);
+            let canonIdx = 0;
+            req.groups.forEach(g => g.options.forEach(o => {
+                if (o === canon) canonIdx = variants.length;
+                variants.push(build(o.text, g.intent, false, o));
+            }));
+            parsed = Object.assign({}, variants[canonIdx], { category: listing.category, variants: variants });
+        } else {
+            const opt = (req && req.groups[0] && req.groups[0].options[0]) || null;
+            parsed = build(text, listing.category, true, opt);
+        }
         if (key !== null) _parseListingCache.set(key, parsed);
         return parsed;
     }
 
+    // A post with several requirements is matched requirement by requirement:
+    // every requirement of one side is scored against every requirement of the
+    // other, each under its OWN transaction intent, and the best pair is the
+    // match. So a FOR SALE listing meets the WTB requirement of a "WTL / WTB"
+    // post, a FOR LEASE listing meets its WTL options, and neither is confused
+    // with the other.
     function computeMatchScore(mine, other) {
+        const A = (mine && mine.variants) || [mine], B = (other && other.variants) || [other];
+        if (A.length === 1 && B.length === 1) return _scorePair(A[0], B[0]);
+        let best = { score: 0, reasons: [], details: {} };
+        for (const a of A) for (const b of B) {
+            const r = _scorePair(a, b);
+            if (r.score > best.score) best = r;
+        }
+        return best;
+    }
+
+    // Normalised name for comparing project names as WRITTEN ("Residences at the
+    // Galleon" vs "The Residences at The Galleon").
+    function _projKey(name) {
+        return normalizeSeparators(String(name || '')).toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').replace(/\bthe\b/g, ' ').replace(/\s+/g, ' ').trim();
+    }
+    // Do the two sides name the same project? Either their resolved projects are
+    // equal, or one side accepts (by name, as written) a project the other names
+    // or whose post text contains it.
+    function _sameProject(a, b) {
+        if (a.project && b.project && a.project.toLowerCase() === b.project.toLowerCase()) return a.project;
+        const names = x => (x.projectNames && x.projectNames.length ? x.projectNames : (x.project ? [x.project] : []));
+        const check = (x, y) => {
+            const yKeys = names(y).map(_projKey);
+            const yText = ' ' + _projKey(primaryText((y.raw && y.raw.content) || '', y.category)) + ' ';
+            for (const n of names(x)) {
+                const k = _projKey(n);
+                if (k.length < 4) continue;
+                if (yKeys.includes(k)) return n;
+                // The other side must be a single-identity post that says the name.
+                if (yText.includes(' ' + k + ' ') && !(y.project && _projKey(y.project) !== k)) return n;
+            }
+            return null;
+        };
+        return check(a, b) || check(b, a);
+    }
+
+    function _scorePair(mine, other) {
         // Score = earned / possible over the criteria that ACTUALLY APPLY to this
         // pair (both sides have the data). Optional fields that are missing are
         // EXCLUDED from the denominator — never counted as a mismatch — so a listing
@@ -1348,25 +1426,35 @@
         // vs "For Rent → Makati" is NOT a match. A missing/unknown location on
         // either side also can't establish a shared place, so it rejects too.
         // (Accuracy over quantity — the old "nearby" partial credit is removed.)
+        //
+        // One exception, which is not a relaxation: the SAME PROJECT is the same
+        // place by definition. When both sides name one project and at least one
+        // of them simply doesn't state a location ("Two Serendra / 2BR / 25M"), the
+        // shared project establishes the shared location. Two stated locations
+        // that differ still reject, same project name or not.
+        const sameProject = _sameProject(mine, other);
         const proximity = locationProximity(mine.locations, other.locations);
-        if (proximity !== 'exact') return { score: 0, reasons: [], details: {} };
-        const overlap = mine.locations.filter(l => other.locations.includes(l));
-        earned += 25; possible += 25;
-        reasons.push(`Location: ${overlap.join(', ')}`);
-        details.location = { match: 'exact', value: overlap.join(', '), points: 25 };
+        if (proximity === 'exact') {
+            const overlap = mine.locations.filter(l => other.locations.includes(l));
+            earned += 25; possible += 25;
+            reasons.push(`Location: ${overlap.join(', ')}`);
+            details.location = { match: 'exact', value: overlap.join(', '), points: 25 };
+        } else if (sameProject && !(mine.locations.length && other.locations.length)) {
+            earned += 25; possible += 25;
+            reasons.push(`Location: same project (${sameProject})`);
+            details.location = { match: 'project', value: sameProject, points: 25 };
+        } else return { score: 0, reasons: [], details: {} };
 
         // 2. Project match — APPLICABLE only when BOTH sides state a project. If only
         // one (or neither) does, it's unknown, not a mismatch → excluded from scoring
         // so it can't drag the percentage down.
-        if (mine.project && other.project) {
+        if (sameProject) {
+            possible += 25; earned += 25;
+            reasons.push(`Project: ${sameProject}`);
+            details.project = { match: true, value: sameProject, points: 25 };
+        } else if (mine.project && other.project) {
             possible += 25;
-            if (mine.project.toLowerCase() === other.project.toLowerCase()) {
-                earned += 25;
-                reasons.push(`Project: ${mine.project}`);
-                details.project = { match: true, value: mine.project, points: 25 };
-            } else {
-                details.project = { match: false, mine: mine.project, theirs: other.project };
-            }
+            details.project = { match: false, mine: mine.project, theirs: other.project };
         }
 
         // 3. Unit type match — MANDATORY, matched at the specific type level. A
@@ -1390,8 +1478,17 @@
         //     so a small overage still scores well while a big one scores little.
         // This fixes the old bug where any price up to 20% over the cap was treated
         // as "in budget" (e.g. ₱19M counted as within a ₱16M budget).
+        const buyerSide = mine.category.includes('WILLING') ? mine : other;
         const sellerPrice = mine.category.includes('FOR') ? mine.price : other.price;
-        const buyerBudget = mine.category.includes('WILLING') ? mine.budget : other.budget;
+        const buyerBudget = buyerSide.budget;
+        // A budget stated as an instruction ("FMV") is not a cap: there is no
+        // amount to compare, so price is NOT a criterion for this pair — it neither
+        // adds nor costs points, and never rejects. The instruction is reported.
+        if (!buyerBudget && buyerSide.budgetNote) {
+            reasons.push(`Budget: ${buyerSide.budgetNote} (no fixed cap)`);
+            details.price = { match: 'open', seller: sellerPrice || null, note: buyerSide.budgetNote, points: 0 };
+        }
+        if (/\bcash\s+buyer\b/i.test((buyerSide.terms || []).join(' '))) reasons.push('Cash buyer');
         if (sellerPrice && buyerBudget) {
             possible += 25;   // price is a real, available criterion for this pair
             const cap = buyerBudget.max, floor = buyerBudget.min;
@@ -1459,7 +1556,33 @@
         // deliberate small margin even for an all-exact match. Missing optional fields
         // were never added to `possible`, so they don't dilute the score.
         const score = possible > 0 ? Math.min(99, Math.round((earned / possible) * 99)) : 0;
+        // Which requirement of a multi-requirement post produced this match.
+        details.requirement = { intent: buyerSide.category, projects: buyerSide.projectNames || [], unitTypes: buyerSide.unitTypes || [] };
         return { score, reasons, details };
+    }
+
+    // Every transaction intent a listing can be matched under: its category, plus
+    // the intents of any requirement groups inside it.
+    function matchCategories(listing) {
+        const out = [];
+        const add = c => { if (c && !out.includes(c)) out.push(c); };
+        add(listing && listing.category);
+        try {
+            const req = extractRequirements((listing && listing.content) || '', listing && listing.category);
+            if (req && req.multi) req.groups.forEach(g => add(g.intent));
+        } catch (e) {}
+        return out;
+    }
+    // The categories whose listings could match this one — for callers that
+    // pre-select candidates by category. An offer can also meet a requirement
+    // group inside a post filed under a different "willing to…" category, so
+    // every requirement category is a candidate for an offer.
+    function candidateCategories(listing) {
+        const out = [];
+        const add = c => { if (c && !out.includes(c)) out.push(c); };
+        matchCategories(listing).forEach(c => add(PARTNER_MAP[c]));
+        if (/^FOR /.test(String((listing && listing.category) || ''))) Object.keys(PARTNER_MAP).filter(c => /^WILLING/.test(c)).forEach(add);
+        return out;
     }
 
     // ── Public API ──
@@ -1506,6 +1629,8 @@
         splitProperties,
         primaryText,
         extractRequirements,
+        matchCategories,
+        candidateCategories,
         parseListing,
         computeMatchScore,
     };
