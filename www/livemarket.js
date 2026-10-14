@@ -6300,11 +6300,13 @@ async function handleAddMateFromLocked() {
         Math.max(window.pageYOffset || 0, document.documentElement.scrollTop || 0, mc ? mc.scrollTop : 0);
 
     let minimized = false;
+    let openedAtY = null; // scroll position where the Search button opened the bar; null otherwise
     function setMinimized(next) {
         if (next === minimized) return;
         minimized = next;
         topWrap.classList.toggle('nav-min', next);
         fab.classList.toggle('show', next);
+        openedAtY = null;
     }
 
     // ── Scroll: down past a threshold minimizes; returning to the top expands. ──
@@ -6323,11 +6325,17 @@ async function handleAddMateFromLocked() {
         // Any real scroll closes the Recent-searches dropdown so it doesn't hang over
         // the feed; it only reopens on a fresh focus of the search box (not on scroll-up).
         if (Math.abs(dy) >= DOWN_DELTA) closePortalSuggest();
-        if (y <= TOP_ZONE) setMinimized(false);
+        if (y <= TOP_ZONE) { setMinimized(false); openedAtY = null; }
         // Typing in one of the bar's own fields (search, location search) keeps the
         // bar up: opening the keyboard scrolls the page, and minimizing on that
         // scroll pulled the bar from under the finger so the next tap hit a card.
-        else if (dy >= DOWN_DELTA && y > MIN_AFTER && !typingInBar()) setMinimized(true);
+        else if (!typingInBar()) {
+            if (dy >= DOWN_DELTA && y > MIN_AFTER) setMinimized(true);
+            // Opened from the Search button partway down the list: any real scroll
+            // from there — up or down — closes it again. Measured from where it was
+            // opened, not frame to frame, so a slow scroll still counts.
+            else if (openedAtY != null && Math.abs(y - openedAtY) >= DOWN_DELTA) setMinimized(true);
+        }
         // Scrolling up leaves the bar minimized on purpose — only a FAB tap (or
         // reaching the top) brings it back.
         lastY = y;
@@ -6383,6 +6391,7 @@ async function handleAddMateFromLocked() {
     fab.addEventListener('click', () => {
         if (Date.now() - dragEndedAt < 400) return;
         setMinimized(false);
+        openedAtY = getScrollY();
         // The button fades out over ~0.25s. Keep it the tap target until it is
         // gone, so a quick second tap on it does not reach what is behind it.
         fab.style.pointerEvents = 'auto';
