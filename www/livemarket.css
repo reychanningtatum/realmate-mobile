@@ -70,15 +70,20 @@ h1,h2,h3 { font-family: 'Playfair Display', serif; }
   overflow: visible;
   background: var(--bg);
   border-bottom: 1px solid var(--border);
-  transition: transform 0.34s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.26s ease;
+  transition: transform 0.34s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.26s ease, visibility 0s;
   will-change: transform;
 }
 /* Minimized: slide the whole bar up out of view (its space is above the current
-   scroll position, so nothing reflows). The floating Search button takes over. */
+   scroll position, so nothing reflows). The floating Search button takes over.
+   The bar stops taking taps only once the slide has finished (visibility flips
+   after the transition). Switching taps off the moment it started to hide left
+   a still-visible tab, chip or search box that passed the tap straight through
+   to the card behind it. */
 .top-fixed-wrap.nav-min {
   transform: translateY(-100%);
   opacity: 0;
-  pointer-events: none;
+  visibility: hidden;
+  transition: transform 0.34s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.26s ease, visibility 0s 0.34s;
 }
 
 /* ── Floating Search button (shown only while the bar is minimized) ── */

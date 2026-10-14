@@ -1651,12 +1651,10 @@ function closeArchivedView() {
     const LONG_PRESS_MS = 500;
     let state = null;    // in-flight gesture, or null between gestures
     let longPressTimer = null;
-    let tapConvId = null; // row whose press ended as a genuine tap; consumed by its click
 
     function rowOf(el) { return el.closest('.chat-conv-row'); }
 
     document.getElementById('chatConvList').addEventListener('pointerdown', (e) => {
-        tapConvId = null;
         const actionBtn = e.target.closest('[data-conv-action]');
         // Buttons (swipe-panel actions, avatar, keyboard trigger) handle
         // their own click — don't start a drag/tap gesture from them.
@@ -1752,12 +1750,8 @@ function closeArchivedView() {
             s.item.style.transform = openIt ? `translateX(-${s.panelWidth}px)` : '';
             _openSwipeConvId = openIt ? s.convId : null;
         } else if (s.direction === null) {
-            // A genuine tap/click — no drag ever happened. The row is opened
-            // by the click that follows (see the delegated click listener
-            // below), not here: opening it on pointerup swapped the screen
-            // before that click was delivered, so the click landed on
-            // whatever the conversation showed at the same spot.
-            tapConvId = s.convId;
+            // A genuine tap/click — no drag ever happened.
+            _handleConvActivate(s.convId);
         }
         // direction === 'vertical' already bailed out in pointermove; nothing to do here.
     }
@@ -1768,16 +1762,7 @@ function closeArchivedView() {
     // avatar, and the keyboard-only actions trigger.
     document.getElementById('chatConvList').addEventListener('click', (e) => {
         const btn = e.target.closest('[data-conv-action]');
-        if (!btn) {
-            // A tap on the row itself. Only a press the gesture engine
-            // judged a genuine tap opens it — never the click that ends a
-            // swipe, a scroll or a long-press preview.
-            const convId = tapConvId;
-            tapConvId = null;
-            const item = e.target.closest('.chat-conv-item');
-            if (item && convId && rowOf(item).dataset.convId === convId) _handleConvActivate(convId);
-            return;
-        }
+        if (!btn) return;
         e.preventDefault();
         e.stopPropagation();
         const row = rowOf(btn);

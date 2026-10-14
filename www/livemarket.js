@@ -6313,6 +6313,10 @@ async function handleAddMateFromLocked() {
     const DOWN_DELTA = 6;   // downward movement needed to minimize (ignore jitter)
     let lastY = getScrollY();
     let ticking = false;
+    function typingInBar() {
+        const a = document.activeElement;
+        return !!a && topWrap.contains(a) && /^(INPUT|TEXTAREA)$/.test(a.tagName);
+    }
     function evaluate() {
         const y = getScrollY();
         const dy = y - lastY;
@@ -6320,7 +6324,10 @@ async function handleAddMateFromLocked() {
         // the feed; it only reopens on a fresh focus of the search box (not on scroll-up).
         if (Math.abs(dy) >= DOWN_DELTA) closePortalSuggest();
         if (y <= TOP_ZONE) setMinimized(false);
-        else if (dy >= DOWN_DELTA && y > MIN_AFTER) setMinimized(true);
+        // Typing in one of the bar's own fields (search, location search) keeps the
+        // bar up: opening the keyboard scrolls the page, and minimizing on that
+        // scroll pulled the bar from under the finger so the next tap hit a card.
+        else if (dy >= DOWN_DELTA && y > MIN_AFTER && !typingInBar()) setMinimized(true);
         // Scrolling up leaves the bar minimized on purpose — only a FAB tap (or
         // reaching the top) brings it back.
         lastY = y;
