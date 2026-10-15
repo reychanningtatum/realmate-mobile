@@ -58,6 +58,17 @@
     var text = String(message || '').trim();
     if (!text) throw new Error('Please write your feedback first.');
     if (text.length > MAX) throw new Error('Feedback is too long (' + MAX + ' characters max).');
+    // From the app it must go out under the member's session — the server only
+    // knows who sent it from that. The app can still look signed in after its
+    // session lapsed (most screens keep working without one), so check for a
+    // live session, refresh it once if needed, and never send app feedback
+    // anonymously. Only the marketing page sends as a signed-out visitor.
+    if (source !== 'marketing') {
+      var s = null;
+      try { s = (await sb.auth.getSession()).data.session; } catch (e) {}
+      if (!s) { try { s = (await sb.auth.refreshSession()).data.session; } catch (e) {} }
+      if (!s) throw new Error('Your session has expired. Please sign out and sign in again, then send your feedback.');
+    }
     var r = await sb.rpc('submit_feedback', {
       p_client_id: clientId, p_message: text, p_source: source === 'marketing' ? 'marketing' : 'app',
       p_platform: platform(), p_page: (location.pathname || '').split('/').pop() || null
