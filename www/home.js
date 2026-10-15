@@ -1065,12 +1065,16 @@ async function loadHomeFeed(feedEl, filterArg, silent) {
 
         if (error) throw error;
 
-        // Privacy: hide other members' Private *posts* (per-post setting) + blocked.
+        // Privacy: hide other members' Private *posts* (per-post setting).
+        // Blocked authors/posts are NOT dropped here: _homePosts keeps every post
+        // fetched (with its stats) and only the cards on screen follow the block
+        // state (_homeApplyBlockState) — so an unblock can put a post back in its
+        // place without fetching the feed again.
         const _viewer = user;
         _homePosts = (posts || []).filter(p =>
             p.privacy !== 'private' ||
             (_viewer && (p.user_name === _viewer.name || p.user_id === _viewer.supabaseId))
-        ).filter(p => !(window.RMBR && (RMBR.isBlocked(p.user_id, p.user_name) || RMBR.isPostBlocked('post', p.id))));
+        );
 
         // Account privacy (#8): drop posts whose AUTHOR has a Private account that
         // this viewer isn't allowed into — not mine, not Public, and I don't
@@ -1174,15 +1178,16 @@ async function loadHomeFeed(feedEl, filterArg, silent) {
             // adjust it locally and repaint the summary optimistically (no query).
             post.reactCounts  = reactMap[post.id] || {};
             post.userReaction = userReactMap[post.id] || null;
-            const card = buildHomePostCard(post, {
-                reactCounts:  post.reactCounts,
-                userReaction: post.userReaction,
+            // The rest of the card's stats, kept so a hidden (blocked) post can
+            // be shown again later without a fetch.
+            post._stats = {
                 commentCount: commentMap[post.id] || 0,
                 shareCount:   shareMap[post.id] || 0,
                 pollData:     pollVoteMap[post.id] || null
-            });
-            feed.appendChild(card);
+            };
+            if (_hfVisible(post)) feed.appendChild(_hfBuildCard(post));
         });
+        if (!feed.querySelector('.hf-post-card')) feed.innerHTML = _hfEmptyHtml(filter.type);
         // Wire autoplay + mute control for any videos in the freshly-rendered feed.
         try { if (window.RMFeedVideo) RMFeedVideo.scan(feed); } catch (e) {}
 
@@ -1771,9 +1776,9 @@ function reactionSummaryHtml(reactCounts, postId) {
 function _rmbrFindPost(id){ try { return (_homePosts||[]).find(p=>String(p.id)===String(id)) || null; } catch(e){ return null; } }
 function rmbrReportPost(id){ const p=_rmbrFindPost(id); if(window.RMBR) RMBR.openReport({type:'post',contentId:id,userId:(p&&p.user_id)||null,userName:(p&&p.user_name)||null}); const m=document.getElementById('hfmenu-'+id); if(m) m.style.display='none'; }
 // Block POST — hides only this post; the author's other posts stay visible.
-async function rmbrHidePost(id){ const p=_rmbrFindPost(id); if(!window.RMBR) return; const m=document.getElementById('hfmenu-'+id); if(m) m.style.display='none'; const label=(p&&p.user_name?p.user_name+' — ':'')+String((p&&p.content)||'').slice(0,60); const ok=await RMBR.blockPost('post', id, label||null); if(ok){ const el=document.getElementById('hfpost-'+id); if(el&&el.remove) el.remove(); else location.reload(); } }
+async function rmbrHidePost(id){ const p=_rmbrFindPost(id); if(!window.RMBR) return; const m=document.getElementById('hfmenu-'+id); if(m) m.style.display='none'; const label=(p&&p.user_name?p.user_name+' — ':'')+String((p&&p.content)||'').slice(0,60); const ok=await RMBR.blockPost('post', id, label||null); if(ok) _homeApplyBlockState(); }
 // Block USER — blocks the whole account (all their content disappears everywhere).
-async function rmbrBlockUserFromPost(id){ const p=_rmbrFindPost(id); if(!p||!window.RMBR) return; const m=document.getElementById('hfmenu-'+id); if(m) m.style.display='none'; const ok=await RMBR.blockUser(p.user_id||null, p.user_name||null); if(ok){ if(typeof _homeApplyBlockFilter==='function') _homeApplyBlockFilter(); else location.reload(); } }
+async function rmbrBlockUserFromPost(id){ const p=_rmbrFindPost(id); if(!p||!window.RMBR) return; const m=document.getElementById('hfmenu-'+id); if(m) m.style.display='none'; const ok=await RMBR.blockUser(p.user_id||null, p.user_name||null); if(ok) _homeApplyBlockState(); }
 // Block-aware profile navigation from the Feed: never route into a blocked
 // user's profile (dashboard.html would just bounce back to the Feed) — show a
 // clear message instead (#5).
@@ -1792,36 +1797,55 @@ function rmGoProfile(userId, name) {
     location.href = 'dashboard.html?user_id=' + userId;
 }
 
-// Re-hide blocked authors/posts whenever the block list finishes loading or
-// changes. RMBR initialises asynchronously, so on a fresh load the feed can
-// paint a blocked user's post before the block list arrives; and a block made
-// here (or in another tab) must drop their posts with no manual refresh (#5).
-function _homeApplyBlockFilter() {
-    if (!window.RMBR || !Array.isArray(_homePosts)) return;
-    _homePosts = _homePosts.filter(p => !(RMBR.isBlocked(p.user_id, p.user_name) || RMBR.isPostBlocked('post', p.id)));
-    const keep = new Set(_homePosts.map(p => String(p.id)));
-    document.querySelectorAll('[id^="hfpost-"]').forEach(el => {
-        if (!keep.has(el.id.replace('hfpost-', ''))) el.remove();
+// ── Cards on screen follow the shared block state (RMBR) ─────────────────
+// _homePosts holds every post fetched, blocked or not. A post is on screen only
+// while its author (exact account id) and the post itself aren't blocked. Any
+// block/unblock — made here, in another frame or tab, or on another device —
+// arrives as rmbr:changed and is applied in place: hidden cards are removed,
+// unblocked ones are rebuilt from the post's own data at their position in the
+// feed. No fetch, no reload, order preserved.
+function _hfVisible(p) {
+    return !(window.RMBR && p && (RMBR.isBlocked(p.user_id) || RMBR.isPostBlocked('post', p.id)));
+}
+function _hfBuildCard(post) {
+    const st = post._stats || {};
+    return buildHomePostCard(post, {
+        reactCounts:  post.reactCounts || {},
+        userReaction: post.userReaction || null,
+        commentCount: st.commentCount || 0,
+        shareCount:   st.shareCount || 0,
+        pollData:     st.pollData || (post.poll ? { counts: {}, total: 0, userVote: null } : null)
     });
 }
-document.addEventListener('rmbr:ready', _homeApplyBlockFilter);
-document.addEventListener('rmbr:changed', _homeOnBlockChange);
-
-// A block just removes rows (fast, in place). An UNBLOCK must bring a post back
-// AT ITS ORIGINAL SLOT (by post time) — filtering can't re-add rows, so re-fetch
-// the feed silently (posts return sorted by created_at → the unblocked post
-// lands exactly where it was), preserving the scroll position. The reload also
-// re-applies the block filter at fetch time, so still-blocked posts stay hidden.
-async function _homeOnBlockChange(e) {
-    const action = e && e.detail && e.detail.action;
-    const feed = document.getElementById('homeFeed');
-    // Block (or no feed element / unknown on a non-feed page like the Profile):
-    // just drop the affected rows — nothing to restore.
-    if (action === 'block' || !feed || typeof loadHomeFeed !== 'function') { _homeApplyBlockFilter(); return; }
-    const y = window.scrollY || window.pageYOffset || 0;
-    try { await loadHomeFeed(feed, _feedFilter, true); } catch (_) {}
-    try { window.scrollTo(0, y); } catch (_) {}
+function _hfEmptyHtml(type) {
+    return `<div class="hf-empty"><i class="fas fa-newspaper"></i><p>${type === 'all' || !type ? 'No posts yet. Be the first to share something!' : ((type === 'user' || type === 'userId') ? 'No posts yet.' : 'Nothing here yet.')}</p></div>`;
 }
+function _homeApplyBlockState() {
+    const feed = document.getElementById('homeFeed');
+    if (!feed || !Array.isArray(_homePosts) || !_homePosts.length) return;
+    let added = false, next = null;
+    // Walk newest → oldest backwards so each restored card goes in front of the
+    // next visible (older-ordered) card that follows it.
+    for (let i = _homePosts.length - 1; i >= 0; i--) {
+        const p = _homePosts[i];
+        const el = document.getElementById(`hfpost-${p.id}`);
+        if (_hfVisible(p)) {
+            if (!el && p._stats) {
+                const card = _hfBuildCard(p);
+                if (next && next.parentNode === feed) feed.insertBefore(card, next); else feed.appendChild(card);
+                next = card; added = true;
+            } else if (el) next = el;
+        } else if (el) {
+            el.remove();
+        }
+    }
+    const empty = feed.querySelector('.hf-empty');
+    if (feed.querySelector('.hf-post-card')) { if (empty) empty.remove(); }
+    else if (!empty) feed.innerHTML = _hfEmptyHtml(_feedFilter && _feedFilter.type);
+    if (added) { try { if (window.RMFeedVideo) RMFeedVideo.scan(feed); } catch (e) {} }
+}
+document.addEventListener('rmbr:ready', _homeApplyBlockState);
+document.addEventListener('rmbr:changed', _homeApplyBlockState);
 
 // ── Post 3-dot menu → Facebook-style BOTTOM SHEET (adapted from Portal) ───
 // Mirrors the Portal kebab menu (toggleLcMenu in livemarket.js): the menu opens
@@ -3427,6 +3451,7 @@ function setFeedFilter(type, value) {
     // refreshes in place (silent) — the chip and the posts change together.
     const feedEl = document.getElementById('homeFeed');
     if (type === 'all' && feedEl && _restoreStashedFeed(feedEl)) {
+        _homeApplyBlockState();          // blocks/unblocks made while Saved was open
         try { if (window.RMFeedVideo) RMFeedVideo.scan(feedEl); } catch (e) {}
     }
     // Silent: keep the current posts on screen until the new filter's posts render.
@@ -4220,8 +4245,6 @@ async function handleNewPost(post) {
 
     const feed = document.getElementById('homeFeed');
     if (!feed) return;
-    const empty = feed.querySelector('.hf-empty');
-    if (empty) feed.innerHTML = '';
 
     // fetch the shared original if this new post is a re-share
     if (post.shared_post_id && !_sharedOriginals[post.shared_post_id]) {
@@ -4229,11 +4252,14 @@ async function handleNewPost(post) {
         if (data) _sharedOriginals[data.id] = data;
     }
 
+    post.reactCounts = {}; post.userReaction = null;
+    post._stats = { commentCount: 0, shareCount: 0, pollData: null };
     _homePosts.unshift(post);
-    const card = buildHomePostCard(post, {
-        reactCounts: {}, userReaction: null, commentCount: 0, shareCount: 0,
-        pollData: post.poll ? { counts: {}, total: 0, userVote: null } : null
-    });
+    // A blocked author's new post is kept (an unblock shows it) but not shown.
+    if (!_hfVisible(post)) return;
+    const empty = feed.querySelector('.hf-empty');
+    if (empty) feed.innerHTML = '';
+    const card = _hfBuildCard(post);
     feed.insertBefore(card, feed.firstChild);
     try { if (window.RMFeedVideo) RMFeedVideo.scan(card); } catch (e) {}
     // brief highlight so the new post is noticed

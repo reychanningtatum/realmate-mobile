@@ -2393,7 +2393,7 @@ function buildCardMenu(listing, { isOwner, canDismiss, isPinned }) {
 function _lcFindListing(id){ try { return (allListings||[]).find(l => String(l.id) === String(id)) || null; } catch(e){ return null; } }
 function lcReportListing(id){ const l=_lcFindListing(id); if(window.RMBR) RMBR.openReport({ type:'listing', contentId:id, userId:(l&&l.user_id)||null, userName:(l&&l.user_name)||null }); }
 async function lcHideListing(id){ const l=_lcFindListing(id); if(!window.RMBR) return; const label=(l&&l.user_name?l.user_name+' — ':'')+String((l&&(l.location_city||l.content))||'').slice(0,60); const ok=await RMBR.blockPost('listing', id, label||null); if(ok){ if(typeof applyFilters==='function') applyFilters(); else location.reload(); } }
-async function lcBlockUser(uid, uname){ if(!window.RMBR||!uid) return; const ok=await RMBR.blockUser(uid, uname||null); if(ok) location.reload(); }
+async function lcBlockUser(uid, uname){ if(!window.RMBR||!uid) return; const ok=await RMBR.blockUser(uid, uname||null); if(ok && typeof applyFilters==='function') applyFilters(); }   // the shared block state already hides every listing of theirs
 // RMBR loads asynchronously; re-filter once the block lists arrive or change so
 // blocked content never lingers on the first paint.
 document.addEventListener('rmbr:ready',  () => { if (typeof applyFilters === 'function') applyFilters(); });

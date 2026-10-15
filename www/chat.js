@@ -1695,6 +1695,23 @@ function _convAction(action, convId) {
     }
 }
 
+// The inbox follows the shared block state: a block or unblock made anywhere
+// (another tab, the Feed, a profile, another device) re-filters the
+// conversations already loaded, and an open conversation with someone who is
+// now blocked closes. Nothing is fetched; an unblock brings the conversation
+// straight back.
+function _chatApplyBlockState() {
+    try {
+        if (!window.RMBR || !conversations.length) return;   // inbox not loaded yet: it filters when it draws
+        const other = activeOtherUser && activeOtherUser.id;
+        if (activeConversationId && other && RMBR.isBlocked(other)) backToConvList();
+        const s = document.getElementById('chatConvSearch');
+        renderConvList(s ? s.value : undefined);
+    } catch (e) {}
+}
+document.addEventListener('rmbr:changed', _chatApplyBlockState);
+document.addEventListener('rmbr:ready', _chatApplyBlockState);   // block list arrived after the inbox drew
+
 function openArchivedView() {
     _showingArchived = true;
     document.getElementById('chatArchivedHeader').style.display = 'flex';

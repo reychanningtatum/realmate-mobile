@@ -1,7 +1,7 @@
 /* block-report.js — RMBR: user block + content report (App Store Guideline 1.2)
  * Loaded on UGC pages. Exposes window.RMBR:
- *   RMBR.isBlocked(id, name)   -> hide blocked users' content (mutual)
- *   RMBR.blockUser(id, name)   -> block + hide going forward
+ *   RMBR.isBlocked(id)         -> hide blocked users' content (mutual, exact account id)
+ *   RMBR.blockUser(id, name)   -> block + hide going forward (name only labels the row)
  *   RMBR.unblockUser(id)       -> remove a block
  *   RMBR.listBlocked()         -> [{blocked_id, blocked_name, created_at}]
  *   RMBR.openReport({type, contentId, userId, userName})  -> report modal
@@ -15,74 +15,121 @@
     return window.supabaseClient || window._sb || window._supabase ||
       (window.supabase ? (window.__rmbrClient || (window.__rmbrClient = window.supabase.createClient(SB_URL, SB_KEY))) : null);
   }
-  var blockedIds = new Set(), blockedNames = new Set();
-  // Every name in blockedNames belongs to a blocked id. Keeping that link is what
-  // lets an unblock remove the NAME too — isBlocked() matches by name as well, so a
-  // leftover name kept the user's posts and listings hidden after an unblock until
-  // the page happened to reload.
-  var blockedNameOf = {};         // blocked user id -> lower-cased name
+  // ── The one block state every screen reads ──────────────────────────────
+  // Source of truth: user_blocks (account ↔ account) and blocked_posts (single
+  // items), in the database. Each page holds a copy here and every screen asks
+  // isBlocked()/isPostBlocked() — by exact account id only, never by name.
+  //
+  // Keeping the copies current, without polling:
+  //   • this page's own block/unblock → applied here at once;
+  //   • other pages/tabs in the same browser → the rmbr_sync localStorage ping;
+  //   • other devices/sessions, and the person on the other side → a realtime
+  //     broadcast on 'rmbr-<accountId>' that only says "re-read". The receiving
+  //     window reads user_blocks itself (under its own RLS) and passes the result
+  //     on through rmbr_sync. Nothing about who blocked whom travels over the
+  //     channel (database change events would broadcast every unblock to every
+  //     listener — RLS doesn't apply to deletes), and a forged ping only causes
+  //     a harmless re-read. One channel per top-level window (the app shell on
+  //     the phone, each tab on the desktop).
+  var blockedIds = new Set();     // accounts I blocked + accounts that blocked me
   var blockedPosts = new Set();   // keys "type:id" — individually hidden posts/listings
   var myId = null, ready = false;
 
   function myName() { try { var u = JSON.parse(localStorage.getItem('user') || '{}'); return (u && u.name) || null; } catch (e) { return null; } }
 
-  // Announce a block-list change. Fires rmbr:changed HERE (with what changed, so
-  // listeners can tell block from unblock) AND writes a localStorage ping so the
-  // OTHER same-origin iframes (Feed, Portal, Profile…) hear it — unblocking a
-  // post in Settings must reach the Feed, which lives in a separate iframe.
+  // Announce a change: rmbr:changed HERE, plus the localStorage ping that the
+  // OTHER same-origin pages (iframes, tabs) apply. The ping carries the whole
+  // state so receivers never need to query for it.
   function _fire(detail) {
+    detail = Object.assign({ me: myId, ids: Array.from(blockedIds), posts: Array.from(blockedPosts) }, detail);
     try { document.dispatchEvent(new CustomEvent('rmbr:changed', { detail: detail })); } catch (e) {}
     try { localStorage.setItem('rmbr_sync', JSON.stringify(Object.assign({ t: Date.now() }, detail))); } catch (e) {}
   }
+  function _key() { return Array.from(blockedIds).sort().join(',') + '|' + Array.from(blockedPosts).sort().join(','); }
 
-  function _addBlock(id, name) {
-    if (!id) return;
-    blockedIds.add(id);
-    if (name) { var n = String(name).toLowerCase(); blockedNameOf[id] = n; blockedNames.add(n); }
-  }
-  function _removeBlock(id) {
-    if (!id) return;
-    var n = blockedNameOf[id];
-    blockedIds.delete(id);
-    delete blockedNameOf[id];
-    if (n && !Object.keys(blockedNameOf).some(function (k) { return blockedNameOf[k] === n; })) blockedNames.delete(n);
-  }
-  // Rebuild the user-block sets from user_blocks (the source of truth). Builds
-  // fresh sets and swaps them in, so nothing from an earlier state can survive.
-  async function _loadUserBlocks(sb) {
-    var q = await sb.from('user_blocks').select('blocker_id,blocked_id,blocked_name');
-    if (!q || q.error) return false;
-    var prev = [blockedIds, blockedNames, blockedNameOf];
-    blockedIds = new Set(); blockedNames = new Set(); blockedNameOf = {};
+  // Read both block lists from the backend. Null on any failure (keep what we have).
+  async function _readBackend(sb) {
+    var q = await sb.from('user_blocks').select('blocker_id,blocked_id');
+    if (!q || q.error) return null;
+    var ids = new Set();
+    (q.data || []).forEach(function (row) {
+      if (row.blocker_id === myId && row.blocked_id) ids.add(row.blocked_id);
+      if (row.blocked_id === myId && row.blocker_id) ids.add(row.blocker_id);   // they blocked me
+    });
+    var posts = new Set();
     try {
-      (q.data || []).forEach(function (row) {
-        if (row.blocker_id === myId) _addBlock(row.blocked_id, row.blocked_name);
-        if (row.blocked_id === myId) blockedIds.add(row.blocker_id);   // they blocked me
+      var bp = await sb.from('blocked_posts').select('content_type,content_id').eq('blocker_id', myId);
+      if (bp && bp.error) posts = new Set(blockedPosts);                         // fail-open: keep current
+      else (bp.data || []).forEach(function (r) { if (r.content_id) posts.add(r.content_type + ':' + r.content_id); });
+    } catch (e) { posts = new Set(blockedPosts); }
+    return { ids: ids, posts: posts };
+  }
+
+  // Re-read the backend and swap the state in; announce only a real change.
+  // Overlapping requests collapse into one extra read.
+  var _syncing = false, _syncAgain = false;
+  async function resync() {
+    var sb = client(); if (!sb || !myId) return;
+    if (_syncing) { _syncAgain = true; return; }
+    _syncing = true;
+    try {
+      do {
+        _syncAgain = false;
+        var r = null; try { r = await _readBackend(sb); } catch (e) {}
+        if (!r) break;
+        var before = _key();
+        blockedIds = r.ids; blockedPosts = r.posts;
+        if (_key() !== before) _fire({ scope: 'sync' });
+      } while (_syncAgain);
+    } finally { _syncing = false; }
+  }
+
+  // ── Realtime: "your block list changed" pings ────────────────────────────
+  var _chan = null;
+  function _listen() {
+    var sb = client();
+    if (_chan || !sb || !myId || !sb.channel) return;
+    try { if (window.top !== window) return; } catch (e) { return; }   // the shell window listens for its frames
+    try {
+      _chan = sb.channel('rmbr-' + myId)
+        .on('broadcast', { event: 'changed' }, function () { resync(); })
+        .subscribe();
+    } catch (e) { _chan = null; }
+  }
+  function _unlisten() { var sb = client(); try { if (_chan && sb) sb.removeChannel(_chan); } catch (e) {} _chan = null; }
+  // Tell every open session of these accounts to re-read (fire-and-forget).
+  async function _ping(ids) {
+    try {
+      var sb = client(); var tok = SB_KEY;
+      try { var s = await sb.auth.getSession(); if (s && s.data && s.data.session) tok = s.data.session.access_token; } catch (e) {}
+      var msgs = ids.filter(Boolean).map(function (id) { return { topic: 'rmbr-' + id, event: 'changed', payload: {} }; });
+      if (!msgs.length) return;
+      await fetch(SB_URL + '/realtime/v1/api/broadcast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', apikey: SB_KEY, Authorization: 'Bearer ' + tok },
+        body: JSON.stringify({ messages: msgs })
       });
-    } catch (e) { blockedIds = prev[0]; blockedNames = prev[1]; blockedNameOf = prev[2]; return false; }
-    return true;
+    } catch (e) {}
   }
 
   async function init() {
     var sb = client(); if (!sb) return;
     try { var r = await sb.auth.getUser(); myId = r && r.data && r.data.user ? r.data.user.id : null; } catch (e) {}
     if (!myId) { ready = true; return; }
-    try { await _loadUserBlocks(sb); } catch (e) {}
-    // Individually hidden posts/listings (separate from whole-account blocks).
-    // Fail-open: if the table isn't there yet, nothing is hidden.
-    try {
-      var bp = await sb.from('blocked_posts').select('content_type,content_id').eq('blocker_id', myId);
-      (bp.data || []).forEach(function (r) { if (r.content_id) blockedPosts.add(r.content_type + ':' + r.content_id); });
-    } catch (e) {}
+    try { var st = await _readBackend(sb); if (st) { blockedIds = st.ids; blockedPosts = st.posts; } } catch (e) {}
     ready = true;
     document.dispatchEvent(new CustomEvent('rmbr:ready'));
+    _listen();
   }
+  // Pings missed while the app was asleep/backgrounded: re-read once on return.
+  document.addEventListener('visibilitychange', function () {
+    try { if (document.visibilityState === 'visible' && myId && window.top === window) resync(); } catch (e) {}
+  });
+  window.addEventListener('pagehide', _unlisten);
+  window.addEventListener('pageshow', function (e) { if (e && e.persisted && myId) { _listen(); resync(); } });
 
-  function isBlocked(id, name) {
-    if (id && blockedIds.has(id)) return true;
-    if (name && blockedNames.has(String(name).toLowerCase())) return true;
-    return false;
-  }
+  // Exact account ids only. (The name argument is accepted for old callers and ignored.)
+  function isBlocked(id) { return !!(id && blockedIds.has(String(id))); }
 
   // ── Shared confirmation dialog ───────────────────────────────────────────
   // A single in-app confirm modal (never window.confirm) reused for every
@@ -148,9 +195,10 @@
     try {
       var w = await sb.from('user_blocks').upsert({ blocker_id: myId, blocked_id: userId, blocked_name: userName || null }, { onConflict: 'blocker_id,blocked_id', ignoreDuplicates: true });
       if (w && w.error) throw w.error;
-      _addBlock(userId, userName);
+      blockedIds.add(String(userId));
       toast('User blocked. You won’t see their content.');
-      _fire({ scope: 'user', action: 'block', userId: userId, userName: userName || null });
+      _fire({ scope: 'user', action: 'block', userId: String(userId) });
+      _ping([myId, userId]);                   // my other sessions + theirs
       return true;
     } catch (e) { toast('Could not block. Please try again.'); return false; }
   }
@@ -159,11 +207,12 @@
     try {
       var d = await sb.from('user_blocks').delete().eq('blocker_id', myId).eq('blocked_id', userId);
       if (d && d.error) return false;          // not unblocked — leave the state alone
-      _removeBlock(userId);
-      // Re-read the backend so this page holds exactly what's stored (e.g. if they
+      blockedIds.delete(String(userId));
+      // Re-read the backend so this page holds exactly what's stored (if they
       // also blocked me, that block still applies) before anything re-filters.
-      try { await _loadUserBlocks(sb); } catch (e) {}
-      _fire({ scope: 'user', action: 'unblock', userId: userId });
+      try { var r = await _readBackend(sb); if (r) { blockedIds = r.ids; blockedPosts = r.posts; } } catch (e) {}
+      _fire({ scope: 'user', action: 'unblock', userId: String(userId) });
+      _ping([myId, userId]);
       return true;
     } catch (e) { return false; }
   }
@@ -191,12 +240,13 @@
       blockedPosts.add(_pkey(type, id));
       toast((type === 'listing' ? 'Listing' : 'Post') + ' hidden. Manage in Settings.');
       _fire({ scope: 'post', action: 'block', type: type || 'post', id: String(id) });
+      _ping([myId]);
       return true;
     } catch (e) { toast('Could not hide. Please try again.'); return false; }
   }
   async function unblockPost(type, id) {
     var sb = client(); if (!sb || !myId || id == null) return false;
-    try { await sb.from('blocked_posts').delete().eq('blocker_id', myId).eq('content_type', type || 'post').eq('content_id', String(id)); blockedPosts.delete(_pkey(type, id)); _fire({ scope: 'post', action: 'unblock', type: type || 'post', id: String(id) }); return true; } catch (e) { return false; }
+    try { await sb.from('blocked_posts').delete().eq('blocker_id', myId).eq('content_type', type || 'post').eq('content_id', String(id)); blockedPosts.delete(_pkey(type, id)); _fire({ scope: 'post', action: 'unblock', type: type || 'post', id: String(id) }); _ping([myId]); return true; } catch (e) { return false; }
   }
   async function listBlockedPosts() {
     var sb = client(); if (!sb || !myId) return [];
@@ -265,25 +315,22 @@
   function toast(m) { if (typeof window.showToast === 'function') window.showToast(m); }
 
   window.RMBR = { init: init, isBlocked: isBlocked, blockUser: blockUser, unblockUser: unblockUser, listBlocked: listBlocked, openReport: openReport,
-    isPostBlocked: isPostBlocked, blockPost: blockPost, unblockPost: unblockPost, listBlockedPosts: listBlockedPosts, confirm: rmbrConfirm };
+    isPostBlocked: isPostBlocked, blockPost: blockPost, unblockPost: unblockPost, listBlockedPosts: listBlockedPosts, confirm: rmbrConfirm,
+    resync: resync };
   Object.defineProperty(window.RMBR, 'ready', { get: function () { return ready; } });
   Object.defineProperty(window.RMBR, 'myId', { get: function () { return myId; } });
 
-  // A block/unblock made in ANOTHER same-origin iframe (e.g. unblocking a post in
-  // Settings) lands here as a storage event. Apply it to THIS document's sets so
-  // isBlocked/isPostBlocked stay correct, then re-fire rmbr:changed locally so
-  // this page (the Feed, Portal, Profile…) reacts — restoring an unblocked post.
+  // A change made in ANOTHER same-origin page (another iframe of the app, or
+  // another tab) arrives as a storage event carrying the whole new state: adopt
+  // it, then fire rmbr:changed here so this page's screens re-filter.
   window.addEventListener('storage', function (ev) {
     if (ev.key !== 'rmbr_sync' || !ev.newValue) return;
     var d; try { d = JSON.parse(ev.newValue); } catch (e) { return; }
-    if (!d) return;
-    if (d.scope === 'user') {
-      if (d.action === 'block') _addBlock(d.userId, d.userName);
-      else if (d.action === 'unblock') _removeBlock(d.userId);
-    } else if (d.scope === 'post') {
-      var k = _pkey(d.type || 'post', d.id);
-      if (d.action === 'block') blockedPosts.add(k); else if (d.action === 'unblock') blockedPosts.delete(k);
-    }
+    if (!d || !Array.isArray(d.ids) || !Array.isArray(d.posts)) return;
+    if (myId && d.me && d.me !== myId) return;                 // another account's state
+    var before = _key();
+    blockedIds = new Set(d.ids.map(String)); blockedPosts = new Set(d.posts.map(String));
+    if (_key() === before) return;
     try { document.dispatchEvent(new CustomEvent('rmbr:changed', { detail: d })); } catch (e) {}
   });
 

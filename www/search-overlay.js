@@ -688,7 +688,7 @@
                 .or(`full_name.ilike.${pat},job_title.ilike.${pat},division.ilike.${pat}`).eq('is_hidden', false).limit(12);
             let _people = pr.data || [];
             if (window.RMDeact) { try { _people = await RMDeact.filterItemsByOwner(_people, 'id'); } catch (e) {} }
-            renderResults(_people, []);
+            renderResults(_people, [], q);
             return;
         }
 
@@ -714,9 +714,8 @@
         // realmates-only post never surfaces to someone who isn't connected.
         const realmateIds = await getMyRealmateIds(sb, myId);
         posts = posts.filter(p => (!p.privacy || p.privacy === 'public') || String(p.user_id) === myId || (p.user_id && realmateIds.has(String(p.user_id))));
-        // Drop blocked authors / blocked posts (fail-open).
-        try { if (window.RMBR) posts = posts.filter(p => !(RMBR.isBlocked(p.user_id, p.user_name) || RMBR.isPostBlocked('post', p.id))); } catch (e) {}
-        if (posts.length > 10) posts = posts.slice(0, 10);
+        // Blocked authors/posts are dropped when rendering (renderResults), so a
+        // block or unblock while the results are open updates them in place.
 
         // Overlay each post's stored poster name with the LIVE profiles.full_name.
         const posterIds = [...new Set(posts.filter(x => x.user_id).map(x => x.user_id))];
@@ -731,10 +730,26 @@
         let people = pr.data || [];
         // Drop DEACTIVATED accounts from People results (fail-open).
         if (window.RMDeact) { try { people = await RMDeact.filterItemsByOwner(people, 'id'); } catch (e) {} }
-        renderResults(people, posts);
+        renderResults(people, posts, q);
     }
 
-    function renderResults(people, posts) {
+    // The results last fetched for a query, before blocks are applied — kept so
+    // a block/unblock made anywhere re-renders them without searching again.
+    let _soLast = null;
+    function _soVisible(people, posts) {
+        const R = window.RMBR;
+        return {
+            people: R ? people.filter(p => !R.isBlocked(p.id)) : people,
+            posts: (R ? posts.filter(p => !(R.isBlocked(p.user_id) || R.isPostBlocked('post', p.id))) : posts).slice(0, 10)
+        };
+    }
+    document.addEventListener('rmbr:changed', function () {
+        try { if (_soLast && _soLast.q === _lastQ && document.getElementById('soResults')) renderResults(_soLast.people, _soLast.posts, _soLast.q); } catch (e) {}
+    });
+
+    function renderResults(allPeople, allPosts, q) {
+        _soLast = { people: allPeople, posts: allPosts, q: q };
+        const { people, posts } = _soVisible(allPeople, allPosts);
         const el = document.getElementById('soResults');
         if (!people.length && !posts.length) {
             el.innerHTML = '<div class="so-empty"><i class="fas fa-circle-xmark"></i><span>No results found.</span></div>';

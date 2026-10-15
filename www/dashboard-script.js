@@ -1418,6 +1418,19 @@ function _renderBlockedProfileState() {
     });
 }
 
+// The open profile follows the shared block state: blocking this person from
+// anywhere (another tab, the chat, another device) puts up the blocked notice
+// at once; unblocking takes it down and loads their profile.
+function _profileApplyBlockState() {
+    try {
+        if (!window.RMBR || !_viewUserId || String(_viewUserId) === String(RMBR.myId)) return;
+        const page = document.getElementById('rmBlockedProfilePage');
+        if (RMBR.isBlocked(_viewUserId)) { if (!page) _renderBlockedProfileState(); }
+        else if (page) { page.remove(); loadProfile(); }
+    } catch (e) {}
+}
+document.addEventListener('rmbr:changed', _profileApplyBlockState);
+
 // Persistent full-page notice shown when the viewed account is DEACTIVATED.
 // Mirrors _renderBlockedProfileState but is a neutral "unavailable" message —
 // no blame, since the owner (not the viewer) chose to deactivate.
