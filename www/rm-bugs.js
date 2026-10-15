@@ -52,11 +52,7 @@
     /^(\w+: )?(Failed to fetch|Load failed|NetworkError when attempting to fetch resource\.?|Network request failed)$/i,
     /^(\w+: )?(The operation was aborted\.?|The user aborted a request\.?|signal is aborted without reason)$/i,
     /^ResizeObserver loop/i,
-    /^Non-Error promise rejection captured/i,
-    // The browser cancelled a view-transition ANIMATION (page→page or tab→tab):
-    // the next page didn't opt in, the tab was hidden, a newer one started.
-    // The navigation itself always completes — nothing broke for the user.
-    /^(InvalidStateError|AbortError): Transition was (aborted|skipped)/i
+    /^Non-Error promise rejection captured/i
   ];
   var SRC_NOISE = /chrome-extension:|moz-extension:|safari-extension:|safari-web-extension:|webkit-masked-url:/i;
 
