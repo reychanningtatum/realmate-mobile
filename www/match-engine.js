@@ -773,6 +773,31 @@
     // does not make that project the listing's project.
     const _PROJECT_AS_LANDMARK = /(?:\bnear(?:by)?|\bnearby\s+to|\bbeside|\bacross(?:\s+from)?|\bopposite|\bbehind|\bfacing|\balong|\bclose\s+to|\bnext\s+to|\bin\s+front\s+of|\bwalking\s+distance\s+(?:to|from)|\b(?:mins?|minutes?|steps?|meters?|km)\s+(?:away\s+)?(?:to|from)|\bview(?:s)?\s+of|\boverlooking|\bvicinity\s+of)\s+(?:the\s+)?$/i;
 
+    // Everything below that depends ONLY on a project's name (normalized forms,
+    // word count, digit runs, distinctive core) is derived once per name and
+    // reused. Project matching runs for every property and requirement in every
+    // post against the whole catalog, and re-deriving these per call was most of
+    // the parse cost (a 21-post board took ~3s of CPU). Pure function of the
+    // name string, so results are identical; the gating Sets are still read live.
+    const _projNameCache = new Map();
+    function _projName(proj) {
+        let p = _projNameCache.get(proj);
+        if (p) return p;
+        const norm = normalizeSeparators(proj);
+        const lower = norm.toLowerCase();
+        const upper = norm.toUpperCase();
+        const core = lower.replace(GENERIC_TYPE_SUFFIX, '').trim();
+        p = {
+            lower, upper, upperKey: upper.toLowerCase(),
+            tokens: lower.split(/\s+/),
+            digits: lower.match(/\d+/g) || [],
+            coreLen: core.length,
+            coreTokens: core ? core.split(/\s+/).length : 0,
+        };
+        _projNameCache.set(proj, p);
+        return p;
+    }
+
     function fuzzyMatchProject(text) {
         const allProjects = [...KNOWN_PROJECTS, ...getLearnedProjects()];
         // Strip edge punctuation from each token ("veranda," → "veranda", "60k."
@@ -782,15 +807,31 @@
         const words = normalizeSeparators(text).toLowerCase().split(/\s+/)
             .map(w => w.replace(/^[^a-z0-9]+|[^a-z0-9]+$/g, ''))
             .filter(Boolean);
+        // Whether each word of the post is a function word or everyday word (see the
+        // multi-word guard below) — a property of the word, so decided once per call.
+        const isEverydayWord = words.map(w => _FUZZY_FUNCTION_WORDS.has(w) || PROJECT_STOP_WORDS.has(w));
+        // Candidate phrases depend only on the post and the word count, so build
+        // each word count's list once per call instead of once per project.
+        const phrasesByWords = new Map();
+        const phrasesOf = (n) => {
+            let list = phrasesByWords.get(n);
+            if (!list) {
+                list = [];
+                for (let i = 0; i <= words.length - n; i++) list.push(words.slice(i, i + n).join(' '));
+                phrasesByWords.set(n, list);
+            }
+            return list;
+        };
         let bestProj = null, bestPhrase = null, bestDist = Infinity;
         for (const proj of allProjects) {
-            const projLower = normalizeSeparators(proj).toLowerCase();
+            const pn = _projName(proj);
+            const projLower = pn.lower;
             // Context-gated names never fuzzy-match — they are generic-sounding, so a
             // near-miss would invent a project. They resolve only via exact + context.
             if (CONTEXT_GATED_PROJECTS.has(projLower)) continue;
             // Exact-only names never fuzzy-match (protects near-twin real projects).
             if (EXACT_ONLY_PROJECTS.has(projLower)) continue;
-            const npw = projLower.split(/\s+/).length;
+            const npw = pn.tokens.length;
             const projLen = projLower.length;
             // A short one-word name (an acronym like "TREC") is exact-only: one edit
             // is a quarter of the word, so "REC" in a broker's licence line ("REB,
@@ -801,7 +842,7 @@
             // must not become "202 Peaklane". A candidate phrase must contain every
             // digit-run the project name has, else it can't be a typo of it. (Exact
             // matching is unaffected — this only constrains the fuzzy fallback.)
-            const projDigits = projLower.match(/\d+/g) || [];
+            const projDigits = pn.digits;
             // A multi-word name whose ONLY distinctive part is one short word plus a
             // generic type suffix ("Air/Sea/Shore/Gold/Park Residences", "X Place",
             // "X Tower") is exact-only — never fuzzy. Otherwise the long shared suffix
@@ -810,10 +851,8 @@
             // phrase in a post ("these residences", "park residences") fuzzy-collides
             // with some project. Exact substring still matches when the user genuinely
             // names it, so the +25pt hit is preserved without inventing a project.
-            const _core = projLower.replace(GENERIC_TYPE_SUFFIX, '').trim();
-            const _coreTokens = _core ? _core.split(/\s+/) : [];
-            if (npw > 1 && _coreTokens.length <= 1 &&
-                (!_core || _core.length <= 5)) continue;
+            if (npw > 1 && pn.coreTokens <= 1 &&
+                (!pn.coreLen || pn.coreLen <= 5)) continue;
             // Threshold depends only on the project, so compute it once per project
             // rather than once per candidate phrase.
             const baseThreshold = Math.min(4, Math.max(2, Math.floor(projLen * 0.2)));
@@ -823,8 +862,9 @@
             // budget because a 2–3 word phrase almost never equals a common phrase by
             // accident. Accuracy over filling — the exact spirit of the detection rules.
             const threshold = (npw === 1) ? Math.min(baseThreshold, 1) : baseThreshold;
-            for (let i = 0; i <= words.length - npw; i++) {
-                const phrase = words.slice(i, i + npw).join(' ');
+            const phrases = phrasesOf(npw);
+            for (let i = 0; i < phrases.length; i++) {
+                const phrase = phrases[i];
                 // A digit-bearing name can only be a typo of a phrase that has the
                 // same digits ("hotel manila" is NOT a misspelling of "hotel101 manila").
                 if (projDigits.length && !projDigits.every(d => phrase.includes(d))) continue;
@@ -843,8 +883,12 @@
                 // this, "in Salcedo" (a place the buyer wants to be IN) was two edits
                 // from "One Salcedo" and a LOCATION became a PROJECT.
                 if (npw > 1) {
-                    const pt = phrase.split(' '), jt = projLower.split(/\s+/);
-                    if (pt.some((w, k) => w !== jt[k] && (_FUZZY_FUNCTION_WORDS.has(w) || PROJECT_STOP_WORDS.has(w)))) continue;
+                    const jt = pn.tokens;
+                    let everyday = false;
+                    for (let k = 0; k < npw; k++) {
+                        if (isEverydayWord[i + k] && words[i + k] !== jt[k]) { everyday = true; break; }
+                    }
+                    if (everyday) continue;
                 }
                 const dist = levenshtein(phrase, projLower, threshold);
                 if (dist > 0 && dist <= threshold && dist < bestDist) {
@@ -871,8 +915,9 @@
         // unrelated fuzzy hit ("grand central residences" → "Gentry Residences").
         const gatedRejected = [];
         for (const proj of [...KNOWN_PROJECTS, ...getLearnedProjects()]) {
-            const projU = normalizeSeparators(proj).toUpperCase();
-            const projKey = projU.toLowerCase();
+            const pn = _projName(proj);
+            const projU = pn.upper;
+            const projKey = pn.upperKey;
             // Find the earliest occurrence that is WORD-BOUNDARY aligned (Layer 1).
             // Without this, "S Residences" matches the "s residences" inside
             // "variouS RESIDENCES", and "Air Residences" matches "fAIR RESIDENCES".

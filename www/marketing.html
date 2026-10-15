@@ -436,7 +436,8 @@
   .fbk-label{display:block;font-size:13px;font-weight:700;color:var(--sub);margin:0 0 10px;}
   .fbk-input{width:100%;box-sizing:border-box;min-height:132px;resize:vertical;padding:14px 16px;border-radius:14px;
        border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.04);color:var(--text);
-       font-family:inherit;font-size:15px;font-weight:500;line-height:1.55;outline:none;transition:border-color .2s,background .2s;}
+       font-family:inherit;font-size:16px;font-weight:500;line-height:1.55;outline:none;transition:border-color .2s,background .2s;}
+  /* 16px minimum: iOS Safari zooms the page in when a field under 16px is focused. */
   .fbk-input::placeholder{color:var(--muted-2);}
   .fbk-input:focus{border-color:rgba(50,205,50,0.55);background:rgba(255,255,255,0.06);}
   .fbk-row{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:16px;flex-wrap:wrap;}
@@ -600,7 +601,7 @@
         <h1>AI matches.<span class="line2">Real opportunities.</span></h1>
         <p class="lede">Buy, sell, rent, or lease with an intelligent engine that connects the right people in real time — so real estate professionals spend less time searching and more time closing.</p>
         <div class="hero-cta">
-          <a class="store-badge" href="#" onclick="rmDownload(event,'ios')" aria-label="Download on the App Store">
+          <a class="store-badge" href="https://apps.apple.com/ph/app/realmate/id6802656686" onclick="rmDownload(event,'ios')" aria-label="Download on the App Store">
             <i class="fab fa-apple"></i>
             <span class="sb-txt"><span class="sb-small">Download on the</span><span class="sb-big">App Store</span></span>
           </a>
@@ -906,7 +907,7 @@
         <button class="btn btn-ghost" onclick="rmSignIn()">Sign In</button>
       </div>
       <div class="store-badges">
-        <a class="store-badge" href="#" onclick="rmDownload(event,'ios')" aria-label="Download on the App Store">
+        <a class="store-badge" href="https://apps.apple.com/ph/app/realmate/id6802656686" onclick="rmDownload(event,'ios')" aria-label="Download on the App Store">
           <i class="fab fa-apple"></i>
           <span class="sb-txt"><span class="sb-small">Download on the</span><span class="sb-big">App Store</span></span>
         </a>
@@ -1067,11 +1068,20 @@
 
   // App-store download badges. Fill these in with the real listing URLs once the
   // apps are published; until then a click shows a "coming soon" note.
-  var RM_APP_LINKS = { ios: '', android: '' };
+  // realmate's App Store listing (App Store Connect app id 6802656686). The /ph/
+  // storefront is required: the app is available in the Philippines only, and
+  // the storefront-less URL returns "not found".
+  var RM_APP_LINKS = { ios: 'https://apps.apple.com/ph/app/realmate/id6802656686', android: '' };
   function rmDownload(e, store){
     if (e) e.preventDefault();
     var url = RM_APP_LINKS[store];
-    if (url) { window.open(url, '_blank', 'noopener'); return; }
+    if (url) {
+      // iPhone/iPad: same-tab navigation lets iOS hand the apps.apple.com link
+      // straight to the App Store app. Elsewhere: open the listing in a new tab.
+      var ios = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      if (ios) window.location.href = url; else window.open(url, '_blank', 'noopener');
+      return;
+    }
     rmToast('The ' + (store === 'ios' ? 'iOS' : 'Android') + ' app is launching soon — sign up on the web for now.');
   }
   function rmToast(msg){
