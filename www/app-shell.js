@@ -202,6 +202,11 @@
         if (t && t.updateCallbackDone && t.updateCallbackDone.catch) {
           t.updateCallbackDone.catch(function () { try { fn(); } catch (e) {} });
         }
+        // A skipped/aborted animation also rejects ready + finished; nothing is
+        // wrong (the tab was still shown), so handle them rather than leave an
+        // unhandled rejection behind.
+        if (t && t.ready && t.ready.catch) t.ready.catch(function () {});
+        if (t && t.finished && t.finished.catch) t.finished.catch(function () {});
         return;
       } catch (e) { /* fall through to a direct, un-animated reveal */ }
     }
