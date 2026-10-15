@@ -6189,6 +6189,9 @@ function closeLockedPopup() {
 // profile (rmMe uses forceSrc), so the 'me' tab is never left showing this user.
 function rmOpenProfileTab(url) {
     try { savePortalScroll(); } catch (e) {}
+    // The profile opens in the shell's Me tab, so it can't tell from its own
+    // referrer that it came from the Portal — say so (its Back button uses it).
+    url += (url.indexOf('?') >= 0 ? '&' : '?') + 'from=portal';
     try {
         if (window.self !== window.top && window.parent && typeof window.parent.rmOpen === 'function') {
             window.parent.rmOpen('me', url); return;

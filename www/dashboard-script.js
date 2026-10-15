@@ -1379,7 +1379,23 @@ window.addEventListener('storage', function (e) { if (e.key === 'rm_rel_changed'
 // freshly-loaded page, NOT a tap-triggered overlay, so nothing (the opening tap,
 // a navigation race) can tear it down: it stays until the user taps "Back to
 // Feed". Covers every entry point (feed name-search, post avatar, mate list…).
+// Which section opened this profile, decided by the navigation that brought us
+// here: an explicit ?from= (set by the Portal when it opens the profile as a
+// shell tab), else the page that navigated here. Unknown → Feed, as before.
+function _profileOrigin() {
+    var from = new URLSearchParams(location.search).get('from');
+    if (from === 'portal' || from === 'feed') return from;
+    try {
+        var ref = document.referrer ? new URL(document.referrer) : null;
+        if (ref && ref.origin === location.origin) {
+            if (/\/livemarket\.html$/.test(ref.pathname)) return 'portal';
+            if (/\/home\.html$/.test(ref.pathname)) return 'feed';
+        }
+    } catch (e) {}
+    return 'feed';
+}
 function _renderBlockedProfileState() {
+    var origin = _profileOrigin();
     var el = document.createElement('div');
     el.id = 'rmBlockedProfilePage';
     el.style.cssText = 'position:fixed; inset:0; background:#f4f7fa; display:flex; align-items:center; justify-content:center; padding:24px; z-index:2147483000;';
@@ -1388,16 +1404,17 @@ function _renderBlockedProfileState() {
         '<div style="width:88px; height:88px; border-radius:50%; background:#fef2f2; display:flex; align-items:center; justify-content:center; margin:0 auto 22px;"><i class="fas fa-user-slash" style="font-size:38px; color:#ef4444;"></i></div>' +
         '<h2 style="font-size:22px; font-weight:800; color:#0f172a; margin:0 0 12px;">You blocked this user</h2>' +
         '<p style="color:#475569; font-size:15px; line-height:1.55; margin:0 0 28px;">You can no longer see their posts, listings, or profile. Unblock them in Settings to view again.</p>' +
-        '<button id="rmBlockedBackBtn" style="width:100%; padding:15px; border-radius:12px; border:none; background:#32cd32; color:#fff; font-size:16px; font-weight:700; cursor:pointer; font-family:inherit;">Back to Feed</button>' +
+        '<button id="rmBlockedBackBtn" style="width:100%; padding:15px; border-radius:12px; border:none; background:#32cd32; color:#fff; font-size:16px; font-weight:700; cursor:pointer; font-family:inherit;">' + (origin === 'portal' ? 'Back to Portal' : 'Back to Feed') + '</button>' +
         '</div>';
     document.body.appendChild(el);
     var btn = document.getElementById('rmBlockedBackBtn');
     if (btn) btn.addEventListener('click', function () {
-        // In the mobile app-shell the profile is a sub-page of the Feed tab — the
-        // shell's rmBack pops it back (keeping the feed's scroll). Otherwise just
-        // load the feed.
+        // In the mobile app-shell, rmBack returns to where this profile was opened
+        // from — back within the Feed/Portal frame, or to the previous tab when the
+        // Portal opened it in the Me tab (keeping that page's scroll). Otherwise
+        // load the originating section.
         try { if (window.parent && window.parent !== window && window.parent.rmBack) { window.parent.rmBack(); return; } } catch (e) {}
-        location.replace('home.html');
+        location.replace(origin === 'portal' ? 'livemarket.html' : 'home.html');
     });
 }
 
