@@ -1334,7 +1334,7 @@ function buildHomePostCard(post, stats) {
             </div>
             <button class="hf-post-menu-btn" onclick="togglePostMenu('${post.id}')"><i class="fas fa-ellipsis-h"></i></button>
             <div class="hf-post-menu" id="hfmenu-${post.id}" style="display:none;">
-                <div onclick="toggleSave('${post.id}')"><i class="fas fa-bookmark"></i> ${isSaved ? 'Unsave' : 'Save'} post</div>
+                <div class="hf-menu-save" onclick="toggleSave('${post.id}')"><i class="fas fa-bookmark"></i> ${isSaved ? 'Unsave' : 'Save'} post</div>
                 ${!isOwn ? `<div onclick="rmbrReportPost('${post.id}')"><i class="fas fa-flag"></i> Report post</div>` : ''}
                 ${!isOwn ? `<div onclick="rmbrHidePost('${post.id}')"><i class="fas fa-eye-slash"></i> Block post</div>` : ''}
                 ${!isOwn ? `<div class="hf-menu-danger" onclick="rmbrBlockUserFromPost('${post.id}')"><i class="fas fa-ban"></i> Block user</div>` : ''}
@@ -3151,20 +3151,38 @@ async function _hfSaveImage(url) {
 // ══════════════════════════════════════════════════
 //  SAVE / SHARE / PIN
 // ══════════════════════════════════════════════════
+const _saveInFlight = new Set();
 async function toggleSave(postId) {
     const user = getUser();
     if (!user) { (window.showToast || alert)('Sign in to save posts.', 'error'); return; }
     const pid = parseInt(postId);
+    if (_saveInFlight.has(pid)) return;   // one tap = one save/unsave
+    _saveInFlight.add(pid);
     const isSaved = _savedSet.has(pid);
+    let error = null;
+    try {
+        ({ error } = isSaved
+            ? await _supaHome.from('saved_posts').delete().eq('user_name', user.name).eq('post_id', pid)
+            : await _supaHome.from('saved_posts').insert({ user_name: user.name, post_id: pid }));
+    } catch (e) { error = e; }
+    _saveInFlight.delete(pid);
+    // Only change saved state once the backend confirms it.
+    if (error) {
+        (window.showToast || alert)(isSaved ? 'Could not unsave this post. Please try again.' : 'Could not save this post. Please try again.', 'error');
+        return;
+    }
     if (isSaved) {
-        await _supaHome.from('saved_posts').delete().eq('user_name', user.name).eq('post_id', pid);
         _savedSet.delete(pid);
         try { window.RMTrack && RMTrack.emit('unsave', { post_id: pid }); } catch(e){}
     } else {
-        await _supaHome.from('saved_posts').insert({ user_name: user.name, post_id: pid });
         _savedSet.add(pid);
         try { window.RMTrack && RMTrack.emit('save', { post_id: pid }); } catch(e){}
     }
+    (window.showToast || alert)(isSaved ? 'Removed from saved posts.' : 'Post saved.', 'success');
+    // The menu is rendered once per card — keep its label in step, otherwise it
+    // keeps offering "Save post" and the next tap silently unsaves.
+    const saveItem = document.querySelector(`#hfmenu-${postId} .hf-menu-save`);
+    if (saveItem) saveItem.innerHTML = `<i class="fas fa-bookmark"></i> ${isSaved ? 'Save' : 'Unsave'} post`;
     // If viewing the Saved tab, unsaving should drop the card
     if (_feedFilter.type === 'saved' && isSaved) {
         document.getElementById(`hfpost-${postId}`)?.remove();
