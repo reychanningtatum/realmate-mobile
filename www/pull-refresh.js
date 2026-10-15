@@ -15,6 +15,12 @@
  *
  *   content     — element the touch listeners attach to (the visible area)
  *   pullTarget  — element that slides down to open the space (default: content)
+ *   pullWith    — optional selector of content that FOLLOWS the target in the page
+ *                 flow (e.g. a sidebar stacked under the feed on mobile). Whichever
+ *                 of these sit below the target when the pull starts slide with it,
+ *                 so the opening space pushes the whole column down instead of the
+ *                 target sliding over its neighbours. Ones laid out beside the
+ *                 target (desktop sidebar) are left alone.
  *   windowScroll— read window scroll instead of an element's scrollTop
  *   label       — text shown beside the spinner while refreshing
  *   onRefresh   — () => Promise | void ; refresh data in place
@@ -59,6 +65,21 @@
     var onRefresh = opts.onRefresh || function () { location.reload(); };
     var label = opts.label || '';
     var pullEl = el(opts.pullTarget) || content;
+    // Everything the gesture translates: the target plus any pullWith element that
+    // is stacked BELOW it (re-measured at each pull, since a resize can switch the
+    // layout between stacked and side-by-side).
+    var movers = [pullEl];
+    function collectMovers() {
+      movers = [pullEl];
+      if (!opts.pullWith) return;
+      var bottom = pullEl.getBoundingClientRect().bottom;
+      document.querySelectorAll(opts.pullWith).forEach(function (f) {
+        if (f === pullEl || !f.offsetParent) return;
+        if (f.getBoundingClientRect().top >= bottom - 1) movers.push(f);
+      });
+    }
+    function setMove(y) { movers.forEach(function (m) { m.style.transform = 'translateY(' + y + 'px)'; }); }
+    function setMoveEase(v) { movers.forEach(function (m) { m.style.transition = v; }); }
 
     var THRESHOLD = 72, MAX = 120, DAMP = 0.55, REST = 66, HALF_IND = 19;
 
@@ -109,9 +130,9 @@
     var startY = 0, active = false, dist = 0, busy = false;
 
     function atTop() { return scrollTop() <= 0; }
-    function noEase() { pullEl.style.transition = 'none'; ind.style.transition = 'none'; }
+    function noEase() { setMoveEase('none'); ind.style.transition = 'none'; }
     function ease() {
-      pullEl.style.transition = 'transform .28s cubic-bezier(.2,.8,.2,1)';
+      setMoveEase('transform .28s cubic-bezier(.2,.8,.2,1)');
       ind.style.transition = 'transform .28s cubic-bezier(.2,.8,.2,1), opacity .2s';
     }
     // Center the indicator vertically in the opening gap [gapTop, gapTop+y].
@@ -133,14 +154,14 @@
     function stopBusyReassert() { if (busyRaf) { cancelAnimationFrame(busyRaf); busyRaf = null; } }
     function drag(pull) {
       var y = Math.min(pull, MAX);
-      pullEl.style.transform = 'translateY(' + y + 'px)';
+      setMove(y);
       ind.style.opacity = y > 6 ? '1' : '0';
       moveInd(y);
       if (arrow) arrow.style.transform = 'rotate(' + (pull >= THRESHOLD ? 180 : 0) + 'deg)';
     }
     function reset() {
       ease();
-      pullEl.style.transform = 'translateY(0)';
+      setMove(0);
       ind.classList.remove('rm-busy', 'rm-has-label');
       ind.style.opacity = '0';
       moveInd(0);
@@ -185,6 +206,7 @@
         active = false; return;
       }
       computeGapTop();
+      collectMovers();
       startY = e.touches[0].clientY; active = true; dist = 0; noEase();
     }, { passive: true });
 
@@ -207,7 +229,7 @@
         if (label) { labelEl.textContent = label; ind.classList.add('rm-has-label'); }
         ind.classList.add('rm-busy');
         ease();
-        pullEl.style.transform = 'translateY(' + REST + 'px)';
+        setMove(REST);
         moveInd(REST);
         ind.style.opacity = '1';
         setTimeout(function () {
