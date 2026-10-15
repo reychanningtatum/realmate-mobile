@@ -16,6 +16,11 @@
       (window.supabase ? (window.__rmbrClient || (window.__rmbrClient = window.supabase.createClient(SB_URL, SB_KEY))) : null);
   }
   var blockedIds = new Set(), blockedNames = new Set();
+  // Every name in blockedNames belongs to a blocked id. Keeping that link is what
+  // lets an unblock remove the NAME too — isBlocked() matches by name as well, so a
+  // leftover name kept the user's posts and listings hidden after an unblock until
+  // the page happened to reload.
+  var blockedNameOf = {};         // blocked user id -> lower-cased name
   var blockedPosts = new Set();   // keys "type:id" — individually hidden posts/listings
   var myId = null, ready = false;
 
@@ -30,17 +35,39 @@
     try { localStorage.setItem('rmbr_sync', JSON.stringify(Object.assign({ t: Date.now() }, detail))); } catch (e) {}
   }
 
+  function _addBlock(id, name) {
+    if (!id) return;
+    blockedIds.add(id);
+    if (name) { var n = String(name).toLowerCase(); blockedNameOf[id] = n; blockedNames.add(n); }
+  }
+  function _removeBlock(id) {
+    if (!id) return;
+    var n = blockedNameOf[id];
+    blockedIds.delete(id);
+    delete blockedNameOf[id];
+    if (n && !Object.keys(blockedNameOf).some(function (k) { return blockedNameOf[k] === n; })) blockedNames.delete(n);
+  }
+  // Rebuild the user-block sets from user_blocks (the source of truth). Builds
+  // fresh sets and swaps them in, so nothing from an earlier state can survive.
+  async function _loadUserBlocks(sb) {
+    var q = await sb.from('user_blocks').select('blocker_id,blocked_id,blocked_name');
+    if (!q || q.error) return false;
+    var prev = [blockedIds, blockedNames, blockedNameOf];
+    blockedIds = new Set(); blockedNames = new Set(); blockedNameOf = {};
+    try {
+      (q.data || []).forEach(function (row) {
+        if (row.blocker_id === myId) _addBlock(row.blocked_id, row.blocked_name);
+        if (row.blocked_id === myId) blockedIds.add(row.blocker_id);   // they blocked me
+      });
+    } catch (e) { blockedIds = prev[0]; blockedNames = prev[1]; blockedNameOf = prev[2]; return false; }
+    return true;
+  }
+
   async function init() {
     var sb = client(); if (!sb) return;
     try { var r = await sb.auth.getUser(); myId = r && r.data && r.data.user ? r.data.user.id : null; } catch (e) {}
     if (!myId) { ready = true; return; }
-    try {
-      var q = await sb.from('user_blocks').select('blocker_id,blocked_id,blocked_name');
-      (q.data || []).forEach(function (row) {
-        if (row.blocker_id === myId) { if (row.blocked_id) blockedIds.add(row.blocked_id); if (row.blocked_name) blockedNames.add(String(row.blocked_name).toLowerCase()); }
-        if (row.blocked_id === myId) { blockedIds.add(row.blocker_id); }
-      });
-    } catch (e) {}
+    try { await _loadUserBlocks(sb); } catch (e) {}
     // Individually hidden posts/listings (separate from whole-account blocks).
     // Fail-open: if the table isn't there yet, nothing is hidden.
     try {
@@ -119,8 +146,9 @@
     });
     if (!ok) return false;
     try {
-      await sb.from('user_blocks').upsert({ blocker_id: myId, blocked_id: userId, blocked_name: userName || null }, { onConflict: 'blocker_id,blocked_id', ignoreDuplicates: true });
-      blockedIds.add(userId); if (userName) blockedNames.add(String(userName).toLowerCase());
+      var w = await sb.from('user_blocks').upsert({ blocker_id: myId, blocked_id: userId, blocked_name: userName || null }, { onConflict: 'blocker_id,blocked_id', ignoreDuplicates: true });
+      if (w && w.error) throw w.error;
+      _addBlock(userId, userName);
       toast('User blocked. You won’t see their content.');
       _fire({ scope: 'user', action: 'block', userId: userId, userName: userName || null });
       return true;
@@ -128,7 +156,16 @@
   }
   async function unblockUser(userId) {
     var sb = client(); if (!sb || !myId || !userId) return false;
-    try { await sb.from('user_blocks').delete().eq('blocker_id', myId).eq('blocked_id', userId); blockedIds.delete(userId); _fire({ scope: 'user', action: 'unblock', userId: userId }); return true; } catch (e) { return false; }
+    try {
+      var d = await sb.from('user_blocks').delete().eq('blocker_id', myId).eq('blocked_id', userId);
+      if (d && d.error) return false;          // not unblocked — leave the state alone
+      _removeBlock(userId);
+      // Re-read the backend so this page holds exactly what's stored (e.g. if they
+      // also blocked me, that block still applies) before anything re-filters.
+      try { await _loadUserBlocks(sb); } catch (e) {}
+      _fire({ scope: 'user', action: 'unblock', userId: userId });
+      return true;
+    } catch (e) { return false; }
   }
   async function listBlocked() {
     var sb = client(); if (!sb || !myId) return [];
@@ -241,8 +278,8 @@
     var d; try { d = JSON.parse(ev.newValue); } catch (e) { return; }
     if (!d) return;
     if (d.scope === 'user') {
-      if (d.action === 'block') { if (d.userId) blockedIds.add(d.userId); if (d.userName) blockedNames.add(String(d.userName).toLowerCase()); }
-      else if (d.action === 'unblock') { if (d.userId) blockedIds.delete(d.userId); }
+      if (d.action === 'block') _addBlock(d.userId, d.userName);
+      else if (d.action === 'unblock') _removeBlock(d.userId);
     } else if (d.scope === 'post') {
       var k = _pkey(d.type || 'post', d.id);
       if (d.action === 'block') blockedPosts.add(k); else if (d.action === 'unblock') blockedPosts.delete(k);
