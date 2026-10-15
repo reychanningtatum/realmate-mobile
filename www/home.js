@@ -974,6 +974,46 @@ let _feedFilter = { type: 'all', value: null };
 let _feedLoadSeq = 0;
 let _sharedOriginals = {};
 let _savedSet = new Set();
+// Saved ↔ Feed: when Saved replaces the normal feed, its rendered cards (and the
+// data behind them) are set aside here instead of being discarded, so closing
+// Saved puts the SAME feed straight back and refreshes it in place — rather than
+// leaving the Saved posts on screen under the plain Feed while the whole feed
+// re-fetches (~8 sequential queries), then swapping everything at once.
+let _feedView = null;          // which filter the cards in #homeFeed belong to
+let _allFeedState = null;      // { posts, originals } behind the rendered normal feed
+let _feedStash = null;         // { nodes, posts, originals } — normal feed set aside while Saved shows
+// Every write that REPLACES #homeFeed's content goes through here.
+function _commitFeed(feed, viewType) {
+    if (viewType === 'saved' && _feedView === 'all' && _allFeedState && feed.firstChild) {
+        const nodes = document.createDocumentFragment();
+        while (feed.firstChild) nodes.appendChild(feed.firstChild);
+        _feedStash = { nodes, posts: _allFeedState.posts, originals: _allFeedState.originals };
+    } else {
+        feed.innerHTML = '';
+        if (viewType !== 'saved') _feedStash = null;
+    }
+    _feedView = viewType;
+    _allFeedState = null;
+}
+// Closing Saved: put the set-aside normal feed back (same cards, same data).
+function _restoreStashedFeed(feed) {
+    if (!_feedStash || _feedView !== 'saved') return false;
+    ++_feedLoadSeq;                       // an unfinished Saved load must not land on top
+    const s = _feedStash; _feedStash = null;
+    feed.innerHTML = '';
+    feed.appendChild(s.nodes);
+    _homePosts = s.posts;
+    _sharedOriginals = s.originals;
+    _allFeedState = { posts: s.posts, originals: s.originals };
+    _feedView = 'all';
+    // Saves/unsaves made while in Saved: bring these cards' menu labels in step.
+    feed.querySelectorAll('.hf-post-menu').forEach(m => {
+        const item = m.querySelector('.hf-menu-save');
+        const pid = parseInt(String(m.id).replace('hfmenu-', ''));
+        if (item) item.innerHTML = `<i class="fas fa-bookmark"></i> ${_savedSet.has(pid) ? 'Unsave' : 'Save'} post`;
+    });
+    return true;
+}
 const FEED_COLS = 'id, user_id, user_name, user_img, subject, content, media_url, media_type, media_urls, post_type, privacy, poll, hashtags, shared_post_id, album_title, topic, created_at, is_anonymous';
 
 async function loadHomeFeed(feedEl, filterArg, silent) {
@@ -986,7 +1026,10 @@ async function loadHomeFeed(feedEl, filterArg, silent) {
     // fetching, instead of collapsing the feed to a spinner. Collapsing shrank
     // the page so the Trending / Suggested Realmates sidebar scrolled up into
     // view for a moment before the new posts rendered — this avoids that flash.
-    if (!silent) feed.innerHTML = `<div class="hf-loading"><i class="fas fa-spinner fa-spin"></i> Loading feed…</div>`;
+    if (!silent) {
+        _commitFeed(feed, filter.type);
+        feed.innerHTML = `<div class="hf-loading"><i class="fas fa-spinner fa-spin"></i> Loading feed…</div>`;
+    }
 
     const user = getUser();
 
@@ -1001,6 +1044,7 @@ async function loadHomeFeed(feedEl, filterArg, silent) {
             savedIds = (saved || []).map(s => s.post_id);
             if (!savedIds.length) {
                 if (stale()) return;
+                _commitFeed(feed, filter.type);
                 feed.innerHTML = `<div class="hf-empty"><i class="fas fa-bookmark"></i><p>No saved posts yet. Tap the bookmark on any post to save it.</p></div>`;
                 return;
             }
@@ -1043,6 +1087,8 @@ async function loadHomeFeed(feedEl, filterArg, silent) {
         }
         if (!_homePosts.length) {
             if (stale()) return;
+            _commitFeed(feed, filter.type);
+            if (filter.type === 'all') _allFeedState = { posts: _homePosts, originals: _sharedOriginals };
             feed.innerHTML = `<div class="hf-empty">
                 <i class="fas fa-newspaper"></i>
                 <p>${filter.type === 'all' ? 'No posts yet. Be the first to share something!' : ((filter.type === 'user' || filter.type === 'userId') ? 'No posts yet.' : 'Nothing here yet.')}</p>
@@ -1121,7 +1167,8 @@ async function loadHomeFeed(feedEl, filterArg, silent) {
         }
 
         if (stale()) return;   // never let a superseded load overwrite the newer feed
-        feed.innerHTML = '';
+        _commitFeed(feed, filter.type);
+        if (filter.type === 'all') _allFeedState = { posts: _homePosts, originals: _sharedOriginals };
         _homePosts.forEach(post => {
             // Keep the reaction state ON the post object so applyReaction() can
             // adjust it locally and repaint the summary optimistically (no query).
@@ -1146,6 +1193,8 @@ async function loadHomeFeed(feedEl, filterArg, silent) {
 
     } catch (err) {
         console.error('Home feed error:', err);
+        if (stale()) return;
+        _commitFeed(feed, filter.type);
         feed.innerHTML = `<div class="hf-empty">
             <i class="fas fa-circle-exclamation" style="color:#ef4444;"></i>
             <p>Could not load feed. Please refresh.</p>
@@ -3374,6 +3423,12 @@ function setFeedFilter(type, value) {
     // Close the avatar "Me" menu if the tap came from there
     document.getElementById('navMenu')?.classList.remove('open');
     renderActiveFilter();
+    // Closing Saved: the normal feed it replaced comes straight back, then
+    // refreshes in place (silent) — the chip and the posts change together.
+    const feedEl = document.getElementById('homeFeed');
+    if (type === 'all' && feedEl && _restoreStashedFeed(feedEl)) {
+        try { if (window.RMFeedVideo) RMFeedVideo.scan(feedEl); } catch (e) {}
+    }
     // Silent: keep the current posts on screen until the new filter's posts render.
     // A non-silent load collapsed the feed to a spinner first, which shifted the
     // layout and made the navbar/top bar blink when closing Saved.
