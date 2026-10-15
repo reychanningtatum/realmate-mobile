@@ -982,6 +982,7 @@ let _savedSet = new Set();
 let _feedView = null;          // which filter the cards in #homeFeed belong to
 let _allFeedState = null;      // { posts, originals } behind the rendered normal feed
 let _feedStash = null;         // { nodes, posts, originals } — normal feed set aside while Saved shows
+let _savedCache = null;        // { posts, originals } — the last FULL Saved load (instant reopen)
 // Every write that REPLACES #homeFeed's content goes through here.
 function _commitFeed(feed, viewType) {
     if (viewType === 'saved' && _feedView === 'all' && _allFeedState && feed.firstChild) {
@@ -1014,6 +1015,32 @@ function _restoreStashedFeed(feed) {
     });
     return true;
 }
+// Opening Saved: the Saved view is on screen in the SAME tap — the normal feed is
+// set aside first, so its top post can never show while the saved list loads.
+// What is rendered right away is already-known data: the last full Saved list
+// from this session (minus anything unsaved since), or else the saved posts that
+// are in the loaded feed. Both are sorted newest-first with the same filters as
+// the Saved query, and the feed holds the NEWEST posts, so those saved posts are
+// exactly the top of the Saved list — the network load then only completes it
+// below (shown as a loading row). Nothing known → the Saved loading state.
+function _showSavedNow(feed) {
+    if (_feedView === 'saved') return;
+    let src = null, partial = false;
+    if (_savedCache) src = _savedCache;
+    else if (_allFeedState) {
+        src = { posts: _allFeedState.posts.filter(p => _savedSet.has(p.id)), originals: _allFeedState.originals };
+        partial = true;
+    }
+    _commitFeed(feed, 'saved');                       // stashes the normal feed (no flash)
+    const loadingRow = '<div class="hf-loading"><i class="fas fa-spinner fa-spin"></i> Loading saved posts…</div>';
+    if (!src || !src.posts.length) { feed.innerHTML = loadingRow; return; }
+    _homePosts = src.posts.slice();
+    _sharedOriginals = Object.assign({}, src.originals);
+    _homePosts.forEach(post => { if (_hfVisible(post)) feed.appendChild(_hfBuildCard(post)); });
+    if (partial) feed.insertAdjacentHTML('beforeend', loadingRow);
+    else if (!feed.querySelector('.hf-post-card')) feed.innerHTML = loadingRow;
+    try { if (window.RMFeedVideo) RMFeedVideo.scan(feed); } catch (e) {}
+}
 const FEED_COLS = 'id, user_id, user_name, user_img, subject, content, media_url, media_type, media_urls, post_type, privacy, poll, hashtags, shared_post_id, album_title, topic, created_at, is_anonymous';
 
 async function loadHomeFeed(feedEl, filterArg, silent) {
@@ -1045,6 +1072,7 @@ async function loadHomeFeed(feedEl, filterArg, silent) {
             if (!savedIds.length) {
                 if (stale()) return;
                 _commitFeed(feed, filter.type);
+                _savedCache = { posts: [], originals: {} };
                 feed.innerHTML = `<div class="hf-empty"><i class="fas fa-bookmark"></i><p>No saved posts yet. Tap the bookmark on any post to save it.</p></div>`;
                 return;
             }
@@ -1173,6 +1201,7 @@ async function loadHomeFeed(feedEl, filterArg, silent) {
         if (stale()) return;   // never let a superseded load overwrite the newer feed
         _commitFeed(feed, filter.type);
         if (filter.type === 'all') _allFeedState = { posts: _homePosts, originals: _sharedOriginals };
+        if (filter.type === 'saved') _savedCache = { posts: _homePosts, originals: _sharedOriginals };
         _homePosts.forEach(post => {
             // Keep the reaction state ON the post object so applyReaction() can
             // adjust it locally and repaint the summary optimistically (no query).
@@ -1856,25 +1885,37 @@ document.addEventListener('rmbr:changed', _homeApplyBlockState);
 // unchanged and returned to the card on close, so options + behaviour don't
 // change. Self-contained (injects its own <style> + overlay on first use), so it
 // also works on the Profile (dashboard.html), where home.js renders posts too.
+// Scroll lock WITHOUT touching overflow: setting overflow:hidden on <html> made
+// <body> (overflow:auto on mobile) its own scroll container, so the sticky Feed
+// header re-pinned to it and jumped by the scroll distance; on desktop it also
+// removed the scrollbar and shifted the layout. Blocking the scroll INPUTS
+// behind the sheet changes nothing in the layout.
 let _hfScrollLocked = false;
 function _hfBlockTouch(ev) {
     // Let the sheet itself scroll (long menus); block page/momentum scroll behind.
     if (ev.target && ev.target.closest && ev.target.closest('#hfSheet')) return;
     if (ev.cancelable) ev.preventDefault();
 }
+const _HF_SCROLL_KEYS = { ' ': 1, PageUp: 1, PageDown: 1, End: 1, Home: 1, ArrowUp: 1, ArrowDown: 1 };
+function _hfBlockKeys(ev) {
+    if (!_HF_SCROLL_KEYS[ev.key]) return;
+    const t = ev.target;
+    if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+    ev.preventDefault();
+}
 function _hfLockScroll() {
     if (_hfScrollLocked) return;
     _hfScrollLocked = true;
     document.addEventListener('touchmove', _hfBlockTouch, { passive: false });
-    document.documentElement.style.overflow = 'hidden';
-    document.body.style.overflow = 'hidden';
+    document.addEventListener('wheel', _hfBlockTouch, { passive: false });
+    document.addEventListener('keydown', _hfBlockKeys);
 }
 function _hfUnlockScroll() {
     if (!_hfScrollLocked) return;
     _hfScrollLocked = false;
     document.removeEventListener('touchmove', _hfBlockTouch, { passive: false });
-    document.documentElement.style.overflow = '';
-    document.body.style.overflow = '';
+    document.removeEventListener('wheel', _hfBlockTouch, { passive: false });
+    document.removeEventListener('keydown', _hfBlockKeys);
 }
 function _hfEnsureSheet() {
     let ov = document.getElementById('hfSheetOverlay');
@@ -3246,9 +3287,11 @@ async function toggleSave(postId) {
     }
     if (isSaved) {
         _savedSet.delete(pid);
+        if (_savedCache) _savedCache = { posts: _savedCache.posts.filter(p => p.id !== pid), originals: _savedCache.originals };
         try { window.RMTrack && RMTrack.emit('unsave', { post_id: pid }); } catch(e){}
     } else {
         _savedSet.add(pid);
+        _savedCache = null;          // a newly saved post: the next Saved open rebuilds from the feed + network
         try { window.RMTrack && RMTrack.emit('save', { post_id: pid }); } catch(e){}
     }
     (window.showToast || alert)(isSaved ? 'Removed from saved posts.' : 'Post saved.', 'success');
@@ -3450,6 +3493,7 @@ function setFeedFilter(type, value) {
     // Closing Saved: the normal feed it replaced comes straight back, then
     // refreshes in place (silent) — the chip and the posts change together.
     const feedEl = document.getElementById('homeFeed');
+    if (type === 'saved' && feedEl) _showSavedNow(feedEl);
     if (type === 'all' && feedEl && _restoreStashedFeed(feedEl)) {
         _homeApplyBlockState();          // blocks/unblocks made while Saved was open
         try { if (window.RMFeedVideo) RMFeedVideo.scan(feedEl); } catch (e) {}
