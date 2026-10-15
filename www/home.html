@@ -29,6 +29,7 @@
   <div class="nav-item" id="rmSideSaved" onclick="setFeedFilter('saved')"><i class="fas fa-bookmark"></i> <span>Saved</span></div>
   <div class="nav-item" onclick="location.href='realmates.html'"><i class="fas fa-user-group"></i> <span>My realmates</span></div>
   <div class="nav-item" onclick="openCustomerService()"><i class="fas fa-headset"></i> <span>Customer Service</span></div>
+  <div class="nav-item" onclick="openFeedback()"><i class="fas fa-comment-dots"></i> <span>Feedback</span></div>
   <div class="nav-item" onclick="location.href='settings.html'"><i class="fas fa-cog"></i> <span>Settings</span></div>
   <div style="margin-top:auto;">
     <div class="nav-item" id="authBtn" onclick="handleAuth()"><i class="fas fa-sign-out-alt"></i> <span id="authText">Sign Out</span></div>
@@ -353,6 +354,7 @@
       <a href="#" onclick="event.preventDefault(); setFeedFilter('saved')"><i class="fas fa-bookmark"></i> Saved Posts</a>
       <a href="analytics.html" style="display:none"><i class="fas fa-chart-area"></i> Analytics</a>
       <a href="#" onclick="event.preventDefault(); openCustomerService()"><i class="fas fa-headset"></i> Customer Service</a>
+      <a href="#" onclick="event.preventDefault(); openFeedback()"><i class="fas fa-comment-dots"></i> Feedback</a>
       <a href="settings.html"><i class="fas fa-cog"></i> Settings</a>
       <a href="#" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</a>
     </div>
@@ -360,7 +362,7 @@
 </nav>
 <script src="pull-refresh.js?v=20261015a"></script>
 <script src="nav-menu.js?v=20260930a"></script>
-<script src="customer-service.js?v=7"></script>
+<script src="customer-service.js?v=7"></script><script src="feedback.js?v=20261015a"></script>
 <script>document.addEventListener("DOMContentLoaded",function(){if(window.rmPullRefresh)rmPullRefresh({content:".main-content",windowScroll:true,pullTarget:"#homeFeed",pullWith:".home-sidebar-col",label:"Loading Feed",onRefresh:function(){return window.loadHomeFeed?loadHomeFeed(null,null,true):location.reload();}});});</script>
 </body>
 </html>

@@ -430,6 +430,23 @@
     border-top:1px solid rgba(255,255,255,0.08);max-width:640px;margin-left:auto;margin-right:auto;line-height:1.6;}
 
   /* final CTA */
+  /* Feedback form */
+  .fbk{max-width:680px;margin:34px auto 0;background:var(--card);border:1px solid var(--card-border);
+       border-radius:20px;padding:24px;}
+  .fbk-label{display:block;font-size:13px;font-weight:700;color:var(--sub);margin:0 0 10px;}
+  .fbk-input{width:100%;box-sizing:border-box;min-height:132px;resize:vertical;padding:14px 16px;border-radius:14px;
+       border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.04);color:var(--text);
+       font-family:inherit;font-size:15px;font-weight:500;line-height:1.55;outline:none;transition:border-color .2s,background .2s;}
+  .fbk-input::placeholder{color:var(--muted-2);}
+  .fbk-input:focus{border-color:rgba(50,205,50,0.55);background:rgba(255,255,255,0.06);}
+  .fbk-row{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:16px;flex-wrap:wrap;}
+  .fbk-who{font-size:13px;color:var(--muted);font-weight:500;}
+  .fbk-who b{color:var(--sub);}
+  .fbk .btn:disabled{opacity:.6;cursor:default;}
+  .fbk-msg{margin-top:14px;padding:12px 14px;border-radius:12px;font-size:14px;font-weight:600;}
+  .fbk-msg.ok{background:rgba(50,205,50,0.12);color:#86efac;border:1px solid rgba(50,205,50,0.3);}
+  .fbk-msg.err{background:rgba(239,68,68,0.12);color:#fca5a5;border:1px solid rgba(239,68,68,0.3);}
+  @media (max-width:560px){ .fbk{padding:18px;} .fbk-row .btn{width:100%;} }
   .final{text-align:center;padding:96px 0;}
   .final h2{font-size:clamp(32px,4.6vw,56px);font-weight:900;letter-spacing:-1.6px;line-height:1.05;margin:0 0 18px;}
   .final p{font-size:17px;color:var(--muted);max-width:520px;margin:0 auto 34px;font-weight:500;}
@@ -859,6 +876,26 @@
     </div>
   </section>
 
+  <!-- Feedback (same inbox as the app: Admin › Feedback) -->
+  <section class="sec" id="feedback" style="padding-top:20px;">
+    <div class="wrap">
+      <div class="center reveal">
+        <span class="eyebrow">Feedback</span>
+        <h2>Tell us what you <span class="grn">think.</span></h2>
+        <p class="sub">Ideas, praise or problems — every message goes straight to the realmate team.</p>
+      </div>
+      <form class="fbk reveal" id="mkFeedbackForm" onsubmit="event.preventDefault(); mkSendFeedback();" novalidate>
+        <label class="fbk-label" for="mkFeedback">Your feedback</label>
+        <textarea id="mkFeedback" class="fbk-input" rows="5" maxlength="4000" placeholder="What should we know about realmate?"></textarea>
+        <div class="fbk-row">
+          <span class="fbk-who" id="mkFeedbackWho">You're not signed in — this will be sent anonymously.</span>
+          <button type="submit" class="btn btn-primary" id="mkFeedbackSend"><i class="fas fa-paper-plane"></i> Submit Feedback</button>
+        </div>
+        <div class="fbk-msg" id="mkFeedbackMsg" role="status" aria-live="polite" hidden></div>
+      </form>
+    </div>
+  </section>
+
   <!-- Final CTA -->
   <section class="final">
     <div class="wrap reveal">
@@ -899,6 +936,7 @@
             <a onclick="rmSignIn()">Sign In</a>
             <a onclick="rmScroll('team')">About</a>
             <a onclick="rmOpenExcl()">Who can join</a>
+            <a onclick="rmScroll('feedback')">Feedback</a>
           </div>
           <div class="col">
             <h5>Legal</h5>
@@ -919,6 +957,49 @@
   </footer>
 
 </div>
+
+<script src="vendor/supabase-js.min.js?v=2.112.3"></script>
+<script src="feedback.js?v=20261015a"></script>
+<script>
+  // Feedback: the server decides who sent it from the browser's realmate
+  // session (signed in → their account; otherwise anonymous). This label only
+  // tells the visitor which it will be.
+  (function () {
+    var who = document.getElementById('mkFeedbackWho');
+    try {
+      var sb = window.supabase && window.supabase.createClient('https://wmegpgrfrtprhuzmgjma.supabase.co', 'sb_publishable_Rm_fIBDUfu3DEyLj0_bWZw_qEqo8cd4');
+      window.supabaseClient = window.supabaseClient || sb;
+      if (sb) sb.auth.getSession().then(function (r) {
+        var s = r && r.data && r.data.session;
+        if (!s || !who) return;
+        var u = null; try { u = JSON.parse(localStorage.getItem('user') || 'null'); } catch (e) {}
+        var name = (u && u.id === s.user.id && u.name) || s.user.email || 'your account';
+        who.textContent = '';
+        who.append('Sending as ');
+        var b = document.createElement('b'); b.textContent = name; who.append(b);
+      });
+    } catch (e) {}
+  })();
+  var _mkFbId = null, _mkFbBusy = false;
+  async function mkSendFeedback() {
+    if (_mkFbBusy) return;                                   // rapid taps: one request
+    var ta = document.getElementById('mkFeedback'), btn = document.getElementById('mkFeedbackSend'), out = document.getElementById('mkFeedbackMsg');
+    function show(t, ok) { out.hidden = false; out.className = 'fbk-msg ' + (ok ? 'ok' : 'err'); out.textContent = t; }
+    if (!window.rmSubmitFeedback) { show('Feedback is unavailable right now. Please try again later.', false); return; }
+    if (!_mkFbId) _mkFbId = window.rmNewFeedbackId();       // same id if this submission is retried
+    _mkFbBusy = true; var label = btn.innerHTML;
+    btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending…';
+    try {
+      await window.rmSubmitFeedback(_mkFbId, ta.value, 'marketing');
+      ta.value = ''; _mkFbId = null;                         // next message is a new submission
+      show('Thank you! Your feedback was sent to the realmate team.', true);
+    } catch (e) {
+      show((e && e.message) || 'Could not send your feedback. Please try again.', false);
+    } finally {
+      _mkFbBusy = false; btn.disabled = false; btn.innerHTML = label;
+    }
+  }
+</script>
 
 <!-- Mobile sticky app CTA -->
 <div class="m-cta">
