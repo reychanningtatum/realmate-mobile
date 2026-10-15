@@ -1719,7 +1719,11 @@ async function confirmOffer() {
                 await fetch(`${SUPA_URL}/rest/v1/conversation_participants`, { method: 'POST', headers: h, body: JSON.stringify({ conversation_id: convId, user_id: ownerId }) });
             }
 
-            const refPayload = JSON.stringify({ id: listingId, img, category, content: listingData?.content || '', created_at: listingData?.created_at || '' });
+            // The exact listing the offer is about (its id) plus a snapshot of it for
+            // the chat card. owner_id lets each side label the card ("your offer" /
+            // "offer received") from the listing itself rather than who sent it.
+            const refPayload = JSON.stringify({ id: listingId, img, category, content: listingData?.content || '', created_at: listingData?.created_at || '',
+                owner_id: listingData?.user_id || ownerId || null, price_period: listingData?.price_period || null });
             // Insert LISTING_REF card first
             await fetch(`${SUPA_URL}/rest/v1/messages`, {
                 method: 'POST', headers: h,

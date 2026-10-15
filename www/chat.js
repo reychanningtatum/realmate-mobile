@@ -852,6 +852,83 @@ function renderListingRefCard(container, ref) {
     container.appendChild(card);
 }
 
+// ── Offer card ─────────────────────────────────────────────────────────────
+// An offer message (__LISTING_REF__{json}) carries the EXACT listing the offer
+// is about: its id plus a snapshot of that listing taken when the offer was
+// sent (category, post text, cover image; newer offers also the owner). Both
+// people in the chat render the same snapshot, so both see the same listing,
+// and View listing opens that id. The details are read from the listing's own
+// text with the shared engine (RM_MATCH) — nothing is guessed or made up; a
+// field the post doesn't state is simply left out. Everything from the message
+// is escaped: any member can send a message that starts with __LISTING_REF__.
+const OFFER_CAT_TONE = {
+    'FOR SALE': 'sale', 'FOR RENT': 'rent', 'FOR LEASE': 'lease',
+    'WILLING TO BUY': 'wbuy', 'WILLING TO RENT': 'wrent', 'WILLING TO LEASE': 'wlease'
+};
+function _offerPeso(n) { return '₱' + Math.round(n).toLocaleString('en-US'); }
+function offerRefSummary(ref) {
+    const content = String(ref.content || '');
+    const category = String(ref.category || '').toUpperCase().trim();
+    const M = window.RM_MATCH;
+    let p = null;
+    try { if (M && M.parseListing) p = M.parseListing({ id: ref.id, category: category, content: content }); } catch (e) {}
+    p = p || {};
+    // Title: unit + property type as stated, plus a project only when it is a
+    // known development (the parser's free-text guesses are not shown).
+    const typeM = content.match(/\b(condo(?:minium)?|townhouse|house and lot|house|lot only|lot|office|penthouse|loft|warehouse|commercial space|retail space)\b/i);
+    const propType = typeM ? typeM[1].replace(/^condominium$/i, 'condo') : '';
+    let project = '';
+    try { project = (M && M.extractProject && M.extractProject(content)) || ''; } catch (e) {}
+    const unitPart = [p.unit || '', propType ? propType.charAt(0).toUpperCase() + propType.slice(1).toLowerCase() : ''].filter(Boolean).join(' ');
+    let title = [unitPart, project].filter(Boolean).join(' · ');
+    if (!title) {
+        const first = content.split('\n').map(s => s.trim()).find(s => s && s.toUpperCase() !== category) || '';
+        title = first.length > 60 ? first.slice(0, 57) + '…' : first;
+    }
+    const location = (p.locations || []).slice(0, 3).join(' · ');
+    const area = content.match(/(\d[\d,.]*)\s*(?:-|–|to)\s*(\d[\d,.]*)\s*(?:sqm|sq\.?\s*m\b|square met)/i)
+        || content.match(/(\d[\d,.]*)\s*(?:sqm|sq\.?\s*m\b|square met)/i);
+    const size = area ? (area[2] ? `${area[1]}–${area[2]} sqm` : `${area[1]} sqm`) : '';
+    // Price / budget, with "/ month" only when the post or the listing says so.
+    const isWanted = category.startsWith('WILLING');
+    const b = p.budget || {};
+    let amount = '';
+    if (b.min && b.max && b.max > b.min) amount = `${_offerPeso(b.min)} – ${_offerPeso(b.max)}`;
+    else if (p.price || b.max) amount = _offerPeso(p.price || b.max);
+    const monthly = /month|monthly|\/\s*mo\b/i.test(ref.price_period || '') || /(?:\/|per|a|every)\s*(?:month|mo\b)|monthly/i.test(content);
+    return {
+        category, tone: OFFER_CAT_TONE[category] || 'other', title, location, size,
+        priceLabel: amount ? (isWanted ? 'Budget' : 'Asking') : '',
+        price: amount ? amount + (monthly ? ' / month' : '') : ''
+    };
+}
+function offerRefCardHtml(ref, isOwn) {
+    const s = offerRefSummary(ref);
+    // Whose listing is it? Newer offers record the owner; for older ones the
+    // offer was always sent TO the owner, so the receiving side owns it.
+    const mine = ref.owner_id ? String(ref.owner_id) === String(currentUser && currentUser.id) : !isOwn;
+    const context = mine ? 'Offer received for your listing' : 'Your offer for this listing';
+    const id = /^\d+$/.test(String(ref.id || '')) ? String(ref.id) : '';
+    const img = /^https:\/\//.test(String(ref.img || '')) ? ref.img : '';
+    const media = img
+        ? `<img class="offer-ref-img" src="${escAttr(img)}" alt="" loading="lazy" onerror="this.parentNode.classList.add('no-img');this.remove()">`
+        : '';
+    return `<div class="offer-ref ${mine ? 'is-received' : 'is-sent'}">
+        <div class="offer-ref-head"><i class="fas fa-handshake"></i><span>${esc(context)}</span></div>
+        <div class="offer-ref-body">
+            <div class="offer-ref-media tone-${s.tone}${img ? '' : ' no-img'}">${media}<i class="fas fa-building"></i></div>
+            <div class="offer-ref-info">
+                ${s.category ? `<span class="offer-ref-cat tone-${s.tone}">${esc(s.category)}</span>` : ''}
+                ${s.title ? `<div class="offer-ref-title">${esc(s.title)}</div>` : ''}
+                ${s.location ? `<div class="offer-ref-meta"><i class="fas fa-location-dot"></i>${esc(s.location)}</div>` : ''}
+                ${s.size ? `<div class="offer-ref-meta"><i class="fas fa-ruler-combined"></i>${esc(s.size)}</div>` : ''}
+            </div>
+        </div>
+        ${s.price ? `<div class="offer-ref-price"><span>${esc(s.priceLabel)}</span><strong>${esc(s.price)}</strong></div>` : ''}
+        ${id ? `<a class="offer-ref-view" href="listing-detail.html?id=${id}" onclick="event.stopPropagation()">View listing <i class="fas fa-arrow-right"></i></a>` : ''}
+    </div>`;
+}
+
 function addMsgBubble(container, m) {
     const isOwn = m.sender_id === currentUser.id;
     const side = isOwn ? 'own' : 'other';
@@ -899,16 +976,8 @@ function addMsgBubble(container, m) {
     if (type === 'LISTING_REF' || (type === 'TEXT' && (m.message_text || '').startsWith('__LISTING_REF__'))) {
         try {
             const rawText = (m.message_text || '').replace('__LISTING_REF__', '');
-            const ref = JSON.parse(rawText || '{}');
-            const priceMatch = (ref.content || '').match(/(\d+\.?\d*)\s*[Mm](?:illion)?/);
-            const price = priceMatch ? `₱${parseFloat(priceMatch[1])}M` : '';
-            const catColors = { 'FOR SALE': '#16a34a', 'FOR RENT': '#2563eb', 'PRE-SELLING': '#d97706', 'RESALE': '#7c3aed' };
-            const catColor = catColors[ref.category] || '#64748b';
-            const imgHtml = ref.img ? `<img class="clr-img" src="${ref.img}" alt="" style="width:64px;height:64px;object-fit:cover;border-radius:8px;flex-shrink:0;">` : '';
-            const catHtml = ref.category ? `<span class="clr-cat" style="background:${catColor}15;color:${catColor};font-size:10px;font-weight:700;padding:2px 7px;border-radius:6px;">${ref.category}</span>` : '';
-            const priceHtml = price ? `<div class="clr-price" style="font-size:13px;font-weight:800;color:#0f172a;margin-top:4px;">${price}</div>` : '';
-            bubble = `<div class="chat-listing-ref" style="cursor:default;"><div class="clr-label"><i class="fas fa-handshake"></i> Offer Reference</div><div class="clr-body" style="display:flex;gap:10px;align-items:flex-start;">${imgHtml}<div class="clr-info">${catHtml}${priceHtml}</div></div><a class="clr-view-btn" href="listing-detail.html?id=${ref.id}" onclick="event.stopPropagation();" style="display:block;margin-top:10px;text-align:center;padding:8px;background:#0f172a;color:#fff;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;">View Listing</a></div>`;
-        } catch { bubble = `<div class="chat-msg-bubble">📋 Offer Reference</div>`; }
+            bubble = offerRefCardHtml(JSON.parse(rawText || '{}'), isOwn);
+        } catch { bubble = `<div class="chat-msg-bubble">📋 Offer</div>`; }
         const html = `<div class="chat-msg-row ${side}" data-msg-id="${m.id}">${bubble}</div>`;
         container.insertAdjacentHTML('beforeend', html);
         return;
