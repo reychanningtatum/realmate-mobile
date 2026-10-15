@@ -370,6 +370,12 @@
     // profile), its filename differs from this — that's how rmBack knows whether
     // "back" means "return within the iframe" vs "go to the previous tab".
     f.__root = (forceSrc || TABS[tab]).split('?')[0].split('/').pop();
+    // Hand the reloading page the scroll it should return to. A page that can
+    // place it itself (the Portal: only it knows when its list has rendered)
+    // sets window.__rmRestoresOwnScroll and applies it once; for any other page
+    // the shell restores it below. Never both — two restorers with different
+    // timing fought each other (down to the old spot, then yanked back up).
+    if (_resume && _resume.scrollY > 0) f.setAttribute('data-rm-resume-y', String(Math.round(_resume.scrollY)));
     // Every load (incl. internal navigation + pull-to-refresh reloads): re-hide
     // the embedded nav, re-arm the menu-close listeners, and note whether the
     // iframe is now on a sub-page (navigated away from its root).
@@ -385,7 +391,10 @@
     f.addEventListener('load', function () {
       if (loading) loading.classList.add('rm-hide');
       withTransition(function () { reveal(tab); });
-      if (_resume) restoreFrameScroll(f, _resume.scrollY);
+      var ownsScroll = false;
+      try { ownsScroll = !!f.contentWindow.__rmRestoresOwnScroll; } catch (e) {}
+      if (_resume && !ownsScroll) restoreFrameScroll(f, _resume.scrollY);
+      f.removeAttribute('data-rm-resume-y');   // read at page start; a later reload is a fresh visit
     }, { once: true });
     f.src = _srcUrl;
     host.appendChild(f);

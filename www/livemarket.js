@@ -37,6 +37,22 @@ async function logout() {
 // it once the grid has rendered tall enough to reach it, so Back returns to the
 // exact same post/scroll — even for a post near the bottom of the list. Works
 // whether the browser bfcaches (already restored) or reloads (we restore).
+// The app shell frees a backgrounded Portal and reloads it when the user comes
+// back, passing the scroll to return to (data-rm-resume-y). Read it now — the
+// shell clears it once the frame has loaded — and apply it once the list has
+// rendered (init). The Portal owns this restore, so the shell doesn't race it.
+// Portal page only — the Profile page loads this file too and keeps the
+// shell's restore.
+const _lmIsPortalPage = /\/livemarket\.html$/.test(location.pathname);
+const _lmShellResumeY = (function () {
+    if (!_lmIsPortalPage) return null;
+    try {
+        const v = window.frameElement && window.frameElement.getAttribute('data-rm-resume-y');
+        return v ? Math.max(0, parseInt(v, 10) || 0) : null;
+    } catch (e) { return null; }
+})();
+if (_lmIsPortalPage) window.__rmRestoresOwnScroll = true;
+
 function _lmScrollNow() {
     var w = window.scrollY || window.pageYOffset || 0;
     var mc = document.querySelector('.main-content');
@@ -3726,6 +3742,19 @@ function applyFilters() {
         }
     }
 
+    // Re-rendering the SAME view (a block made in another tab, a listing edited
+    // elsewhere, the sold sweep, rmbr:ready…) must not move the reader. The
+    // rebuild used to render only the first page of cards, so a reader further
+    // down had the page shrink under them (the browser pulled the scroll up),
+    // then grow again as the next page loaded — the Portal "bouncing" with no
+    // scroll code involved. Keep as many cards as were shown and put the card
+    // being read back where it was. A real view change starts from the top.
+    const viewKey = [activeCategory, aiMatchesCat, myListingsSubCat, pinnedActive, q, loc].join('|');
+    const sameView = viewKey === _lcViewKey;
+    _lcViewKey = viewKey;
+    const keepCount = sameView ? _lcRenderedCount : 0;
+    const readAnchor = (sameView && _portalOnScreen()) ? _lcReadAnchor() : null;
+
     grid.innerHTML = '';
     if (!pool.length) {
         // Still fetching (e.g. a fresh reload after returning from a listing
@@ -3799,9 +3828,30 @@ function applyFilters() {
     _lcRenderCtx = { matchMap: matchMap, fmvMap: fmvMap, matchCountMap: matchCountMap };
     _lcRenderedCount = 0;
     _lcRenderNextBatch();
+    while (_lcRenderedCount < keepCount && _lcRenderedCount < _lcRenderPool.length) _lcRenderNextBatch();
+    if (readAnchor) _lcRestoreAnchor(readAnchor);
 }
 
 var _lcRenderPool = [], _lcRenderCtx = null, _lcRenderedCount = 0, _lcRenderIO = null;
+var _lcViewKey = null;   // the view the rendered cards belong to (see applyFilters)
+
+// The card at the top of the reader's view, plus the cards after it — if that
+// card is gone after a rebuild (e.g. its author was just blocked) the next one
+// still on the page takes its place.
+function _lcReadAnchor() {
+    const a = _topVisibleCard();
+    if (!a) return null;
+    const ids = [];
+    for (let c = a; c && ids.length < 40; c = c.nextElementSibling) if (c.id) ids.push(c.id);
+    return { ids: ids, top: a.getBoundingClientRect().top };
+}
+// One correction, right after the rebuild — no re-asserting.
+function _lcRestoreAnchor(an) {
+    for (const id of an.ids) {
+        const el = document.getElementById(id);
+        if (el) { const d = el.getBoundingClientRect().top - an.top; if (Math.abs(d) > 1) _nudgeScroll(d); return; }
+    }
+}
 var LC_PAGE = 12;
 function _lcRenderNextBatch() {
     var grid = document.getElementById('listingsGrid');
@@ -4531,7 +4581,18 @@ function _topVisibleCard() {
     return best;
 }
 
+// Is the Portal the page on screen? In the app shell a backgrounded tab's frame
+// is hidden (not .rm-active); standalone it always is.
+function _portalOnScreen() {
+    try { const fe = window.frameElement; return !fe || fe.classList.contains('rm-active'); } catch (e) { return true; }
+}
+
 function savePortalScroll() {
+    // A hidden Portal has no position to save. The shell frees a backgrounded
+    // tab (pagehide) and restores its scroll itself on return; a snapshot taken
+    // here read top 0 with no anchor card, and restorePortalScroll then dragged
+    // the returning page back to the top against the shell's restore (bounce).
+    if (!_portalOnScreen()) return;
     try {
         const mc = document.querySelector('.main-content');
         const anchor = _topVisibleCard();
@@ -4760,6 +4821,15 @@ async function init() {
         // feed grid is hidden, so running the feed restore here would anchor to a
         // hidden ledger card and fight that scroll. Skip both restore and goTop.
         // (RM_SCROLL_KEY is left intact for exitMatchView's return-to-ledger.)
+    } else if (_lmShellResumeY != null) {
+        // Returning to a Portal the app shell had freed: put the user back where
+        // they were, once, now that the cards exist (render further pages first
+        // if that spot is beyond the first one). Any older saved position is
+        // superseded by this one.
+        try { sessionStorage.removeItem(RM_SCROLL_KEY); } catch (e) {}
+        while (_lmMaxScrollable() < _lmShellResumeY - 4 && typeof _lcRenderNextBatch === 'function'
+               && _lcRenderPool && _lcRenderedCount < _lcRenderPool.length) _lcRenderNextBatch();
+        _lmScrollTo(Math.min(_lmShellResumeY, _lmMaxScrollable()));
     } else if (_navType() === 'back_forward' || (_rmRecentPortalSave() && !_cameFromFeed())) {
         if (!restorePortalScroll()) goTop();
     } else {

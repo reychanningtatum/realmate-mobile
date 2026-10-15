@@ -927,13 +927,13 @@ html[data-theme="dark"] .sold-indicator.sold-indicator-willing { box-shadow: 0 4
   transition: transform 0.2s, box-shadow 0.2s;
   cursor: default;
   box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.02);
-  /* Cap memory during long scrolls: the browser skips rendering off-screen
-     cards and can reclaim their decoded images, then remembers each card's real
-     height (contain-intrinsic-size: auto) so scrolling stays stable. This is the
-     main lever against iOS jettisoning the whole web view while scrolling an
-     image-heavy Portal (the "Portal randomly reloads" report). */
-  content-visibility: auto;
-  contain-intrinsic-size: auto 480px;
+  /* No content-visibility:auto here. It sized every card that hadn't been drawn
+     yet (all of them after a rebuild/reload) at a 480px guess, then snapped it to
+     its real 300–930px height as it came into view. Scrolling UP through them
+     moved the content under the finger by hundreds of px, both ways — iOS WebKit
+     has no scroll anchoring to absorb it — the Portal "bouncing". Memory is
+     still capped by batched rendering, lazy images and the shell freeing
+     background tabs. */
 }
 .listing-card:hover { transform: translateY(-3px); box-shadow: 0 8px 30px rgba(0,0,0,0.08); }
 .listing-card.is-match { border-color: #1e3a5f; }
