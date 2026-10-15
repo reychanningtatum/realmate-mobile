@@ -274,7 +274,12 @@
       // Root-only tab parked on another page → fall through to a clean root load
       // (never history.back(): the shared history may pop some other frame).
       if (!(ROOT_ONLY[tab] && curFrame && onSubpage(curFrame))) {
-      if (curFrame && onSubpage(curFrame)) { try { curFrame.contentWindow.history.back(); } catch (e) {} return; }
+      // Load the tab's root IN THIS FRAME. Not history.back(): all frames share
+      // one session history, so "back" popped whichever frame navigated last —
+      // e.g. re-tapping Feed on a profile moved the Portal frame instead and the
+      // Feed stayed on the profile. replace() touches only this frame and adds no
+      // history entry.
+      if (curFrame && onSubpage(curFrame)) { try { curFrame.contentWindow.location.replace(TABS[tab]); } catch (e) {} return; }
       // Feed: re-tapping resets any active filter (Saved/hashtag) to the plain feed
       // at the top — idempotent, never a reload — so repeated taps can't break it.
       try { var _fw = curFrame && curFrame.contentWindow; if (_fw && typeof _fw.__feedNavHome === 'function') { _fw.__feedNavHome(); return; } } catch (e) {}
