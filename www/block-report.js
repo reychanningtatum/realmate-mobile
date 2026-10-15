@@ -24,7 +24,8 @@
   //   • this page's own block/unblock → applied here at once;
   //   • other pages/tabs in the same browser → the rmbr_sync localStorage ping;
   //   • other devices/sessions, and the person on the other side → a realtime
-  //     broadcast on 'rmbr-<accountId>' that only says "re-read". The receiving
+  //     PRIVATE broadcast on 'rmbr-<accountId>' (only that account can listen) that
+  //     only says "re-read". The receiving
   //     window reads user_blocks itself (under its own RLS) and passes the result
   //     on through rmbr_sync. Nothing about who blocked whom travels over the
   //     channel (database change events would broadcast every unblock to every
@@ -85,13 +86,20 @@
   }
 
   // ── Realtime: "your block list changed" pings ────────────────────────────
+  // The channels are PRIVATE (realtime-private-blocks-migration.sql): only this
+  // account can listen on 'rmbr-<its id>', so nobody else can watch when it
+  // blocks or unblocks. Joining a private channel needs the signed-in session.
   var _chan = null;
-  function _listen() {
+  async function _listen() {
     var sb = client();
     if (_chan || !sb || !myId || !sb.channel) return;
     try { if (window.top !== window) return; } catch (e) { return; }   // the shell window listens for its frames
     try {
-      _chan = sb.channel('rmbr-' + myId)
+      var s = await sb.auth.getSession();
+      var tok = s && s.data && s.data.session && s.data.session.access_token;
+      if (!tok || _chan) return;
+      if (sb.realtime && sb.realtime.setAuth) { try { await sb.realtime.setAuth(tok); } catch (e) {} }
+      _chan = sb.channel('rmbr-' + myId, { config: { private: true } })
         .on('broadcast', { event: 'changed' }, function () { resync(); })
         .subscribe();
     } catch (e) { _chan = null; }
@@ -102,7 +110,8 @@
     try {
       var sb = client(); var tok = SB_KEY;
       try { var s = await sb.auth.getSession(); if (s && s.data && s.data.session) tok = s.data.session.access_token; } catch (e) {}
-      var msgs = ids.filter(Boolean).map(function (id) { return { topic: 'rmbr-' + id, event: 'changed', payload: {} }; });
+      if (tok === SB_KEY) return;                       // private channels: signed-in senders only
+      var msgs = ids.filter(Boolean).map(function (id) { return { topic: 'rmbr-' + id, event: 'changed', payload: {}, private: true }; });
       if (!msgs.length) return;
       await fetch(SB_URL + '/realtime/v1/api/broadcast', {
         method: 'POST',
