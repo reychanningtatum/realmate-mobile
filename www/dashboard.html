@@ -532,7 +532,9 @@
         </div>
         <!-- Crop canvas area stays dark for image contrast (per spec). -->
         <div style="padding:16px; max-height:60vh; overflow:hidden; background:#0f172a;">
-            <img id="coverCropImage" src="" style="display:block; max-width:100%;">
+            <!-- No src until the editor opens (dashboard-script.js sets it): an empty
+                 src="" fires a load error against the page's own URL on every visit. -->
+            <img id="coverCropImage" alt="" style="display:block; max-width:100%;">
         </div>
         <div style="padding:12px 20px; border-top:1px solid #e2e8f0; display:flex; justify-content:flex-end; gap:10px;">
             <button onclick="closeCoverCropModal()" style="padding:10px 20px; border-radius:10px; border:1px solid #e2e8f0; background:#f1f5f9; color:#0f172a; font-size:13px; font-weight:700; cursor:pointer;">Cancel</button>
