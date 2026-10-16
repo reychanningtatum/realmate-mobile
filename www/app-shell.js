@@ -202,6 +202,14 @@
         if (t && t.updateCallbackDone && t.updateCallbackDone.catch) {
           t.updateCallbackDone.catch(function () { try { fn(); } catch (e) {} });
         }
+        // `ready` / `finished` also reject when the browser cancels the
+        // animation (e.g. "Viewport size changed"); reveal() already ran, so a
+        // cancelled animation is expected — never an unhandled rejection.
+        [t && t.ready, t && t.finished].forEach(function (p) {
+          if (p && p.catch) p.catch(function (err) {
+            if (!(err && (err.name === 'AbortError' || /transition was (aborted|skipped)/i.test(String(err.message || ''))))) throw err;
+          });
+        });
         return;
       } catch (e) { /* fall through to a direct, un-animated reveal */ }
     }
