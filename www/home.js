@@ -1078,7 +1078,10 @@ async function loadHomeFeed(feedEl, filterArg, silent) {
             }
             query = query.in('id', savedIds);
         } else if (filter.type === 'hashtag') {
-            query = query.contains('hashtags', [filter.value]);
+            // hashtags is JSONB: send JSON text (cs.["tag"]). An array argument is
+            // sent as a Postgres array literal (cs.{tag}), which jsonb rejects
+            // with 22P02 "invalid input syntax for type json".
+            query = query.contains('hashtags', JSON.stringify([filter.value]));
         } else if (filter.type === 'topic') {
             query = query.eq('topic', filter.value);
         } else if (filter.type === 'user') {
