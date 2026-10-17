@@ -5097,7 +5097,7 @@ async function prefetchVisUsers() {
     if (lmUserDirectory) return;
     try {
         const me = (await _sb.auth.getUser()).data?.user?.id || null;
-        let q = _sb.from('profiles').select('id,full_name,avatar_url');
+        let q = _sb.from('profiles').select('id,full_name,avatar_url').eq('is_hidden', false);   // no system/staff accounts
         if (me) q = q.neq('id', me);
         const { data } = await q.limit(1000);
         lmUserDirectory = (data || []).filter(u => u.full_name);

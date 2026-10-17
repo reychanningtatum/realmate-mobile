@@ -662,7 +662,7 @@ function _makeUserPrefPicker(cfg){
       try {
         const myUid = await _privacyUid();
         const { data } = await _supabase.from('profiles')
-          .select('id,full_name,avatar_url').ilike('full_name', '%'+q+'%').limit(8);
+          .select('id,full_name,avatar_url').ilike('full_name', '%'+q+'%').eq('is_hidden', false).limit(8);   // no system/staff accounts
         const rows = (data||[]).filter(u => u.full_name && String(u.id)!==String(myUid) && !ids.includes(String(u.id)));
         if (window.RMProfileLive) try { RMProfileLive.prime(rows); } catch(e){}
         if(!rows.length){ box.innerHTML = '<div class="pv-result-empty">No users found</div>'; box.classList.add('open'); return; }

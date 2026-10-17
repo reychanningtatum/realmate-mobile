@@ -703,7 +703,7 @@ async function fetchTagCandidates(q) {
     if (out.length < 6) {
         try {
             const { data } = await _supaHome.from('profiles')
-                .select('id, full_name, avatar_url').ilike('full_name', `%${q}%`).limit(12);
+                .select('id, full_name, avatar_url').ilike('full_name', `%${q}%`).eq('is_hidden', false).limit(12);
             (data || []).forEach(p => add(p.id, p.full_name, p.avatar_url, null));
         } catch (e) {}
     }
@@ -713,7 +713,7 @@ async function fetchTagCandidates(q) {
     if (out.length < 6) {
         try {
             const { data } = await _supaHome.from('profiles')
-                .select('id, full_name, avatar_url, former_names').ilike('former_names', `%${q}%`).limit(12);
+                .select('id, full_name, avatar_url, former_names').ilike('former_names', `%${q}%`).eq('is_hidden', false).limit(12);
             (data || []).forEach(p => {
                 const matched = (p.former_names || '').split('\n').map(s => s.trim()).find(s => s.toLowerCase().includes(ql)) || null;
                 add(p.id, p.full_name, p.avatar_url, matched);
