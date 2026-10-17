@@ -143,7 +143,7 @@
         cgSearchTimer = setTimeout(async () => {
             const { data } = await _supaHome.from('profiles')
                 .select('id, full_name, avatar_url, job_title')
-                .ilike('full_name', `%${q}%`).limit(6);
+                .ilike('full_name', `%${q}%`).eq('is_hidden', false).limit(6);   // no system/staff accounts
             cgResults = (data || []).filter(p => p.full_name).map(p => ({
                 id: p.id, name: p.full_name, job: _homeValidPosition(p.job_title), img: _homeAvatarFor(p.full_name, p.avatar_url)
             }));
