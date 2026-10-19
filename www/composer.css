@@ -138,6 +138,7 @@
 .hf-post-text {
   font-size: 14px; line-height: 1.7; color: #334155;
   margin-bottom: 12px; white-space: pre-wrap;
+  overflow-wrap: anywhere; /* long links/words wrap instead of widening the page */
 }
 .hf-post-media { margin: 0 -16px 0; }
 .hf-post-media img,

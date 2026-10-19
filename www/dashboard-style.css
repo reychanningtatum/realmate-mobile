@@ -1141,7 +1141,7 @@ html[data-theme="dark"] .input-field-legacy-hint i { color: #f59e0b; }
    only hides at <=900 (below), so 901-1200 keeps the sidebar with a stacked
    profile. */
 @media (max-width: 1200px) {
-    .profile-layout { grid-template-columns: 1fr; }
+    .profile-layout { grid-template-columns: minmax(0, 1fr); } /* minmax(0,…) like desktop: content can't stretch the column past the screen */
     /* Collapse the 3 columns into one properly-ordered stream */
     .profile-left-col, .profile-main-col, .profile-side-col { display: contents; }
     .profile-card              { order: 0; }
