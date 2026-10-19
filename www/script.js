@@ -1227,8 +1227,8 @@ let _usernameCheckTimer = null;
 // pattern — otherwise e.g. "eris_" could match unrelated usernames.
 function _escapeIlike(s) { return s.replace(/[%_]/g, ch => '\\' + ch); }
 
-// Resolve a username to its account email, CASE-INSENSITIVELY, across the
-// current source of truth (profiles) and the legacy Users table. Returns the
+// Resolve a username to its account email, CASE-INSENSITIVELY, from profiles
+// (the source of truth). Returns the
 // email or null. Used for login and password reset so "Sayr", "sayr", and
 // "SAYR" all reach the same account. limit(1) (not maybeSingle) avoids a
 // multi-row error if legacy data ever holds a case-variant duplicate.
@@ -1237,10 +1237,6 @@ async function _emailForUsername(username) {
   if (!u) return null;
   try {
     const { data } = await window.supabaseClient.from('profiles').select('email').ilike('username', u).limit(1);
-    if (data && data[0] && data[0].email) return data[0].email;
-  } catch (e) {}
-  try {
-    const { data } = await window.supabaseClient.from('Users').select('email').ilike('username', u).limit(1);
     if (data && data[0] && data[0].email) return data[0].email;
   } catch (e) {}
   return null;
@@ -1261,8 +1257,8 @@ async function _isEmailDeliverable(email) {
   } catch (e) { return true; }                      // network error → fail-open
 }
 
-// Does an account exist with this EMAIL (case-insensitively), across profiles +
-// legacy Users? Mirrors _emailForUsername so password reset only fires for a
+// Does an account exist with this EMAIL (case-insensitively), in profiles?
+// Mirrors _emailForUsername so password reset only fires for a
 // real, registered account. (Supabase's resetPasswordForEmail otherwise reports
 // success for any address — "sending" a link to unregistered / fake emails.)
 async function _accountExistsForEmail(email) {
@@ -1272,23 +1268,15 @@ async function _accountExistsForEmail(email) {
     const { data } = await window.supabaseClient.from('profiles').select('id').ilike('email', e).limit(1);
     if (data && data.length) return true;
   } catch (err) {}
-  try {
-    const { data } = await window.supabaseClient.from('Users').select('email').ilike('email', e).limit(1);
-    if (data && data.length) return true;
-  } catch (err) {}
   return false;
 }
 
-// Is a username already taken (case-insensitively), checking both tables?
+// Is a username already taken (case-insensitively), in profiles?
 async function _usernameTaken(username) {
   const u = _escapeIlike(String(username).trim());
   if (!u) return false;
   try {
     const { data } = await window.supabaseClient.from('profiles').select('id').ilike('username', u).limit(1);
-    if (data && data.length) return true;
-  } catch (e) {}
-  try {
-    const { data } = await window.supabaseClient.from('Users').select('username').ilike('username', u).limit(1);
     if (data && data.length) return true;
   } catch (e) {}
   return false;

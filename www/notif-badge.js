@@ -2,6 +2,11 @@
 (async function () {
     const SUPABASE_URL = 'https://wmegpgrfrtprhuzmgjma.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_Rm_fIBDUfu3DEyLj0_bWZw_qEqo8cd4';
+    // Direct requests carry the signed-in user's identity (rmAuthHeaders in
+    // auth-guard.js, loaded first on every page); the public key when signed out.
+    const _authHeaders = (extra) => (typeof rmAuthHeaders === 'function')
+        ? rmAuthHeaders(SUPABASE_URL, SUPABASE_KEY, extra)
+        : Object.assign({ apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }, extra || {});
 
     const user = JSON.parse(localStorage.getItem("user")) || { name: "" };
     const userSettings = JSON.parse(localStorage.getItem("userSettings")) || { anonName: "" };
@@ -35,12 +40,7 @@
 
             const runQuery = (filter) => fetch(
                 `${SUPABASE_URL}/rest/v1/notifications?select=id&is_read=eq.false&type=neq.mate_request&or=(${encodeURIComponent(filter)})`,
-                {
-                    headers: {
-                        apikey: SUPABASE_KEY,
-                        Authorization: `Bearer ${SUPABASE_KEY}`
-                    }
-                }
+                { headers: _authHeaders() }
             );
 
             // If recipient_id doesn't exist yet on this database (the
@@ -78,7 +78,7 @@
 
             const res = await fetch(
                 `${SUPABASE_URL}/rest/v1/mates?select=id&status=eq.pending&or=(${encodeURIComponent(recipientFilter)})`,
-                { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } }
+                { headers: _authHeaders() }
             );
             const data = await res.json();
             return Array.isArray(data) ? data.length : 0;
@@ -186,7 +186,7 @@
         try {
             const r = await fetch(
                 `${SUPABASE_URL}/rest/v1/profiles?select=id&full_name=eq.${encodeURIComponent('Realmate Support')}&limit=1`,
-                { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } }
+                { headers: _authHeaders() }
             );
             const d = await r.json();
             _supportUidCache = (Array.isArray(d) && d[0] && d[0].id) || null;
@@ -210,7 +210,7 @@
             // of how many unread messages genuinely belonged to the user.)
             const partRes = await fetch(
                 `${SUPABASE_URL}/rest/v1/conversation_participants?select=conversation_id&user_id=eq.${u.id}`,
-                { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } }
+                { headers: _authHeaders() }
             );
             const parts = await partRes.json();
             if (!Array.isArray(parts) || !parts.length) return 0;
@@ -219,7 +219,7 @@
             const idList = convIds.map(id => `"${id}"`).join(',');
             const res = await fetch(
                 `${SUPABASE_URL}/rest/v1/messages?select=conversation_id,sender_id&is_read=eq.false&sender_id=neq.${u.id}&conversation_id=in.(${idList})`,
-                { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } }
+                { headers: _authHeaders() }
             );
             const data = await res.json();
             if (!Array.isArray(data)) return 0;

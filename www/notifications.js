@@ -246,6 +246,11 @@ function _buildNotificationCard(notif) {
     // were simply READ while still genuinely pending. Passing sender_id
     // alongside the name lets this resolve correctly even if the sender
     // renamed after the mates row was written (see _matesCacheById).
+    // Notification fields are written by other members, so they are always
+    // rendered as text: HTML-escaped, and JS-escaped inside onclick arguments.
+    const _nEsc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => (
+        { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const _nJsArg = (s) => _nEsc(String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'"));
     const mateStatus = typeof getMateStatus === 'function' ? getMateStatus(notif.sender_user_name, notif.sender_id) : 'none';
     const isStillPending = mateStatus === 'pending_received';
     // event.stopPropagation() keeps Accept/Decline in-place: the card itself has a
@@ -254,10 +259,10 @@ function _buildNotificationCard(notif) {
     // instead of just accepting/declining right here.
     const mateActions = (type === 'mate_request' && isStillPending) ? `
         <div class="mate-request-actions">
-            <button class="mate-accept-btn" onclick="event.stopPropagation(); handleNotifAcceptMate(this, '${notif.sender_user_name.replace(/'/g, "\\'")}', '${notif.id}')">
+            <button class="mate-accept-btn" onclick="event.stopPropagation(); handleNotifAcceptMate(this, '${_nJsArg(notif.sender_user_name)}', '${_nJsArg(notif.id)}')">
                 <i class="fas fa-check"></i> Accept
             </button>
-            <button class="mate-decline-btn" onclick="event.stopPropagation(); handleNotifDeclineMate(this, '${notif.sender_user_name.replace(/'/g, "\\'")}', '${notif.id}')">
+            <button class="mate-decline-btn" onclick="event.stopPropagation(); handleNotifDeclineMate(this, '${_nJsArg(notif.sender_user_name)}', '${_nJsArg(notif.id)}')">
                 <i class="fas fa-times"></i> Decline
             </button>
         </div>` : (type === 'mate_request' && !isStillPending
@@ -273,10 +278,10 @@ function _buildNotificationCard(notif) {
         && notif.sender_id && window._pendingFollowerIds.has(String(notif.sender_id));
     const followActions = _isPendingFollow ? `
         <div class="mate-request-actions">
-            <button class="mate-accept-btn" onclick="event.stopPropagation(); handleNotifAcceptFollow(this, '${notif.sender_id}', '${notif.id}')">
+            <button class="mate-accept-btn" onclick="event.stopPropagation(); handleNotifAcceptFollow(this, '${_nJsArg(notif.sender_id)}', '${_nJsArg(notif.id)}')">
                 <i class="fas fa-check"></i> Accept
             </button>
-            <button class="mate-decline-btn" onclick="event.stopPropagation(); handleNotifRejectFollow(this, '${notif.sender_id}', '${notif.id}')">
+            <button class="mate-decline-btn" onclick="event.stopPropagation(); handleNotifRejectFollow(this, '${_nJsArg(notif.sender_id)}', '${_nJsArg(notif.id)}')">
                 <i class="fas fa-times"></i> Reject
             </button>
         </div>` : (type === 'follow_request' && !_isPendingFollow
@@ -288,10 +293,10 @@ function _buildNotificationCard(notif) {
     const isAdminNotif = type === 'content_removed';
     const avatarHtml = isAdminNotif
         ? `<div class="hub-avatar-img hub-admin-avatar" aria-label="realmate admin"><i class="fas fa-shield-halved"></i></div>`
-        : `<img src="${notif.sender_profile_picture || 'https://ui-avatars.com/api/?name=?&background=0f172a&color=32cd32'}" class="hub-avatar-img hub-avatar-clickable" alt="Sender Avatar" title="View profile" onclick="event.stopPropagation(); _notifGoToSenderProfileById('${notif.id}')">`;
+        : `<img src="${_nEsc(notif.sender_profile_picture || 'https://ui-avatars.com/api/?name=?&background=0f172a&color=32cd32')}" class="hub-avatar-img hub-avatar-clickable" alt="Sender Avatar" title="View profile" onclick="event.stopPropagation(); _notifGoToSenderProfileById('${_nJsArg(notif.id)}')">`;
     const senderHtml = isAdminNotif
         ? `<strong class="hub-sender-name hub-admin-name">realmate admin</strong>`
-        : `<strong class="hub-sender-name-clickable" title="View profile" onclick="event.stopPropagation(); _notifGoToSenderProfileById('${notif.id}')">${notif.sender_user_name}</strong>`;
+        : `<strong class="hub-sender-name-clickable" title="View profile" onclick="event.stopPropagation(); _notifGoToSenderProfileById('${_nJsArg(notif.id)}')">${_nEsc(notif.sender_user_name)}</strong>`;
 
     row.innerHTML = `
         <div class="hub-avatar-block">
@@ -302,7 +307,7 @@ function _buildNotificationCard(notif) {
         </div>
         <div class="hub-message-content-box">
             <p class="hub-message-text">
-                ${senderHtml} ${notif.message || 'interacted with your content.'}
+                ${senderHtml} ${_nEsc(notif.message || 'interacted with your content.')}
             </p>
             <span class="hub-timestamp-label">
                 <i class="far fa-clock"></i> ${formatRelativeTime(notif.created_at || notif.timestamp)}

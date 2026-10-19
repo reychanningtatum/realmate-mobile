@@ -2296,14 +2296,11 @@ async function saveProfile() {
                 });
                 if (error) throw error;
 
-                // Keep the login handle in sync: auth metadata + legacy Users lookup
-                // table (used to resolve username → email at sign-in). Best-effort —
+                // Keep the auth metadata's username in sync (profiles, saved above,
+                // is what sign-in resolves username → email from). Best-effort —
                 // a failure here shouldn't block the profile save that already landed.
                 if (_usernameChanged) {
                     try { await _supabase.auth.updateUser({ data: { username: user.username } }); } catch (_) {}
-                    if (authUser.email) {
-                        try { await _supabase.from('Users').update({ username: user.username }).eq('email', authUser.email); } catch (_) {}
-                    }
                 }
             }
         } catch(e) {

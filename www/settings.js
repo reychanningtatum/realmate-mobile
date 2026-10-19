@@ -240,9 +240,9 @@ async function loadAccountEmail() {
     }
 }
 
-// Mirror the confirmed auth email into profiles.email (primary lookup) and the
-// legacy Users table (secondary). Best-effort: if the column grant isn't present
-// yet, this no-ops and login resolution is unaffected until it's granted.
+// Mirror the confirmed auth email into profiles.email (the login lookup).
+// Best-effort: if the column grant isn't present yet, this no-ops and login
+// resolution is unaffected until it's granted.
 async function _syncProfileEmail(authUser) {
     try {
         if (!authUser || !authUser.id || !authUser.email) return;
@@ -250,7 +250,6 @@ async function _syncProfileEmail(authUser) {
         const have = (prof && prof.email) || '';
         if (have.toLowerCase() !== authUser.email.toLowerCase()) {
             await _supabase.from('profiles').update({ email: authUser.email }).eq('id', authUser.id);
-            if (have) { try { await _supabase.from('Users').update({ email: authUser.email }).eq('email', have); } catch (_) {} }
         }
     } catch (e) { /* grant/RLS/network — non-fatal */ }
 }

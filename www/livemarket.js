@@ -1,5 +1,12 @@
 const supabaseUrl = 'https://wmegpgrfrtprhuzmgjma.supabase.co';
 const supabaseKey = 'sb_publishable_Rm_fIBDUfu3DEyLj0_bWZw_qEqo8cd4';
+// Direct requests carry the signed-in user's identity (rmAuthHeaders in
+// auth-guard.js, loaded first on every page); the public key when signed out.
+function _lmAuthHeaders(extra) {
+    return (typeof rmAuthHeaders === 'function')
+        ? rmAuthHeaders(supabaseUrl, supabaseKey, extra)
+        : Object.assign({ apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` }, extra || {});
+}
 const _sb = supabase.createClient(supabaseUrl, supabaseKey);
 
 // ── AI Match Engine — shared core (see match-engine.js / window.RM_MATCH) ──
@@ -847,30 +854,15 @@ function isSoldExpired(listing) {
     return Date.now() - new Date(listing.sold_at).getTime() >= SOLD_TTL_MS;
 }
 
-// Sweep expired sold listings out of the current view for EVERY viewer, and —
-// where the client has permission (owner / admin) — finalize the deletion in the
-// DB. The permanent Sold record was already written at confirmation time.
+// Hide expired sold listings from this viewer the moment they pass 24h. The
+// deletion itself (stamp sold_records.deleted_at, delete the listing, archive
+// on failure) runs on the server every few minutes:
+// public.sweep_expired_sold_listings() via pg_cron (sold-sweep-server-migration.sql).
+// The permanent Sold record was already written at confirmation time.
 async function sweepExpiredSoldListings() {
     const expired = (allListings || []).filter(isSoldExpired);
     if (!expired.length) return;
-    // Hide from this viewer immediately, regardless of delete permission.
     allListings = allListings.filter(l => !isSoldExpired(l));
-    for (const l of expired) {
-        try {
-            const delAt = new Date().toISOString();
-            // Stamp the actual deletion time on the permanent record.
-            await _sb.from('sold_records').update({ deleted_at: delAt }).eq('listing_id', String(l.id));
-            // Remove the listing everywhere. Hard delete; fall back to archive if
-            // RLS blocks it — whether it errors or silently affects zero rows (the
-            // permanent Sold record preserves the history either way).
-            const { data: del, error } = await _sb.from('listings').delete().eq('id', l.id).select('id');
-            if (error || !del || !del.length) {
-                await _sb.from('listings').update({ archived: true, status: 'sold' }).eq('id', l.id);
-            }
-        } catch (e) {
-            console.warn('[Sold] sweep failed for', l.id, e);
-        }
-    }
 }
 
 // Live 24h countdown shown on every sold card (updates once a minute). When a
@@ -1167,7 +1159,7 @@ async function preloadOfferCounts() {
     try {
         const resp = await fetch(
             `${supabaseUrl}/rest/v1/listing_offers?select=listing_id,user_id`,
-            { headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` } }
+            { headers: _lmAuthHeaders() }
         );
         const rows = await resp.json();
         if (!Array.isArray(rows)) return;
@@ -1541,7 +1533,7 @@ async function appendOfferToModalIfOpen(listingId, userId, createdAt) {
     if (body.querySelector(`.offers-rx-card[data-offer-uid="${userId}"]`)) return;
     let p = {};
     try {
-        const h = { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` };
+        const h = _lmAuthHeaders();
         const r = await fetch(
             `${supabaseUrl}/rest/v1/profiles?select=id,full_name,avatar_url,job_title,division&id=eq.${encodeURIComponent(userId)}`,
             { headers: h });
@@ -1608,7 +1600,7 @@ async function showOffersReceived(listingId) {
     document.body.style.overflow = 'hidden';
 
     try {
-        const h = { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` };
+        const h = _lmAuthHeaders();
         const offResp = await fetch(
             `${supabaseUrl}/rest/v1/listing_offers?select=user_id,created_at&listing_id=eq.${encodeURIComponent(listingId)}&order=created_at.desc`,
             { headers: h });
@@ -1694,7 +1686,7 @@ async function confirmOffer() {
         // Find or create the conversation and insert LISTING_REF message — await before navigating
         const SUPA_URL = supabaseUrl;
         const SUPA_KEY = supabaseKey;
-        const h = { 'apikey': SUPA_KEY, 'Authorization': `Bearer ${SUPA_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'return=representation' };
+        const h = _lmAuthHeaders({ 'Content-Type': 'application/json', 'Prefer': 'return=representation' });
 
         let convId = null;
         try {
@@ -2476,7 +2468,7 @@ async function showVisibilityInfo(listingId) {
         try {
             const idList = ids.map(encodeURIComponent).join(',');
             const res = await fetch(`${supabaseUrl}/rest/v1/profiles?select=id,full_name&id=in.(${idList})`,
-                { headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` } });
+                { headers: _lmAuthHeaders() });
             const rows = await res.json();
             const byId = {}; (rows || []).forEach(r => { byId[String(r.id)] = r.full_name; });
             names = ids.map(id => escapeHtmlSafe(byId[id] || 'realmate member'));

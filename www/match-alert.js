@@ -20,6 +20,11 @@
 
     const SUPABASE_URL = 'https://wmegpgrfrtprhuzmgjma.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_Rm_fIBDUfu3DEyLj0_bWZw_qEqo8cd4';
+    // Direct requests carry the signed-in user's identity (rmAuthHeaders in
+    // auth-guard.js, loaded first on every page); the public key when signed out.
+    const _authHeaders = (extra) => (typeof rmAuthHeaders === 'function')
+        ? rmAuthHeaders(SUPABASE_URL, SUPABASE_KEY, extra)
+        : Object.assign({ apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }, extra || {});
     const MATCH_THRESHOLD = 10; // identical to buildMatchMap's `score < 10` cutoff
 
     // A listing marked Sold/Bought/Rented/Leased (all stored as status='sold') is
@@ -439,7 +444,7 @@
             if (!_myUid) { _setDiag('note', 'loadMine:no-uid'); return; }
             const res = await fetch(
                 `${SUPABASE_URL}/rest/v1/listings?select=*&archived=eq.false&user_id=eq.${_myUid}`,
-                { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } }
+                { headers: _authHeaders() }
             );
             const mine = await res.json();
             // A completed own listing can't produce matches — exclude it so it
@@ -475,7 +480,7 @@
         try {
             const res = await fetch(
                 `${SUPABASE_URL}/rest/v1/listings?select=*&archived=eq.false&order=created_at.desc&limit=500`,
-                { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } }
+                { headers: _authHeaders() }
             );
             rows = await res.json();
         } catch (e) { return; }

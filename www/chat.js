@@ -6,8 +6,15 @@ const CHAT_URL = 'https://wmegpgrfrtprhuzmgjma.supabase.co';
 const CHAT_KEY = 'sb_publishable_Rm_fIBDUfu3DEyLj0_bWZw_qEqo8cd4';
 const _chatSupa = supabase.createClient(CHAT_URL, CHAT_KEY);
 
-const CHAT_READ_HEADERS = { 'apikey': CHAT_KEY, 'Authorization': `Bearer ${CHAT_KEY}` };
-const CHAT_WRITE_HEADERS = { 'apikey': CHAT_KEY, 'Authorization': `Bearer ${CHAT_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'return=representation' };
+// Request headers carrying the signed-in user's identity (rmAuthHeaders in
+// auth-guard.js); the public key when signed out. Built per request, so a
+// refreshed token is picked up.
+function _chatHeaders(extra) {
+    return (typeof rmAuthHeaders === 'function')
+        ? rmAuthHeaders(CHAT_URL, CHAT_KEY, extra)
+        : Object.assign({ 'apikey': CHAT_KEY, 'Authorization': `Bearer ${CHAT_KEY}` }, extra || {});
+}
+const CHAT_WRITE_EXTRA = { 'Content-Type': 'application/json', 'Prefer': 'return=representation' };
 
 // The four Admin-assigned positions are the only valid position values —
 // anything else (legacy free text, empty) is treated as no position.
@@ -102,7 +109,7 @@ const INACTIVITY_TIMEOUT = 5 * 60 * 1000;
 // ===== REST HELPERS =====
 async function chatGet(table, query) {
     try {
-        const r = await fetch(`${CHAT_URL}/rest/v1/${table}?${query}`, { headers: CHAT_READ_HEADERS });
+        const r = await fetch(`${CHAT_URL}/rest/v1/${table}?${query}`, { headers: _chatHeaders() });
         if (!r.ok) return [];
         return await r.json();
     } catch (e) { return []; }
@@ -110,7 +117,7 @@ async function chatGet(table, query) {
 
 async function chatInsert(table, body) {
     try {
-        const r = await fetch(`${CHAT_URL}/rest/v1/${table}`, { method: 'POST', headers: CHAT_WRITE_HEADERS, body: JSON.stringify(body) });
+        const r = await fetch(`${CHAT_URL}/rest/v1/${table}`, { method: 'POST', headers: _chatHeaders(CHAT_WRITE_EXTRA), body: JSON.stringify(body) });
         if (!r.ok) return null;
         const t = await r.text();
         if (!t) return null;
@@ -121,7 +128,7 @@ async function chatInsert(table, body) {
 
 async function chatUpdate(table, query, body) {
     try {
-        const r = await fetch(`${CHAT_URL}/rest/v1/${table}?${query}`, { method: 'PATCH', headers: CHAT_WRITE_HEADERS, body: JSON.stringify(body) });
+        const r = await fetch(`${CHAT_URL}/rest/v1/${table}?${query}`, { method: 'PATCH', headers: _chatHeaders(CHAT_WRITE_EXTRA), body: JSON.stringify(body) });
         if (!r.ok) {
             // Unlike chatGet/chatInsert, this used to swallow non-2xx
             // responses entirely — fetch() only rejects on network
@@ -180,7 +187,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     if (byName) await openConversation(byName.id);
                     else {
                         // Look up user id by name from listings table
-                        const res = await fetch(`${CHAT_URL}/rest/v1/listings?select=user_id&user_name=eq.${encodeURIComponent(name)}&limit=1`, { headers: { apikey: CHAT_KEY, Authorization: `Bearer ${CHAT_KEY}` } });
+                        const res = await fetch(`${CHAT_URL}/rest/v1/listings?select=user_id&user_name=eq.${encodeURIComponent(name)}&limit=1`, { headers: _chatHeaders() });
                         const rows = await res.json();
                         if (Array.isArray(rows) && rows[0]?.user_id) await openConversationWithUser(rows[0].user_id);
                     }
@@ -1104,7 +1111,7 @@ async function doSendFile(file, convId) {
 
     const upRes = await fetch(`${CHAT_URL}/storage/v1/object/chat-files/${fpath}`, {
         method: 'POST',
-        headers: { 'apikey': CHAT_KEY, 'Authorization': `Bearer ${CHAT_KEY}`, 'Content-Type': file.type || 'application/octet-stream' },
+        headers: _chatHeaders({ 'Content-Type': file.type || 'application/octet-stream' }),
         body: fileToUpload
     });
     if (!upRes.ok) throw new Error('Upload failed');

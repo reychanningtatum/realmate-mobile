@@ -1,3 +1,25 @@
+// Headers for a direct REST/Storage request, carrying the signed-in user's
+// identity. Every page loads this file before the scripts that make direct
+// requests, so it is the one place that decides which token they send.
+//   • Signed in with an unexpired token → Authorization: Bearer <access token>
+//   • Signed out, or the token has expired → Bearer <public key>, exactly what
+//     these requests sent before. Refreshing is left to the page's Supabase
+//     client: a second refresher here could race its refresh-token rotation.
+// The token is read from the project's own storage key, derived from the URL.
+function rmAuthHeaders(url, key, extra) {
+    let bearer = key;
+    try {
+        const ref = new URL(url).hostname.split('.')[0];
+        const raw = localStorage.getItem('sb-' + ref + '-auth-token');
+        if (raw) {
+            const j = JSON.parse(raw);
+            const s = (j && j.currentSession) ? j.currentSession : j;
+            if (s && s.access_token && (!s.expires_at || s.expires_at * 1000 > Date.now() + 30000)) bearer = s.access_token;
+        }
+    } catch (e) { /* unreadable storage → public key, as before */ }
+    return Object.assign({ apikey: key, Authorization: 'Bearer ' + bearer }, extra || {});
+}
+
 // Global logout — available on every page via the mobile nav
 function logout() {
     const SUPABASE_URL = 'https://wmegpgrfrtprhuzmgjma.supabase.co';
@@ -267,7 +289,6 @@ function goBack() {
                 const have = (prof && prof.email) || '';
                 if (have.toLowerCase() !== authEmail.toLowerCase()) {
                     await _sb.from('profiles').update({ email: authEmail }).eq('id', session.user.id);
-                    if (have) { try { await _sb.from('Users').update({ email: authEmail }).eq('email', have); } catch (_) {} }
                 }
             }
         }

@@ -394,7 +394,7 @@
 
 <script src="native-auth.js?v=11"></script>
 <script src="vendor/supabase-js.min.js?v=2.112.3"></script>
-<script src="auth-guard.js?v=20261013b"></script>
+<script src="auth-guard.js?v=20261019b"></script>
 <script src="visibility.js?v=20261002a"></script>
 <script src="rm-sound.js?v=20260831a"></script>
 <script src="mates.js?v=20260930c"></script>
@@ -403,8 +403,8 @@
 <script src="match-engine.js?v=20261015a"></script>
 <script src="developers.js?v=36"></script>
 <script src="rm-track.js?v=3"></script>
-<script src="match-alert.js?v=20261001m"></script>
-<script src="notif-badge.js?v=16"></script>
+<script src="match-alert.js?v=20261019b"></script>
+<script src="notif-badge.js?v=20261019b"></script>
 <script>
 const _sb = supabase.createClient('https://wmegpgrfrtprhuzmgjma.supabase.co', 'sb_publishable_Rm_fIBDUfu3DEyLj0_bWZw_qEqo8cd4');
 
@@ -1490,7 +1490,10 @@ async function sendOfferLd(btn){
 
   const SUPA_URL = 'https://wmegpgrfrtprhuzmgjma.supabase.co';
   const SUPA_KEY = 'sb_publishable_Rm_fIBDUfu3DEyLj0_bWZw_qEqo8cd4';
-  const h = { 'apikey':SUPA_KEY, 'Authorization':`Bearer ${SUPA_KEY}`, 'Content-Type':'application/json', 'Prefer':'return=representation' };
+  // Carries the signed-in user's identity (rmAuthHeaders in auth-guard.js); public key when signed out.
+  const _hx = { 'Content-Type':'application/json', 'Prefer':'return=representation' };
+  const h = (typeof rmAuthHeaders === 'function') ? rmAuthHeaders(SUPA_URL, SUPA_KEY, _hx)
+          : Object.assign({ 'apikey':SUPA_KEY, 'Authorization':`Bearer ${SUPA_KEY}` }, _hx);
 
   try {
     const { data: authData } = await _sb.auth.getUser();
