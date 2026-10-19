@@ -256,7 +256,7 @@ workflows:
         # (error 90062) whose version is not higher than the last APPROVED App Store
         # version, so bump APP_VERSION here after each App Store approval.
         script: |
-          APP_VERSION="1.0.2"
+          APP_VERSION="1.0.1"
           sed -i '' -E "s/MARKETING_VERSION = [^;]+;/MARKETING_VERSION = $APP_VERSION;/g" ios/App/App.xcodeproj/project.pbxproj
           PLIST=ios/App/App/Info.plist
           CUR=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$PLIST" 2>/dev/null || true)
