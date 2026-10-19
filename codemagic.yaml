@@ -308,9 +308,9 @@ workflows:
       vars:
         BUNDLE_ID: "com.realmate.app.staging"
         APPLE_TEAM_ID: "RYT2TFV64G"
-        # Numeric Apple ID of the STAGING App Store Connect app. Left as PENDING
-        # until that app exists — the first step refuses to build until it is set.
-        APP_STORE_APPLE_ID: "PENDING"
+        # Numeric Apple ID of the STAGING App Store Connect app "realmate Staging"
+        # (TestFlight internal only). Never the production app (6802656686).
+        APP_STORE_APPLE_ID: "6824495253"
         STAGING_APP_NAME: "realmate Staging"
         STAGING_SCHEME: "realmate-staging"
         STAGING_APP_VERSION: "1.0.0"
