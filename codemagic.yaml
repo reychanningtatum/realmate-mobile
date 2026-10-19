@@ -282,3 +282,177 @@ workflows:
       app_store_connect:
         auth: integration           # authenticate with the "Codemagic Realmate" API key
         submit_to_testflight: false # upload only — no external beta-review submission (no external testers); internal testers still get the build
+
+  # ---------------------------------------------------------------------------
+  # STAGING iOS app — a separate app identity, NOT the production app.
+  #   Bundle ID com.realmate.app.staging · own App Store Connect app (TestFlight
+  #   internal only, never submitted) · Supabase lyrzwglkvphlalbrotjw ·
+  #   realmate-staging:// · icon assets/staging/icon-only.png · own build numbers.
+  # Triggers ONLY on pushes to the `staging` branch. ios-release above is untouched
+  # and still triggers only on master. Everything staging-specific is applied to
+  # the CI workspace at build time and never committed, so promoting staging →
+  # master can never change the production app.
+  # ---------------------------------------------------------------------------
+  ios-staging:
+    name: Realmate STAGING iOS (com.realmate.app.staging -> TestFlight internal)
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    integrations:
+      app_store_connect: Codemagic Realmate   # same team API key (RYT2TFV64G); works for any app in the team
+    environment:
+      node: 20
+      xcode: 26.4
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.realmate.app.staging
+      vars:
+        BUNDLE_ID: "com.realmate.app.staging"
+        APPLE_TEAM_ID: "RYT2TFV64G"
+        # Numeric Apple ID of the STAGING App Store Connect app. Left as PENDING
+        # until that app exists — the first step refuses to build until it is set.
+        APP_STORE_APPLE_ID: "PENDING"
+        STAGING_APP_NAME: "realmate Staging"
+        STAGING_SCHEME: "realmate-staging"
+        STAGING_APP_VERSION: "1.0.0"
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: staging
+          include: true
+          source: true
+    scripts:
+      - name: Refuse to build until the staging Apple identity exists
+        script: |
+          case "$APP_STORE_APPLE_ID" in
+            ''|*[!0-9]*) echo "APP_STORE_APPLE_ID is '$APP_STORE_APPLE_ID' — the staging App Store Connect app is not configured yet. Not building."; exit 1 ;;
+          esac
+          if [ "$APP_STORE_APPLE_ID" = "6802656686" ] || [ "$BUNDLE_ID" = "com.realmate.app" ]; then
+            echo "Refusing: these are the PRODUCTION app's identifiers."; exit 1
+          fi
+      - name: Install JS dependencies (reproducible)
+        script: |
+          for i in 1 2 3 4; do
+            npm ci && break
+            echo "npm ci failed (attempt $i) — retrying in 15s…"; sleep 15
+          done
+      - name: Apply the staging identity to the CI workspace (never committed)
+        # Bundle id + app name (capacitor.config.json drives `cap add ios`), the
+        # staging Supabase target in www/rm-env.js, and the staging icon. Each change
+        # is verified; any mismatch fails the build rather than ship a mixed app.
+        script: |
+          node -e "const f='capacitor.config.json',c=JSON.parse(require('fs').readFileSync(f));c.appId=process.env.BUNDLE_ID;c.appName=process.env.STAGING_APP_NAME;require('fs').writeFileSync(f,JSON.stringify(c,null,2));"
+          grep -q "\"appId\": \"com.realmate.app.staging\"" capacitor.config.json || { echo "appId not set to staging"; exit 1; }
+          sed -i '' "s/var RM_ENV_TARGET = 'production';/var RM_ENV_TARGET = 'staging';/" www/rm-env.js
+          [ "$(grep -c "var RM_ENV_TARGET = 'staging';" www/rm-env.js)" = "1" ] || { echo "rm-env.js target not switched to staging"; exit 1; }
+          cp assets/staging/icon-only.png assets/icon-only.png
+          # Zero production Supabase references may remain outside rm-env.js's registry.
+          LEAKS=$(grep -rlE "wmegpgrfrtprhuzmgjma|sb_publishable_Rm_fIBDUfu3DEyLj0_bWZw_qEqo8cd4" www | grep -v '^www/rm-env.js$' || true)
+          if [ -n "$LEAKS" ]; then echo "Production Supabase references found in:"; echo "$LEAKS"; exit 1; fi
+          echo "Staging identity applied: $BUNDLE_ID, rm-env target=staging, staging icon."
+      - name: Generate iOS project in the cloud (Capacitor uses CI's CocoaPods)
+        script: |
+          if [ ! -d ios ]; then npx cap add ios; fi
+          npx cap sync ios
+      - name: Ensure AppDelegate forwards APNs device-token callbacks to Capacitor
+        script: |
+          AD=ios/App/App/AppDelegate.swift
+          if [ ! -f "$AD" ]; then echo "AppDelegate.swift not found at $AD"; exit 1; fi
+          if ! grep -q "capacitorDidRegisterForRemoteNotifications" "$AD"; then
+            perl -0777 -pi -e 's/\}\s*\z/\n    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {\n        NotificationCenter.default.post(name: .capacitorDidRegisterForRemoteNotifications, object: deviceToken)\n    }\n\n    func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {\n        NotificationCenter.default.post(name: .capacitorDidFailToRegisterForRemoteNotifications, object: error)\n    }\n}\n/' "$AD"
+          fi
+          if ! grep -q "applicationIconBadgeNumber = 0" "$AD"; then
+            perl -0777 -pi -e 's/(func applicationDidBecomeActive\(_ application: UIApplication\) \{)/$1\n        application.applicationIconBadgeNumber = 0/' "$AD"
+          fi
+      - name: Generate app icon + splash from assets/ (staging icon copied in above)
+        script: npx capacitor-assets generate --ios
+      - name: Set required Info.plist keys + the realmate-staging:// URL scheme
+        # Same keys as ios-release, but registers ONLY realmate-staging:// — never
+        # realmate://, so production links can never open the staging app.
+        script: |
+          PLIST=ios/App/App/Info.plist
+          plist_set() {
+            /usr/libexec/PlistBuddy -c "Add :$1 $2 $3" "$PLIST" 2>/dev/null \
+              || /usr/libexec/PlistBuddy -c "Set :$1 $3" "$PLIST"
+          }
+          plist_set ITSAppUsesNonExemptEncryption bool false
+          plist_set NSCameraUsageDescription string "Realmate uses the camera so you can take and upload photos of your property listings and verification documents."
+          plist_set NSPhotoLibraryUsageDescription string "Realmate accesses your photos so you can attach listing images and upload your Alveo ID for account verification."
+          plist_set NSFaceIDUsageDescription string "Realmate uses Face ID so you can sign in quickly and securely without re-entering your password."
+          /usr/libexec/PlistBuddy -c "Delete :UISupportedInterfaceOrientations" "$PLIST" 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :UISupportedInterfaceOrientations array" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Add :UISupportedInterfaceOrientations:0 string UIInterfaceOrientationPortrait" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Delete :UISupportedInterfaceOrientations~ipad" "$PLIST" 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :UISupportedInterfaceOrientations~ipad array" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Add :UISupportedInterfaceOrientations~ipad:0 string UIInterfaceOrientationPortrait" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Delete :CFBundleURLTypes" "$PLIST" 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes array" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:0 dict" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:0:CFBundleURLName string $BUNDLE_ID" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:0:CFBundleURLSchemes array" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:0:CFBundleURLSchemes:0 string $STAGING_SCHEME" "$PLIST"
+          echo "----- Info.plist CFBundleURLTypes -----"; /usr/libexec/PlistBuddy -c "Print :CFBundleURLTypes" "$PLIST"
+          if /usr/libexec/PlistBuddy -c "Print :CFBundleURLTypes" "$PLIST" | grep -qE "^ *realmate$"; then echo "realmate:// must not be registered by staging"; exit 1; fi
+      - name: Restrict binary to iPhone only (TARGETED_DEVICE_FAMILY = 1)
+        script: |
+          PBXPROJ=ios/App/App.xcodeproj/project.pbxproj
+          sed -i '' 's/TARGETED_DEVICE_FAMILY = "1,2"/TARGETED_DEVICE_FAMILY = "1"/g' "$PBXPROJ"
+          sed -i '' 's/TARGETED_DEVICE_FAMILY = 1,2;/TARGETED_DEVICE_FAMILY = 1;/g' "$PBXPROJ"
+      - name: Enable Push Notifications capability (aps-environment entitlement)
+        # REQUIRES the com.realmate.app.staging App ID to have Push Notifications enabled.
+        script: |
+          ENT=ios/App/App/App.entitlements
+          {
+            echo '<?xml version="1.0" encoding="UTF-8"?>'
+            echo '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">'
+            echo '<plist version="1.0">'
+            echo '<dict>'
+            echo '  <key>aps-environment</key>'
+            echo '  <string>production</string>'
+            echo '</dict>'
+            echo '</plist>'
+          } > "$ENT"
+          gem list -i xcodeproj >/dev/null 2>&1 || sudo gem install xcodeproj --no-document
+          ruby -e "require 'xcodeproj'; p=Xcodeproj::Project.open('ios/App/App.xcodeproj'); t=p.targets.find{|x| x.name=='App'}; raise 'App target not found' unless t; t.build_configurations.each{|c| c.build_settings['CODE_SIGN_ENTITLEMENTS']='App/App.entitlements'}; p.save; puts 'CODE_SIGN_ENTITLEMENTS set for App target'"
+      - name: Verify the project is the staging app before signing
+        script: |
+          PBXPROJ=ios/App/App.xcodeproj/project.pbxproj
+          grep -n "PRODUCT_BUNDLE_IDENTIFIER" "$PBXPROJ"
+          if grep "PRODUCT_BUNDLE_IDENTIFIER" "$PBXPROJ" | grep -v "com.realmate.app.staging;" | grep -q .; then
+            echo "A non-staging bundle identifier is present — refusing to sign."; exit 1
+          fi
+          grep -q "var RM_ENV_TARGET = 'staging';" ios/App/App/public/rm-env.js || { echo "Bundled web assets are not staging"; exit 1; }
+      - name: Apply App Store signing profiles fetched via the integration
+        script: xcode-project use-profiles
+      - name: Set the staging build number (staging app's own TestFlight numbering)
+        # Numbered from the STAGING app's latest TestFlight build only — independent
+        # of production's numbers. Push staging one build at a time (a second push
+        # while Apple is still processing could compute the same number).
+        script: |
+          cd ios/App
+          LATEST_BUILD_NUMBER=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID" 2>/dev/null || true)
+          if [ -z "$LATEST_BUILD_NUMBER" ]; then LATEST_BUILD_NUMBER=0; fi
+          agvtool new-version -all $(($LATEST_BUILD_NUMBER + 1))
+      - name: Set the staging marketing version (CFBundleShortVersionString)
+        script: |
+          sed -i '' -E "s/MARKETING_VERSION = [^;]+;/MARKETING_VERSION = $STAGING_APP_VERSION;/g" ios/App/App.xcodeproj/project.pbxproj
+          PLIST=ios/App/App/Info.plist
+          CUR=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$PLIST" 2>/dev/null || true)
+          case "$CUR" in
+            *MARKETING_VERSION*) ;;
+            *) /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $STAGING_APP_VERSION" "$PLIST" 2>/dev/null \
+                 || /usr/libexec/PlistBuddy -c "Add :CFBundleShortVersionString string $STAGING_APP_VERSION" "$PLIST" ;;
+          esac
+      - name: Build signed IPA (Release configuration, device / iphoneos)
+        script: |
+          xcode-project build-ipa \
+            --workspace ios/App/App.xcworkspace \
+            --scheme App \
+            --config Release
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: false # internal TestFlight only; never submitted for review
