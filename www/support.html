@@ -1,7 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <script src="rm-bugs.js?v=20261014c"></script>
+  <script src="rm-env.js?v=20261019e"></script>
+  <script src="rm-bugs.js?v=20261019e"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Support — realmate</title>
@@ -77,12 +78,12 @@
     </p>
   </div>
 
-  <script src="native-auth.js?v=11"></script>
+  <script src="native-auth.js?v=20261019e"></script>
   <script src="vendor/supabase-js.min.js?v=2.112.3"></script>
   <script>
     (function () {
-      var SB_URL = 'https://wmegpgrfrtprhuzmgjma.supabase.co';
-      var SB_KEY = 'sb_publishable_Rm_fIBDUfu3DEyLj0_bWZw_qEqo8cd4';
+      var SB_URL = window.RM_ENV.url;
+      var SB_KEY = window.RM_ENV.anonKey;
       var sb = window.supabase ? window.supabase.createClient(SB_URL, SB_KEY) : null;
       var form = document.getElementById('supportForm');
       var btn = document.getElementById('sSubmit');

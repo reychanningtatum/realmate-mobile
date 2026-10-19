@@ -15,10 +15,10 @@
 (function (global) {
   'use strict';
   global.NEXUS_ENVIRONMENTS = {
-    production: {
+    production: {   // the app's own environment (rm-env.js) — staging in a staging build
       label: 'Production',
-      url: 'https://wmegpgrfrtprhuzmgjma.supabase.co',
-      anonKey: 'sb_publishable_Rm_fIBDUfu3DEyLj0_bWZw_qEqo8cd4',
+      url: window.RM_ENV.url,
+      anonKey: window.RM_ENV.anonKey,
     },
     testing: {
       label: 'Testing',

@@ -35,6 +35,7 @@
     <div class="msg">Opening realmate…</div>
     <a class="link" id="webLink" href="/index.html">Continue on the web &rarr;</a>
   </div>
+  <script src="rm-env.js?v=20261019e"></script>
   <script>
     (function () {
       var q = new URLSearchParams(location.search);
@@ -52,7 +53,7 @@
       document.addEventListener('visibilitychange', function () { if (document.hidden) done = true; });
       window.addEventListener('pagehide', function () { done = true; });
       // Try to hand off to the installed app via its custom scheme.
-      try { location.href = 'realmate://resubmit?token=' + encodeURIComponent(token); } catch (e) {}
+      try { location.href = window.RM_ENV.scheme + '://resubmit?token=' + encodeURIComponent(token); } catch (e) {}
       // Still here after a moment → app isn't installed (or desktop) → web app.
       setTimeout(goWeb, 1600);
     })();

@@ -13,6 +13,13 @@
     if (!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform())) return;
   } catch (e) { return; }
 
+  // This build's own URL scheme (rm-env.js): realmate:// in production,
+  // realmate-staging:// in staging — each app only handles its own links.
+  var SCHEME = String(window.RM_ENV.scheme).replace(/[-]/g, '\\-');
+  var RX_RESUBMIT = new RegExp(SCHEME + ':\\/\\/resubmit', 'i');
+  var RX_CONFIRM = new RegExp(SCHEME + ':\\/\\/confirm-email', 'i');
+  var RX_RESET = new RegExp(SCHEME + ':\\/\\/reset', 'i');
+
   // Pull token_hash out of a realmate://reset?... (or any recovery) URL and load
   // index.html with it so the recovery modal opens. Returns true if it routed.
   function routeFromUrl(url) {
@@ -23,7 +30,7 @@
     // Load index.html with ?resubmit=<token> so the upload card opens on the
     // app's login screen (script.js handleResubmitFlow). Routed exactly once,
     // for the same reason as the recovery token below.
-    if (/realmate:\/\/resubmit/i.test(url)) {
+    if (RX_RESUBMIT.test(url)) {
       var rt = url.match(/[?&]token=([^&]+)/);
       if (!rt) return false;
       var tok;
@@ -41,7 +48,7 @@
     // Change of Email" button. Load index.html with the same token so script.js
     // (handleTokenHashEmailChange) verifies it and shows the success state IN THE
     // APP. Routed exactly once (same one-time-token reasoning as recovery below).
-    if (/realmate:\/\/confirm-email/i.test(url) || /type=email_change/i.test(url)) {
+    if (RX_CONFIRM.test(url) || /type=email_change/i.test(url)) {
       var me = url.match(/[?&]token_hash=([^&]+)/);
       if (!me) return false;
       var eh;
@@ -57,7 +64,7 @@
 
     var m = url.match(/[?&]token_hash=([^&]+)/);
     if (!m) return false;
-    if (!/type=recovery/i.test(url) && !/realmate:\/\/reset/i.test(url)) return false;
+    if (!/type=recovery/i.test(url) && !RX_RESET.test(url)) return false;
     var th;
     try { th = decodeURIComponent(m[1]); } catch (e) { th = m[1]; }
     // Route each token exactly ONCE. getLaunchUrl() keeps returning the same

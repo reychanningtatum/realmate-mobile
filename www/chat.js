@@ -2,8 +2,8 @@
 // CHAT MODULE — Realmate (clean rewrite)
 // =========================================
 
-const CHAT_URL = 'https://wmegpgrfrtprhuzmgjma.supabase.co';
-const CHAT_KEY = 'sb_publishable_Rm_fIBDUfu3DEyLj0_bWZw_qEqo8cd4';
+const CHAT_URL = window.RM_ENV.url;
+const CHAT_KEY = window.RM_ENV.anonKey;
 const _chatSupa = supabase.createClient(CHAT_URL, CHAT_KEY);
 
 // Request headers carrying the signed-in user's identity (rmAuthHeaders in

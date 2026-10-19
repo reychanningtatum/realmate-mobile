@@ -14,8 +14,8 @@
 // create index on mates(requester_id);
 // create index on mates(recipient_id);
 
-const MATES_URL = 'https://wmegpgrfrtprhuzmgjma.supabase.co';
-const MATES_KEY = 'sb_publishable_Rm_fIBDUfu3DEyLj0_bWZw_qEqo8cd4';
+const MATES_URL = window.RM_ENV.url;
+const MATES_KEY = window.RM_ENV.anonKey;
 const _matesDb  = (typeof _sb !== 'undefined') ? _sb
                 : (typeof _supabase !== 'undefined') ? _supabase
                 : supabase.createClient(MATES_URL, MATES_KEY);

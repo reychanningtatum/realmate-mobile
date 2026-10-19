@@ -11,7 +11,7 @@
 // stored; only Supabase's own refresh/access token, exactly as before, just in a
 // durable place.
 (function () {
-  var TOKEN_KEY = 'sb-wmegpgrfrtprhuzmgjma-auth-token';
+  var TOKEN_KEY = window.RM_ENV.authTokenKey;
   var BIO_KEY = 'rm_biometric_enabled';
   var isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
   function plugin(n) { return (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins[n]) || null; }
@@ -123,8 +123,8 @@
   // user via the caller's JWT — no PII, only the opaque token). Pure no-op on web,
   // when the plugin is missing, or when the user denies permission. It NEVER blocks
   // or affects auth or any existing feature — fully best-effort, all errors swallowed.
-  var PUSH_REGISTER_URL = 'https://wmegpgrfrtprhuzmgjma.supabase.co/functions/v1/push-register';
-  var PUSH_APIKEY = 'sb_publishable_Rm_fIBDUfu3DEyLj0_bWZw_qEqo8cd4';
+  var PUSH_REGISTER_URL = window.RM_ENV.url + '/functions/v1/push-register';
+  var PUSH_APIKEY = window.RM_ENV.anonKey;
   var _pushWired = false;   // add the plugin listeners only once per app launch
   var _pushToken = null;    // last APNs token seen this launch
   var _pushAuth = null;     // last known access token, so a late 'registration' event can still post

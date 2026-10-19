@@ -1,7 +1,8 @@
 <!DOCTYPE html>
 <html style="background:#080f1a">
 <head>
-  <script src="rm-bugs.js?v=20261014c"></script>
+  <script src="rm-env.js?v=20261019e"></script>
+  <script src="rm-bugs.js?v=20261019e"></script>
   <!-- Paint the page's dark background on the VERY FIRST frame, before style.css
        loads — otherwise the browser shows a default-white frame for a few ms when
        navigating marketing.html -> index.html (the "white blink"). Matches the
@@ -56,7 +57,7 @@
         // attemptAutoLogin reveals it only if there's genuinely no session — so a
         // returning user goes straight in without the login form ever flashing.
         var _native = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
-        if (!_native && !localStorage.getItem("sb-wmegpgrfrtprhuzmgjma-auth-token")) return;
+        if (!_native && !localStorage.getItem(window.RM_ENV.authTokenKey)) return;
         document.documentElement.classList.add("rm-autologin");
         setTimeout(function(){ document.documentElement.classList.remove("rm-autologin"); }, 4000);
       } catch (e) {}
@@ -458,10 +459,10 @@
   </div>
 </div>
 
-<script src="native-auth.js?v=11"></script>
-<script src="native-deeplink.js?v=4"></script>
+<script src="native-auth.js?v=20261019e"></script>
+<script src="native-deeplink.js?v=20261019e"></script>
 <script src="vendor/supabase-js.min.js?v=2.112.3"></script>
-<script src="script.js?v=20261019a"></script>
+<script src="script.js?v=20261019e"></script>
 <script>
   // Arrived from marketing's "Get Started" / "Join realmate": open the Create Account
   // modal directly. (Sign In leaves this flag unset and simply shows the login form.)

@@ -33,9 +33,9 @@
   'use strict';
   if (global.RMBugs) return;   // loaded twice on a page → keep the first
 
-  var SUPABASE_URL = 'https://wmegpgrfrtprhuzmgjma.supabase.co';
-  var SUPABASE_KEY = 'sb_publishable_Rm_fIBDUfu3DEyLj0_bWZw_qEqo8cd4';
-  var AUTH_KEY = 'sb-wmegpgrfrtprhuzmgjma-auth-token';
+  var SUPABASE_URL = window.RM_ENV.url;
+  var SUPABASE_KEY = window.RM_ENV.anonKey;
+  var AUTH_KEY = window.RM_ENV.authTokenKey;
   var RPC_URL = SUPABASE_URL + '/rest/v1/rpc/report_bugs';
   var PREF_KEY = 'rm_bug_reports';
   var APP_VERSION = '20261014c';

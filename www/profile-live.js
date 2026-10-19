@@ -20,8 +20,8 @@
  */
 (function () {
   'use strict';
-  var SB_URL = 'https://wmegpgrfrtprhuzmgjma.supabase.co';
-  var SB_KEY = 'sb_publishable_Rm_fIBDUfu3DEyLj0_bWZw_qEqo8cd4';
+  var SB_URL = window.RM_ENV.url;
+  var SB_KEY = window.RM_ENV.anonKey;
   function client() {
     return window._sb || window.supabaseClient || window._supabase ||
       (window.supabase ? (window.__rmPLClient || (window.__rmPLClient = window.supabase.createClient(SB_URL, SB_KEY))) : null);

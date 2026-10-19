@@ -24,8 +24,8 @@
 (function (global) {
   'use strict';
 
-  var SUPABASE_URL = 'https://wmegpgrfrtprhuzmgjma.supabase.co'; // production
-  var SUPABASE_KEY = 'sb_publishable_Rm_fIBDUfu3DEyLj0_bWZw_qEqo8cd4';
+  var SUPABASE_URL = window.RM_ENV.url;
+  var SUPABASE_KEY = window.RM_ENV.anonKey;
 
   var HARD_DISABLE = false;   // emergency in-code kill switch; leave false
   var FLUSH_MS = 8000, MAX_BATCH = 25, TTL_MS = 10 * 60 * 1000;

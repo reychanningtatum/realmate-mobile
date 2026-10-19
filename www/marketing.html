@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#060c16">
+<script src="rm-env.js?v=20261019e"></script>
 <script>
   // Arrived here from the login page's Back button: start under the dark curtain
   // (set synchronously, before paint) so this page is revealed by lifting it — the
@@ -960,7 +961,7 @@
 </div>
 
 <script src="vendor/supabase-js.min.js?v=2.112.3"></script>
-<script src="feedback.js?v=20261015b"></script>
+<script src="feedback.js?v=20261019e"></script>
 <script>
   // Feedback: the server decides who sent it from the browser's realmate
   // session (signed in → their account; otherwise anonymous). This label only
@@ -968,7 +969,7 @@
   (function () {
     var who = document.getElementById('mkFeedbackWho');
     try {
-      var sb = window.supabase && window.supabase.createClient('https://wmegpgrfrtprhuzmgjma.supabase.co', 'sb_publishable_Rm_fIBDUfu3DEyLj0_bWZw_qEqo8cd4');
+      var sb = window.supabase && window.supabase.createClient(window.RM_ENV.url, window.RM_ENV.anonKey);
       window.supabaseClient = window.supabaseClient || sb;
       if (sb) sb.auth.getSession().then(function (r) {
         var s = r && r.data && r.data.session;

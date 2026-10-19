@@ -1,5 +1,5 @@
-const supabaseUrl = 'https://wmegpgrfrtprhuzmgjma.supabase.co';
-const supabaseKey = 'sb_publishable_Rm_fIBDUfu3DEyLj0_bWZw_qEqo8cd4';
+const supabaseUrl = window.RM_ENV.url;
+const supabaseKey = window.RM_ENV.anonKey;
 // Direct requests carry the signed-in user's identity (rmAuthHeaders in
 // auth-guard.js, loaded first on every page); the public key when signed out.
 function _lmAuthHeaders(extra) {

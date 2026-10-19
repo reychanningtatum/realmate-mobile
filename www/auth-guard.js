@@ -22,8 +22,8 @@ function rmAuthHeaders(url, key, extra) {
 
 // Global logout — available on every page via the mobile nav
 function logout() {
-    const SUPABASE_URL = 'https://wmegpgrfrtprhuzmgjma.supabase.co';
-    const SUPABASE_KEY = 'sb_publishable_Rm_fIBDUfu3DEyLj0_bWZw_qEqo8cd4';
+    const SUPABASE_URL = window.RM_ENV.url;
+    const SUPABASE_KEY = window.RM_ENV.anonKey;
     // Remove the session token SYNCHRONOUSLY first, before anything can redirect.
     // signOut() is async and wasn't awaited, so the token could still be in
     // storage when index.html's attemptAutoLogin() runs — and its session-restore
@@ -31,7 +31,7 @@ function logout() {
     // clears the native Preferences mirror (see native-auth.js). Also mark that we
     // just logged out so auto-login/hydrate is skipped this launch.
     try {
-        localStorage.removeItem('sb-wmegpgrfrtprhuzmgjma-auth-token');
+        localStorage.removeItem(window.RM_ENV.authTokenKey);
         localStorage.removeItem('user');
         localStorage.removeItem('posts');
         localStorage.removeItem('isGuest');
@@ -88,12 +88,12 @@ function goBack() {
 
 // 🔐 AUTH GUARD — runs on every protected page
 (async function () {
-    const SUPABASE_URL = 'https://wmegpgrfrtprhuzmgjma.supabase.co';
-    const SUPABASE_KEY = 'sb_publishable_Rm_fIBDUfu3DEyLj0_bWZw_qEqo8cd4';
+    const SUPABASE_URL = window.RM_ENV.url;
+    const SUPABASE_KEY = window.RM_ENV.anonKey;
     const _sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     const isGuest = localStorage.getItem("isGuest") === "true";
-    const _RM_TOKEN_KEY = "sb-wmegpgrfrtprhuzmgjma-auth-token";
+    const _RM_TOKEN_KEY = window.RM_ENV.authTokenKey;
     // Native: wait for the persisted session to be restored into localStorage
     // before asking Supabase for it (see native-auth.js).
     if (window.rmSessionReady) { try { await window.rmSessionReady; } catch (e) {} }

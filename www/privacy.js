@@ -15,8 +15,8 @@
  */
 (function () {
   'use strict';
-  var SB_URL = 'https://wmegpgrfrtprhuzmgjma.supabase.co';
-  var SB_KEY = 'sb_publishable_Rm_fIBDUfu3DEyLj0_bWZw_qEqo8cd4';
+  var SB_URL = window.RM_ENV.url;
+  var SB_KEY = window.RM_ENV.anonKey;
   function sb() {
     return window.supabaseClient || window._sb || window._supabase ||
       (window.supabase ? (window.__privClient || (window.__privClient = window.supabase.createClient(SB_URL, SB_KEY))) : null);

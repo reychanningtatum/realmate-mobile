@@ -1,6 +1,6 @@
 window.supabaseClient = window.supabase.createClient(
-    "https://wmegpgrfrtprhuzmgjma.supabase.co",
-    "sb_publishable_Rm_fIBDUfu3DEyLj0_bWZw_qEqo8cd4"
+    window.RM_ENV.url,
+    window.RM_ENV.anonKey
 );
 
 // One-time reset of the biometric-offer guard. The old "Enable Face ID?" offer
@@ -76,7 +76,7 @@ window.supabaseClient.auth.onAuthStateChange((event) => {
     try { if (sessionStorage.getItem("rm_from_marketing")) { sessionStorage.removeItem("rm_from_marketing"); await revealWithBio(); return; } } catch (e) {}
     // Just logged out this launch — show the login form, never hydrate back in.
     try { if (sessionStorage.getItem("rm_logged_out")) { sessionStorage.removeItem("rm_logged_out"); await revealWithBio(); return; } } catch (e) {}
-    var _RM_TOKEN_KEY = "sb-wmegpgrfrtprhuzmgjma-auth-token";
+    var _RM_TOKEN_KEY = window.RM_ENV.authTokenKey;
     try {
         // Native: wait for the persisted session to be restored into localStorage
         // before asking Supabase for it (see native-auth.js).
@@ -127,7 +127,7 @@ async function bioSignIn() {
 // restored session or null. Shared by attemptAutoLogin and auth-guard.
 async function _rmHydrateSession(tokenKey) {
     try {
-        var raw = localStorage.getItem(tokenKey || "sb-wmegpgrfrtprhuzmgjma-auth-token");
+        var raw = localStorage.getItem(tokenKey || window.RM_ENV.authTokenKey);
         if (!raw) return null;
         var tok = JSON.parse(raw);
         var s = tok && (tok.access_token ? tok : tok.currentSession); // v2 stores the session directly

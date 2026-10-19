@@ -1,7 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <script src="rm-bugs.js?v=20261014c"></script>
+  <script src="rm-env.js?v=20261019e"></script>
+  <script src="rm-bugs.js?v=20261019e"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <style id="rm-flash-guard">html{background-color:#f4f7fa}</style>
@@ -143,20 +144,20 @@
   </div>
 </nav>
 
-<script src="native-auth.js?v=11"></script>
+<script src="native-auth.js?v=20261019e"></script>
 <script src="vendor/supabase-js.min.js?v=2.112.3"></script>
 <script src="visibility.js?v=20260819a"></script>
-<script src="search-sync.js?v=20260929f"></script>
-<script src="profile-live.js?v=20261001a"></script><script src="search-overlay.js?v=20261015a"></script>
+<script src="search-sync.js?v=20261019e"></script>
+<script src="profile-live.js?v=20261019e"></script><script src="search-overlay.js?v=20261019e"></script>
 <script src="vendor/chartjs/chart.umd.min.js?v=4.4.0"></script>
-<script src="auth-guard.js?v=20261019b"></script>
+<script src="auth-guard.js?v=20261019e"></script>
 <script src="nav-menu.js?v=20260930a"></script>
 <script src="location-engine.js?v=20260809b"></script>
 <script src="match-engine.js?v=20261015a"></script>
-<script src="match-alert.js?v=20261019b"></script>
-<script src="notif-badge.js?v=20261019b"></script>
+<script src="match-alert.js?v=20261019e"></script>
+<script src="notif-badge.js?v=20261019e"></script>
 <script>
-const _sb = supabase.createClient('https://wmegpgrfrtprhuzmgjma.supabase.co', 'sb_publishable_Rm_fIBDUfu3DEyLj0_bWZw_qEqo8cd4');
+const _sb = supabase.createClient(window.RM_ENV.url, window.RM_ENV.anonKey);
 
 function formatP(n) {
   if (n >= 1e6) return '₱' + (n/1e6).toFixed(1).replace(/\.0$/,'') + 'M';
@@ -401,6 +402,6 @@ async function loadSummary() {
 document.addEventListener('DOMContentLoaded', loadSummary);
 </script>
 <link rel="stylesheet" href="customer-service.css?v=3">
-<script src="customer-service.js?v=7"></script><script src="feedback.js?v=20261015b"></script>
+<script src="customer-service.js?v=20261019e"></script><script src="feedback.js?v=20261019e"></script>
 </body>
 </html>
