@@ -69,8 +69,10 @@
     }
   } catch (e) {}
 
-  // Visible marker so a staging build is never mistaken for production.
-  if (env.name !== 'production') {
+  // Visible marker so a staging build is never mistaken for production. Drawn
+  // by the top page only: the app shell's tab pages (iframes) load this file
+  // too, and a second label floated over their content just above the nav.
+  if (env.name !== 'production' && g.self === g.top) {
     var mark = function () {
       var b = document.createElement('div');
       b.textContent = 'REALMATE STAGING';

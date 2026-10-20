@@ -571,6 +571,8 @@ function collapseCreatePost() {
     document.querySelector('.create-post-top').style.display = '';
     document.querySelector('.create-post-shortcuts').style.display = '';
     document.getElementById('homePostText').value = '';
+    document.getElementById('homePostText').style.height = '';      // back to its CSS size
+    document.getElementById('homePostText').style.overflowY = '';
     document.getElementById('homePostMediaPreview').innerHTML = '';
     _homePostTags = new Set();
     hideHomePostMention();
@@ -773,7 +775,34 @@ function onReplyKeydown(e, postId, parentId) {
     if (e.key === 'Enter') submitFeedReply(postId, parentId);
 }
 
+// Composer text box grows with what is typed, up to the space left above the
+// nearest bottom edge on screen: the Feed's fixed bottom nav (when shown), the
+// on-screen keyboard (visualViewport) or the window. Past that it scrolls inside
+// itself, so the composer and its controls never go under the nav and the line
+// being typed stays in view. All edges are read from the live layout.
+function _homeComposerFit(ta) {
+    ta = ta || document.getElementById('homePostText');
+    if (!ta || !ta.offsetParent) return;                 // composer collapsed / hidden
+    const card = document.getElementById('createPostCard');
+    let bottom = window.innerHeight;
+    const vv = window.visualViewport;
+    if (vv) bottom = Math.min(bottom, vv.offsetTop + vv.height);
+    const nav = document.querySelector('.mobile-bottom-nav');
+    if (nav && getComputedStyle(nav).display !== 'none') bottom = Math.min(bottom, nav.getBoundingClientRect().top);
+    const keepScroll = ta.scrollTop;                      // the browser already scrolled the caret into view
+    ta.style.height = 'auto';                             // back to its CSS min-height to measure
+    const base = ta.offsetHeight;
+    const room = card ? bottom - card.getBoundingClientRect().bottom - 12 : Infinity;   // 12px = the page's side margin
+    const max = Math.max(base, base + room);
+    const want = ta.scrollHeight + (ta.offsetHeight - ta.clientHeight);
+    ta.style.height = Math.min(want, max) + 'px';
+    ta.style.overflowY = want > max ? 'auto' : 'hidden';
+    ta.scrollTop = keepScroll;                            // measuring shrank the box and lost it
+}
+if (window.visualViewport) window.visualViewport.addEventListener('resize', () => _homeComposerFit());
+
 function onHomePostInput(ta) {
+    _homeComposerFit(ta);
     const m = ta.value.slice(0, ta.selectionStart).match(/@([\p{L}0-9_. ]{0,30})$/u);
     if (!m) { hideHomePostMention(); return; }
     const q = m[1].trim();
@@ -800,6 +829,7 @@ function pickHomePostTag(name) {
         _homePostTags.add(name);
     }
     hideHomePostMention();
+    _homeComposerFit(ta);
     ta?.focus();
 }
 
@@ -1057,6 +1087,14 @@ async function loadHomeFeed(feedEl, filterArg, silent) {
         _commitFeed(feed, filter.type);
         feed.innerHTML = `<div class="hf-loading"><i class="fas fa-spinner fa-spin"></i> Loading feed…</div>`;
     }
+
+    // Native app: wait until the saved sign-in is back in storage (native-auth.js)
+    // before querying, as auth-guard.js does. Otherwise a cold start after iOS
+    // cleared the WebView storage queries as signed-out, and staging's
+    // signed-in-only forum_posts policy answers [] → "No posts yet". Already
+    // resolved on the web and after the first restore.
+    if (window.rmSessionReady) { try { await window.rmSessionReady; } catch (e) {} }
+    if (stale()) return;
 
     const user = getUser();
 

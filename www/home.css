@@ -516,6 +516,7 @@ html[data-theme="dark"] .hs-recent-del:hover { background: #0f172a; }
 .hf-post-text {
   font-size: 14px; line-height: 1.7; color: #334155;
   margin-bottom: 12px; white-space: pre-wrap;
+  overflow-wrap: anywhere; /* long links/words wrap instead of running out of the card */
 }
 
 /* Post media */
@@ -1307,7 +1308,7 @@ html[data-theme="dark"] .hf-poll-opt:not(.voted):hover { background: #161f36; }
 .hf-shared-head img { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; }
 .hf-shared-name { font-size: 13px; font-weight: 700; color: var(--text-main); }
 .hf-shared-time { font-size: 11px; color: var(--text-sub); }
-.hf-shared-text { font-size: 13px; color: var(--text-main); line-height: 1.5; }
+.hf-shared-text { font-size: 13px; color: var(--text-main); line-height: 1.5; overflow-wrap: anywhere; } /* long links stay inside the shared-post box */
 .hf-shared-embed .hf-post-media { margin: 8px 0 0; }
 .hf-shared-embed .hf-post-media img,
 .hf-shared-embed .hf-post-media video { max-height: 260px; border-radius: 8px; }

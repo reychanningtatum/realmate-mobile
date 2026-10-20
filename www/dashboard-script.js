@@ -2213,15 +2213,9 @@ async function saveProfile() {
 
     user.nickname = document.getElementById("editNickname").value.trim().slice(0, 30);
     user.bio = document.getElementById("editBio").value.trim().slice(0, 500);
-    user.division = normalizeDivision(document.getElementById("editDivision").value);
-    user.group = document.getElementById("editGroup").value;
-    user.team = document.getElementById("editTeam").value;
-    // A Group must always belong to its Division's list — clear it otherwise.
-    // Defense-in-depth beyond what the dependent dropdowns already enforce.
-    const _validGroups = user.division ? DIVISION_GROUPS[user.division] : null;
-    if (!_validGroups || !_validGroups.includes(user.group)) {
-        user.group = '';
-    }
+    // Division / Group / Team are no longer edited here (removed from Edit
+    // Profile); their stored values are left exactly as they are — see the
+    // profiles update below, which no longer writes those columns.
     user.relationship = document.getElementById("editRelationship").value;
     // Relationship Status is optional — blank saves as null and hides the line.
 
@@ -2283,9 +2277,6 @@ async function saveProfile() {
                     // Positions were removed from Realmate — always clear any
                     // stored career position on save.
                     job_title: null,
-                    division: user.division,
-                    business_group: user.group,
-                    team_name: user.team,
                     bio: user.bio,
                     avatar_url: user.image,
                     relationship_status: user.relationship || null,
@@ -2325,12 +2316,8 @@ function openEditModal() {
     if (_uStatus) { _uStatus.textContent = ""; _uStatus.style.color = ""; }
     document.getElementById("editNickname").value = user.nickname || "";
     document.getElementById("editBio").value = user.bio || "";
-    document.getElementById("editDivision").value = normalizeDivision(user.division);
     document.getElementById("editRelationship").value = user.relationship || '';
 
-    syncGroupField(user.group);
-
-    document.getElementById("editTeam").value = user.team || "";
     document.getElementById("editAddress").value = user.location || "";
     // A profile saved before a city was added/renamed on the verified list
     // (or that predates this dropdown entirely) still displays exactly as

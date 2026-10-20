@@ -1959,3 +1959,10 @@ html[data-theme="dark"] .profile-img-container { border-color: #334155; }
    beats the class rule regardless of load order, so the button is truly hidden and
    the cover is the topmost content. */
 @media (max-width: 768px) { #viewingOtherBack { display: none !important; } }
+
+/* Profile-photo change: no iOS double-tap zoom. Two quick taps on the crop
+   window's +/− buttons (or the photo menu/sheet) were read as a double-tap and
+   zoomed the whole page, which stayed zoomed and panned after the window closed.
+   manipulation keeps taps, drag-to-reposition and the slider; pinch inside the
+   cropper is handled by Cropper itself. */
+#cropModal, #photoActionSheet, #photoInlineMenu { touch-action: manipulation; }
