@@ -1333,7 +1333,7 @@ html[data-theme="dark"] .stats-list-avatar { border-color: #334155; }
 
     /* ── Layout → single column ── */
     .profile-layout {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr); /* minmax(0,…): content can't stretch the column past the screen (was 1fr — overrode the ≤1200px fix on phones) */
         gap: 0;
         padding: 0 16px;
         margin-top: 0;

@@ -1392,7 +1392,12 @@ html[data-theme="dark"] .hf-poll-opt:not(.voted):hover { background: #161f36; }
 }
 /* The body scrolls inside the card when a long post would not fit, instead of
    the card growing past the screen. */
-.share-body { padding: 18px 20px; overflow-y: auto; min-height: 0; flex: 1 1 auto; }
+/* Caption + shared post share the body: the caption grows as you type (up to
+   55% of the window, then scrolls itself), and the shared post below scrolls on
+   its own so it can be read while writing. */
+.share-body { padding: 18px 20px; overflow: hidden; min-height: 0; flex: 1 1 auto; display: flex; flex-direction: column; }
+.share-body textarea { flex: 0 1 auto; max-height: 55%; overflow-y: auto; }
+.share-body .share-original { flex: 1 1 auto; min-height: 96px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
 .share-body textarea {
   width: 100%; border: 1px solid var(--border); border-radius: 10px; padding: 12px;
   font-family: inherit; font-size: 15px; resize: vertical; outline: none; margin-bottom: 14px;
@@ -1522,6 +1527,17 @@ html[data-theme="dark"] .hf-comment-tool:hover { background: #243044; }
     transition: transform 0.25s ease, opacity 0.25s ease;
   }
   .create-post-card.post-hidden { transform: translateY(-260%); opacity: 0; pointer-events: none; }
+
+  /* Writing a post (expandCreatePost → html.rm-composing): the page behind holds
+     still and dims, so only the composer is active. Removed on Cancel / Post. */
+  /* On <html> only (it locks the page/viewport); also hiding <body> would make it
+     a scroll box of its own and stop the sticky composer pinning to the top. */
+  html.rm-composing { overflow: hidden !important; overscroll-behavior: none; }
+  html.rm-composing body { overflow: visible !important; overscroll-behavior: none; } /* body stays non-scrolling (mobile body is overflow:auto) */
+  html.rm-composing body::after {
+    content: ""; position: fixed; inset: 0; z-index: 48;
+    background: rgba(15, 23, 42, 0.45);
+  }
 
   /* Composer type buttons (mobile): they fill the row and wrap to a second
      line on very narrow phones, instead of a row that ran past the card and

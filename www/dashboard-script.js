@@ -1143,11 +1143,14 @@ function updateUI() {
     // then throw on `null.innerText` and ABORT loadProfile before it re-rendered
     // the Realmate button — which is exactly why realmate state wasn't updating in
     // real time (follow buttons re-render independently, so they were unaffected).
-    var _divD = document.getElementById("divisionDisplay"); if (_divD) _divD.innerText = user.division || '';
+    // Company badge: the member's own declared Brokerage / Company; an older stored
+    // division only when they haven't entered one.
+    const _company = (user.brokerage || '').trim() || user.division || '';
+    var _divD = document.getElementById("divisionDisplay"); if (_divD) _divD.innerText = _company;
     var _grpD = document.getElementById("groupDisplay");    if (_grpD) _grpD.innerText = user.group || '';
     const _divPill = document.getElementById('divisionPill');
     const _grpPill = document.getElementById('groupPill');
-    if (_divPill) _divPill.style.display = user.division ? 'inline-flex' : 'none';
+    if (_divPill) _divPill.style.display = _company ? 'inline-flex' : 'none';
     if (_grpPill) _grpPill.style.display = user.group ? 'inline-flex' : 'none';
     var _bioD = document.getElementById("bioDisplay"); if (_bioD) _bioD.innerText = user.bio;
     const _hasBio = !!(user.bio && user.bio.trim());
@@ -1572,9 +1575,11 @@ async function _loadProfileRun() {
                             // localStorage value would let an admin-cleared position
                             // reappear until the next full logout/login.
                             job: profile.job_title || '',
-                            division: profile.division || user.division,
-                            group: profile.business_group || user.group,
-                            team: profile.team_name || user.team,
+                            // From the profile row only — never the phone's cached copy,
+                            // which could still hold an old default (e.g. 'Alveo Land').
+                            division: profile.division || '',
+                            group: profile.business_group || '',
+                            team: profile.team_name || '',
                             bio: profile.bio || user.bio,
                             relationship: profile.relationship_status || '',
                             coverUrl: profile.cover_url || '',

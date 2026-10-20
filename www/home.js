@@ -518,6 +518,8 @@ function expandCreatePost(type) {
     document.querySelector('.create-post-top').style.display = 'none';
     document.querySelector('.create-post-shortcuts').style.display = 'none';
     document.getElementById('createPostExpanded').style.display = 'block';
+    // Writing a post: the page behind holds still (home.css, phones only).
+    document.documentElement.classList.add('rm-composing');
     syncTypeButtons();
     togglePollBuilder();
     textarea.focus();
@@ -570,6 +572,7 @@ function togglePollBuilder() {
 
 function collapseCreatePost() {
     _homePostType = '';
+    document.documentElement.classList.remove('rm-composing');
     if (window.RMEmojiSheet) RMEmojiSheet.close();   // close the mobile emoji sheet with the composer
     document.getElementById('createPostExpanded').style.display = 'none';
     document.getElementById('postTypeBadge').style.display = 'none';
@@ -805,6 +808,18 @@ function _homeComposerFit(ta) {
     ta.scrollTop = keepScroll;                            // measuring shrank the box and lost it
 }
 if (window.visualViewport) window.visualViewport.addEventListener('resize', () => _homeComposerFit());
+
+// Grow a text box with its content inside a window (Edit post, Share). The
+// window's own CSS caps it (flex-shrink / max-height), and past that cap the box
+// scrolls itself — so the typed line stays in view and the window never grows
+// past the screen.
+function _rmGrowTextarea(ta) {
+    if (!ta) return;
+    const keep = ta.scrollTop;
+    ta.style.height = 'auto';
+    ta.style.height = (ta.scrollHeight + (ta.offsetHeight - ta.clientHeight)) + 'px';
+    ta.scrollTop = keep;
+}
 
 function onHomePostInput(ta) {
     _homeComposerFit(ta);
@@ -1898,6 +1913,11 @@ function _hfEmptyHtml(type) {
 function _homeApplyBlockState() {
     const feed = document.getElementById('homeFeed');
     if (!feed || !Array.isArray(_homePosts) || !_homePosts.length) return;
+    // A Feed load is in progress (its spinner is showing): the posts in
+    // _homePosts are fetched but not drawn yet, so "no cards" here does NOT mean
+    // an empty Feed. Leave the spinner — loadHomeFeed draws the posts (already
+    // filtered by the same block state) when it finishes.
+    if (feed.querySelector('.hf-loading')) return;
     let added = false, next = null;
     // Walk newest → oldest backwards so each restored card goes in front of the
     // next visible (older-ordered) card that follows it.
@@ -2099,14 +2119,18 @@ function _ensureHomeEditModal() {
     if (m) return m;
     m = document.createElement('div');
     m.id = 'homeEditModal';
-    m.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100000;align-items:center;justify-content:center;padding:14px;box-sizing:border-box;';
+    // Same layout as the Share window: full usable width (12px margins), clear of
+    // the safe areas and the Feed's bottom nav (--feed-navh, 0 when there is none).
+    m.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100000;align-items:center;justify-content:center;box-sizing:border-box;' +
+        'padding:max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) calc(var(--feed-navh, 0px) + max(12px, env(safe-area-inset-bottom))) max(12px, env(safe-area-inset-left));';
     m.innerHTML =
-        '<div style="background:#fff;border-radius:16px;width:100%;max-width:640px;height:auto;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 12px 40px rgba(0,0,0,.2);overflow:hidden;">' +
+        '<div style="background:#fff;border-radius:16px;width:100%;max-width:640px;height:auto;max-height:100%;display:flex;flex-direction:column;box-shadow:0 12px 40px rgba(0,0,0,.2);overflow:hidden;">' +
           '<div style="padding:18px 20px;border-bottom:1px solid #eef2f7;font-weight:800;font-size:18px;color:#0f172a;flex:0 0 auto;">Edit post</div>' +
-          '<div style="padding:18px 20px;flex:0 1 auto;overflow-y:auto;display:flex;flex-direction:column;">' +
-            // Compact, readable box: fixed height that becomes scrollable for long text
-            // (never grows the modal). Larger 17px text for easier reading/editing.
-            '<textarea id="homeEditText" style="width:100%;height:150px;max-height:34vh;overflow-y:auto;flex:0 0 auto;border:1.5px solid #e2e8f0;border-radius:12px;padding:14px;font-size:17px;line-height:1.5;font-family:inherit;color:#0f172a;resize:none;box-sizing:border-box;" placeholder="Edit your post"></textarea>' +
+          '<div style="padding:18px 20px;flex:1 1 auto;min-height:0;overflow-y:auto;display:flex;flex-direction:column;">' +
+            // The box grows with the text (_rmGrowTextarea) until the window reaches
+            // the usable screen height; then it shrinks to fit (flex) and scrolls
+            // itself. Larger 17px text for easier reading/editing.
+            '<textarea id="homeEditText" oninput="_rmGrowTextarea(this)" style="width:100%;min-height:150px;overflow-y:auto;flex:0 1 auto;border:1.5px solid #e2e8f0;border-radius:12px;padding:14px;font-size:17px;line-height:1.5;font-family:inherit;color:#0f172a;resize:none;box-sizing:border-box;" placeholder="Edit your post"></textarea>' +
             '<div id="homeEditPhotos" style="margin-top:14px;display:none;flex:0 0 auto;">' +
               '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">' +
                 '<span style="font-size:11px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.04em;">Photos</span>' +
@@ -2158,6 +2182,7 @@ function openEditPost(postId) {
     _renderEditPhotoGrid();
 
     m.style.display = 'flex';
+    _rmGrowTextarea(document.getElementById('homeEditText'));   // fit the existing text
     setTimeout(function () { var t = document.getElementById('homeEditText'); if (t) t.focus(); }, 50);
 }
 // Render the editor's media thumbnails: kept existing media first, then new files.
@@ -3431,7 +3456,10 @@ function sharePost(postId) {
     _sharePostId = orig.shared_post_id || orig.id;
     const target = _sharedOriginals[orig.shared_post_id] || orig;
     const name = target.is_anonymous ? 'Anonymous' : (target.user_name || 'Member');
-    document.getElementById('shareComment').value = '';
+    const _sc = document.getElementById('shareComment');
+    _sc.value = '';
+    _sc.style.height = '';                       // back to its resting size
+    _sc.oninput = function () { _rmGrowTextarea(this); };
     document.getElementById('shareOriginalPreview').innerHTML = `
         <div class="hf-shared-head">
             <img loading="lazy" decoding="async" src="${target.user_img || avatarUrl(name)}" onerror="this.src='${avatarUrl(name)}'">
@@ -4451,6 +4479,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ticking = false;
         if (atTop(y)) { setHidden(false); shownAtY = y; return; }     // true top → shown
         if (input && document.activeElement === input) return;       // typing — leave it; the keyboard shifts the viewport
+        if (document.documentElement.classList.contains('rm-composing')) return; // writing a post — the composer stays in view (iOS may scroll to the focused box)
         if (!hidden && Math.abs(y - shownAtY) >= JITTER) setHidden(true); // moved, and not at the top → minimize (search text is kept)
     }
     function onScroll() { if (!ticking) { ticking = true; requestAnimationFrame(evaluate); } }
