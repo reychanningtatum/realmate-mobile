@@ -2259,7 +2259,7 @@ function buildListingCard(listing, matchLabel = null, fmvResult = null, matchCou
                 ${verifiedBadge}
             </div>
             <div class="lc-profile-meta" ${userClick}>
-                <div class="lc-profile-name"><span class="lc-seller-name-text">${listing.user_name || 'Unknown'}</span></div>
+                <div class="lc-profile-name"><span class="lc-seller-name-text">${listing.user_name || 'Unknown'}</span>${(!listing.is_anonymous && listing.user_verified_as && window.RMVerified) ? RMVerified.seal(listing.user_verified_as, 14) : ''}</div>
                 <div class="lc-profile-time">${timeAgo(listing.created_at)}</div>
             </div>
             <div class="lc-profile-actions">
@@ -3915,7 +3915,7 @@ async function _resolveLiveAuthors(...arrays) {
     const uids = [...new Set(live.map(r => r.user_id))];
     if (!uids.length) return;
     try {
-        const { data } = await _sb.from('profiles').select('id,full_name,avatar_url,job_title').in('id', uids);
+        const { data } = await _sb.from('profiles').select('id,full_name,avatar_url,job_title,verified_as').in('id', uids);
         const byId = {};
         (data || []).forEach(p => { byId[p.id] = p; });
         live.forEach(r => {
@@ -3928,6 +3928,7 @@ async function _resolveLiveAuthors(...arrays) {
             // must clear a listing's stale user_job snapshot too, not leave
             // the old value standing because the live value "wasn't truthy".
             r.user_job = lmValidPosition(p.job_title);
+            r.user_verified_as = p.verified_as || null;   // admin-granted seal (rm-verified.js)
         });
     } catch (e) { console.warn('[LiveAuthors] resolve failed', e); }
 }

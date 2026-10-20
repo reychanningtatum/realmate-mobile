@@ -253,7 +253,7 @@ function goBack() {
                 nickname: (profile && profile.nickname) || '',
                 image: _hasRealPhoto ? _storedAvatar : `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName)}&background=random&color=fff`,
                 job: (profile && profile.job_title) || '',
-                division: (profile && profile.division) || 'Alveo Land',
+                division: (profile && profile.division) || '',
                 group: (profile && profile.business_group) || '',
                 team: (profile && profile.team_name) || '',
                 bio: (profile && profile.bio) || ''

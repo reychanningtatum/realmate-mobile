@@ -75,11 +75,11 @@ async function _resolveLiveAuthors(rows) {
 
     const byId = {}, byName = {};
     if (uids.length) {
-        const { data } = await _supaHome.from('profiles').select('id,full_name,avatar_url,is_verified').in('id', uids);
+        const { data } = await _supaHome.from('profiles').select('id,full_name,avatar_url,is_verified,verified_as').in('id', uids);
         (data || []).forEach(p => { byId[p.id] = p; });
     }
     if (names.length) {
-        const { data } = await _supaHome.from('profiles').select('id,full_name,avatar_url,is_verified').in('full_name', names);
+        const { data } = await _supaHome.from('profiles').select('id,full_name,avatar_url,is_verified,verified_as').in('full_name', names);
         (data || []).forEach(p => { byName[p.full_name] = p; });
     }
     live.forEach(r => {
@@ -91,6 +91,8 @@ async function _resolveLiveAuthors(rows) {
             // Only trust the badge when the row resolved by user_id — a legacy
             // name-only row could otherwise borrow a verified account's name.
             r.user_verified = !!(r.user_id && p.is_verified);
+            // Admin-granted professional verification ('salesperson' | 'broker').
+            r.user_verified_as = (r.user_id && p.verified_as) || null;
         }
     });
 }
@@ -99,8 +101,11 @@ async function _resolveLiveAuthors(rows) {
 // comments). user_verified is set by _resolveLiveAuthors from the admin-only
 // profiles.is_verified flag; never shown on anonymous rows.
 function _verifiedBadge(row) {
-    return (row && row.user_verified && !row.is_anonymous)
-        ? ' <i class="fas fa-circle-check hf-verified" title="Verified"></i>' : '';
+    if (!row || row.is_anonymous) return '';
+    // Verified Salesperson / Broker seal (rm-verified.js, from profiles.verified_as).
+    if (row.user_verified_as && window.RMVerified) return RMVerified.seal(row.user_verified_as);
+    // Legacy is_verified with no professional type yet → the old generic check.
+    return row.user_verified ? ' <i class="fas fa-circle-check hf-verified" title="Verified"></i>' : '';
 }
 
 // ── Helpers ───────────────────────────────────────

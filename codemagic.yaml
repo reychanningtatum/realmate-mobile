@@ -158,7 +158,7 @@ workflows:
       - name: Set required Info.plist keys (export compliance + camera/photo usage)
         # ios/App/App/Info.plist is generated (not committed). Set export compliance
         # to avoid the "Missing Compliance" TestFlight hold, AND the camera/photo
-        # usage strings the registration (Alveo ID) + composer photo pickers need:
+        # usage strings the registration (professional ID) + composer photo pickers need:
         # a web <input type=file> invokes the native picker, and without these keys
         # iOS hard-crashes on the first photo tap and App Review rejects the build.
         script: |
@@ -169,7 +169,7 @@ workflows:
           }
           plist_set ITSAppUsesNonExemptEncryption bool false
           plist_set NSCameraUsageDescription string "Realmate uses the camera so you can take and upload photos of your property listings and verification documents."
-          plist_set NSPhotoLibraryUsageDescription string "Realmate accesses your photos so you can attach listing images and upload your Alveo ID for account verification."
+          plist_set NSPhotoLibraryUsageDescription string "Realmate accesses your photos so you can attach listing images and upload a professional ID (e.g. PRC ID) for account verification."
           # Face ID / Touch ID sign-in (capacitor-native-biometric). Without this
           # key iOS hard-crashes the first time BiometricAuth is invoked.
           plist_set NSFaceIDUsageDescription string "Realmate uses Face ID so you can sign in quickly and securely without re-entering your password."
@@ -377,7 +377,7 @@ workflows:
           }
           plist_set ITSAppUsesNonExemptEncryption bool false
           plist_set NSCameraUsageDescription string "Realmate uses the camera so you can take and upload photos of your property listings and verification documents."
-          plist_set NSPhotoLibraryUsageDescription string "Realmate accesses your photos so you can attach listing images and upload your Alveo ID for account verification."
+          plist_set NSPhotoLibraryUsageDescription string "Realmate accesses your photos so you can attach listing images and upload a professional ID (e.g. PRC ID) for account verification."
           plist_set NSFaceIDUsageDescription string "Realmate uses Face ID so you can sign in quickly and securely without re-entering your password."
           /usr/libexec/PlistBuddy -c "Delete :UISupportedInterfaceOrientations" "$PLIST" 2>/dev/null || true
           /usr/libexec/PlistBuddy -c "Add :UISupportedInterfaceOrientations array" "$PLIST"

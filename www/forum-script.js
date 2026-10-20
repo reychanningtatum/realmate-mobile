@@ -10,7 +10,7 @@ const _supabase = supabase.createClient(supabaseUrl, supabaseKey);
 function getUser() {
     return JSON.parse(localStorage.getItem("user")) || {
         name: "Reychan Bernaldez",
-        division: "Alveo Land",
+        division: "",
         image: "https://ui-avatars.com/api/?name=?&background=0f172a&color=32cd32"
     };
 }
@@ -305,7 +305,7 @@ async function fetchForumPosts() {
                                 ${trendingIds.includes(post.id) ? '<span class="trending-fire">🔥 Trending</span>' : ''}
                             </div>
                             <small class="meta-text">
-                                ${post.user_division || 'Alveo Land'} •
+                                ${post.user_division ? `${post.user_division} •` : ''}
                                 <span class="timestamp-interactive-badge" title="${absoluteTimeTooltip}">${relativeTimeDisplay}</span>
                             </small>
                         </div>

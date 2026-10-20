@@ -292,7 +292,7 @@ let user = JSON.parse(localStorage.getItem("user")) || {
     name: "Reychan Bernaldez",
     image: "https://ui-avatars.com/api/?name=?&background=0f172a&color=32cd32",
     job: "Real Estate Manager",
-    division: "Alveo Land",
+    division: "",
     group: "Echelon",
     team: "Sales Force",
     bio: "Full-stack developer and business entrepreneur."
@@ -1155,8 +1155,17 @@ function updateUI() {
     if (_aboutEmpty) _aboutEmpty.style.display = _hasBio ? 'none' : 'block';
 
     // Verified badge
+    // Full Verified Salesperson / Broker badge under the name (admin-granted,
+    // profiles.verified_as); the small legacy check only when verified without a type.
     const verifiedBadge = document.getElementById('verifiedBadge');
-    if (verifiedBadge) verifiedBadge.style.display = user.isVerified ? 'inline-block' : 'none';
+    const _verAs = user.verifiedAs || null;
+    if (verifiedBadge) verifiedBadge.style.display = (user.isVerified && !_verAs) ? 'inline-block' : 'none';
+    const _verFull = document.getElementById('verifiedBadgeFull');
+    if (_verFull) {
+        const html = (_verAs && window.RMVerified) ? RMVerified.badge(_verAs, 40) : '';
+        _verFull.innerHTML = html;
+        _verFull.style.display = html ? 'block' : 'none';
+    }
 
     // Location line
     const locationLine = document.getElementById('locationLine');
@@ -1339,6 +1348,9 @@ async function _rmSyncOwnProfileLive() {
             team: p.team_name || '',
             bio: p.bio || '',
             relationship: p.relationship_status || '',
+            professionalType: p.professional_type || '',
+            brokerage: p.brokerage || '',
+            verifiedAs: p.verified_as || null,   // admin-granted only (server-side)
             coverUrl: p.cover_url || '',
             coverTransform: p.cover_transform || null,
             location: p.location || '',
@@ -1538,6 +1550,9 @@ async function _loadProfileRun() {
                             coverTransform: profile.cover_transform || null,
                             location: profile.location || '',
                             isVerified: !!profile.is_verified,
+                            verifiedAs: profile.verified_as || null,   // admin-granted only, never from cache
+                            professionalType: profile.professional_type || '',
+                            brokerage: profile.brokerage || '',
                             lastSeen: profile.last_seen || '',
                             showActiveStatus: profile.show_active_status !== false,
                             yearsExperience: profile.years_experience || '',
@@ -1566,6 +1581,9 @@ async function _loadProfileRun() {
                             coverTransform: profile.cover_transform || null,
                             location: profile.location || user.location || '',
                             isVerified: !!profile.is_verified,
+                            verifiedAs: profile.verified_as || null,   // admin-granted only, never from cache
+                            professionalType: profile.professional_type || '',
+                            brokerage: profile.brokerage || '',
                             lastSeen: profile.last_seen || '',
                             showActiveStatus: profile.show_active_status !== false,
                             yearsExperience: profile.years_experience || user.yearsExperience || '',
@@ -2073,7 +2091,7 @@ async function _renderRecentListingsRun(targetId, canView, live) {
         try {
             const { data: liveProfile } = await _supabase
                 .from('profiles')
-                .select('full_name, avatar_url, job_title, is_verified')
+                .select('full_name, avatar_url, job_title, is_verified, verified_as')
                 .eq('id', targetId)
                 .maybeSingle();
             if (liveProfile) {
@@ -2088,6 +2106,7 @@ async function _renderRecentListingsRun(targetId, canView, live) {
                         user_img: _avatarUrlFor(name, liveProfile.avatar_url),
                         user_job: liveJob || l.user_job,
                         user_verified: !!liveProfile.is_verified,
+                        user_verified_as: liveProfile.verified_as || null,
                     };
                 });
             }
@@ -2216,6 +2235,11 @@ async function saveProfile() {
     // Division / Group / Team are no longer edited here (removed from Edit
     // Profile); their stored values are left exactly as they are — see the
     // profiles update below, which no longer writes those columns.
+    // Declared profession + brokerage. Changing the profession clears an existing
+    // verification server-side (protect_privileged_profile_fields).
+    const _pt = (document.getElementById("editProfessionalType") || {}).value || '';
+    user.professionalType = (_pt === 'salesperson' || _pt === 'broker') ? _pt : '';
+    user.brokerage = ((document.getElementById("editBrokerage") || {}).value || '').trim().slice(0, 120);
     user.relationship = document.getElementById("editRelationship").value;
     // Relationship Status is optional — blank saves as null and hides the line.
 
@@ -2280,6 +2304,8 @@ async function saveProfile() {
                     bio: user.bio,
                     avatar_url: user.image,
                     relationship_status: user.relationship || null,
+                    professional_type: user.professionalType || null,
+                    brokerage: user.brokerage || null,
                     location: user.location || null,
                     years_experience: user.yearsExperience || null,
                     languages: user.languages || null,
@@ -2317,6 +2343,8 @@ function openEditModal() {
     document.getElementById("editNickname").value = user.nickname || "";
     document.getElementById("editBio").value = user.bio || "";
     document.getElementById("editRelationship").value = user.relationship || '';
+    if (document.getElementById("editProfessionalType")) document.getElementById("editProfessionalType").value = user.professionalType || '';
+    if (document.getElementById("editBrokerage")) document.getElementById("editBrokerage").value = user.brokerage || '';
 
     document.getElementById("editAddress").value = user.location || "";
     // A profile saved before a city was added/renamed on the verified list

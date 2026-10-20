@@ -213,7 +213,7 @@
 
       <div class="lp-ticker-strip">
         <i class="fas fa-lock lp-lock"></i>
-        <span style="color:#cbd5e1;font-weight:600;">Currently exclusive to the Alveo Sales Team</span>
+        <span style="color:#cbd5e1;font-weight:600;">Exclusive to registered real estate salespersons &amp; brokers</span>
       </div>
       </div><!-- /.lp-content -->
 
@@ -298,7 +298,7 @@
       <h3 style="font-family: 'Playfair Display'; color: var(--primary);">Mission & Engineering Vision</h3>
       <div class="purpose-body-text">
           <p><strong>realmate</strong> was pioneered by <strong>Reychan Bernaldez</strong> (CEO &amp; Founder) alongside an elite multi-disciplinary founding team: <strong>John Edward Ang</strong> (Chief Marketing Officer), <strong>Danniel Libor</strong> (Chief Technology Officer), <strong>Eris Dungug</strong> (Head of Growth), <strong>Jaztin Pumaren</strong> (Head of Quality Assurance), and <strong>Mark Hequibal</strong> (Head of Brand &amp; Marketing).</p>
-          <p>By integrating <strong>Advanced Artificial Intelligence</strong>, we have engineered a solution built for <strong>real estate professionals</strong> — currently exclusive to the <strong>Alveo Sales Team</strong>. We recognize that the modern real estate landscape demands more than manual effort; it requires algorithmic precision to handle complex reselling and portfolio management.</p>
+          <p>By integrating <strong>Advanced Artificial Intelligence</strong>, we have engineered a solution built for <strong>real estate professionals</strong> — an exclusive network for registered <strong>real estate salespersons and brokers</strong>. We recognize that the modern real estate landscape demands more than manual effort; it requires algorithmic precision to handle complex reselling and portfolio management.</p>
           <p>Our platform utilizes AI to analyze market data in real-time, helping professionals find the <strong>absolute closest match</strong> for their clients' property resale needs. We bridge the gap between financial strategy, technical engineering, and marketing expertise to ensure every transaction is optimized for success.</p>
           <p style="text-align: center; font-style: italic; margin-top: 20px;">"Powered by AI. Built by Engineers. Trusted by Professionals."</p>
       </div>
@@ -325,11 +325,14 @@
     <h3>Create Account</h3>
       <div style="display:flex;align-items:center;gap:10px;background:#f0fdf4;border:1px solid #bbf7d0;border-left:4px solid #22c55e;border-radius:12px;padding:12px 14px;font-size:13px;font-weight:600;color:#166534;margin-bottom:16px;line-height:1.4;text-align:left;">
         <i class="fas fa-circle-info" style="color:#16a34a;font-size:15px;"></i>
-        <span>realmate is currently exclusively available to the Alveo Sales Team.</span>
+        <span>realmate is an exclusive network for registered real estate salespersons and brokers.</span>
       </div>
     <div class="input-group"><label class="label">Username</label><input id="regUsername" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="Username" oninput="onUsernameInput()" onblur="checkUsernameAvailability()"><div class="error-text">Required</div><div id="usernameStatus" style="font-size:12px;font-weight:600;margin-top:4px;"></div></div>
     <div class="input-group"><label class="label">First Name</label><input id="firstName" autocomplete="given-name" onblur="validateName(this)" placeholder="First Name"><div class="error-text">Invalid name</div></div>
     <div class="input-group"><label class="label">Last Name</label><input id="lastName" autocomplete="family-name" onblur="validateName(this)" placeholder="Last Name"><div class="error-text">Invalid name</div></div>
+    <div class="input-group"><label class="label">I am a…</label><select id="professionalType" onchange="showError(this,false)"><option value="" disabled selected>Select your profession</option><option value="salesperson">Real Estate Salesperson</option><option value="broker">Real Estate Broker</option></select><div class="error-text">Please select Salesperson or Broker</div></div>
+    <div class="input-group"><label class="label">PRC License / Registration No. (optional)</label><input id="prcLicenseNo" maxlength="40" autocapitalize="characters" autocorrect="off" spellcheck="false" placeholder="e.g. 0001234"></div>
+    <div class="input-group"><label class="label">Brokerage / Company (optional)</label><input id="brokerage" maxlength="120" autocomplete="organization" placeholder="Brokerage or company name"></div>
     <div class="input-group"><label class="label">Phone Number (optional)</label><input id="phone" autocomplete="tel" inputmode="tel" onblur="validatePhone(this)" placeholder="Phone Number"><div class="error-text">Invalid phone</div></div>
     <div class="input-group"><label class="label">Email Address</label><input id="regEmail" autocomplete="email" inputmode="email" autocapitalize="none" onblur="validateEmail(this)" placeholder="you@example.com"><div class="error-text">Please enter a valid email address</div></div>
     <div class="input-group">
@@ -361,13 +364,13 @@
     </div>
     <div class="input-group"><label class="label">Gender (optional)</label><select id="gender"><option value="" disabled selected>Select Gender</option><option>Male</option><option>Female</option><option>Other</option></select></div>
     <div class="input-group">
-      <label class="label">Upload Alveo ID (optional)</label>
+      <label class="label">Upload Professional ID (optional)</label>
       <div class="alveo-upload-box" id="alveoUploadWrap" onclick="document.getElementById('alveoFile').click()">
         <i class="fas fa-upload"></i>
-        <span id="alveoFileName" class="alveo-upload-text">Upload Alveo ID</span>
+        <span id="alveoFileName" class="alveo-upload-text">Upload Professional ID</span>
         <input type="file" id="alveoFile" accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf" onchange="handleAlveoFileSelect(this)" hidden>
       </div>
-      <div class="alveo-upload-helper">Optional, but recommended — providing your Alveo ID makes account approval much easier and faster. Upload a clear photo or PDF.</div>
+      <div class="alveo-upload-helper">Optional, but recommended — a PRC ID, DHSUD license, or company/brokerage ID makes account approval much easier and faster. Upload a clear photo or PDF.</div>
       <div class="error-text" id="alveoFileError" style="display:none;"></div>
     </div>
     <div class="input-group">
@@ -395,7 +398,7 @@
     </div>
     <h3 style="text-align:center;">Registration Submitted</h3>
     <p style="font-size:13px;color:#64748b;line-height:1.6;font-weight:500;margin-bottom:25px;">
-      Your account has been submitted successfully and is currently under review. Your uploaded Alveo ID will be verified by our administrator. You will receive an email once your account has been approved. Until then, you will not be able to access the platform.
+      Your account has been submitted successfully and is currently under review. Our administrator will review your registration and any ID you uploaded. You will receive an email once your account has been approved. Until then, you will not be able to access the platform.
     </p>
     <button class="btn" onclick="closeRegistrationPending()">Back to Login</button>
   </div>
@@ -441,7 +444,7 @@
       <h3 style="text-align:center;">Upload Your Verification ID</h3>
       <p id="resubmitFor" style="font-size:12px;color:#94a3b8;margin:0 0 8px;font-weight:600;"></p>
       <p style="font-size:13px;color:#64748b;line-height:1.6;font-weight:500;margin-bottom:18px;">
-        Upload a clear, uncropped photo of your <strong>PRC ID</strong>, <strong>DHSUD</strong> license, or <strong>Alveo ID</strong> — JPG, PNG, or PDF, up to 5MB.
+        Upload a clear, uncropped photo of your <strong>PRC ID</strong>, <strong>DHSUD</strong> license, or <strong>company/brokerage ID</strong> — JPG, PNG, or PDF, up to 5MB.
       </p>
       <label id="resubmitUploadWrap" for="resubmitFileInput" style="display:flex;align-items:center;gap:10px;justify-content:center;padding:16px;border:2px dashed #cbd5e1;border-radius:12px;cursor:pointer;color:#475569;font-size:13px;font-weight:600;margin-bottom:10px;max-width:100%;box-sizing:border-box;overflow:hidden;">
         <i class="fas fa-cloud-arrow-up" style="flex-shrink:0;"></i><span id="resubmitFileName" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;">Choose file</span>
@@ -462,7 +465,7 @@
 <script src="native-auth.js?v=20261019e"></script>
 <script src="native-deeplink.js?v=20261019e"></script>
 <script src="vendor/supabase-js.min.js?v=2.112.3"></script>
-<script src="script.js?v=20261019e"></script>
+<script src="script.js?v=20261020f"></script>
 <script>
   // Arrived from marketing's "Get Started" / "Join realmate": open the Create Account
   // modal directly. (Sign In leaves this flag unset and simply shows the login form.)

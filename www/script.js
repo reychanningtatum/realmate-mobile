@@ -526,7 +526,7 @@ function handleAlveoFileSelect(input) {
     const wrap = document.getElementById("alveoUploadWrap");
     if (!file) {
         _selectedAlveoFile = null;
-        if (nameEl) nameEl.textContent = "Upload Alveo ID";
+        if (nameEl) nameEl.textContent = "Upload Professional ID";
         if (wrap) wrap.classList.remove("has-file");
         toggleRegButton();
         return;
@@ -535,7 +535,7 @@ function handleAlveoFileSelect(input) {
     if (!check.ok) {
         _selectedAlveoFile = null;
         input.value = ""; // clear the invalid selection so it can't be silently submitted
-        if (nameEl) nameEl.textContent = "Upload Alveo ID";
+        if (nameEl) nameEl.textContent = "Upload Professional ID";
         if (wrap) wrap.classList.remove("has-file");
         showAlveoFileError(check.message);
         toggleRegButton();
@@ -908,7 +908,7 @@ async function login(opts){
       await window.supabaseClient.auth.signOut();
       if (review && review.account_status === 'Rejected') {
         showLoginError(
-          "Your registration was not approved. Please register again and upload a clear photo of your Alveo ID for verification. Please check your email for more details.",
+          "Your registration was not approved. Please register again and upload a clear photo of your PRC ID, DHSUD license, or company/brokerage ID for verification. Please check your email for more details.",
           "Registration Not Approved"
         );
       } else {
@@ -975,7 +975,7 @@ async function login(opts){
       nickname: (profile && profile.nickname) || '',
       image: _hasRealPhoto ? _storedAvatar
         : `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName)}&background=0f172a&color=32cd32`,
-      job: '', division: 'Alveo Land', group: '', team: '', bio: ''
+      job: '', division: '', group: '', team: '', bio: ''
     }));
     localStorage.setItem("isGuest", "false");
 
@@ -1383,9 +1383,21 @@ async function registerUser(){
   let phone = document.getElementById("phone").value.trim();
   let birthday = document.getElementById("birthday").value;
   let gender = document.getElementById("gender").value;
+  // Declared professional information. Type is required (Salesperson or Broker);
+  // PRC number and brokerage are optional. Declaring grants nothing — only an
+  // admin can mark a member Verified (profiles.verified_as, server-side).
+  const professionalType = (document.getElementById("professionalType") || {}).value || "";
+  const prcLicenseNo = ((document.getElementById("prcLicenseNo") || {}).value || "").trim().slice(0, 40);
+  const brokerage = ((document.getElementById("brokerage") || {}).value || "").trim().slice(0, 120);
 
   if (!username || !firstName || !email || !password) {
     showRegToast("Please fill in all required fields.", "error");
+    return;
+  }
+  if (professionalType !== "salesperson" && professionalType !== "broker") {
+    const pt = document.getElementById("professionalType");
+    if (pt) showError(pt, true);
+    showRegToast("Please select whether you are a Real Estate Salesperson or Broker.", "error");
     return;
   }
   // Email format check — any valid email may register (non-Alveo included).
@@ -1446,14 +1458,14 @@ async function registerUser(){
         .from('verification-docs')
         .upload(path, _selectedAlveoFile, { contentType: _selectedAlveoFile.type });
       if (uploadError) {
-        showAlveoFileError("Couldn't upload your Alveo ID. Please try again.");
+        showAlveoFileError("Couldn't upload your ID. Please try again.");
         return;
       }
     }
 
     const { data: signUpData, error } = await window.supabaseClient.auth.signUp({
       email, password,
-      options: { data: { username, first_name: firstName, last_name: lastName, phone_number: phone, birthday, gender } }
+      options: { data: { username, first_name: firstName, last_name: lastName, phone_number: phone, birthday, gender, professional_type: professionalType, brokerage } }
     });
     if (error) {
       showRegToast("Registration failed: " + error.message, "error");
@@ -1479,6 +1491,7 @@ async function registerUser(){
         email,
         phone_number: phone || null,
         alveo_id_file: path,
+        prc_license_no: prcLicenseNo || null,
       });
       if (reviewError) {
         showRegToast("Account created, but we couldn't queue it for admin review. Please contact support.", "error");
