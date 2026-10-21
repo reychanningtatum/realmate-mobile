@@ -900,12 +900,12 @@ async function login(opts){
       .maybeSingle();
 
     if (reviewErr) {
-      await window.supabaseClient.auth.signOut();
+      await window.supabaseClient.auth.signOut({ scope: 'local' });
       showLoginError("We couldn't verify your account status. Please check your connection and try again.");
       return;
     }
     if (!review || review.account_status !== 'Approved') {
-      await window.supabaseClient.auth.signOut();
+      await window.supabaseClient.auth.signOut({ scope: 'local' });
       if (review && review.account_status === 'Rejected') {
         showLoginError(
           "Your registration was not approved. Please register again and upload a clear photo of your PRC ID, DHSUD license, or company/brokerage ID for verification. Please check your email for more details.",
@@ -924,7 +924,7 @@ async function login(opts){
       const { data: bprof, error: berr } = await window.supabaseClient
         .from('profiles').select('banned').eq('id', authUser.id).maybeSingle();
       if (!berr && bprof && bprof.banned === true) {
-        await window.supabaseClient.auth.signOut();
+        await window.supabaseClient.auth.signOut({ scope: 'local' });
         showLoginError(
           "Your account has been suspended and can no longer sign in. If you believe this is a mistake, please contact information.realmate@gmail.com.",
           "Account Suspended"
@@ -1183,7 +1183,7 @@ async function handleUpdatePassword() {
     // URL/history so the same link can't be replayed to reopen this flow —
     // the recovery token itself is already single-use server-side, but this
     // closes the client-side door too (refresh, back button, etc.).
-    try { await window.supabaseClient.auth.signOut(); } catch (_) {}
+    try { await window.supabaseClient.auth.signOut({ scope: 'local' }); } catch (_) {}
     history.replaceState(null, "", window.location.pathname);
     _showResetSuccessState();
   } catch (err) {

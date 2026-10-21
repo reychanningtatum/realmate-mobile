@@ -40,7 +40,7 @@ function logout() {
     } catch (e) {}
     try {
         const _sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-        _sb.auth.signOut(); // best-effort server revocation; token already gone locally
+        _sb.auth.signOut({ scope: 'local' }); // best-effort server revocation; token already gone locally
     } catch(e) {}
     // Drop a dark curtain over the current page, then navigate to the login — index.html
     // starts under a matching curtain (keyed on rm_logged_out, set above) and lifts it,
@@ -158,7 +158,7 @@ function goBack() {
     // in is logged out. The marker is per-browsing-session (cleared when the app
     // is fully closed), so in-app navigation between tabs never re-triggers it.
     if (localStorage.getItem('rm_remember') === '0' && !sessionStorage.getItem('rm_session')) {
-        await _sb.auth.signOut();
+        await _sb.auth.signOut({ scope: 'local' });
         localStorage.clear();
         location.href = "index.html";
         return;
@@ -188,7 +188,7 @@ function goBack() {
             verdict = confirmed && !reviewErr;           // session not verifiable right now → no verdict (later checks still run)
         }
         if (verdict && (!review || review.account_status !== 'Approved')) {
-            await _sb.auth.signOut();
+            await _sb.auth.signOut({ scope: 'local' });
             localStorage.clear();
             location.href = "index.html";
             return;
@@ -208,7 +208,7 @@ function goBack() {
             .eq('id', session.user.id)
             .maybeSingle();
         if (prof && prof.banned === true) {
-            await _sb.auth.signOut();
+            await _sb.auth.signOut({ scope: 'local' });
             localStorage.clear();
             try { localStorage.setItem('rm_blocked', 'banned'); } catch (e) {}
             (window.top || window).location.href = "index.html";

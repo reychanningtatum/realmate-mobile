@@ -31,7 +31,7 @@ const {
 function lmValidPosition(job) { return ''; }
 
 async function logout() {
-    await _sb.auth.signOut();
+    await _sb.auth.signOut({ scope: 'local' });
     localStorage.clear();
     location.href = "index.html";
 }

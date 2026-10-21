@@ -2499,7 +2499,7 @@ function closeEditModal() {
 }
 
 function logout() { 
-    if (_supabase) _supabase.auth.signOut();
+    if (_supabase) _supabase.auth.signOut({ scope: 'local' });
     localStorage.removeItem("user");
     localStorage.removeItem("posts");
     location.href = "index.html"; 

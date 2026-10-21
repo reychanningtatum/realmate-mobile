@@ -400,7 +400,7 @@ function toggleSettingsPassword(inputId, iconEl) {
 }
 
 function logout() {
-    try { _supabase.auth.signOut(); } catch (e) {}
+    try { _supabase.auth.signOut({ scope: 'local' }); } catch (e) {}
     localStorage.clear();
     // Settings runs inside the app-shell's content iframe; navigate the TOP
     // window so the whole shell (and its bottom nav bar) is torn down, not just
