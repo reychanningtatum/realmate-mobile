@@ -1966,3 +1966,38 @@ html[data-theme="dark"] .profile-img-container { border-color: #334155; }
    manipulation keeps taps, drag-to-reposition and the slider; pinch inside the
    cropper is handled by Cropper itself. */
 #cropModal, #photoActionSheet, #photoInlineMenu { touch-action: manipulation; }
+
+/* ── Edit Profile › Get verified ─────────────────────────────────────────────
+   Upload box styled like registration's Professional ID box. */
+.gv-box .gv-status { font-size: 13px; font-weight: 600; color: #64748b; margin: 2px 0 8px; line-height: 1.4; }
+.gv-box .gv-status-ok { color: #0f9d4f; }
+.gv-box .gv-status-pending { color: #b45309; }
+.gv-box .gv-status-rejected { color: #b91c1c; font-weight: 500; }
+.gv-upload {
+  display: flex; align-items: center; gap: 10px; width: 100%; box-sizing: border-box;
+  padding: 12px 14px; border-radius: 12px; border: 1px dashed #cbd5e1; background: #fff;
+  font-size: 14px; cursor: pointer;
+}
+.gv-upload:hover { border-color: #2563eb; }
+.gv-upload.error { border-color: #dc2626; }
+.gv-upload i { color: #94a3b8; font-size: 15px; flex-shrink: 0; }
+.gv-upload-text { color: #64748b; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gv-upload.has-file { border-style: solid; }
+.gv-upload.has-file .gv-upload-text { color: #0f172a; font-weight: 500; }
+.gv-helper { font-size: 11px; color: #64748b; margin: 5px 0 8px; font-weight: 500; }
+.gv-box .gv-prc { margin-bottom: 8px; }
+.gv-submit {
+  width: 100%; padding: 11px 14px; border: 0; border-radius: 10px; background: #0f172a; color: #fff;
+  font-size: 14px; font-weight: 600; cursor: pointer;
+}
+.gv-submit:disabled { opacity: .6; cursor: default; }
+.gv-msg { font-size: 12px; margin-top: 6px; min-height: 0; }
+.gv-msg-error { color: #b91c1c; }
+.gv-msg-ok { color: #0f9d4f; }
+html[data-theme="dark"] .gv-upload { background: #0f172a; border-color: #334155; }
+html[data-theme="dark"] .gv-upload-text, html[data-theme="dark"] .gv-helper, html[data-theme="dark"] .gv-box .gv-status { color: #94a3b8; }
+html[data-theme="dark"] .gv-upload.has-file .gv-upload-text { color: #f1f5f9; }
+html[data-theme="dark"] .gv-box .gv-status-ok, html[data-theme="dark"] .gv-msg-ok { color: #34d399; }
+html[data-theme="dark"] .gv-box .gv-status-pending { color: #fbbf24; }
+html[data-theme="dark"] .gv-box .gv-status-rejected, html[data-theme="dark"] .gv-msg-error { color: #f87171; }
+html[data-theme="dark"] .gv-submit { background: #2563eb; }

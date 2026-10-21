@@ -2250,8 +2250,8 @@ async function saveProfile() {
     // Division / Group / Team are no longer edited here (removed from Edit
     // Profile); their stored values are left exactly as they are — see the
     // profiles update below, which no longer writes those columns.
-    // Declared profession + brokerage. Changing the profession clears an existing
-    // verification server-side (protect_privileged_profile_fields).
+    // Declared profession + brokerage. Changing the profession does NOT change a
+    // verified badge — that is admin-granted only (Get verified box below).
     const _pt = (document.getElementById("editProfessionalType") || {}).value || '';
     user.professionalType = (_pt === 'salesperson' || _pt === 'broker') ? _pt : '';
     user.brokerage = ((document.getElementById("editBrokerage") || {}).value || '').trim().slice(0, 120);
@@ -2374,7 +2374,110 @@ function openEditModal() {
     renderLanguageChips();
     document.getElementById("editLanguages").value = "";
     document.getElementById("editModal").style.display = "flex";
+    gvRefresh();
 }
+
+// ── Get verified (Edit Profile) ──────────────────────────────────────────────
+// The member uploads their Professional ID for an admin review. The badge itself
+// is granted only by an admin (Admin › Verifications / User Details), so nothing
+// here — and nothing about the Profession field — changes it.
+const GV_MAX_BYTES = 5 * 1024 * 1024;
+const GV_TYPES = ['image/jpeg', 'image/png', 'application/pdf'];
+let _gvFile = null;
+
+function _gvMsg(text, kind) {
+    const m = document.getElementById('gvMsg');
+    if (!m) return;
+    m.textContent = text || '';
+    m.className = 'gv-msg' + (kind ? ' gv-msg-' + kind : '');
+}
+
+function _gvTypeLabel(t) { return t === 'broker' ? 'Broker' : t === 'salesperson' ? 'Salesperson' : ''; }
+
+function gvPickFile(input) {
+    const f = input && input.files && input.files[0];
+    const wrap = document.getElementById('gvUploadWrap');
+    const name = document.getElementById('gvFileName');
+    _gvFile = null;
+    if (wrap) wrap.classList.remove('has-file', 'error');
+    if (name) name.textContent = 'Upload Professional ID';
+    _gvMsg('');
+    if (!f) return;
+    const okType = GV_TYPES.includes(f.type) || /\.(jpe?g|png|pdf)$/i.test(f.name || '');
+    if (!okType) { if (wrap) wrap.classList.add('error'); _gvMsg('Use a JPG, PNG or PDF file.', 'error'); input.value = ''; return; }
+    if (f.size > GV_MAX_BYTES) { if (wrap) wrap.classList.add('error'); _gvMsg('That file is over 5MB.', 'error'); input.value = ''; return; }
+    _gvFile = f;
+    if (wrap) wrap.classList.add('has-file');
+    if (name) name.textContent = f.name;
+}
+
+async function gvRefresh() {
+    const st = document.getElementById('gvStatus');
+    if (!st) return;
+    _gvFile = null;
+    const fi = document.getElementById('gvFile'); if (fi) fi.value = '';
+    const wrap = document.getElementById('gvUploadWrap'); if (wrap) wrap.classList.remove('has-file', 'error');
+    const nm = document.getElementById('gvFileName'); if (nm) nm.textContent = 'Upload Professional ID';
+    const prc = document.getElementById('gvPrc'); if (prc) prc.value = '';
+    _gvMsg('');
+    const verified = user.verifiedAs ? (window.RMVerified ? RMVerified.label(user.verifiedAs) : 'Verified') : '';
+    st.className = 'gv-status' + (verified ? ' gv-status-ok' : '');
+    st.textContent = verified || 'Not verified';
+    if (!_supabase) return;
+    try {
+        const { data: { user: authUser } } = await _supabase.auth.getUser();
+        if (!authUser) return;
+        const { data, error } = await _supabase.from('verification_requests')
+            .select('status, requested_type, note, created_at').eq('user_id', authUser.id)
+            .order('created_at', { ascending: false }).limit(1);
+        if (error) throw error;
+        const last = data && data[0];
+        if (!last) return;
+        if (last.status === 'pending') {
+            st.className = 'gv-status gv-status-pending';
+            st.textContent = 'Pending review' + (last.requested_type ? ' (' + _gvTypeLabel(last.requested_type) + ')' : '') +
+                (verified ? ' · currently ' + verified : '');
+        } else if (last.status === 'rejected' && !verified) {
+            st.className = 'gv-status gv-status-rejected';
+            st.textContent = 'Not verified. Your last request was not approved' + (last.note ? ': ' + last.note : '.');
+        }
+    } catch (e) {
+        console.error('[get-verified] status', e);
+    }
+}
+
+async function gvSubmit() {
+    const btn = document.getElementById('gvSubmitBtn');
+    const type = (document.getElementById('editProfessionalType') || {}).value || '';
+    if (type !== 'salesperson' && type !== 'broker') { _gvMsg('Choose your Profession above first.', 'error'); return; }
+    if (!_gvFile) { const w = document.getElementById('gvUploadWrap'); if (w) w.classList.add('error'); _gvMsg('Upload your Professional ID first.', 'error'); return; }
+    if (!_supabase) { _gvMsg('You are offline. Try again in a moment.', 'error'); return; }
+    if (btn) { btn.disabled = true; btn.textContent = 'Submitting…'; }
+    try {
+        const { data: { user: authUser } } = await _supabase.auth.getUser();
+        if (!authUser) throw new Error('Please sign in again.');
+        const safe = (_gvFile.name || 'id').replace(/[^A-Za-z0-9._-]+/g, '_').slice(-80);
+        const path = `${authUser.id}/verify_${Date.now()}_${safe}`;
+        const { error: upErr } = await _supabase.storage.from('verification-docs')
+            .upload(path, _gvFile, { contentType: _gvFile.type || undefined, upsert: false });
+        if (upErr) throw upErr;
+        const prc = ((document.getElementById('gvPrc') || {}).value || '').trim().slice(0, 40);
+        const brokerage = ((document.getElementById('editBrokerage') || {}).value || '').trim().slice(0, 120);
+        const { error: insErr } = await _supabase.from('verification_requests').insert({
+            user_id: authUser.id, requested_type: type, prc_license_no: prc || null,
+            brokerage: brokerage || null, file_path: path,
+        });
+        if (insErr) throw insErr;
+        await gvRefresh();
+        _gvMsg('Sent. An admin will review your ID.', 'ok');
+    } catch (e) {
+        console.error('[get-verified] submit', e);
+        _gvMsg('Could not submit: ' + (e && e.message ? e.message : 'please try again.'), 'error');
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = 'Submit for verification'; }
+    }
+}
+
 function closeEditModal() {
     document.getElementById("editModal").style.display = "none";
     document.body.style.overflow = '';

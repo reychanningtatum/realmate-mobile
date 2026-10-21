@@ -36,7 +36,7 @@
   <link rel="stylesheet" href="vendor/fontawesome/css/all.min.css?v=6.5.0">
   <link rel="stylesheet" href="vendor/cropperjs/cropper.min.css?v=1.6.1">
   <link rel="stylesheet" href="vendor/googlefonts/fonts.css?v=1">
-  <link rel="stylesheet" href="dashboard-style.css?v=20261021d">
+  <link rel="stylesheet" href="dashboard-style.css?v=20261021e">
   <link rel="stylesheet" href="customer-service.css?v=3">
   <link rel="stylesheet" href="mobile-back.css">
   <link rel="stylesheet" href="composer.css?v=20261021b">
@@ -382,6 +382,22 @@
             <label>Brokerage / Company <span class="input-field-optional">(Optional)</span></label>
             <input type="text" id="editBrokerage" maxlength="120" placeholder="Brokerage or company name">
         </div>
+        <!-- Get verified: the badge is admin-granted only. Changing the Profession
+             above changes nothing; this sends the member's ID for an admin review
+             (verification_requests; Admin › Verifications). -->
+        <div class="input-field gv-box" id="getVerifiedBox">
+            <label>Get verified</label>
+            <div id="gvStatus" class="gv-status">Not verified</div>
+            <div class="gv-upload" id="gvUploadWrap" role="button" tabindex="0" onclick="document.getElementById('gvFile').click()">
+                <i class="fas fa-upload"></i>
+                <span id="gvFileName" class="gv-upload-text">Upload Professional ID</span>
+                <input type="file" id="gvFile" accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf" onchange="gvPickFile(this)" hidden>
+            </div>
+            <div class="gv-helper">PRC ID, DHSUD license, or company/brokerage ID. JPG, PNG or PDF, up to 5MB.</div>
+            <input type="text" id="gvPrc" class="gv-prc" maxlength="40" placeholder="PRC license number (optional)" autocomplete="off">
+            <button type="button" class="gv-submit" id="gvSubmitBtn" onclick="gvSubmit()">Submit for verification</button>
+            <div id="gvMsg" class="gv-msg" role="status"></div>
+        </div>
         <div class="input-field">
             <label>Relationship Status</label>
             <select id="editRelationship">
@@ -645,7 +661,7 @@
 <script src="livemarket.js?v=20261021b"></script>
 <script src="privacy.js?v=20261020c"></script>
 <script src="deactivation.js?v=20261019e"></script>
-<script src="dashboard-script.js?v=20261021e"></script>
+<script src="dashboard-script.js?v=20261021f"></script>
 <script src="emoji-picker.js?v=20260928d"></script>
 <script src="home.js?v=20261021b"></script>
 <script src="feed-video.js?v=20261013a"></script>
