@@ -1571,7 +1571,9 @@ async function _loadProfileRun() {
                             division: profile.division || '',
                             group: profile.business_group || '',
                             team: profile.team_name || '',
-                            bio: profile.bio || user.bio,
+                            // From the profile row only — never the phone's cached copy, which
+                            // could still hold text the member has since cleared.
+                            bio: profile.bio || '',
                             relationship: profile.relationship_status || '',
                             coverUrl: profile.cover_url || '',
                             coverTransform: profile.cover_transform || null,
