@@ -176,7 +176,13 @@ function goBack() {
             .select('account_status')
             .eq('id', session.user.id)
             .maybeSingle();
-        if (!reviewErr && (!review || review.account_status !== 'Approved')) {
+        // Sign out ONLY on an explicit non-approved status on the member's own
+        // row (Rejected / Pending Approval). An EMPTY result is not a verdict:
+        // registration_reviews is readable only with a valid session, so a lookup
+        // sent while the session is being restored or refreshed returns no row —
+        // that used to log approved members out (seen after AI Match → Back).
+        // Sign-in itself (script.js login) still requires an explicit 'Approved'.
+        if (!reviewErr && review && review.account_status && review.account_status !== 'Approved') {
             await _sb.auth.signOut();
             localStorage.clear();
             location.href = "index.html";

@@ -1363,7 +1363,7 @@ function handleListingRealtimeUpdate(row, eventType) {
     }
     // Recompute + surgically refresh the AI-match counters live (no full grid rebuild),
     // then re-record the match-alert set from the fresh matchMap.
-    try { var mm = syncMatchCountsUI(); if (mm) window.RMMatchAlert?.recordMatches([...mm.keys()].map(String)); } catch (e) {}
+    try { var mm = syncMatchCountsUI(); if (mm) { window.RMMatchAlert?.recordMatches([...mm.keys()].map(String)); _lmRecordAiMatches(mm); } } catch (e) {}
 }
 
 function buildOfferBadge(listing) {
@@ -4020,7 +4020,33 @@ async function loadLedger(silent) {
     // anything seen (opening the Portal must not clear a badge) and does NOT
     // fire the banner (that's reserved for genuine realtime arrivals) — it just
     // records which listings currently match one of mine, keyed by listing id.
-    try { window.RMMatchAlert?.recordMatches([...buildMatchMap().keys()].map(String)); } catch (e) {}
+    try {
+        const _mm = buildMatchMap();
+        window.RMMatchAlert?.recordMatches([..._mm.keys()].map(String));
+        _lmRecordAiMatches(_mm);
+    } catch (e) {}
+}
+
+// Admin › AI Matches record: report every match in the Portal's authoritative
+// match map (buildMatchMap — the same set, pairing and engine result the member
+// sees) to the shared ai_matches table via match-alert.js. Fire-and-forget; a
+// missing table or failed write never affects matching or the UI.
+function _lmRecordAiMatches(map) {
+    try {
+        if (!map || !window.RMMatchAlert || typeof RMMatchAlert.recordAiMatches !== 'function') return;
+        const byId = new Map((allListings || []).map(l => [String(l.id), l]));
+        const rows = [];
+        map.forEach((m, otherId) => {
+            const other = byId.get(String(otherId));
+            if (!other || !m || !m.myListing) return;
+            const res = computeMatchScore(parseListing(m.myListing), parseListing(other));
+            rows.push({
+                user_listing_id: m.myListing.id, matched_listing_id: other.id, matched_user_id: other.user_id || null,
+                score: res.score, grade: res.grade || null, reasons: res.reasons || null, analysis: res.analysis || null
+            });
+        });
+        RMMatchAlert.recordAiMatches(rows);
+    } catch (e) { /* the record is for Admin only — never disrupt the Portal */ }
 }
 
 // ── AI Match view ─────────────────────────────────
@@ -4184,6 +4210,10 @@ function dismissMatch(listingId) {
     const dismissed = getDismissedMatches();
     dismissed.add(String(listingId));
     localStorage.setItem(_dismissKey(), JSON.stringify([...dismissed]));
+    // Also record it on the shared match record (Admin › AI Matches can then see
+    // who dismissed what, and when). The phone's own list above stays the source
+    // for hiding it here.
+    try { window.RMMatchAlert?.recordDismiss?.(listingId); } catch (e) {}
     // Slide the card out of the AI Match view (now a full Live Market card) and
     // refresh the match count / empty state.
     const mvCard = document.querySelector(`#matchesContainer #lc-${listingId}`)

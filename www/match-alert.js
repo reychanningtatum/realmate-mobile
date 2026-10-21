@@ -504,6 +504,7 @@
         if (!newly.length) return;
         newly.forEach(n => { s.current.push(n.id); _sessionArrivals.add(n.id); });
         _persistMatches(newly.map(n => n.id));
+        recordAiMatches(newly.map(n => _aiRowFor(n.listing)).filter(Boolean));
         setState(s);
         refreshBadges();
         _setDiag('scan', 'found ' + newly.length);
@@ -664,6 +665,7 @@
         _sessionArrivals.add(id);   // a genuine live arrival — survives the baseline
         s.current.push(id);
         _persistMatches([id]);      // count this newly-arrived match
+        recordAiMatches([_aiRowFor(listing)].filter(Boolean));
         setState(s);
         refreshBadges();
         _setDiag('note', id+':BANNER');
@@ -697,7 +699,73 @@
         _persistSeen(ids);   // cross-device truth → stays seen on reload / other device
     }
 
-    window.RMMatchAlert = { recordMatches, noteIncoming, markSeen, getUnseen, refreshBadges };
+    // ── Shared AI Match record (ai_matches; Admin › AI Matches) ────────────────
+    // One row per (me, my listing, matched listing) with the SAME engine result I
+    // was shown. Written only when new or the score changed (cached per device),
+    // as an upsert so first_shown_at is kept. Never throws; a missing table or
+    // failed write leaves matching, badges and banners exactly as they are.
+    function _aiRecKey() { return 'rm_aimatch_rec_v1_' + (_myUid || _uid || 'anon'); }
+    function recordAiMatches(rows) {
+        try {
+            const uid = _myUid || _uid;
+            if (!_sb || !uid || !Array.isArray(rows) || !rows.length) return;
+            let cache = {};
+            try { cache = JSON.parse(localStorage.getItem(_aiRecKey()) || '{}') || {}; } catch (e) { cache = {}; }
+            const now = new Date().toISOString();
+            const fresh = rows.filter(r => r && r.user_listing_id != null && r.matched_listing_id != null
+                                         && String(r.user_listing_id) !== String(r.matched_listing_id))
+                .map(r => ({
+                    user_id: uid,
+                    user_listing_id: String(r.user_listing_id),
+                    matched_listing_id: String(r.matched_listing_id),
+                    matched_user_id: r.matched_user_id || null,
+                    score: Math.max(0, Math.min(100, Number(r.score) || 0)),
+                    grade: r.grade || null,
+                    reasons: r.reasons || null,
+                    analysis: r.analysis || null,
+                    last_shown_at: now
+                }))
+                .filter(r => cache[r.user_listing_id + ':' + r.matched_listing_id] !== r.score);
+            if (!fresh.length) return;
+            _sb.from('ai_matches')
+                .upsert(fresh, { onConflict: 'user_id,user_listing_id,matched_listing_id' })
+                .then(function (res) {
+                    if (res && res.error) return;                     // retried on the next recompute
+                    fresh.forEach(r => { cache[r.user_listing_id + ':' + r.matched_listing_id] = r.score; });
+                    const keys = Object.keys(cache);
+                    if (keys.length > 3000) keys.slice(0, keys.length - 3000).forEach(k => delete cache[k]);
+                    try { localStorage.setItem(_aiRecKey(), JSON.stringify(cache)); } catch (e) {}
+                })
+                .catch(function () {});
+        } catch (e) { /* the record is for Admin only */ }
+    }
+    // The best of MY listings for an incoming/scanned match (same engine, same
+    // threshold as matchesMine) → one record row, or null.
+    function _aiRowFor(listing) {
+        try {
+            const other = window.RM_MATCH.parseListing(listing);
+            let best = null;
+            for (const mine of _myParsed) {
+                const res = window.RM_MATCH.computeMatchScore(mine, other);
+                if (res.score >= MATCH_THRESHOLD && (!best || res.score > best.res.score)) best = { mine, res };
+            }
+            if (!best || !best.mine.raw) return null;
+            return { user_listing_id: best.mine.raw.id, matched_listing_id: listing.id, matched_user_id: listing.user_id || null,
+                     score: best.res.score, grade: best.res.grade || null, reasons: best.res.reasons || null, analysis: best.res.analysis || null };
+        } catch (e) { return null; }
+    }
+    // Mark my record(s) for that matched listing as dismissed (server time).
+    function recordDismiss(listingId) {
+        try {
+            const uid = _myUid || _uid;
+            if (!_sb || !uid || listingId == null) return;
+            _sb.from('ai_matches').update({ dismissed_at: new Date().toISOString() })
+                .eq('user_id', uid).eq('matched_listing_id', String(listingId)).is('dismissed_at', null)
+                .then(function () {}).catch(function () {});
+        } catch (e) {}
+    }
+
+    window.RMMatchAlert = { recordMatches, noteIncoming, markSeen, getUnseen, refreshBadges, recordAiMatches, recordDismiss };
 
     // Cross-document badge sync: match state lives in localStorage, so when it
     // changes in ANOTHER same-origin document (the Portal iframe detecting/clearing

@@ -734,6 +734,14 @@ html[data-theme="dark"] .profile-more-menu a:hover { background: #334155; }
     align-items: center;
     gap: 8px;
 }
+/* Verified Salesperson / Broker badge sits BESIDE the name on the same row
+   (rm-verified.js draws it from profiles.verified_as). Sized to the name so the
+   name stays readable; it never shrinks or wraps away from the name. */
+.profile-verified-full { flex: 0 0 auto; align-items: center; }
+.profile-name-line .profile-verified-full .rm-verified-badge { height: 34px !important; width: auto; }
+@media (max-width: 768px) {
+    .profile-name-line .profile-verified-full .rm-verified-badge { height: 28px !important; }
+}
 .profile-verified-badge {
     font-size: 17px;
     color: var(--primary);

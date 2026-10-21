@@ -480,6 +480,7 @@ function renderPollOptions() {
             <input type="text" maxlength="80" placeholder="Option ${i + 1}" value="${(v || '').replace(/"/g, '&quot;')}">
             ${_pollOptions.length > 2 ? `<button type="button" class="hpb-remove" onclick="removePollOption(${i})"><i class="fas fa-times"></i></button>` : ''}
         </div>`).join('');
+    _homeComposerFit();   // more/fewer options → re-fit the text box so Post stays on screen
 }
 
 function addPollOption() {
@@ -540,6 +541,7 @@ function setPostType(type) {
     }
     syncTypeButtons();
     togglePollBuilder();
+    _homeComposerFit();   // badge / poll builder / album title change the height
     if (_homePostType === 'album' && !_homePostFiles.length) {
         document.getElementById('homePostMedia')?.click();
     }
@@ -608,6 +610,25 @@ function extractHashtags(text) {
 }
 
 // Render text with clickable #hashtags and @mentions
+// Long post text: show the first `lines` lines with a "See more" link that
+// expands it in place. "Long" is decided from the text itself (characters or
+// line breaks), so nothing is measured or timed. Used for a post's own text and
+// for the original inside a shared post.
+function _hfLongText(cls, content, lines) {
+    const text = String(content || '');
+    const breaks = (text.match(/\n/g) || []).length + 1;
+    const long = breaks > lines || text.length > lines * 60;
+    if (!long) return `<div class="${cls}">${linkifyContent(text)}</div>`;
+    return `<div class="${cls} hf-clamp" style="-webkit-line-clamp:${lines};">${linkifyContent(text)}</div>` +
+        `<button type="button" class="hf-see-more" onclick="hfSeeMore(event, this)">See more</button>`;
+}
+function hfSeeMore(e, btn) {
+    if (e) { e.stopPropagation(); e.preventDefault(); }   // inside a shared post: don't open the original
+    const t = btn && btn.previousElementSibling;
+    if (t) { t.classList.remove('hf-clamp'); t.style.webkitLineClamp = ''; }
+    if (btn) btn.remove();
+}
+
 function linkifyContent(text) {
     let html = safeText(text);
     html = html.replace(/#([\p{L}0-9_]{2,40})/gu,
@@ -896,6 +917,9 @@ function previewHomeMedia(input) {
         }
         preview.appendChild(el);
     });
+    // Thumbnails make the composer taller: re-fit the text box (it shrinks and
+    // scrolls inside) so the Post button stays above the bottom nav.
+    _homeComposerFit();
 }
 
 function removeHomeMedia(i) {
@@ -1488,7 +1512,7 @@ function buildHomePostCard(post, stats) {
         </div>
         ${subjectBadge(post.subject)}
         ${albumHtml}
-        ${post.content ? `<div class="hf-post-text">${linkifyContent(post.content)}</div>` : ''}
+        ${post.content ? _hfLongText('hf-post-text', post.content, 6) : ''}
         ${pollHtml}
         ${mediaHtml}
         ${sharedOrig ? buildSharedEmbed(sharedOrig) : (post.shared_post_id ? `<div class="hf-shared-embed hf-shared-missing">Original post is no longer available.</div>` : '')}
@@ -1575,7 +1599,7 @@ function buildSharedEmbed(orig) {
                 <div class="hf-shared-time">${timeAgo(orig.created_at)}</div>
             </div>
         </div>
-        ${orig.content ? `<div class="hf-shared-text">${linkifyContent(orig.content)}</div>` : ''}
+        ${orig.content ? _hfLongText('hf-shared-text', orig.content, 4) : ''}
         ${buildPostMedia(orig, { embed: true })}
     </div>`;
 }
@@ -2314,7 +2338,13 @@ function _applyPostEdit(id, content, mediaPatch) {
             if (anchor && anchor.parentNode) anchor.parentNode.insertBefore(el, anchor.nextSibling); else card.appendChild(el);
         }
         el.innerHTML = (typeof linkifyContent === 'function') ? linkifyContent(content) : content;
-    } else if (el) { el.remove(); }
+        // Just edited: show the whole text (drop any "See more" truncation).
+        el.classList.remove('hf-clamp'); el.style.webkitLineClamp = '';
+        const _sm = el.nextElementSibling; if (_sm && _sm.classList.contains('hf-see-more')) _sm.remove();
+    } else if (el) {
+        const _sm = el.nextElementSibling; if (_sm && _sm.classList.contains('hf-see-more')) _sm.remove();
+        el.remove();
+    }
 
     // Re-render the media block from the updated photo set.
     if (mediaPatch && typeof buildPostMedia === 'function') {

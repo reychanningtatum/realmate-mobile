@@ -1167,7 +1167,7 @@ function updateUI() {
     if (_verFull) {
         const html = (_verAs && window.RMVerified) ? RMVerified.badge(_verAs, 40) : '';
         _verFull.innerHTML = html;
-        _verFull.style.display = html ? 'block' : 'none';
+        _verFull.style.display = html ? 'inline-flex' : 'none';
     }
 
     // Location line
