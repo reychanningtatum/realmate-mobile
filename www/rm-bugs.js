@@ -268,15 +268,22 @@
   // listening ("AbortError: Transition was skipped"). Handle it here and report
   // it as a labelled "View transition skipped" entry: still reported, grouped
   // per page and reason, instead of arriving as an unhandled rejection.
+  // A cancelled transition can reject up to three promises — ready, and (when its
+  // update is aborted, e.g. a cross-page swap) updateCallbackDone and finished.
+  // Each is handled the same way; identical reports group into one entry.
   function watchTransition(vt) {
     try {
-      if (!vt || !vt.ready || !vt.ready.catch) return;
-      vt.ready.catch(function (r) {
+      if (!vt) return;
+      var report = function (r) {
         try {
           if (!enabled()) return;
           var why = (r && typeof r === 'object') ? ((r.name ? r.name + ': ' : '') + (r.message || '')) : String(r);
           enqueue('console', 'View transition skipped (' + (why || 'no reason') + ')', (r && r.stack) || '');
         } catch (e) {}
+      };
+      ['ready', 'updateCallbackDone', 'finished'].forEach(function (k) {
+        var p = vt[k];
+        if (p && typeof p.catch === 'function') p.catch(report);
       });
     } catch (e) {}
   }
