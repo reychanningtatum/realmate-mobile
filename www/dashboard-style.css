@@ -1463,6 +1463,14 @@ html[data-theme="dark"] .stats-list-avatar { border-color: #334155; }
     .profile-avatar-wrap { margin-top: -54px; margin-left: 18px; }
     .profile-img-container { width: 100px; height: 100px; }
     .profile-img-container img { width: 100px; height: 100px; border-width: 4px !important; }
+    /* Photo options open BESIDE the picture (centred on it), not under it. iOS
+       shows its own Photo Library / Take Photo / Choose File menu where the
+       option was tapped — under the avatar that put it far down the screen. */
+    .photo-inline-menu {
+        top: 50%; left: calc(100% + 10px); transform: translateY(-50%);
+        min-width: 0; width: max-content; max-width: calc(100vw - 100% - 40px);
+    }
+    .photo-inline-menu .pim-item { padding: 10px 12px; white-space: normal; }
     /* Horizontal padding trimmed slightly (16px → 14px) to give the name
        row a bit more usable width, per explicit permission to reclaim
        space before shrinking the name font further than necessary. */
