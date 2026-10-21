@@ -751,24 +751,6 @@ html[data-theme="dark"] .hf-replies { border-left-color: #3a4553; }
 .active-member-name { font-size: 13px; font-weight: 700; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .active-member-job { font-size: 11px; color: var(--text-sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
 
-/* Birthdays */
-.birthday-row {
-  display: flex; align-items: center; gap: 10px; margin-bottom: 12px;
-}
-.birthday-row img { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
-.birthday-info { flex: 1; min-width: 0; }
-.birthday-name { font-size: 13px; font-weight: 700; color: var(--text-main); }
-.birthday-label { font-size: 11px; color: #f59e0b; margin-top: 1px; font-weight: 600; }
-.birthday-greet-btn {
-  background: var(--primary-soft); color: var(--primary);
-  border: 1px solid rgba(50,205,50,0.3);
-  border-radius: 8px; padding: 6px 10px;
-  font-size: 11px; font-weight: 700; cursor: pointer;
-  white-space: nowrap; flex-shrink: 0;
-  transition: background 0.15s;
-}
-.birthday-greet-btn:hover { background: rgba(50,205,50,0.2); }
-
 /* =========================================
    PRESERVED: listing-badge, post-card, etc.
    ========================================= */

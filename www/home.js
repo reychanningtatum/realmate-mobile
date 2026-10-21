@@ -3996,71 +3996,6 @@ function renderActiveMembers(members, list, showOnline) {
 //  RIGHT SIDEBAR — BIRTHDAYS
 // ══════════════════════════════════════════════════
 
-async function loadBirthdays() {
-    const widget = document.getElementById('birthdaysWidget');
-    const list   = document.getElementById('birthdaysList');
-    if (!list || !widget) return;
-
-    try {
-        const today = new Date();
-        const mm    = String(today.getMonth() + 1).padStart(2, '0');
-        const dd    = String(today.getDate()).padStart(2, '0');
-
-        // Query profiles where birthdate month+day matches today
-        const { data, error } = await _supaHome
-            .from('profiles')
-            .select('id, full_name, avatar_url, birthdate')
-            .not('birthdate', 'is', null);
-
-        if (error || !data?.length) return;
-
-        const bdays = data.filter(p => {
-            if (!p.birthdate) return false;
-            const d = new Date(p.birthdate);
-            return String(d.getMonth() + 1).padStart(2, '0') === mm &&
-                   String(d.getDate()).padStart(2, '0') === dd;
-        });
-
-        if (!bdays.length) return;
-
-        widget.style.display = 'block';
-        list.innerHTML = bdays.map(p => {
-            const name   = p.full_name || 'Member';
-            const avatar = p.avatar_url || avatarUrl(name);
-            return `
-                <div class="birthday-row">
-                    <img loading="lazy" decoding="async" src="${avatar}" onerror="this.src='${avatarUrl(name)}'">
-                    <div class="birthday-info">
-                        <div class="birthday-name">${safeText(name)}</div>
-                        <div class="birthday-label">🎂 Birthday today!</div>
-                    </div>
-                    <button class="birthday-greet-btn" onclick="sendBirthdayGreeting('${safeText(name)}')">
-                        Send Greeting
-                    </button>
-                </div>`;
-        }).join('');
-    } catch (e) {
-        // silently skip if birthdate column doesn't exist
-    }
-}
-
-async function sendBirthdayGreeting(name) {
-    const user = getUser();
-    if (!user) return;
-    // Post a birthday greeting to forum_posts
-    const { data: authData } = await _supaHome.auth.getUser();
-    await _supaHome.from('forum_posts').insert({
-        user_id:   authData?.user?.id,
-        user_name: user.name,
-        user_img:  user.image || '',
-        subject:   '',
-        content:   `🎂 Happy Birthday, ${name}! Wishing you an amazing day! 🎉`,
-        is_anonymous: false
-    });
-    (window.showToast || alert)(`Birthday greeting sent to ${name}! 🎂`, 'success');
-    loadHomeFeed();
-}
-
 // ══════════════════════════════════════════════════
 //  HOME INLINE SEARCH (preserved)
 // ══════════════════════════════════════════════════
@@ -4433,7 +4368,6 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
         loadHomeFeed();
     }
-    loadBirthdays();
     loadTrending();
     loadFollowTopics();
     loadSuggestedRealmates();

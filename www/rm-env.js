@@ -26,6 +26,9 @@
       anonKey: 'sb_publishable_Rm_fIBDUfu3DEyLj0_bWZw_qEqo8cd4',
       scheme: 'realmate',
       bundleId: 'com.realmate.app',
+      // Shared admin password still offered on the Admin page (being retired;
+      // production keeps it until it has a working Master account).
+      adminSharedPassword: true,
     },
     staging: {
       name: 'staging',
@@ -34,6 +37,7 @@
       anonKey: 'sb_publishable_IKVQ13nbBhnlmWj9Tj9Tog_rX8Xla8w',
       scheme: 'realmate-staging',
       bundleId: 'com.realmate.app.staging',
+      adminSharedPassword: false,
     },
   };
 
