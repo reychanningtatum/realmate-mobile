@@ -1440,11 +1440,11 @@ html[data-theme="dark"] .hf-poll-opt:not(.voted):hover { background: #161f36; }
 }
 .btn-follow:hover:not(:disabled) { background: var(--primary); color: #fff; }
 .btn-follow-ing { background: var(--primary); border-color: var(--primary); color: #fff; }
-.btn-follow-ing:hover:not(:disabled) { background: #ef4444; border-color: #ef4444; color: #fff; }
-/* Pending follow REQUEST (awaiting the owner's approval) — amber, distinct from
-   the filled "Following". Hover hints the withdraw (red). */
-.btn-follow-requested { background: #f59e0b; border-color: #f59e0b; color: #fff; }
-.btn-follow-requested:hover:not(:disabled) { background: #ef4444; border-color: #ef4444; color: #fff; }
+.btn-follow-ing:hover:not(:disabled) { background: #15803d; border-color: #15803d; color: #fff; }
+/* Pending follow REQUEST (awaiting the owner's approval) — a light green,
+   distinct from the filled "Following". Hover hints the withdraw (deeper green). */
+.btn-follow-requested { background: #dcfce7; border-color: #22c55e; color: #15803d; }
+.btn-follow-requested:hover:not(:disabled) { background: #15803d; border-color: #15803d; color: #fff; }
 /* Accept an incoming follow request — a positive, green action. */
 .btn-follow-accept { background: #16a34a; border-color: #16a34a; color: #fff; }
 .btn-follow-accept:hover:not(:disabled) { background: #15803d; border-color: #15803d; color: #fff; }

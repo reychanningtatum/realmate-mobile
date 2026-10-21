@@ -1032,7 +1032,7 @@
         if (whole) return [whole === 'Commercial Building' || whole === 'Apartment Building' ? 'Building' : whole];
         if (_hlSubject(text, /\bpent[\s-]*house\b/))                 return ['Penthouse'];
         if (_hlSubject(text, /\btown[\s-]*house\b/))                 return ['Townhouse'];
-        if (_hlSubject(text, /\bhouse\s*(?:and|&|\+)?\s*lot\b/))     return ['House and Lot'];
+        if (_hlSubject(text, /\bhouse\s*(?:and|&|\+)?\s*lot\b|\bh\s*(?:&|and|\+)\s*l\b/)) return ['House and Lot'];
         if (_hlSubject(text, /\bresidential\s*lot\b/))               return ['Residential Lot'];
         if (_hlSubject(text, /\bcommercial\s*lot\b/))                return ['Commercial Lot'];
         if (_hlSubject(text, /\bindustrial\s*lot\b/))                return ['Industrial Lot'];
@@ -1044,7 +1044,40 @@
         if (beds.length) return beds.map(n => n === 1 ? '1 Bedroom' : `${n} Bedrooms`);
         if (_hlSubject(text, /\boffice\b/))                          return ['Office Space'];
         if (_hlSubject(text, /\bbuilding\b/))                        return ['Building'];
+        if (_generalLot(text))                                       return ['Lot'];
         return [];
+    }
+
+    // A post about a lot that doesn't say which kind ("Lot for sale", "Vacant lot").
+    // Last resort only — every specific type above wins. "lot" that isn't the
+    // property itself never counts: "lot area"/"lot size", a lot number ("Lot 12",
+    // "Blk 3 Lot 5", "lot no."), "parking lot", "a lot of".
+    function _generalLot(text) {
+        const g = /\blots?\b/gi;
+        let m;
+        while ((m = g.exec(text))) {
+            const s = m.index, e = s + m[0].length;
+            if (_hlUseMention(text, s, e)) continue;
+            const pre = text.slice(Math.max(0, s - 12), s).toLowerCase();
+            const post = text.slice(e, e + 12).toLowerCase();
+            if (/\b(?:parking|a)[ \t]+$/.test(pre)) continue;               // same line only —
+            if (/^[ \t]*(?:area|size|no\b|number|#|\d|of\b)/.test(post)) continue;   // the next line is another field
+            return true;
+        }
+        return false;
+    }
+
+    // Unit-type compatibility — the single rule the Match Engine applies. Equal
+    // types match. A general "Lot" (kind not stated) matches any specific lot
+    // (Residential / Commercial / Industrial Lot) and vice versa; two DIFFERENT
+    // specific lots never match. Returns the type to show for the pair (the more
+    // specific one), or null when incompatible.
+    const _LOT_SUBTYPES = new Set(['Residential Lot', 'Commercial Lot', 'Industrial Lot']);
+    function unitTypesCompatible(a, b) {
+        if (a === b) return a;
+        if (a === 'Lot' && _LOT_SUBTYPES.has(b)) return b;
+        if (b === 'Lot' && _LOT_SUBTYPES.has(a)) return a;
+        return null;
     }
 
     // Parsing a listing (especially fuzzy project matching over long posts) is
@@ -1601,7 +1634,11 @@
         const mineTypes = mine.unitTypes || [];
         const otherTypes = other.unitTypes || [];
         if (!mineTypes.length || !otherTypes.length) return { score: 0, reasons: [], details: {} };
-        const typeOverlap = mineTypes.filter(u => otherTypes.includes(u));
+        const typeOverlap = [];
+        mineTypes.forEach(u => otherTypes.forEach(v => {
+            const t = unitTypesCompatible(u, v);
+            if (t && !typeOverlap.includes(t)) typeOverlap.push(t);
+        }));
         if (!typeOverlap.length) return { score: 0, reasons: [], details: {} };
         add('unit', 1, 'match');
         details.unit = { match: true, value: typeOverlap.join(' or '), accepted: (buyerSide.unitTypes || []).slice() };
@@ -1856,6 +1893,7 @@
         _bedTokensForMatch,
         _bedTokensSubject,
         unitTypesForMatch,
+        unitTypesCompatible,
         levenshtein,
         normalizeSeparators,
         separatorInsensitivePattern,
