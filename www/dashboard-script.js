@@ -774,8 +774,13 @@ let _profileUserMoved = false;     // visitor scrolled since the page started
             b.addEventListener('click', () => { _profileTabUserPick = b.dataset.tab; }, true));
         const moved = () => { _profileUserMoved = true; };
         ['wheel', 'touchmove'].forEach(ev => window.addEventListener(ev, moved, { passive: true, once: true }));
+        // A tab tapped before this script loaded (see the early switchProfileTab in
+        // dashboard.html) is the visitor's own pick: keep it, and let nothing below
+        // or later in the load override it.
+        const early = window.__rmEarlyProfileTab;
+        if (early) { _profileTabUserPick = early; switchProfileTab(early); }
         if (new URLSearchParams(window.location.search).get('view') !== 'listings') return;
-        switchProfileTab('listings');
+        if (!early) switchProfileTab('listings');
         const wrap = document.getElementById('recentListingsBody');
         if (wrap && !wrap.children.length) wrap.innerHTML = _LISTINGS_LOADING_HTML;
     } catch (e) {}

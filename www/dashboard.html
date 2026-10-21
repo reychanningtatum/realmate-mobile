@@ -50,6 +50,19 @@
   <script src="featureFlags.js?v=20260925b"></script>
 <link rel="stylesheet" href="safe-area.css?v=20260915d">
 <script>if(window.self!==window.top)document.documentElement.classList.add("rm-embedded");</script>
+<script>
+  // A profile tab tapped before dashboard-script.js has loaded (slow phones) used to
+  // throw "switchProfileTab is not defined" and do nothing. Until the real function
+  // replaces this one, show the tapped tab right away and remember it;
+  // dashboard-script.js then applies it as the visitor's own pick.
+  window.switchProfileTab = function (t) {
+    window.__rmEarlyProfileTab = t;
+    try {
+      document.querySelectorAll('.profile-tab').forEach(function (b) { b.classList.toggle('active', b.dataset.tab === t); });
+      document.querySelectorAll('.profile-tab-panel').forEach(function (p) { p.classList.toggle('tab-active', p.dataset.tabPanel === t); });
+    } catch (e) {}
+  };
+</script>
   <link rel="stylesheet" href="desktop-nav.css?v=20260928a">
 </head>
 
@@ -661,7 +674,7 @@
 <script src="livemarket.js?v=20261021d"></script>
 <script src="privacy.js?v=20261020c"></script>
 <script src="deactivation.js?v=20261019e"></script>
-<script src="dashboard-script.js?v=20261021g"></script>
+<script src="dashboard-script.js?v=20261021h"></script>
 <script src="emoji-picker.js?v=20260928d"></script>
 <script src="home.js?v=20261021b"></script>
 <script src="feed-video.js?v=20261013a"></script>
