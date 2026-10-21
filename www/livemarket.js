@@ -4838,7 +4838,13 @@ async function init() {
     // Restore on real Back/Forward, OR when we just came back from a
     // profile/listings/chat visit (Chat returns as a fresh 'navigate' because the
     // suspended Portal tab is reloaded — _rmRecentPortalSave catches that).
-    if (ctx && ctx.listingId != null) {
+    if (!_lmIsPortalPage) {
+        // The Profile page loads this file for the shared listing card. Its scroll
+        // belongs to the profile: never force it to the top here — loadLedger()
+        // finishes seconds after the profile shows, and goTop() then yanked a
+        // visitor who had already switched to Listings and started scrolling
+        // (the profile "shake").
+    } else if (ctx && ctx.listingId != null) {
         // We just re-opened a listing's Match view (Back from a match's / own
         // listing detail). showAllMatches() already scrolls to the exact post; the
         // feed grid is hidden, so running the feed restore here would anchor to a
