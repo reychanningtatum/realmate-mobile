@@ -788,27 +788,21 @@ html[data-theme="dark"] .profile-more-menu a:hover { background: #334155; }
 #languagesLine i { color: var(--icon-languages); }
 #relationshipLine i { color: #f43f5e; }
 .profile-bio-preview {
-    margin: 10px 0 0;
-    font-size: 13.5px;
+    /* About, shown in full below the name (the About tab/card was removed). */
+    margin: 12px 0 0;
+    font-size: 14px;
     line-height: 1.6;
-    color: var(--text-sub);
-    max-width: 520px;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
+    color: var(--text-main);
+    max-width: 640px;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
 }
 html[data-theme="dark"] .profile-subline-item,
 html[data-theme="dark"] .profile-subline-item i,
 html[data-theme="dark"] .profile-bio-preview { color: #94a3b8; }
 
-/* Desktop: the dedicated About card below already shows the full bio, so this
-   header teaser is a duplicate here too (mobile already hides it above, see
-   the max-width:768px block). !important beats the inline display set by
-   updateUI() in dashboard-script.js. */
-@media (min-width: 901px) {
-    .profile-bio-preview { display: none !important; }
-}
+/* About lives under the name now: no separate About card or tab. */
+.about-card { display: none !important; }
 
 /* ── AI Match Badge ── */
 .ai-match-badge {
@@ -1576,10 +1570,8 @@ html[data-theme="dark"] .stats-list-avatar { border-color: #334155; }
        request); .profile-subline-row's column-gap above is the only thing
        keeping the groups visually distinct. */
 
-    /* Hidden on mobile: the inline ABOUT block (#profileAboutInline) now shows the
-       bio, so this header teaser would be a duplicate. !important beats the inline
-       display set by updateUI(). */
-    .profile-bio-preview { display: none !important; }
+    /* About sits on its own full-width row right after the details row (row 6). */
+    .profile-bio-preview { grid-column: 1 / -1; grid-row: 7; margin-top: 12px; }
 
     /* Three-equal-width, single-row layout, per explicit request: Message /
        Realmates / Follow share the row evenly instead of right-aligning

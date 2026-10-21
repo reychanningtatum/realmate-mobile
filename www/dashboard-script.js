@@ -1220,16 +1220,7 @@ function updateUI() {
     }
     _autoFitMetadataRow();
 
-    // Bio preview (truncated teaser — full bio still lives in the About card's #bioDisplay)
-    const bioPreview = document.getElementById('bioPreview');
-    if (bioPreview) {
-        if (user.bio && user.bio.trim()) {
-            bioPreview.innerText = user.bio;
-            bioPreview.style.display = '-webkit-box';
-        } else {
-            bioPreview.style.display = 'none';
-        }
-    }
+    _rmRenderBioPreview();
 
     updateBioReadMoreVisibility();
     renderOnlineStatus();
@@ -1750,6 +1741,11 @@ async function _loadProfileRun() {
     // by updateUI() from the viewed user's own profile row and is NOT touched
     // here. This gate used to hide it after the access lookup resolved, which is
     // why the details appeared and then vanished.
+    // About under the name: shown only to the owner and to people allowed in
+    // (follower / realmate per RMPriv). Everyone else simply doesn't see it — no
+    // gate message.
+    window._rmAboutAllowed = !(effectivelyViewingOther && !_canPosts);
+    _rmRenderBioPreview();
     const _aboutCard = document.querySelector('.about-card');
     if (effectivelyViewingOther && !_canPosts) {
         if (_aboutCard) _aboutCard.innerHTML = _realmateGateHtml(user.name, 'about');
@@ -1766,6 +1762,18 @@ async function _loadProfileRun() {
         var _aboutEmptyEl = document.getElementById('aboutEmptyState');
         if (_aboutEmptyEl) _aboutEmptyEl.style.display = (user.bio && user.bio.trim()) ? 'none' : 'block';
     }
+}
+
+// About text below the name (#bioPreview). Hidden — with no placeholder — for a
+// viewer who isn't allowed in, and while that hasn't been decided yet (so it
+// never flashes before the access check finishes).
+function _rmRenderBioPreview() {
+    const el = document.getElementById('bioPreview');
+    if (!el) return;
+    const allowed = !effectivelyViewingOtherProfile() || window._rmAboutAllowed === true;
+    const bio = (typeof user !== 'undefined' && user && user.bio) ? String(user.bio).trim() : '';
+    if (allowed && bio) { el.innerText = bio; el.style.display = 'block'; }
+    else { el.innerText = ''; el.style.display = 'none'; }
 }
 
 // ── Stats List Modal (Followers / Following / Realmates) ──
