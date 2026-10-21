@@ -15,8 +15,8 @@
  */
 (function () {
   'use strict';
-  var SB_URL = 'https://wmegpgrfrtprhuzmgjma.supabase.co';
-  var SB_KEY = 'sb_publishable_Rm_fIBDUfu3DEyLj0_bWZw_qEqo8cd4';
+  var SB_URL = window.RM_ENV.url;
+  var SB_KEY = window.RM_ENV.anonKey;
   function sb() {
     return window.supabaseClient || window._sb || window._supabase ||
       (window.supabase ? (window.__privClient || (window.__privClient = window.supabase.createClient(SB_URL, SB_KEY))) : null);
@@ -94,21 +94,22 @@
   //   -> { set: Set<string ownerId>, myId: string|null }
   async function postAccessSet(ownerIds) {
     var res = { set: new Set(), myId: null };
+    var ids = []; var seen = {};
+    (ownerIds || []).forEach(function (o) { var s = o && String(o); if (s && !seen[s]) { seen[s] = 1; ids.push(s); } });
+    // The Feed is an OPEN discovery stream (product decision): a post shared to
+    // the feed is visible to everyone here, even from a Private account. Account
+    // privacy gates the PROFILE (see resolve()), not the feed. Per-post
+    // visibility (Discoverable / Followers / Only Me) is a separate, future
+    // concept; when it lands, filter on each post's own visibility here.
+    // Added BEFORE the auth lookup so a failed lookup still fails open (it used
+    // to return an empty set, which emptied the whole Feed).
+    ids.forEach(function (s) { res.set.add(s); });
     try {
       var c = sb(); if (!c) return res;
-      var ids = []; var seen = {};
-      (ownerIds || []).forEach(function (o) { var s = o && String(o); if (s && !seen[s]) { seen[s] = 1; ids.push(s); } });
       var me = (await c.auth.getUser()).data.user;
       var myId = me && me.id; res.myId = myId || null;
       if (myId) res.set.add(String(myId));                 // my own posts always
-      if (!ids.length) return res;
-      // The Feed is an OPEN discovery stream (product decision): a post shared to
-      // the feed is visible to everyone here, even from a Private account. Account
-      // privacy gates the PROFILE (see resolve()), not the feed. Per-post
-      // visibility (Discoverable / Followers / Only Me) is a separate, future
-      // concept; when it lands, filter on each post's own visibility here.
-      ids.forEach(function (s) { res.set.add(s); });
-    } catch (e) { /* fail open to mine + public */ }
+    } catch (e) { /* fail open: every requested owner is already in the set */ }
     return res;
   }
 

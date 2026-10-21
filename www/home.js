@@ -1,6 +1,6 @@
 // ── Supabase ──────────────────────────────────────
-const SUPABASE_URL = "https://wmegpgrfrtprhuzmgjma.supabase.co";
-const SUPABASE_KEY = "sb_publishable_Rm_fIBDUfu3DEyLj0_bWZw_qEqo8cd4";
+const SUPABASE_URL = window.RM_ENV.url;
+const SUPABASE_KEY = window.RM_ENV.anonKey;
 const _supaHome = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // The four Admin-assigned positions are the only valid position values —
@@ -75,11 +75,11 @@ async function _resolveLiveAuthors(rows) {
 
     const byId = {}, byName = {};
     if (uids.length) {
-        const { data } = await _supaHome.from('profiles').select('id,full_name,avatar_url,is_verified').in('id', uids);
+        const { data } = await _supaHome.from('profiles').select('id,full_name,avatar_url,is_verified,verified_as').in('id', uids);
         (data || []).forEach(p => { byId[p.id] = p; });
     }
     if (names.length) {
-        const { data } = await _supaHome.from('profiles').select('id,full_name,avatar_url,is_verified').in('full_name', names);
+        const { data } = await _supaHome.from('profiles').select('id,full_name,avatar_url,is_verified,verified_as').in('full_name', names);
         (data || []).forEach(p => { byName[p.full_name] = p; });
     }
     live.forEach(r => {
@@ -91,6 +91,8 @@ async function _resolveLiveAuthors(rows) {
             // Only trust the badge when the row resolved by user_id — a legacy
             // name-only row could otherwise borrow a verified account's name.
             r.user_verified = !!(r.user_id && p.is_verified);
+            // Admin-granted professional verification ('salesperson' | 'broker').
+            r.user_verified_as = (r.user_id && p.verified_as) || null;
         }
     });
 }
@@ -99,8 +101,11 @@ async function _resolveLiveAuthors(rows) {
 // comments). user_verified is set by _resolveLiveAuthors from the admin-only
 // profiles.is_verified flag; never shown on anonymous rows.
 function _verifiedBadge(row) {
-    return (row && row.user_verified && !row.is_anonymous)
-        ? ' <i class="fas fa-circle-check hf-verified" title="Verified"></i>' : '';
+    if (!row || row.is_anonymous) return '';
+    // Verified Salesperson / Broker seal (rm-verified.js, from profiles.verified_as).
+    if (row.user_verified_as && window.RMVerified) return RMVerified.seal(row.user_verified_as);
+    // Legacy is_verified with no professional type yet → the old generic check.
+    return row.user_verified ? ' <i class="fas fa-circle-check hf-verified" title="Verified"></i>' : '';
 }
 
 // ── Helpers ───────────────────────────────────────
@@ -475,6 +480,7 @@ function renderPollOptions() {
             <input type="text" maxlength="80" placeholder="Option ${i + 1}" value="${(v || '').replace(/"/g, '&quot;')}">
             ${_pollOptions.length > 2 ? `<button type="button" class="hpb-remove" onclick="removePollOption(${i})"><i class="fas fa-times"></i></button>` : ''}
         </div>`).join('');
+    _homeComposerFit();   // more/fewer options → re-fit the text box so Post stays on screen
 }
 
 function addPollOption() {
@@ -513,6 +519,8 @@ function expandCreatePost(type) {
     document.querySelector('.create-post-top').style.display = 'none';
     document.querySelector('.create-post-shortcuts').style.display = 'none';
     document.getElementById('createPostExpanded').style.display = 'block';
+    // Writing a post: the page behind holds still (home.css, phones only).
+    document.documentElement.classList.add('rm-composing');
     syncTypeButtons();
     togglePollBuilder();
     textarea.focus();
@@ -533,6 +541,7 @@ function setPostType(type) {
     }
     syncTypeButtons();
     togglePollBuilder();
+    _homeComposerFit();   // badge / poll builder / album title change the height
     if (_homePostType === 'album' && !_homePostFiles.length) {
         document.getElementById('homePostMedia')?.click();
     }
@@ -565,12 +574,15 @@ function togglePollBuilder() {
 
 function collapseCreatePost() {
     _homePostType = '';
+    document.documentElement.classList.remove('rm-composing');
     if (window.RMEmojiSheet) RMEmojiSheet.close();   // close the mobile emoji sheet with the composer
     document.getElementById('createPostExpanded').style.display = 'none';
     document.getElementById('postTypeBadge').style.display = 'none';
     document.querySelector('.create-post-top').style.display = '';
     document.querySelector('.create-post-shortcuts').style.display = '';
     document.getElementById('homePostText').value = '';
+    document.getElementById('homePostText').style.height = '';      // back to its CSS size
+    document.getElementById('homePostText').style.overflowY = '';
     document.getElementById('homePostMediaPreview').innerHTML = '';
     _homePostTags = new Set();
     hideHomePostMention();
@@ -598,6 +610,25 @@ function extractHashtags(text) {
 }
 
 // Render text with clickable #hashtags and @mentions
+// Long post text: show the first `lines` lines with a "See more" link that
+// expands it in place. "Long" is decided from the text itself (characters or
+// line breaks), so nothing is measured or timed. Used for a post's own text and
+// for the original inside a shared post.
+function _hfLongText(cls, content, lines) {
+    const text = String(content || '');
+    const breaks = (text.match(/\n/g) || []).length + 1;
+    const long = breaks > lines || text.length > lines * 60;
+    if (!long) return `<div class="${cls}">${linkifyContent(text)}</div>`;
+    return `<div class="${cls} hf-clamp" style="-webkit-line-clamp:${lines};">${linkifyContent(text)}</div>` +
+        `<button type="button" class="hf-see-more" onclick="hfSeeMore(event, this)">See more</button>`;
+}
+function hfSeeMore(e, btn) {
+    if (e) { e.stopPropagation(); e.preventDefault(); }   // inside a shared post: don't open the original
+    const t = btn && btn.previousElementSibling;
+    if (t) { t.classList.remove('hf-clamp'); t.style.webkitLineClamp = ''; }
+    if (btn) btn.remove();
+}
+
 function linkifyContent(text) {
     let html = safeText(text);
     html = html.replace(/#([\p{L}0-9_]{2,40})/gu,
@@ -773,7 +804,46 @@ function onReplyKeydown(e, postId, parentId) {
     if (e.key === 'Enter') submitFeedReply(postId, parentId);
 }
 
+// Composer text box grows with what is typed, up to the space left above the
+// nearest bottom edge on screen: the Feed's fixed bottom nav (when shown), the
+// on-screen keyboard (visualViewport) or the window. Past that it scrolls inside
+// itself, so the composer and its controls never go under the nav and the line
+// being typed stays in view. All edges are read from the live layout.
+function _homeComposerFit(ta) {
+    ta = ta || document.getElementById('homePostText');
+    if (!ta || !ta.offsetParent) return;                 // composer collapsed / hidden
+    const card = document.getElementById('createPostCard');
+    let bottom = window.innerHeight;
+    const vv = window.visualViewport;
+    if (vv) bottom = Math.min(bottom, vv.offsetTop + vv.height);
+    const nav = document.querySelector('.mobile-bottom-nav');
+    if (nav && getComputedStyle(nav).display !== 'none') bottom = Math.min(bottom, nav.getBoundingClientRect().top);
+    const keepScroll = ta.scrollTop;                      // the browser already scrolled the caret into view
+    ta.style.height = 'auto';                             // back to its CSS min-height to measure
+    const base = ta.offsetHeight;
+    const room = card ? bottom - card.getBoundingClientRect().bottom - 12 : Infinity;   // 12px = the page's side margin
+    const max = Math.max(base, base + room);
+    const want = ta.scrollHeight + (ta.offsetHeight - ta.clientHeight);
+    ta.style.height = Math.min(want, max) + 'px';
+    ta.style.overflowY = want > max ? 'auto' : 'hidden';
+    ta.scrollTop = keepScroll;                            // measuring shrank the box and lost it
+}
+if (window.visualViewport) window.visualViewport.addEventListener('resize', () => _homeComposerFit());
+
+// Grow a text box with its content inside a window (Edit post, Share). The
+// window's own CSS caps it (flex-shrink / max-height), and past that cap the box
+// scrolls itself — so the typed line stays in view and the window never grows
+// past the screen.
+function _rmGrowTextarea(ta) {
+    if (!ta) return;
+    const keep = ta.scrollTop;
+    ta.style.height = 'auto';
+    ta.style.height = (ta.scrollHeight + (ta.offsetHeight - ta.clientHeight)) + 'px';
+    ta.scrollTop = keep;
+}
+
 function onHomePostInput(ta) {
+    _homeComposerFit(ta);
     const m = ta.value.slice(0, ta.selectionStart).match(/@([\p{L}0-9_. ]{0,30})$/u);
     if (!m) { hideHomePostMention(); return; }
     const q = m[1].trim();
@@ -800,6 +870,7 @@ function pickHomePostTag(name) {
         _homePostTags.add(name);
     }
     hideHomePostMention();
+    _homeComposerFit(ta);
     ta?.focus();
 }
 
@@ -846,6 +917,9 @@ function previewHomeMedia(input) {
         }
         preview.appendChild(el);
     });
+    // Thumbnails make the composer taller: re-fit the text box (it shrinks and
+    // scrolls inside) so the Post button stays above the bottom nav.
+    _homeComposerFit();
 }
 
 function removeHomeMedia(i) {
@@ -1057,6 +1131,14 @@ async function loadHomeFeed(feedEl, filterArg, silent) {
         _commitFeed(feed, filter.type);
         feed.innerHTML = `<div class="hf-loading"><i class="fas fa-spinner fa-spin"></i> Loading feed…</div>`;
     }
+
+    // Native app: wait until the saved sign-in is back in storage (native-auth.js)
+    // before querying, as auth-guard.js does. Otherwise a cold start after iOS
+    // cleared the WebView storage queries as signed-out, and staging's
+    // signed-in-only forum_posts policy answers [] → "No posts yet". Already
+    // resolved on the web and after the first restore.
+    if (window.rmSessionReady) { try { await window.rmSessionReady; } catch (e) {} }
+    if (stale()) return;
 
     const user = getUser();
 
@@ -1430,7 +1512,7 @@ function buildHomePostCard(post, stats) {
         </div>
         ${subjectBadge(post.subject)}
         ${albumHtml}
-        ${post.content ? `<div class="hf-post-text">${linkifyContent(post.content)}</div>` : ''}
+        ${post.content ? _hfLongText('hf-post-text', post.content, 6) : ''}
         ${pollHtml}
         ${mediaHtml}
         ${sharedOrig ? buildSharedEmbed(sharedOrig) : (post.shared_post_id ? `<div class="hf-shared-embed hf-shared-missing">Original post is no longer available.</div>` : '')}
@@ -1517,7 +1599,7 @@ function buildSharedEmbed(orig) {
                 <div class="hf-shared-time">${timeAgo(orig.created_at)}</div>
             </div>
         </div>
-        ${orig.content ? `<div class="hf-shared-text">${linkifyContent(orig.content)}</div>` : ''}
+        ${orig.content ? _hfLongText('hf-shared-text', orig.content, 4) : ''}
         ${buildPostMedia(orig, { embed: true })}
     </div>`;
 }
@@ -1855,6 +1937,11 @@ function _hfEmptyHtml(type) {
 function _homeApplyBlockState() {
     const feed = document.getElementById('homeFeed');
     if (!feed || !Array.isArray(_homePosts) || !_homePosts.length) return;
+    // A Feed load is in progress (its spinner is showing): the posts in
+    // _homePosts are fetched but not drawn yet, so "no cards" here does NOT mean
+    // an empty Feed. Leave the spinner — loadHomeFeed draws the posts (already
+    // filtered by the same block state) when it finishes.
+    if (feed.querySelector('.hf-loading')) return;
     let added = false, next = null;
     // Walk newest → oldest backwards so each restored card goes in front of the
     // next visible (older-ordered) card that follows it.
@@ -2056,14 +2143,18 @@ function _ensureHomeEditModal() {
     if (m) return m;
     m = document.createElement('div');
     m.id = 'homeEditModal';
-    m.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100000;align-items:center;justify-content:center;padding:14px;box-sizing:border-box;';
+    // Same layout as the Share window: full usable width (12px margins), clear of
+    // the safe areas and the Feed's bottom nav (--feed-navh, 0 when there is none).
+    m.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100000;align-items:center;justify-content:center;box-sizing:border-box;' +
+        'padding:max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) calc(var(--feed-navh, 0px) + max(12px, env(safe-area-inset-bottom))) max(12px, env(safe-area-inset-left));';
     m.innerHTML =
-        '<div style="background:#fff;border-radius:16px;width:100%;max-width:640px;height:auto;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 12px 40px rgba(0,0,0,.2);overflow:hidden;">' +
+        '<div style="background:#fff;border-radius:16px;width:100%;max-width:640px;height:auto;max-height:100%;display:flex;flex-direction:column;box-shadow:0 12px 40px rgba(0,0,0,.2);overflow:hidden;">' +
           '<div style="padding:18px 20px;border-bottom:1px solid #eef2f7;font-weight:800;font-size:18px;color:#0f172a;flex:0 0 auto;">Edit post</div>' +
-          '<div style="padding:18px 20px;flex:0 1 auto;overflow-y:auto;display:flex;flex-direction:column;">' +
-            // Compact, readable box: fixed height that becomes scrollable for long text
-            // (never grows the modal). Larger 17px text for easier reading/editing.
-            '<textarea id="homeEditText" style="width:100%;height:150px;max-height:34vh;overflow-y:auto;flex:0 0 auto;border:1.5px solid #e2e8f0;border-radius:12px;padding:14px;font-size:17px;line-height:1.5;font-family:inherit;color:#0f172a;resize:none;box-sizing:border-box;" placeholder="Edit your post"></textarea>' +
+          '<div style="padding:18px 20px;flex:1 1 auto;min-height:0;overflow-y:auto;display:flex;flex-direction:column;">' +
+            // The box grows with the text (_rmGrowTextarea) until the window reaches
+            // the usable screen height; then it shrinks to fit (flex) and scrolls
+            // itself. Larger 17px text for easier reading/editing.
+            '<textarea id="homeEditText" oninput="_rmGrowTextarea(this)" style="width:100%;min-height:150px;overflow-y:auto;flex:0 1 auto;border:1.5px solid #e2e8f0;border-radius:12px;padding:14px;font-size:17px;line-height:1.5;font-family:inherit;color:#0f172a;resize:none;box-sizing:border-box;" placeholder="Edit your post"></textarea>' +
             '<div id="homeEditPhotos" style="margin-top:14px;display:none;flex:0 0 auto;">' +
               '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">' +
                 '<span style="font-size:11px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.04em;">Photos</span>' +
@@ -2115,6 +2206,7 @@ function openEditPost(postId) {
     _renderEditPhotoGrid();
 
     m.style.display = 'flex';
+    _rmGrowTextarea(document.getElementById('homeEditText'));   // fit the existing text
     setTimeout(function () { var t = document.getElementById('homeEditText'); if (t) t.focus(); }, 50);
 }
 // Render the editor's media thumbnails: kept existing media first, then new files.
@@ -2246,7 +2338,13 @@ function _applyPostEdit(id, content, mediaPatch) {
             if (anchor && anchor.parentNode) anchor.parentNode.insertBefore(el, anchor.nextSibling); else card.appendChild(el);
         }
         el.innerHTML = (typeof linkifyContent === 'function') ? linkifyContent(content) : content;
-    } else if (el) { el.remove(); }
+        // Just edited: show the whole text (drop any "See more" truncation).
+        el.classList.remove('hf-clamp'); el.style.webkitLineClamp = '';
+        const _sm = el.nextElementSibling; if (_sm && _sm.classList.contains('hf-see-more')) _sm.remove();
+    } else if (el) {
+        const _sm = el.nextElementSibling; if (_sm && _sm.classList.contains('hf-see-more')) _sm.remove();
+        el.remove();
+    }
 
     // Re-render the media block from the updated photo set.
     if (mediaPatch && typeof buildPostMedia === 'function') {
@@ -3388,7 +3486,10 @@ function sharePost(postId) {
     _sharePostId = orig.shared_post_id || orig.id;
     const target = _sharedOriginals[orig.shared_post_id] || orig;
     const name = target.is_anonymous ? 'Anonymous' : (target.user_name || 'Member');
-    document.getElementById('shareComment').value = '';
+    const _sc = document.getElementById('shareComment');
+    _sc.value = '';
+    _sc.style.height = '';                       // back to its resting size
+    _sc.oninput = function () { _rmGrowTextarea(this); };
     document.getElementById('shareOriginalPreview').innerHTML = `
         <div class="hf-shared-head">
             <img loading="lazy" decoding="async" src="${target.user_img || avatarUrl(name)}" onerror="this.src='${avatarUrl(name)}'">
@@ -3895,71 +3996,6 @@ function renderActiveMembers(members, list, showOnline) {
 //  RIGHT SIDEBAR — BIRTHDAYS
 // ══════════════════════════════════════════════════
 
-async function loadBirthdays() {
-    const widget = document.getElementById('birthdaysWidget');
-    const list   = document.getElementById('birthdaysList');
-    if (!list || !widget) return;
-
-    try {
-        const today = new Date();
-        const mm    = String(today.getMonth() + 1).padStart(2, '0');
-        const dd    = String(today.getDate()).padStart(2, '0');
-
-        // Query profiles where birthdate month+day matches today
-        const { data, error } = await _supaHome
-            .from('profiles')
-            .select('id, full_name, avatar_url, birthdate')
-            .not('birthdate', 'is', null);
-
-        if (error || !data?.length) return;
-
-        const bdays = data.filter(p => {
-            if (!p.birthdate) return false;
-            const d = new Date(p.birthdate);
-            return String(d.getMonth() + 1).padStart(2, '0') === mm &&
-                   String(d.getDate()).padStart(2, '0') === dd;
-        });
-
-        if (!bdays.length) return;
-
-        widget.style.display = 'block';
-        list.innerHTML = bdays.map(p => {
-            const name   = p.full_name || 'Member';
-            const avatar = p.avatar_url || avatarUrl(name);
-            return `
-                <div class="birthday-row">
-                    <img loading="lazy" decoding="async" src="${avatar}" onerror="this.src='${avatarUrl(name)}'">
-                    <div class="birthday-info">
-                        <div class="birthday-name">${safeText(name)}</div>
-                        <div class="birthday-label">🎂 Birthday today!</div>
-                    </div>
-                    <button class="birthday-greet-btn" onclick="sendBirthdayGreeting('${safeText(name)}')">
-                        Send Greeting
-                    </button>
-                </div>`;
-        }).join('');
-    } catch (e) {
-        // silently skip if birthdate column doesn't exist
-    }
-}
-
-async function sendBirthdayGreeting(name) {
-    const user = getUser();
-    if (!user) return;
-    // Post a birthday greeting to forum_posts
-    const { data: authData } = await _supaHome.auth.getUser();
-    await _supaHome.from('forum_posts').insert({
-        user_id:   authData?.user?.id,
-        user_name: user.name,
-        user_img:  user.image || '',
-        subject:   '',
-        content:   `🎂 Happy Birthday, ${name}! Wishing you an amazing day! 🎉`,
-        is_anonymous: false
-    });
-    (window.showToast || alert)(`Birthday greeting sent to ${name}! 🎂`, 'success');
-    loadHomeFeed();
-}
-
 // ══════════════════════════════════════════════════
 //  HOME INLINE SEARCH (preserved)
 // ══════════════════════════════════════════════════
@@ -4332,7 +4368,6 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
         loadHomeFeed();
     }
-    loadBirthdays();
     loadTrending();
     loadFollowTopics();
     loadSuggestedRealmates();
@@ -4408,6 +4443,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ticking = false;
         if (atTop(y)) { setHidden(false); shownAtY = y; return; }     // true top → shown
         if (input && document.activeElement === input) return;       // typing — leave it; the keyboard shifts the viewport
+        if (document.documentElement.classList.contains('rm-composing')) return; // writing a post — the composer stays in view (iOS may scroll to the focused box)
         if (!hidden && Math.abs(y - shownAtY) >= JITTER) setHidden(true); // moved, and not at the top → minimize (search text is kept)
     }
     function onScroll() { if (!ticking) { ticking = true; requestAnimationFrame(evaluate); } }

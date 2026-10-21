@@ -1,6 +1,6 @@
 (() => {
-    const SUPABASE_URL = 'https://wmegpgrfrtprhuzmgjma.supabase.co';
-    const SUPABASE_KEY = 'sb_publishable_Rm_fIBDUfu3DEyLj0_bWZw_qEqo8cd4';
+    const SUPABASE_URL = window.RM_ENV.url;
+    const SUPABASE_KEY = window.RM_ENV.anonKey;
 
     // The four Admin-assigned positions are the only valid position values —
     // anything else (legacy free text, empty) is treated as no position.

@@ -1,6 +1,6 @@
 // 🔥 SUPABASE AND LOCAL AUTH CONTEXT PARSER
-const supabaseUrl = 'https://wmegpgrfrtprhuzmgjma.supabase.co';
-const supabaseKey = 'sb_publishable_Rm_fIBDUfu3DEyLj0_bWZw_qEqo8cd4';
+const supabaseUrl = window.RM_ENV.url;
+const supabaseKey = window.RM_ENV.anonKey;
 const _supabase = supabase.createClient(supabaseUrl, supabaseKey);
 
 let user = JSON.parse(localStorage.getItem("user")) || {

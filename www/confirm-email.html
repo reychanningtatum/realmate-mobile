@@ -38,6 +38,7 @@
     <div class="msg">Confirming your email change…</div>
     <a class="link" id="webLink" href="/index.html">Continue on the web &rarr;</a>
   </div>
+  <script src="rm-env.js?v=20261021b"></script>
   <script>
     (function () {
       var q = new URLSearchParams(location.search);
@@ -55,7 +56,7 @@
       document.addEventListener('visibilitychange', function () { if (document.hidden) done = true; });
       window.addEventListener('pagehide', function () { done = true; });
       // Try to hand the confirmation to the installed app.
-      try { location.href = 'realmate://confirm-email?token_hash=' + encodeURIComponent(th) + '&type=' + encodeURIComponent(type); } catch (e) {}
+      try { location.href = window.RM_ENV.scheme + '://confirm-email?token_hash=' + encodeURIComponent(th) + '&type=' + encodeURIComponent(type); } catch (e) {}
       // Still here after a generous wait → app isn't installed / the "Open in
       // Realmate?" prompt was dismissed (or desktop) → web confirm flow.
       setTimeout(goWeb, 3200);

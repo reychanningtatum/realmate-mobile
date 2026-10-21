@@ -27,15 +27,17 @@
  *   capture(errOrMessage, extra?)  — report a handled error explicitly
  *   report(note)                   — user-submitted "Report a problem" (always
  *                                    sent; returns a Promise<boolean>)
+ *   watchTransition(vt)            — report a cancelled view transition
  *   isEnabled() / setEnabled(bool)
  * ==========================================================================*/
 (function (global) {
   'use strict';
   if (global.RMBugs) return;   // loaded twice on a page → keep the first
 
-  var SUPABASE_URL = 'https://wmegpgrfrtprhuzmgjma.supabase.co';
-  var SUPABASE_KEY = 'sb_publishable_Rm_fIBDUfu3DEyLj0_bWZw_qEqo8cd4';
-  var AUTH_KEY = 'sb-wmegpgrfrtprhuzmgjma-auth-token';
+  var SUPABASE_URL = window.RM_ENV.url;
+  var SUPABASE_KEY = window.RM_ENV.anonKey;
+  // admin.html keeps its own sign-in (RM_BUGS_AUTH_KEY) so its reports are credited to the admin.
+  var AUTH_KEY = window.RM_BUGS_AUTH_KEY || window.RM_ENV.authTokenKey;
   var RPC_URL = SUPABASE_URL + '/rest/v1/rpc/report_bugs';
   var PREF_KEY = 'rm_bug_reports';
   var APP_VERSION = '20261014c';
@@ -260,6 +262,40 @@
     try { fromError('rejection', ev && ev.reason); } catch (e) {}
   });
 
+  // View transitions (safe-area.css @view-transition between pages, and the app
+  // shell's startViewTransition between tabs) are cosmetic: when the browser
+  // cancels one (next page doesn't opt in, tab hidden, viewport resized) the
+  // page still loads, but the transition's `ready` promise rejects with nobody
+  // listening ("AbortError: Transition was skipped"). Handle it here and report
+  // it as a labelled "View transition skipped" entry: still reported, grouped
+  // per page and reason, instead of arriving as an unhandled rejection.
+  // A cancelled transition can reject up to three promises — ready, and (when its
+  // update is aborted, e.g. a cross-page swap) updateCallbackDone and finished.
+  // Each is handled the same way; identical reports group into one entry.
+  function watchTransition(vt) {
+    try {
+      if (!vt) return;
+      var report = function (r) {
+        try {
+          if (!enabled()) return;
+          // A genuine error thrown by the page's own update (e.g. a TypeError in
+          // the app shell's tab switch) is a real crash — report it as one, not
+          // under the "skipped" label.
+          var name = r && typeof r === 'object' ? r.name : '';
+          if (name !== 'AbortError' && name !== 'InvalidStateError') { fromError('rejection', r); return; }
+          var why = name + ': ' + (r.message || '');
+          enqueue('console', 'View transition skipped (' + why + ')', r.stack || '');
+        } catch (e) {}
+      };
+      ['ready', 'updateCallbackDone', 'finished'].forEach(function (k) {
+        var p = vt[k];
+        if (p && typeof p.catch === 'function') p.catch(report);
+      });
+    } catch (e) {}
+  }
+  global.addEventListener('pagereveal', function (ev) { watchTransition(ev && ev.viewTransition); });
+  global.addEventListener('pageswap', function (ev) { watchTransition(ev && ev.viewTransition); });
+
   // console.error → report; console.warn → breadcrumb only.
   try {
     var _cErr = console.error, _cWarn = console.warn;
@@ -343,6 +379,7 @@
       enqueue('manual', 'User report: ' + clip(n.replace(/\s+/g, ' '), 120), '', null, n);
       return flush();
     },
+    watchTransition: watchTransition,
     isEnabled: enabled,
     setEnabled: function (on) {
       try { localStorage.setItem(PREF_KEY, on ? '1' : '0'); } catch (e) {}

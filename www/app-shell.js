@@ -199,6 +199,7 @@
     if (document.startViewTransition && document.visibilityState === 'visible') {
       try {
         var t = document.startViewTransition(fn);
+        if (window.RMBugs && RMBugs.watchTransition) RMBugs.watchTransition(t);
         if (t && t.updateCallbackDone && t.updateCallbackDone.catch) {
           t.updateCallbackDone.catch(function () { try { fn(); } catch (e) {} });
         }

@@ -2,8 +2,8 @@
 // CHAT MODULE — Realmate (clean rewrite)
 // =========================================
 
-const CHAT_URL = 'https://wmegpgrfrtprhuzmgjma.supabase.co';
-const CHAT_KEY = 'sb_publishable_Rm_fIBDUfu3DEyLj0_bWZw_qEqo8cd4';
+const CHAT_URL = window.RM_ENV.url;
+const CHAT_KEY = window.RM_ENV.anonKey;
 const _chatSupa = supabase.createClient(CHAT_URL, CHAT_KEY);
 
 // Request headers carrying the signed-in user's identity (rmAuthHeaders in
@@ -1212,18 +1212,10 @@ function subscribeTyping(convId) {
 // ===== READ RECEIPTS =====
 async function markRead(convId) {
     const filter = `conversation_id=eq.${convId}&sender_id=neq.${currentUser.id}&is_read=eq.false`;
-    const ok = await chatUpdate('messages', filter, { is_read: true, read_at: new Date().toISOString() });
-    if (!ok) {
-        // read_at's migration is a manual step (chat-unread-read-at-
-        // migration.sql) that may not have been run on this database yet.
-        // Retry with just is_read so a missing read_at column can never
-        // take the actual "message was read" write down with it — this
-        // was the read-status-doesn't-persist bug: the combined update
-        // failed outright, silently, every time, leaving is_read=false in
-        // the database no matter what the UI showed, so the badge/count
-        // reverted the moment anything re-fetched from the source of truth.
-        await chatUpdate('messages', filter, { is_read: true });
-    }
+    // Only is_read: messages has no read_at column (its migration was never
+    // run) and nothing reads it, so sending it only produced a 400 before a
+    // retry. chatUpdate still logs any failure of this write.
+    await chatUpdate('messages', filter, { is_read: true });
     const conv = conversations.find(c => c.id === convId);
     if (conv) { conv.unreadCount = 0; renderConvList(); }
     _notifyChatRead(); // clear the nav badge instantly (don't wait for realtime)

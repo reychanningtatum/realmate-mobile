@@ -1,7 +1,8 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <script src="rm-bugs.js?v=20261014c"></script>
+  <script src="rm-env.js?v=20261021b"></script>
+  <script src="rm-bugs.js?v=20261021c"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <style id="rm-flash-guard">html{background-color:#f4f7fa}</style>
@@ -35,10 +36,10 @@
   <link rel="stylesheet" href="vendor/fontawesome/css/all.min.css?v=6.5.0">
   <link rel="stylesheet" href="vendor/cropperjs/cropper.min.css?v=1.6.1">
   <link rel="stylesheet" href="vendor/googlefonts/fonts.css?v=1">
-  <link rel="stylesheet" href="dashboard-style.css?v=20261013a">
+  <link rel="stylesheet" href="dashboard-style.css?v=20261021g">
   <link rel="stylesheet" href="customer-service.css?v=3">
   <link rel="stylesheet" href="mobile-back.css">
-  <link rel="stylesheet" href="composer.css?v=20261013a">
+  <link rel="stylesheet" href="composer.css?v=20261021b">
   <!-- Live Market post styles (scoped under .lm-post-embed) so the profile's
        Listings section renders each post exactly like the Portal. -->
   <link rel="stylesheet" href="listing-card.css?v=20261002a">
@@ -49,6 +50,19 @@
   <script src="featureFlags.js?v=20260925b"></script>
 <link rel="stylesheet" href="safe-area.css?v=20260915d">
 <script>if(window.self!==window.top)document.documentElement.classList.add("rm-embedded");</script>
+<script>
+  // A profile tab tapped before dashboard-script.js has loaded (slow phones) used to
+  // throw "switchProfileTab is not defined" and do nothing. Until the real function
+  // replaces this one, show the tapped tab right away and remember it;
+  // dashboard-script.js then applies it as the visitor's own pick.
+  window.switchProfileTab = function (t) {
+    window.__rmEarlyProfileTab = t;
+    try {
+      document.querySelectorAll('.profile-tab').forEach(function (b) { b.classList.toggle('active', b.dataset.tab === t); });
+      document.querySelectorAll('.profile-tab-panel').forEach(function (p) { p.classList.toggle('tab-active', p.dataset.tabPanel === t); });
+    } catch (e) {}
+  };
+</script>
   <link rel="stylesheet" href="desktop-nav.css?v=20260928a">
 </head>
 
@@ -130,6 +144,7 @@
                         <div class="profile-name-line">
                             <h2 id="nameDisplay"></h2>
                             <i class="fas fa-circle-check profile-verified-badge" id="verifiedBadge" style="display:none;"></i>
+                            <span id="verifiedBadgeFull" class="profile-verified-full" style="display:none;"></span>
                         </div>
 
                         <!-- @handle (derived from nickname, else first name) -->
@@ -305,7 +320,6 @@
             <div class="profile-tabs" id="profileTabs">
                 <button class="profile-tab active" data-tab="posts" onclick="switchProfileTab('posts')">Posts</button>
                 <button class="profile-tab" data-tab="listings" onclick="switchProfileTab('listings')">Listings</button>
-                <button class="profile-tab" data-tab="about" onclick="switchProfileTab('about')">About</button>
             </div>
 
             <!-- Profile wall: this user's feed posts (no heading — posts flow straight
@@ -370,24 +384,32 @@
             <textarea id="editBio" rows="4" maxlength="500" placeholder="Tell people a bit about yourself…"></textarea>
         </div>
         <div class="input-field">
-            <label>Division</label>
-            <div class="searchable-select searchable-select-chevron" id="divisionSelectWrap">
-                <input type="text" id="editDivision" placeholder="Select your division" autocomplete="off">
-                <i class="fas fa-chevron-down searchable-select-arrow"></i>
-                <div class="searchable-dropdown" id="divisionDropdown"></div>
-            </div>
-        </div>
-        <div class="input-field" id="groupField">
-            <label>Group</label>
-            <div class="searchable-select searchable-select-chevron" id="groupSelectWrap">
-                <input type="text" id="editGroup" placeholder="Select a Division first" autocomplete="off" disabled>
-                <i class="fas fa-chevron-down searchable-select-arrow"></i>
-                <div class="searchable-dropdown" id="groupDropdown"></div>
-            </div>
+            <label>Profession</label>
+            <select id="editProfessionalType">
+                <option value="">-- Select --</option>
+                <option value="salesperson">Real Estate Salesperson</option>
+                <option value="broker">Real Estate Broker</option>
+            </select>
         </div>
         <div class="input-field">
-            <label>Team</label>
-            <input type="text" id="editTeam" placeholder="e.g. Dream Team">
+            <label>Brokerage / Company <span class="input-field-optional">(Optional)</span></label>
+            <input type="text" id="editBrokerage" maxlength="120" placeholder="Brokerage or company name">
+        </div>
+        <!-- Get verified: the badge is admin-granted only. Changing the Profession
+             above changes nothing; this sends the member's ID for an admin review
+             (verification_requests; Admin › Verifications). -->
+        <div class="input-field gv-box" id="getVerifiedBox">
+            <label>Get verified</label>
+            <div id="gvStatus" class="gv-status">Not verified</div>
+            <div class="gv-upload" id="gvUploadWrap" role="button" tabindex="0" onclick="document.getElementById('gvFile').click()">
+                <i class="fas fa-upload"></i>
+                <span id="gvFileName" class="gv-upload-text">Upload Professional ID</span>
+                <input type="file" id="gvFile" accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf" onchange="gvPickFile(this)" hidden>
+            </div>
+            <div class="gv-helper">PRC ID, DHSUD license, or company/brokerage ID. JPG, PNG or PDF, up to 5MB.</div>
+            <input type="text" id="gvPrc" class="gv-prc" maxlength="40" placeholder="PRC license number (optional)" autocomplete="off">
+            <button type="button" class="gv-submit" id="gvSubmitBtn" onclick="gvSubmit()">Submit for verification</button>
+            <div id="gvMsg" class="gv-msg" role="status"></div>
         </div>
         <div class="input-field">
             <label>Relationship Status</label>
@@ -628,13 +650,13 @@
 </div>
 
 <script src="vendor/cropperjs/cropper.min.js?v=1.6.1"></script>
-<script src="native-auth.js?v=11"></script>
+<script src="native-auth.js?v=20261019e"></script>
 <script src="vendor/supabase-js.min.js?v=2.112.3"></script>
 <script src="compress.js?v=20261013a"></script>
 <script src="rm-sound.js?v=20260831a"></script>
-<script src="mates.js?v=20260930c"></script>
-<script src="follows.js?v=20260918b"></script>
-<script src="auth-guard.js?v=20261019b"></script>
+<script src="mates.js?v=20261019e"></script>
+<script src="follows.js?v=20261019e"></script>
+<script src="auth-guard.js?v=20261021d"></script>
 <!-- Shared account-menu modal (My Account/My Profile/My Listings) — same
      component Portal's livemarket.js uses for showSelfPopup()/showSellerPopup(). -->
 <link rel="stylesheet" href="account-menu.css?v=20260810a">
@@ -648,18 +670,19 @@
 <script src="location-engine.js?v=20260809b"></script>
 <script src="match-engine.js?v=20261015a"></script>
 <script src="developers.js?v=36"></script>
-<script src="livemarket.js?v=20261019c"></script>
-<script src="privacy.js?v=20260831a"></script>
-<script src="deactivation.js?v=20260831a"></script>
-<script src="dashboard-script.js?v=20261019a"></script>
+<script src="rm-verified.js?v=20261020h"></script>
+<script src="livemarket.js?v=20261021f"></script>
+<script src="privacy.js?v=20261020c"></script>
+<script src="deactivation.js?v=20261019e"></script>
+<script src="dashboard-script.js?v=20261021j"></script>
 <script src="emoji-picker.js?v=20260928d"></script>
-<script src="home.js?v=20261017b"></script>
+<script src="home.js?v=20261021c"></script>
 <script src="feed-video.js?v=20261013a"></script>
-<script src="block-report.js?v=20261015c"></script>
+<script src="block-report.js?v=20261019e"></script>
 <script src="congrats.js?v=20261017a"></script>
 <script src="visibility.js?v=20261002a"></script>
-<script src="match-alert.js?v=20261019b"></script>
-<script src="notif-badge.js?v=20261019b"></script>
+<script src="match-alert.js?v=20261021b"></script>
+<script src="notif-badge.js?v=20261019e"></script>
 
 <!-- Mobile Bottom Navigation -->
 <nav class="mobile-bottom-nav">
@@ -684,7 +707,7 @@
   </div>
 </nav>
 <script src="nav-menu.js?v=20260930a"></script>
-<script src="customer-service.js?v=7"></script><script src="feedback.js?v=20261015b"></script>
+<script src="customer-service.js?v=20261019e"></script><script src="feedback.js?v=20261019e"></script>
 <script>
   // Post composer: only show on your OWN profile (hide when viewing another user via ?user_id=)
   (function () {

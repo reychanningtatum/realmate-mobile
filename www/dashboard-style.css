@@ -734,6 +734,17 @@ html[data-theme="dark"] .profile-more-menu a:hover { background: #334155; }
     align-items: center;
     gap: 8px;
 }
+/* Verified Salesperson / Broker badge sits BESIDE the name on the same row
+   (rm-verified.js draws it from profiles.verified_as). Sized to the name so the
+   name stays readable; it never shrinks or wraps away from the name. */
+.profile-verified-full { flex: 0 0 auto; align-items: center; }
+/* margin-bottom: 0 — the legacy `.profile-card img { margin-bottom: 15px }` (≤1200px,
+   meant for the photo) also hit this image, padding it 15px below so it centred
+   ~7.5px above the name and made the name row 15px taller. */
+.profile-name-line .profile-verified-full .rm-verified-badge { height: 34px !important; width: auto; margin-bottom: 0; }
+@media (max-width: 768px) {
+    .profile-name-line .profile-verified-full .rm-verified-badge { height: 28px !important; }
+}
 .profile-verified-badge {
     font-size: 17px;
     color: var(--primary);
@@ -780,27 +791,21 @@ html[data-theme="dark"] .profile-more-menu a:hover { background: #334155; }
 #languagesLine i { color: var(--icon-languages); }
 #relationshipLine i { color: #f43f5e; }
 .profile-bio-preview {
-    margin: 10px 0 0;
-    font-size: 13.5px;
+    /* About, shown in full below the name (the About tab/card was removed). */
+    margin: 12px 0 0;
+    font-size: 14px;
     line-height: 1.6;
-    color: var(--text-sub);
-    max-width: 520px;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
+    color: var(--text-main);
+    max-width: 640px;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
 }
 html[data-theme="dark"] .profile-subline-item,
 html[data-theme="dark"] .profile-subline-item i,
 html[data-theme="dark"] .profile-bio-preview { color: #94a3b8; }
 
-/* Desktop: the dedicated About card below already shows the full bio, so this
-   header teaser is a duplicate here too (mobile already hides it above, see
-   the max-width:768px block). !important beats the inline display set by
-   updateUI() in dashboard-script.js. */
-@media (min-width: 901px) {
-    .profile-bio-preview { display: none !important; }
-}
+/* About lives under the name now: no separate About card or tab. */
+.about-card { display: none !important; }
 
 /* ── AI Match Badge ── */
 .ai-match-badge {
@@ -1141,7 +1146,7 @@ html[data-theme="dark"] .input-field-legacy-hint i { color: #f59e0b; }
    only hides at <=900 (below), so 901-1200 keeps the sidebar with a stacked
    profile. */
 @media (max-width: 1200px) {
-    .profile-layout { grid-template-columns: 1fr; }
+    .profile-layout { grid-template-columns: minmax(0, 1fr); } /* minmax(0,…) like desktop: content can't stretch the column past the screen */
     /* Collapse the 3 columns into one properly-ordered stream */
     .profile-left-col, .profile-main-col, .profile-side-col { display: contents; }
     .profile-card              { order: 0; }
@@ -1333,7 +1338,7 @@ html[data-theme="dark"] .stats-list-avatar { border-color: #334155; }
 
     /* ── Layout → single column ── */
     .profile-layout {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr); /* minmax(0,…): content can't stretch the column past the screen (was 1fr — overrode the ≤1200px fix on phones) */
         gap: 0;
         padding: 0 16px;
         margin-top: 0;
@@ -1458,6 +1463,14 @@ html[data-theme="dark"] .stats-list-avatar { border-color: #334155; }
     .profile-avatar-wrap { margin-top: -54px; margin-left: 18px; }
     .profile-img-container { width: 100px; height: 100px; }
     .profile-img-container img { width: 100px; height: 100px; border-width: 4px !important; }
+    /* Photo options open BESIDE the picture (centred on it), not under it. iOS
+       shows its own Photo Library / Take Photo / Choose File menu where the
+       option was tapped — under the avatar that put it far down the screen. */
+    .photo-inline-menu {
+        top: 50%; left: calc(100% + 10px); transform: translateY(-50%);
+        min-width: 0; width: max-content; max-width: calc(100vw - 100% - 40px);
+    }
+    .photo-inline-menu .pim-item { padding: 10px 12px; white-space: normal; }
     /* Horizontal padding trimmed slightly (16px → 14px) to give the name
        row a bit more usable width, per explicit permission to reclaim
        space before shrinking the name font further than necessary. */
@@ -1568,10 +1581,8 @@ html[data-theme="dark"] .stats-list-avatar { border-color: #334155; }
        request); .profile-subline-row's column-gap above is the only thing
        keeping the groups visually distinct. */
 
-    /* Hidden on mobile: the inline ABOUT block (#profileAboutInline) now shows the
-       bio, so this header teaser would be a duplicate. !important beats the inline
-       display set by updateUI(). */
-    .profile-bio-preview { display: none !important; }
+    /* About sits on its own full-width row right after the details row (row 6). */
+    .profile-bio-preview { grid-column: 1 / -1; grid-row: 7; margin-top: 12px; }
 
     /* Three-equal-width, single-row layout, per explicit request: Message /
        Realmates / Follow share the row evenly instead of right-aligning
@@ -1593,7 +1604,7 @@ html[data-theme="dark"] .stats-list-avatar { border-color: #334155; }
            adds its own margin-top on top of this. On your own profile
            this row has no visible children, so both margins are invisible
            (there's nothing here to create space around). */
-        width: 100%; margin-top: 16px; margin-bottom: 4px; gap: 8px;
+        width: 100%; margin-top: 12px; margin-bottom: 4px; gap: 8px;
     }
     /* The "···" wrapper is always empty on mobile (its trigger lives in
        the fixed top bar instead — see .mobile-topbar-more) but must stay
@@ -1959,3 +1970,45 @@ html[data-theme="dark"] .profile-img-container { border-color: #334155; }
    beats the class rule regardless of load order, so the button is truly hidden and
    the cover is the topmost content. */
 @media (max-width: 768px) { #viewingOtherBack { display: none !important; } }
+
+/* Profile-photo change: no iOS double-tap zoom. Two quick taps on the crop
+   window's +/− buttons (or the photo menu/sheet) were read as a double-tap and
+   zoomed the whole page, which stayed zoomed and panned after the window closed.
+   manipulation keeps taps, drag-to-reposition and the slider; pinch inside the
+   cropper is handled by Cropper itself. */
+#cropModal, #photoActionSheet, #photoInlineMenu { touch-action: manipulation; }
+
+/* ── Edit Profile › Get verified ─────────────────────────────────────────────
+   Upload box styled like registration's Professional ID box. */
+.gv-box .gv-status { font-size: 13px; font-weight: 600; color: #64748b; margin: 2px 0 8px; line-height: 1.4; }
+.gv-box .gv-status-ok { color: #0f9d4f; }
+.gv-box .gv-status-pending { color: #b45309; }
+.gv-box .gv-status-rejected { color: #b91c1c; font-weight: 500; }
+.gv-upload {
+  display: flex; align-items: center; gap: 10px; width: 100%; box-sizing: border-box;
+  padding: 12px 14px; border-radius: 12px; border: 1px dashed #cbd5e1; background: #fff;
+  font-size: 14px; cursor: pointer;
+}
+.gv-upload:hover { border-color: #2563eb; }
+.gv-upload.error { border-color: #dc2626; }
+.gv-upload i { color: #94a3b8; font-size: 15px; flex-shrink: 0; }
+.gv-upload-text { color: #64748b; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gv-upload.has-file { border-style: solid; }
+.gv-upload.has-file .gv-upload-text { color: #0f172a; font-weight: 500; }
+.gv-helper { font-size: 11px; color: #64748b; margin: 5px 0 8px; font-weight: 500; }
+.gv-box .gv-prc { margin-bottom: 8px; }
+.gv-submit {
+  width: 100%; padding: 11px 14px; border: 0; border-radius: 10px; background: #0f172a; color: #fff;
+  font-size: 14px; font-weight: 600; cursor: pointer;
+}
+.gv-submit:disabled { opacity: .6; cursor: default; }
+.gv-msg { font-size: 12px; margin-top: 6px; min-height: 0; }
+.gv-msg-error { color: #b91c1c; }
+.gv-msg-ok { color: #0f9d4f; }
+html[data-theme="dark"] .gv-upload { background: #0f172a; border-color: #334155; }
+html[data-theme="dark"] .gv-upload-text, html[data-theme="dark"] .gv-helper, html[data-theme="dark"] .gv-box .gv-status { color: #94a3b8; }
+html[data-theme="dark"] .gv-upload.has-file .gv-upload-text { color: #f1f5f9; }
+html[data-theme="dark"] .gv-box .gv-status-ok, html[data-theme="dark"] .gv-msg-ok { color: #34d399; }
+html[data-theme="dark"] .gv-box .gv-status-pending { color: #fbbf24; }
+html[data-theme="dark"] .gv-box .gv-status-rejected, html[data-theme="dark"] .gv-msg-error { color: #f87171; }
+html[data-theme="dark"] .gv-submit { background: #2563eb; }

@@ -16,8 +16,8 @@
 //   overlay (search-overlay.js): 'so_feed' | 'so_forum' | 'so_notifications'
 //   RMSearchHistory (search-history.js): 'rm_shist_portal' | 'rm_shist_feed'
 (function () {
-  var URL_ = 'https://wmegpgrfrtprhuzmgjma.supabase.co';
-  var KEY_ = 'sb_publishable_Rm_fIBDUfu3DEyLj0_bWZw_qEqo8cd4';
+  var URL_ = window.RM_ENV.url;
+  var KEY_ = window.RM_ENV.anonKey;
   var CAP = 20;                 // stored per bucket; UI caps lower on its own
   var _sb = null, _readyP = null, _timers = {};
   // Real-time fan-out: instant same-device propagation (BroadcastChannel, across
@@ -35,7 +35,7 @@
   // request with THIS token rather than letting our own client manage a session.
   function _storedToken() {
     try {
-      var raw = localStorage.getItem('sb-wmegpgrfrtprhuzmgjma-auth-token');
+      var raw = localStorage.getItem(window.RM_ENV.authTokenKey);
       if (!raw) return null;
       var j = JSON.parse(raw);
       var s = (j && j.currentSession) ? j.currentSession : j;

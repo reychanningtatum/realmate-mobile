@@ -1,20 +1,21 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <script src="rm-bugs.js?v=20261014c"></script>
+  <script src="rm-env.js?v=20261021b"></script>
+  <script src="rm-bugs.js?v=20261021c"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <style id="rm-flash-guard">html{background-color:#f4f7fa}</style>
   <title>realmate | Home</title>
   <link rel="stylesheet" href="vendor/fontawesome/css/all.min.css?v=6.5.0">
   <link rel="stylesheet" href="vendor/googlefonts/fonts.css?v=1">
-  <link rel="stylesheet" href="home.css?v=20261015a">
+  <link rel="stylesheet" href="home.css?v=20261021c">
   <link rel="stylesheet" href="customer-service.css?v=3">
   <link rel="stylesheet" href="block-report.css?v=20261001b">
   <script src="theme.js?v=20260812a"></script>
   <script src="toast.js?v=20261001a"></script>
   <script src="featureFlags.js?v=20260925b"></script>
-  <script src="search-sync.js?v=20260929f"></script>
+  <script src="search-sync.js?v=20261019e"></script>
   <script src="search-history.js?v=20260929f"></script>
 <link rel="stylesheet" href="safe-area.css?v=20260915d">
 <script>if(window.self!==window.top)document.documentElement.classList.add("rm-embedded");</script>
@@ -59,7 +60,6 @@
           <div class="tp-subtitle" id="tpMonthLabel">Loading…</div>
         </div>
       </div>
-      <span class="tp-powered">Alveo Land Corp</span>
     </div>
     <div class="tp-grid" id="tpGrid">
       <div class="tp-loading"><i class="fas fa-spinner fa-spin"></i> Loading producers…</div>
@@ -195,20 +195,12 @@
         <div id="memoriesList"></div>
       </div>
 
-      <!-- Birthdays -->
-      <div class="sidebar-widget" id="birthdaysWidget" style="display:none;">
-        <div class="sidebar-widget-header">
-          <i class="fas fa-cake-candles" style="color:#f59e0b;"></i> Birthdays Today
-        </div>
-        <div id="birthdaysList"></div>
-      </div>
-
       <!-- Communities (hidden — see featureFlags.js      <div class="sidebar-widget sidebar-widget-soon" id="communitiesWidget" style="display:none">
         <div class="sidebar-widget-header">
           <i class="fas fa-users-rectangle" style="color:#94a3b8;"></i> Communities
         </div>
         <div class="widget-soon-body">Communities are coming soon — a place to gather around shared real-estate interests.</div>
-      </div>
+      </div> -->
 
     </div>
   </div>
@@ -315,28 +307,29 @@
   </div>
 </div>
 
-<script src="native-auth.js?v=11"></script>
+<script src="native-auth.js?v=20261019e"></script>
 <script src="vendor/supabase-js.min.js?v=2.112.3"></script>
 <script src="compress.js?v=20261013a"></script>
 <script src="visibility.js?v=20260819a"></script>
-<script src="profile-live.js?v=20261001a"></script><script src="search-overlay.js?v=20261015a"></script>
-<script src="auth-guard.js?v=20261019b"></script>
-<script src="top-producers.js"></script>
+<script src="profile-live.js?v=20261019e"></script><script src="search-overlay.js?v=20261019e"></script>
+<script src="auth-guard.js?v=20261021d"></script>
+<script src="top-producers.js?v=20261019e"></script>
 <script src="rm-sound.js?v=20260831a"></script>
-<script src="follows.js?v=20260918b"></script>
-<script src="privacy.js?v=20260831a"></script>
+<script src="follows.js?v=20261019e"></script>
+<script src="privacy.js?v=20261020c"></script>
 <script src="emoji-picker.js?v=20260928d"></script>
-<script src="home.js?v=20261017b"></script>
+<script src="rm-verified.js?v=20261020h"></script>
+<script src="home.js?v=20261021c"></script>
 <script src="feed-video.js?v=20261013a"></script>
-<script src="deactivation.js?v=20260831a"></script>
-<script src="block-report.js?v=20261015c"></script>
+<script src="deactivation.js?v=20261019e"></script>
+<script src="block-report.js?v=20261019e"></script>
 <script src="congrats.js?v=20261017a"></script>
 <script src="location-engine.js?v=20260809b"></script>
 <script src="match-engine.js?v=20261015a"></script>
 <script src="developers.js?v=36"></script>
-<script src="rm-track.js?v=3"></script>
-<script src="match-alert.js?v=20261019b"></script>
-<script src="notif-badge.js?v=20261019b"></script>
+<script src="rm-track.js?v=20261019e"></script>
+<script src="match-alert.js?v=20261021b"></script>
+<script src="notif-badge.js?v=20261019e"></script>
 <!-- Mobile Bottom Navigation -->
 <nav class="mobile-bottom-nav">
   <a class="mob-nav-item active" href="home.html"><i class="fas fa-border-all"></i><span>Feed</span></a>
@@ -362,7 +355,7 @@
 </nav>
 <script src="pull-refresh.js?v=20261015a"></script>
 <script src="nav-menu.js?v=20260930a"></script>
-<script src="customer-service.js?v=7"></script><script src="feedback.js?v=20261015b"></script>
+<script src="customer-service.js?v=20261019e"></script><script src="feedback.js?v=20261019e"></script>
 <script>document.addEventListener("DOMContentLoaded",function(){if(window.rmPullRefresh)rmPullRefresh({content:".main-content",windowScroll:true,pullTarget:"#homeFeed",pullWith:".home-sidebar-col",label:"Loading Feed",onRefresh:function(){return window.loadHomeFeed?loadHomeFeed(null,null,true):location.reload();}});});</script>
 </body>
 </html>

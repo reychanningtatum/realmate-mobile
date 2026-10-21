@@ -1,7 +1,7 @@
 // 🔔 GLOBAL NOTIFICATION BADGE — loads on every page
 (async function () {
-    const SUPABASE_URL = 'https://wmegpgrfrtprhuzmgjma.supabase.co';
-    const SUPABASE_KEY = 'sb_publishable_Rm_fIBDUfu3DEyLj0_bWZw_qEqo8cd4';
+    const SUPABASE_URL = window.RM_ENV.url;
+    const SUPABASE_KEY = window.RM_ENV.anonKey;
     // Direct requests carry the signed-in user's identity (rmAuthHeaders in
     // auth-guard.js, loaded first on every page); the public key when signed out.
     const _authHeaders = (extra) => (typeof rmAuthHeaders === 'function')

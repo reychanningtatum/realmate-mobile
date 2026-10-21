@@ -292,7 +292,7 @@ let user = JSON.parse(localStorage.getItem("user")) || {
     name: "Reychan Bernaldez",
     image: "https://ui-avatars.com/api/?name=?&background=0f172a&color=32cd32",
     job: "Real Estate Manager",
-    division: "Alveo Land",
+    division: "",
     group: "Echelon",
     team: "Sales Force",
     bio: "Full-stack developer and business entrepreneur."
@@ -774,8 +774,13 @@ let _profileUserMoved = false;     // visitor scrolled since the page started
             b.addEventListener('click', () => { _profileTabUserPick = b.dataset.tab; }, true));
         const moved = () => { _profileUserMoved = true; };
         ['wheel', 'touchmove'].forEach(ev => window.addEventListener(ev, moved, { passive: true, once: true }));
+        // A tab tapped before this script loaded (see the early switchProfileTab in
+        // dashboard.html) is the visitor's own pick: keep it, and let nothing below
+        // or later in the load override it.
+        const early = window.__rmEarlyProfileTab;
+        if (early) { _profileTabUserPick = early; switchProfileTab(early); }
         if (new URLSearchParams(window.location.search).get('view') !== 'listings') return;
-        switchProfileTab('listings');
+        if (!early) switchProfileTab('listings');
         const wrap = document.getElementById('recentListingsBody');
         if (wrap && !wrap.children.length) wrap.innerHTML = _LISTINGS_LOADING_HTML;
     } catch (e) {}
@@ -1143,11 +1148,14 @@ function updateUI() {
     // then throw on `null.innerText` and ABORT loadProfile before it re-rendered
     // the Realmate button — which is exactly why realmate state wasn't updating in
     // real time (follow buttons re-render independently, so they were unaffected).
-    var _divD = document.getElementById("divisionDisplay"); if (_divD) _divD.innerText = user.division || '';
+    // Company badge: the member's own declared Brokerage / Company; an older stored
+    // division only when they haven't entered one.
+    const _company = (user.brokerage || '').trim() || user.division || '';
+    var _divD = document.getElementById("divisionDisplay"); if (_divD) _divD.innerText = _company;
     var _grpD = document.getElementById("groupDisplay");    if (_grpD) _grpD.innerText = user.group || '';
     const _divPill = document.getElementById('divisionPill');
     const _grpPill = document.getElementById('groupPill');
-    if (_divPill) _divPill.style.display = user.division ? 'inline-flex' : 'none';
+    if (_divPill) _divPill.style.display = _company ? 'inline-flex' : 'none';
     if (_grpPill) _grpPill.style.display = user.group ? 'inline-flex' : 'none';
     var _bioD = document.getElementById("bioDisplay"); if (_bioD) _bioD.innerText = user.bio;
     const _hasBio = !!(user.bio && user.bio.trim());
@@ -1155,8 +1163,17 @@ function updateUI() {
     if (_aboutEmpty) _aboutEmpty.style.display = _hasBio ? 'none' : 'block';
 
     // Verified badge
+    // Full Verified Salesperson / Broker badge under the name (admin-granted,
+    // profiles.verified_as); the small legacy check only when verified without a type.
     const verifiedBadge = document.getElementById('verifiedBadge');
-    if (verifiedBadge) verifiedBadge.style.display = user.isVerified ? 'inline-block' : 'none';
+    const _verAs = user.verifiedAs || null;
+    if (verifiedBadge) verifiedBadge.style.display = (user.isVerified && !_verAs) ? 'inline-block' : 'none';
+    const _verFull = document.getElementById('verifiedBadgeFull');
+    if (_verFull) {
+        const html = (_verAs && window.RMVerified) ? RMVerified.badge(_verAs, 40) : '';
+        _verFull.innerHTML = html;
+        _verFull.style.display = html ? 'inline-flex' : 'none';
+    }
 
     // Location line
     const locationLine = document.getElementById('locationLine');
@@ -1206,18 +1223,19 @@ function updateUI() {
             relationshipLine.style.display = 'none';
         }
     }
+    // A row with nothing showing (no company/group pills; no location / years /
+    // languages / relationship) is hidden outright, so its top margin doesn't
+    // leave a gap above the Message buttons. Runs BEFORE the auto-fit below,
+    // which can only measure a row that is visible.
+    ['.profile-identity-line', '.profile-subline-row'].forEach(sel => {
+        const row = document.querySelector(sel);
+        if (!row) return;
+        const any = Array.from(row.children).some(c => c.style.display !== 'none' && getComputedStyle(c).display !== 'none');
+        row.style.display = any ? '' : 'none';
+    });
     _autoFitMetadataRow();
 
-    // Bio preview (truncated teaser — full bio still lives in the About card's #bioDisplay)
-    const bioPreview = document.getElementById('bioPreview');
-    if (bioPreview) {
-        if (user.bio && user.bio.trim()) {
-            bioPreview.innerText = user.bio;
-            bioPreview.style.display = '-webkit-box';
-        } else {
-            bioPreview.style.display = 'none';
-        }
-    }
+    _rmRenderBioPreview();
 
     updateBioReadMoreVisibility();
     renderOnlineStatus();
@@ -1339,6 +1357,9 @@ async function _rmSyncOwnProfileLive() {
             team: p.team_name || '',
             bio: p.bio || '',
             relationship: p.relationship_status || '',
+            professionalType: p.professional_type || '',
+            brokerage: p.brokerage || '',
+            verifiedAs: p.verified_as || null,   // admin-granted only (server-side)
             coverUrl: p.cover_url || '',
             coverTransform: p.cover_transform || null,
             location: p.location || '',
@@ -1538,6 +1559,9 @@ async function _loadProfileRun() {
                             coverTransform: profile.cover_transform || null,
                             location: profile.location || '',
                             isVerified: !!profile.is_verified,
+                            verifiedAs: profile.verified_as || null,   // admin-granted only, never from cache
+                            professionalType: profile.professional_type || '',
+                            brokerage: profile.brokerage || '',
                             lastSeen: profile.last_seen || '',
                             showActiveStatus: profile.show_active_status !== false,
                             yearsExperience: profile.years_experience || '',
@@ -1557,15 +1581,22 @@ async function _loadProfileRun() {
                             // localStorage value would let an admin-cleared position
                             // reappear until the next full logout/login.
                             job: profile.job_title || '',
-                            division: profile.division || user.division,
-                            group: profile.business_group || user.group,
-                            team: profile.team_name || user.team,
-                            bio: profile.bio || user.bio,
+                            // From the profile row only — never the phone's cached copy,
+                            // which could still hold an old default (e.g. 'Alveo Land').
+                            division: profile.division || '',
+                            group: profile.business_group || '',
+                            team: profile.team_name || '',
+                            // From the profile row only — never the phone's cached copy, which
+                            // could still hold text the member has since cleared.
+                            bio: profile.bio || '',
                             relationship: profile.relationship_status || '',
                             coverUrl: profile.cover_url || '',
                             coverTransform: profile.cover_transform || null,
                             location: profile.location || user.location || '',
                             isVerified: !!profile.is_verified,
+                            verifiedAs: profile.verified_as || null,   // admin-granted only, never from cache
+                            professionalType: profile.professional_type || '',
+                            brokerage: profile.brokerage || '',
                             lastSeen: profile.last_seen || '',
                             showActiveStatus: profile.show_active_status !== false,
                             yearsExperience: profile.years_experience || user.yearsExperience || '',
@@ -1727,6 +1758,11 @@ async function _loadProfileRun() {
     // by updateUI() from the viewed user's own profile row and is NOT touched
     // here. This gate used to hide it after the access lookup resolved, which is
     // why the details appeared and then vanished.
+    // About under the name: shown only to the owner and to people allowed in
+    // (follower / realmate per RMPriv). Everyone else simply doesn't see it — no
+    // gate message.
+    window._rmAboutAllowed = !(effectivelyViewingOther && !_canPosts);
+    _rmRenderBioPreview();
     const _aboutCard = document.querySelector('.about-card');
     if (effectivelyViewingOther && !_canPosts) {
         if (_aboutCard) _aboutCard.innerHTML = _realmateGateHtml(user.name, 'about');
@@ -1743,6 +1779,18 @@ async function _loadProfileRun() {
         var _aboutEmptyEl = document.getElementById('aboutEmptyState');
         if (_aboutEmptyEl) _aboutEmptyEl.style.display = (user.bio && user.bio.trim()) ? 'none' : 'block';
     }
+}
+
+// About text below the name (#bioPreview). Hidden — with no placeholder — for a
+// viewer who isn't allowed in, and while that hasn't been decided yet (so it
+// never flashes before the access check finishes).
+function _rmRenderBioPreview() {
+    const el = document.getElementById('bioPreview');
+    if (!el) return;
+    const allowed = !effectivelyViewingOtherProfile() || window._rmAboutAllowed === true;
+    const bio = (typeof user !== 'undefined' && user && user.bio) ? String(user.bio).trim() : '';
+    if (allowed && bio) { el.innerText = bio; el.style.display = 'block'; }
+    else { el.innerText = ''; el.style.display = 'none'; }
 }
 
 // ── Stats List Modal (Followers / Following / Realmates) ──
@@ -2073,7 +2121,7 @@ async function _renderRecentListingsRun(targetId, canView, live) {
         try {
             const { data: liveProfile } = await _supabase
                 .from('profiles')
-                .select('full_name, avatar_url, job_title, is_verified')
+                .select('full_name, avatar_url, job_title, is_verified, verified_as')
                 .eq('id', targetId)
                 .maybeSingle();
             if (liveProfile) {
@@ -2088,6 +2136,7 @@ async function _renderRecentListingsRun(targetId, canView, live) {
                         user_img: _avatarUrlFor(name, liveProfile.avatar_url),
                         user_job: liveJob || l.user_job,
                         user_verified: !!liveProfile.is_verified,
+                        user_verified_as: liveProfile.verified_as || null,
                     };
                 });
             }
@@ -2213,15 +2262,14 @@ async function saveProfile() {
 
     user.nickname = document.getElementById("editNickname").value.trim().slice(0, 30);
     user.bio = document.getElementById("editBio").value.trim().slice(0, 500);
-    user.division = normalizeDivision(document.getElementById("editDivision").value);
-    user.group = document.getElementById("editGroup").value;
-    user.team = document.getElementById("editTeam").value;
-    // A Group must always belong to its Division's list — clear it otherwise.
-    // Defense-in-depth beyond what the dependent dropdowns already enforce.
-    const _validGroups = user.division ? DIVISION_GROUPS[user.division] : null;
-    if (!_validGroups || !_validGroups.includes(user.group)) {
-        user.group = '';
-    }
+    // Division / Group / Team are no longer edited here (removed from Edit
+    // Profile); their stored values are left exactly as they are — see the
+    // profiles update below, which no longer writes those columns.
+    // Declared profession + brokerage. Changing the profession does NOT change a
+    // verified badge — that is admin-granted only (Get verified box below).
+    const _pt = (document.getElementById("editProfessionalType") || {}).value || '';
+    user.professionalType = (_pt === 'salesperson' || _pt === 'broker') ? _pt : '';
+    user.brokerage = ((document.getElementById("editBrokerage") || {}).value || '').trim().slice(0, 120);
     user.relationship = document.getElementById("editRelationship").value;
     // Relationship Status is optional — blank saves as null and hides the line.
 
@@ -2283,12 +2331,11 @@ async function saveProfile() {
                     // Positions were removed from Realmate — always clear any
                     // stored career position on save.
                     job_title: null,
-                    division: user.division,
-                    business_group: user.group,
-                    team_name: user.team,
                     bio: user.bio,
                     avatar_url: user.image,
                     relationship_status: user.relationship || null,
+                    professional_type: user.professionalType || null,
+                    brokerage: user.brokerage || null,
                     location: user.location || null,
                     years_experience: user.yearsExperience || null,
                     languages: user.languages || null,
@@ -2325,12 +2372,10 @@ function openEditModal() {
     if (_uStatus) { _uStatus.textContent = ""; _uStatus.style.color = ""; }
     document.getElementById("editNickname").value = user.nickname || "";
     document.getElementById("editBio").value = user.bio || "";
-    document.getElementById("editDivision").value = normalizeDivision(user.division);
     document.getElementById("editRelationship").value = user.relationship || '';
+    if (document.getElementById("editProfessionalType")) document.getElementById("editProfessionalType").value = user.professionalType || '';
+    if (document.getElementById("editBrokerage")) document.getElementById("editBrokerage").value = user.brokerage || '';
 
-    syncGroupField(user.group);
-
-    document.getElementById("editTeam").value = user.team || "";
     document.getElementById("editAddress").value = user.location || "";
     // A profile saved before a city was added/renamed on the verified list
     // (or that predates this dropdown entirely) still displays exactly as
@@ -2344,7 +2389,117 @@ function openEditModal() {
     renderLanguageChips();
     document.getElementById("editLanguages").value = "";
     document.getElementById("editModal").style.display = "flex";
+    gvRefresh();
 }
+
+// ── Get verified (Edit Profile) ──────────────────────────────────────────────
+// The member uploads their Professional ID for an admin review. The badge itself
+// is granted only by an admin (Admin › Verifications / User Details), so nothing
+// here — and nothing about the Profession field — changes it.
+const GV_MAX_BYTES = 5 * 1024 * 1024;
+const GV_TYPES = ['image/jpeg', 'image/png', 'application/pdf'];
+let _gvFile = null;
+
+function _gvMsg(text, kind) {
+    const m = document.getElementById('gvMsg');
+    if (!m) return;
+    m.textContent = text || '';
+    m.className = 'gv-msg' + (kind ? ' gv-msg-' + kind : '');
+}
+
+function _gvTypeLabel(t) { return t === 'broker' ? 'Broker' : t === 'salesperson' ? 'Salesperson' : ''; }
+
+function gvPickFile(input) {
+    const f = input && input.files && input.files[0];
+    const wrap = document.getElementById('gvUploadWrap');
+    const name = document.getElementById('gvFileName');
+    _gvFile = null;
+    if (wrap) wrap.classList.remove('has-file', 'error');
+    if (name) name.textContent = 'Upload Professional ID';
+    _gvMsg('');
+    if (!f) return;
+    const okType = GV_TYPES.includes(f.type) || /\.(jpe?g|png|pdf)$/i.test(f.name || '');
+    if (!okType) { if (wrap) wrap.classList.add('error'); _gvMsg('Use a JPG, PNG or PDF file.', 'error'); input.value = ''; return; }
+    if (f.size > GV_MAX_BYTES) { if (wrap) wrap.classList.add('error'); _gvMsg('That file is over 5MB.', 'error'); input.value = ''; return; }
+    _gvFile = f;
+    if (wrap) wrap.classList.add('has-file');
+    if (name) name.textContent = f.name;
+}
+
+async function gvRefresh() {
+    const st = document.getElementById('gvStatus');
+    if (!st) return;
+    _gvFile = null;
+    const fi = document.getElementById('gvFile'); if (fi) fi.value = '';
+    const wrap = document.getElementById('gvUploadWrap'); if (wrap) wrap.classList.remove('has-file', 'error');
+    const nm = document.getElementById('gvFileName'); if (nm) nm.textContent = 'Upload Professional ID';
+    const prc = document.getElementById('gvPrc'); if (prc) prc.value = '';
+    _gvMsg('');
+    const verified = user.verifiedAs ? (window.RMVerified ? RMVerified.label(user.verifiedAs) : 'Verified') : '';
+    st.className = 'gv-status' + (verified ? ' gv-status-ok' : '');
+    st.textContent = verified || 'Not verified';
+    if (!_supabase) return;
+    try {
+        const { data: { user: authUser } } = await _supabase.auth.getUser();
+        if (!authUser) return;
+        const { data, error } = await _supabase.from('verification_requests')
+            .select('status, requested_type, note, created_at').eq('user_id', authUser.id)
+            .order('created_at', { ascending: false }).limit(1);
+        if (error) throw error;
+        const last = data && data[0];
+        if (!last) return;
+        if (last.status === 'pending') {
+            st.className = 'gv-status gv-status-pending';
+            st.textContent = 'Pending review' + (last.requested_type ? ' (' + _gvTypeLabel(last.requested_type) + ')' : '') +
+                (verified ? ' · currently ' + verified : '');
+        } else if (last.status === 'rejected' && !verified) {
+            st.className = 'gv-status gv-status-rejected';
+            st.textContent = 'Not verified. Your last request was not approved' + (last.note ? ': ' + last.note : '.');
+        }
+    } catch (e) {
+        console.error('[get-verified] status', e);
+    }
+}
+
+async function gvSubmit() {
+    const btn = document.getElementById('gvSubmitBtn');
+    const type = (document.getElementById('editProfessionalType') || {}).value || '';
+    if (type !== 'salesperson' && type !== 'broker') { _gvMsg('Choose your Profession above first.', 'error'); return; }
+    if (!_gvFile) { const w = document.getElementById('gvUploadWrap'); if (w) w.classList.add('error'); _gvMsg('Upload your Professional ID first.', 'error'); return; }
+    if (!_supabase) { _gvMsg('You are offline. Try again in a moment.', 'error'); return; }
+    if (btn) { btn.disabled = true; btn.textContent = 'Submitting…'; }
+    try {
+        const { data: { user: authUser } } = await _supabase.auth.getUser();
+        if (!authUser) throw new Error('Please sign in again.');
+        // Check before uploading, so a refused request never leaves an ID file
+        // behind in storage (the server allows 5 requests per 24 hours).
+        const since = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+        const { count: recent, error: cntErr } = await _supabase.from('verification_requests')
+            .select('id', { count: 'exact', head: true }).eq('user_id', authUser.id).gte('created_at', since);
+        if (cntErr) throw new Error('Verification is not available right now. Please try again later.');
+        if ((recent || 0) >= 5) throw new Error('Too many verification requests today. Please try again tomorrow.');
+        const safe = (_gvFile.name || 'id').replace(/[^A-Za-z0-9._-]+/g, '_').slice(-80);
+        const path = `${authUser.id}/verify_${Date.now()}_${safe}`;
+        const { error: upErr } = await _supabase.storage.from('verification-docs')
+            .upload(path, _gvFile, { contentType: _gvFile.type || undefined, upsert: false });
+        if (upErr) throw upErr;
+        const prc = ((document.getElementById('gvPrc') || {}).value || '').trim().slice(0, 40);
+        const brokerage = ((document.getElementById('editBrokerage') || {}).value || '').trim().slice(0, 120);
+        const { error: insErr } = await _supabase.from('verification_requests').insert({
+            user_id: authUser.id, requested_type: type, prc_license_no: prc || null,
+            brokerage: brokerage || null, file_path: path,
+        });
+        if (insErr) throw insErr;
+        await gvRefresh();
+        _gvMsg('Sent. An admin will review your ID.', 'ok');
+    } catch (e) {
+        console.error('[get-verified] submit', e);
+        _gvMsg('Could not submit: ' + (e && e.message ? e.message : 'please try again.'), 'error');
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = 'Submit for verification'; }
+    }
+}
+
 function closeEditModal() {
     document.getElementById("editModal").style.display = "none";
     document.body.style.overflow = '';
@@ -2352,7 +2507,7 @@ function closeEditModal() {
 }
 
 function logout() { 
-    if (_supabase) _supabase.auth.signOut();
+    if (_supabase) _supabase.auth.signOut({ scope: 'local' });
     localStorage.removeItem("user");
     localStorage.removeItem("posts");
     location.href = "index.html"; 

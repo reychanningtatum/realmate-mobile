@@ -22,8 +22,8 @@ function rmAuthHeaders(url, key, extra) {
 
 // Global logout — available on every page via the mobile nav
 function logout() {
-    const SUPABASE_URL = 'https://wmegpgrfrtprhuzmgjma.supabase.co';
-    const SUPABASE_KEY = 'sb_publishable_Rm_fIBDUfu3DEyLj0_bWZw_qEqo8cd4';
+    const SUPABASE_URL = window.RM_ENV.url;
+    const SUPABASE_KEY = window.RM_ENV.anonKey;
     // Remove the session token SYNCHRONOUSLY first, before anything can redirect.
     // signOut() is async and wasn't awaited, so the token could still be in
     // storage when index.html's attemptAutoLogin() runs — and its session-restore
@@ -31,7 +31,7 @@ function logout() {
     // clears the native Preferences mirror (see native-auth.js). Also mark that we
     // just logged out so auto-login/hydrate is skipped this launch.
     try {
-        localStorage.removeItem('sb-wmegpgrfrtprhuzmgjma-auth-token');
+        localStorage.removeItem(window.RM_ENV.authTokenKey);
         localStorage.removeItem('user');
         localStorage.removeItem('posts');
         localStorage.removeItem('isGuest');
@@ -40,7 +40,7 @@ function logout() {
     } catch (e) {}
     try {
         const _sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-        _sb.auth.signOut(); // best-effort server revocation; token already gone locally
+        _sb.auth.signOut({ scope: 'local' }); // best-effort server revocation; token already gone locally
     } catch(e) {}
     // Drop a dark curtain over the current page, then navigate to the login — index.html
     // starts under a matching curtain (keyed on rm_logged_out, set above) and lifts it,
@@ -88,12 +88,12 @@ function goBack() {
 
 // 🔐 AUTH GUARD — runs on every protected page
 (async function () {
-    const SUPABASE_URL = 'https://wmegpgrfrtprhuzmgjma.supabase.co';
-    const SUPABASE_KEY = 'sb_publishable_Rm_fIBDUfu3DEyLj0_bWZw_qEqo8cd4';
+    const SUPABASE_URL = window.RM_ENV.url;
+    const SUPABASE_KEY = window.RM_ENV.anonKey;
     const _sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     const isGuest = localStorage.getItem("isGuest") === "true";
-    const _RM_TOKEN_KEY = "sb-wmegpgrfrtprhuzmgjma-auth-token";
+    const _RM_TOKEN_KEY = window.RM_ENV.authTokenKey;
     // Native: wait for the persisted session to be restored into localStorage
     // before asking Supabase for it (see native-auth.js).
     if (window.rmSessionReady) { try { await window.rmSessionReady; } catch (e) {} }
@@ -158,7 +158,7 @@ function goBack() {
     // in is logged out. The marker is per-browsing-session (cleared when the app
     // is fully closed), so in-app navigation between tabs never re-triggers it.
     if (localStorage.getItem('rm_remember') === '0' && !sessionStorage.getItem('rm_session')) {
-        await _sb.auth.signOut();
+        await _sb.auth.signOut({ scope: 'local' });
         localStorage.clear();
         location.href = "index.html";
         return;
@@ -171,13 +171,24 @@ function goBack() {
     // 'Approved' passes — no row means the account was never approved. A
     // failed lookup (offline) is not treated as a verdict either way.
     try {
-        const { data: review, error: reviewErr } = await _sb
-            .from('registration_reviews')
-            .select('account_status')
-            .eq('id', session.user.id)
-            .maybeSingle();
-        if (!reviewErr && (!review || review.account_status !== 'Approved')) {
-            await _sb.auth.signOut();
+        const _review = () => _sb.from('registration_reviews')
+            .select('account_status').eq('id', session.user.id).maybeSingle();
+        let { data: review, error: reviewErr } = await _review();
+        // registration_reviews is readable only with a valid session, so a lookup
+        // sent while the session is being restored/refreshed can come back EMPTY
+        // even for an approved member (that logged people out after AI Match →
+        // Back). An empty result is therefore confirmed before it counts: verify
+        // the session with the server, then look again. Fails CLOSED once the
+        // session is confirmed — no approved row → signed out, as before.
+        let verdict = !reviewErr;
+        if (verdict && !review) {
+            let confirmed = false;
+            try { const { data: u, error: uErr } = await _sb.auth.getUser(); confirmed = !uErr && !!(u && u.user && u.user.id === session.user.id); } catch (_) {}
+            if (confirmed) ({ data: review, error: reviewErr } = await _review());
+            verdict = confirmed && !reviewErr;           // session not verifiable right now → no verdict (later checks still run)
+        }
+        if (verdict && (!review || review.account_status !== 'Approved')) {
+            await _sb.auth.signOut({ scope: 'local' });
             localStorage.clear();
             location.href = "index.html";
             return;
@@ -197,7 +208,7 @@ function goBack() {
             .eq('id', session.user.id)
             .maybeSingle();
         if (prof && prof.banned === true) {
-            await _sb.auth.signOut();
+            await _sb.auth.signOut({ scope: 'local' });
             localStorage.clear();
             try { localStorage.setItem('rm_blocked', 'banned'); } catch (e) {}
             (window.top || window).location.href = "index.html";
@@ -253,7 +264,7 @@ function goBack() {
                 nickname: (profile && profile.nickname) || '',
                 image: _hasRealPhoto ? _storedAvatar : `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName)}&background=random&color=fff`,
                 job: (profile && profile.job_title) || '',
-                division: (profile && profile.division) || 'Alveo Land',
+                division: (profile && profile.division) || '',
                 group: (profile && profile.business_group) || '',
                 team: (profile && profile.team_name) || '',
                 bio: (profile && profile.bio) || ''

@@ -15,8 +15,8 @@
 
 const _followsDb = (typeof _supabase !== 'undefined') ? _supabase
                  : supabase.createClient(
-                     'https://wmegpgrfrtprhuzmgjma.supabase.co',
-                     'sb_publishable_Rm_fIBDUfu3DEyLj0_bWZw_qEqo8cd4'
+                     window.RM_ENV.url,
+                     window.RM_ENV.anonKey
                    );
 
 function _followLocalUser() {

@@ -1,5 +1,5 @@
-const supabaseUrl = 'https://wmegpgrfrtprhuzmgjma.supabase.co';
-const supabaseKey = 'sb_publishable_Rm_fIBDUfu3DEyLj0_bWZw_qEqo8cd4';
+const supabaseUrl = window.RM_ENV.url;
+const supabaseKey = window.RM_ENV.anonKey;
 // Direct requests carry the signed-in user's identity (rmAuthHeaders in
 // auth-guard.js, loaded first on every page); the public key when signed out.
 function _lmAuthHeaders(extra) {
@@ -31,7 +31,7 @@ const {
 function lmValidPosition(job) { return ''; }
 
 async function logout() {
-    await _sb.auth.signOut();
+    await _sb.auth.signOut({ scope: 'local' });
     localStorage.clear();
     location.href = "index.html";
 }
@@ -1363,7 +1363,7 @@ function handleListingRealtimeUpdate(row, eventType) {
     }
     // Recompute + surgically refresh the AI-match counters live (no full grid rebuild),
     // then re-record the match-alert set from the fresh matchMap.
-    try { var mm = syncMatchCountsUI(); if (mm) window.RMMatchAlert?.recordMatches([...mm.keys()].map(String)); } catch (e) {}
+    try { var mm = syncMatchCountsUI(); if (mm) { window.RMMatchAlert?.recordMatches([...mm.keys()].map(String)); _lmRecordAiMatches(mm); } } catch (e) {}
 }
 
 function buildOfferBadge(listing) {
@@ -1729,13 +1729,16 @@ async function confirmOffer() {
                 method: 'POST', headers: h,
                 body: JSON.stringify({ conversation_id: convId, sender_id: myId, message_type: 'TEXT', message_text: autoMsg, is_read: false })
             });
-            // Insert offer notification for the listing owner
-            await fetch(`${SUPA_URL}/rest/v1/notifications`, {
+            // Insert offer notification for the listing owner. The columns are
+            // sender_id / recipient_id — the old `sender_user_id` field does not
+            // exist, so every offer notification was rejected (400) unnoticed.
+            const _offerNotif = await fetch(`${SUPA_URL}/rest/v1/notifications`, {
                 method: 'POST', headers: h,
                 body: JSON.stringify({
                     recipient_user_name: ownerName,
+                    recipient_id: ownerId,
                     sender_user_name: senderName,
-                    sender_user_id: myId,
+                    sender_id: myId,
                     sender_profile_picture: localUser.image || localUser.img || localUser.avatar || '',
                     type: 'offer',
                     message: `${senderName} sent you an offer on your ${category || 'property'} listing.`,
@@ -1743,6 +1746,7 @@ async function confirmOffer() {
                     created_at: new Date().toISOString()
                 })
             });
+            if (!_offerNotif.ok) console.warn('[offer] notification insert failed:', _offerNotif.status, await _offerNotif.text().catch(() => ''));
         } catch(refErr) {
             console.warn('LISTING_REF insert error', refErr);
         }
@@ -2209,10 +2213,6 @@ function buildListingCard(listing, matchLabel = null, fmvResult = null, matchCou
             ? `onclick="event.stopPropagation();showSelfPopup();return false;" style="cursor:pointer;"`
             : `onclick="event.stopPropagation();showSellerPopup('${listing.user_id}','${(listing.user_name||'').replace(/'/g,"\\'")}','${(listing.user_img||'').replace(/'/g,"\\'")}','${(listing.user_job||'').replace(/'/g,"\\'")}');return false;" style="cursor:pointer;"`;
 
-    // Verified badge only renders if the listing ever carries a verified flag —
-    // pinned to the lower-right of the avatar (Facebook-style verified placement).
-    const verifiedBadge = listing.user_verified
-        ? '<span class="lc-profile-verified"><i class="fas fa-circle-check" title="Verified"></i></span>' : '';
     // opts.hideMenu removes the 3-dot menu entirely (used for the AI Match Engine
     // "Your Listing" card — the menu belongs on the Portal listing, not there).
     const kebabMenu = opts.hideMenu ? '' : buildCardMenu(listing, { isOwner, canDismiss, isPinned });
@@ -2248,7 +2248,8 @@ function buildListingCard(listing, matchLabel = null, fmvResult = null, matchCou
     const isMatch = !!(matchLabel && !isDismissedByMe);
     const actionBar = buildActionBar(listing, isOwner, isMatch);
 
-    // ── Profile header (Feed-style): avatar with lower-right badge, name with the
+    // ── Profile header (Feed-style): avatar, name with the verified seal beside it
+    //    (RMVerified, from profiles.verified_as — the only badge source), the
     //    timestamp directly below, and the three-dot menu. (The Realmates button
     //    was removed from the post to keep the action area clean.) ──
     const profileHeader = `
@@ -2256,10 +2257,9 @@ function buildListingCard(listing, matchLabel = null, fmvResult = null, matchCou
             <div class="lc-profile-av${userClick ? ' lc-profile-av-click' : ''}" ${userClick}>
                 <img loading="lazy" decoding="async" class="lc-profile-avatar" src="${listing.user_img || avatarFallback(listing.user_name)}"
                      onerror="this.src='${avatarFallback(listing.user_name)}'">
-                ${verifiedBadge}
             </div>
             <div class="lc-profile-meta" ${userClick}>
-                <div class="lc-profile-name"><span class="lc-seller-name-text">${listing.user_name || 'Unknown'}</span></div>
+                <div class="lc-profile-name"><span class="lc-seller-name-text">${listing.user_name || 'Unknown'}</span>${(!listing.is_anonymous && listing.user_verified_as && window.RMVerified) ? RMVerified.seal(listing.user_verified_as, 14) : ''}</div>
                 <div class="lc-profile-time">${timeAgo(listing.created_at)}</div>
             </div>
             <div class="lc-profile-actions">
@@ -3915,7 +3915,7 @@ async function _resolveLiveAuthors(...arrays) {
     const uids = [...new Set(live.map(r => r.user_id))];
     if (!uids.length) return;
     try {
-        const { data } = await _sb.from('profiles').select('id,full_name,avatar_url,job_title').in('id', uids);
+        const { data } = await _sb.from('profiles').select('id,full_name,avatar_url,job_title,verified_as').in('id', uids);
         const byId = {};
         (data || []).forEach(p => { byId[p.id] = p; });
         live.forEach(r => {
@@ -3928,6 +3928,7 @@ async function _resolveLiveAuthors(...arrays) {
             // must clear a listing's stale user_job snapshot too, not leave
             // the old value standing because the live value "wasn't truthy".
             r.user_job = lmValidPosition(p.job_title);
+            r.user_verified_as = p.verified_as || null;   // admin-granted seal (rm-verified.js)
         });
     } catch (e) { console.warn('[LiveAuthors] resolve failed', e); }
 }
@@ -4019,7 +4020,33 @@ async function loadLedger(silent) {
     // anything seen (opening the Portal must not clear a badge) and does NOT
     // fire the banner (that's reserved for genuine realtime arrivals) — it just
     // records which listings currently match one of mine, keyed by listing id.
-    try { window.RMMatchAlert?.recordMatches([...buildMatchMap().keys()].map(String)); } catch (e) {}
+    try {
+        const _mm = buildMatchMap();
+        window.RMMatchAlert?.recordMatches([..._mm.keys()].map(String));
+        _lmRecordAiMatches(_mm);
+    } catch (e) {}
+}
+
+// Admin › AI Matches record: report every match in the Portal's authoritative
+// match map (buildMatchMap — the same set, pairing and engine result the member
+// sees) to the shared ai_matches table via match-alert.js. Fire-and-forget; a
+// missing table or failed write never affects matching or the UI.
+function _lmRecordAiMatches(map) {
+    try {
+        if (!map || !window.RMMatchAlert || typeof RMMatchAlert.recordAiMatches !== 'function') return;
+        const byId = new Map((allListings || []).map(l => [String(l.id), l]));
+        const rows = [];
+        map.forEach((m, otherId) => {
+            const other = byId.get(String(otherId));
+            if (!other || !m || !m.myListing) return;
+            const res = computeMatchScore(parseListing(m.myListing), parseListing(other));
+            rows.push({
+                user_listing_id: m.myListing.id, matched_listing_id: other.id, matched_user_id: other.user_id || null,
+                score: res.score, grade: res.grade || null, reasons: res.reasons || null, analysis: res.analysis || null
+            });
+        });
+        RMMatchAlert.recordAiMatches(rows);
+    } catch (e) { /* the record is for Admin only — never disrupt the Portal */ }
 }
 
 // ── AI Match view ─────────────────────────────────
@@ -4183,6 +4210,10 @@ function dismissMatch(listingId) {
     const dismissed = getDismissedMatches();
     dismissed.add(String(listingId));
     localStorage.setItem(_dismissKey(), JSON.stringify([...dismissed]));
+    // Also record it on the shared match record (Admin › AI Matches can then see
+    // who dismissed what, and when). The phone's own list above stays the source
+    // for hiding it here.
+    try { window.RMMatchAlert?.recordDismiss?.(listingId); } catch (e) {}
     // Slide the card out of the AI Match view (now a full Live Market card) and
     // refresh the match count / empty state.
     const mvCard = document.querySelector(`#matchesContainer #lc-${listingId}`)
@@ -4811,7 +4842,13 @@ async function init() {
     // Restore on real Back/Forward, OR when we just came back from a
     // profile/listings/chat visit (Chat returns as a fresh 'navigate' because the
     // suspended Portal tab is reloaded — _rmRecentPortalSave catches that).
-    if (ctx && ctx.listingId != null) {
+    if (!_lmIsPortalPage) {
+        // The Profile page loads this file for the shared listing card. Its scroll
+        // belongs to the profile: never force it to the top here — loadLedger()
+        // finishes seconds after the profile shows, and goTop() then yanked a
+        // visitor who had already switched to Listings and started scrolling
+        // (the profile "shake").
+    } else if (ctx && ctx.listingId != null) {
         // We just re-opened a listing's Match view (Back from a match's / own
         // listing detail). showAllMatches() already scrolls to the exact post; the
         // feed grid is hidden, so running the feed restore here would anchor to a

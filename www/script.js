@@ -1,6 +1,6 @@
 window.supabaseClient = window.supabase.createClient(
-    "https://wmegpgrfrtprhuzmgjma.supabase.co",
-    "sb_publishable_Rm_fIBDUfu3DEyLj0_bWZw_qEqo8cd4"
+    window.RM_ENV.url,
+    window.RM_ENV.anonKey
 );
 
 // One-time reset of the biometric-offer guard. The old "Enable Face ID?" offer
@@ -76,7 +76,7 @@ window.supabaseClient.auth.onAuthStateChange((event) => {
     try { if (sessionStorage.getItem("rm_from_marketing")) { sessionStorage.removeItem("rm_from_marketing"); await revealWithBio(); return; } } catch (e) {}
     // Just logged out this launch — show the login form, never hydrate back in.
     try { if (sessionStorage.getItem("rm_logged_out")) { sessionStorage.removeItem("rm_logged_out"); await revealWithBio(); return; } } catch (e) {}
-    var _RM_TOKEN_KEY = "sb-wmegpgrfrtprhuzmgjma-auth-token";
+    var _RM_TOKEN_KEY = window.RM_ENV.authTokenKey;
     try {
         // Native: wait for the persisted session to be restored into localStorage
         // before asking Supabase for it (see native-auth.js).
@@ -127,7 +127,7 @@ async function bioSignIn() {
 // restored session or null. Shared by attemptAutoLogin and auth-guard.
 async function _rmHydrateSession(tokenKey) {
     try {
-        var raw = localStorage.getItem(tokenKey || "sb-wmegpgrfrtprhuzmgjma-auth-token");
+        var raw = localStorage.getItem(tokenKey || window.RM_ENV.authTokenKey);
         if (!raw) return null;
         var tok = JSON.parse(raw);
         var s = tok && (tok.access_token ? tok : tok.currentSession); // v2 stores the session directly
@@ -526,7 +526,7 @@ function handleAlveoFileSelect(input) {
     const wrap = document.getElementById("alveoUploadWrap");
     if (!file) {
         _selectedAlveoFile = null;
-        if (nameEl) nameEl.textContent = "Upload Alveo ID";
+        if (nameEl) nameEl.textContent = "Upload Professional ID";
         if (wrap) wrap.classList.remove("has-file");
         toggleRegButton();
         return;
@@ -535,7 +535,7 @@ function handleAlveoFileSelect(input) {
     if (!check.ok) {
         _selectedAlveoFile = null;
         input.value = ""; // clear the invalid selection so it can't be silently submitted
-        if (nameEl) nameEl.textContent = "Upload Alveo ID";
+        if (nameEl) nameEl.textContent = "Upload Professional ID";
         if (wrap) wrap.classList.remove("has-file");
         showAlveoFileError(check.message);
         toggleRegButton();
@@ -900,15 +900,15 @@ async function login(opts){
       .maybeSingle();
 
     if (reviewErr) {
-      await window.supabaseClient.auth.signOut();
+      await window.supabaseClient.auth.signOut({ scope: 'local' });
       showLoginError("We couldn't verify your account status. Please check your connection and try again.");
       return;
     }
     if (!review || review.account_status !== 'Approved') {
-      await window.supabaseClient.auth.signOut();
+      await window.supabaseClient.auth.signOut({ scope: 'local' });
       if (review && review.account_status === 'Rejected') {
         showLoginError(
-          "Your registration was not approved. Please register again and upload a clear photo of your Alveo ID for verification. Please check your email for more details.",
+          "Your registration was not approved. Please register again and upload a clear photo of your PRC ID, DHSUD license, or company/brokerage ID for verification. Please check your email for more details.",
           "Registration Not Approved"
         );
       } else {
@@ -924,7 +924,7 @@ async function login(opts){
       const { data: bprof, error: berr } = await window.supabaseClient
         .from('profiles').select('banned').eq('id', authUser.id).maybeSingle();
       if (!berr && bprof && bprof.banned === true) {
-        await window.supabaseClient.auth.signOut();
+        await window.supabaseClient.auth.signOut({ scope: 'local' });
         showLoginError(
           "Your account has been suspended and can no longer sign in. If you believe this is a mistake, please contact information.realmate@gmail.com.",
           "Account Suspended"
@@ -975,7 +975,7 @@ async function login(opts){
       nickname: (profile && profile.nickname) || '',
       image: _hasRealPhoto ? _storedAvatar
         : `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName)}&background=0f172a&color=32cd32`,
-      job: '', division: 'Alveo Land', group: '', team: '', bio: ''
+      job: '', division: '', group: '', team: '', bio: ''
     }));
     localStorage.setItem("isGuest", "false");
 
@@ -1183,7 +1183,7 @@ async function handleUpdatePassword() {
     // URL/history so the same link can't be replayed to reopen this flow —
     // the recovery token itself is already single-use server-side, but this
     // closes the client-side door too (refresh, back button, etc.).
-    try { await window.supabaseClient.auth.signOut(); } catch (_) {}
+    try { await window.supabaseClient.auth.signOut({ scope: 'local' }); } catch (_) {}
     history.replaceState(null, "", window.location.pathname);
     _showResetSuccessState();
   } catch (err) {
@@ -1383,9 +1383,21 @@ async function registerUser(){
   let phone = document.getElementById("phone").value.trim();
   let birthday = document.getElementById("birthday").value;
   let gender = document.getElementById("gender").value;
+  // Declared professional information. Type is required (Salesperson or Broker);
+  // PRC number and brokerage are optional. Declaring grants nothing — only an
+  // admin can mark a member Verified (profiles.verified_as, server-side).
+  const professionalType = (document.getElementById("professionalType") || {}).value || "";
+  const prcLicenseNo = ((document.getElementById("prcLicenseNo") || {}).value || "").trim().slice(0, 40);
+  const brokerage = ((document.getElementById("brokerage") || {}).value || "").trim().slice(0, 120);
 
   if (!username || !firstName || !email || !password) {
     showRegToast("Please fill in all required fields.", "error");
+    return;
+  }
+  if (professionalType !== "salesperson" && professionalType !== "broker") {
+    const pt = document.getElementById("professionalType");
+    if (pt) showError(pt, true);
+    showRegToast("Please select whether you are a Real Estate Salesperson or Broker.", "error");
     return;
   }
   // Email format check — any valid email may register (non-Alveo included).
@@ -1446,14 +1458,14 @@ async function registerUser(){
         .from('verification-docs')
         .upload(path, _selectedAlveoFile, { contentType: _selectedAlveoFile.type });
       if (uploadError) {
-        showAlveoFileError("Couldn't upload your Alveo ID. Please try again.");
+        showAlveoFileError("Couldn't upload your ID. Please try again.");
         return;
       }
     }
 
     const { data: signUpData, error } = await window.supabaseClient.auth.signUp({
       email, password,
-      options: { data: { username, first_name: firstName, last_name: lastName, phone_number: phone, birthday, gender } }
+      options: { data: { username, first_name: firstName, last_name: lastName, phone_number: phone, birthday, gender, professional_type: professionalType, brokerage } }
     });
     if (error) {
       showRegToast("Registration failed: " + error.message, "error");
@@ -1479,6 +1491,7 @@ async function registerUser(){
         email,
         phone_number: phone || null,
         alveo_id_file: path,
+        prc_license_no: prcLicenseNo || null,
       });
       if (reviewError) {
         showRegToast("Account created, but we couldn't queue it for admin review. Please contact support.", "error");

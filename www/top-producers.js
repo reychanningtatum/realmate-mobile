@@ -1,7 +1,7 @@
 (async function loadTopProducers() {
     const _sb = supabase.createClient(
-        'https://wmegpgrfrtprhuzmgjma.supabase.co',
-        'sb_publishable_Rm_fIBDUfu3DEyLj0_bWZw_qEqo8cd4'
+        window.RM_ENV.url,
+        window.RM_ENV.anonKey
     );
 
     const grid = document.getElementById('tpGrid');
