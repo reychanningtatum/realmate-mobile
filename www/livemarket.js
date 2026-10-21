@@ -1729,13 +1729,16 @@ async function confirmOffer() {
                 method: 'POST', headers: h,
                 body: JSON.stringify({ conversation_id: convId, sender_id: myId, message_type: 'TEXT', message_text: autoMsg, is_read: false })
             });
-            // Insert offer notification for the listing owner
-            await fetch(`${SUPA_URL}/rest/v1/notifications`, {
+            // Insert offer notification for the listing owner. The columns are
+            // sender_id / recipient_id — the old `sender_user_id` field does not
+            // exist, so every offer notification was rejected (400) unnoticed.
+            const _offerNotif = await fetch(`${SUPA_URL}/rest/v1/notifications`, {
                 method: 'POST', headers: h,
                 body: JSON.stringify({
                     recipient_user_name: ownerName,
+                    recipient_id: ownerId,
                     sender_user_name: senderName,
-                    sender_user_id: myId,
+                    sender_id: myId,
                     sender_profile_picture: localUser.image || localUser.img || localUser.avatar || '',
                     type: 'offer',
                     message: `${senderName} sent you an offer on your ${category || 'property'} listing.`,
@@ -1743,6 +1746,7 @@ async function confirmOffer() {
                     created_at: new Date().toISOString()
                 })
             });
+            if (!_offerNotif.ok) console.warn('[offer] notification insert failed:', _offerNotif.status, await _offerNotif.text().catch(() => ''));
         } catch(refErr) {
             console.warn('LISTING_REF insert error', refErr);
         }

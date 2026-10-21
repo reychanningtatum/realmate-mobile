@@ -1223,16 +1223,17 @@ function updateUI() {
             relationshipLine.style.display = 'none';
         }
     }
-    _autoFitMetadataRow();
     // A row with nothing showing (no company/group pills; no location / years /
     // languages / relationship) is hidden outright, so its top margin doesn't
-    // leave a gap above the Message buttons.
+    // leave a gap above the Message buttons. Runs BEFORE the auto-fit below,
+    // which can only measure a row that is visible.
     ['.profile-identity-line', '.profile-subline-row'].forEach(sel => {
         const row = document.querySelector(sel);
         if (!row) return;
         const any = Array.from(row.children).some(c => c.style.display !== 'none' && getComputedStyle(c).display !== 'none');
         row.style.display = any ? '' : 'none';
     });
+    _autoFitMetadataRow();
 
     _rmRenderBioPreview();
 
@@ -2470,6 +2471,13 @@ async function gvSubmit() {
     try {
         const { data: { user: authUser } } = await _supabase.auth.getUser();
         if (!authUser) throw new Error('Please sign in again.');
+        // Check before uploading, so a refused request never leaves an ID file
+        // behind in storage (the server allows 5 requests per 24 hours).
+        const since = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+        const { count: recent, error: cntErr } = await _supabase.from('verification_requests')
+            .select('id', { count: 'exact', head: true }).eq('user_id', authUser.id).gte('created_at', since);
+        if (cntErr) throw new Error('Verification is not available right now. Please try again later.');
+        if ((recent || 0) >= 5) throw new Error('Too many verification requests today. Please try again tomorrow.');
         const safe = (_gvFile.name || 'id').replace(/[^A-Za-z0-9._-]+/g, '_').slice(-80);
         const path = `${authUser.id}/verify_${Date.now()}_${safe}`;
         const { error: upErr } = await _supabase.storage.from('verification-docs')

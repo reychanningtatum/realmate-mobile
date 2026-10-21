@@ -36,7 +36,8 @@
 
   var SUPABASE_URL = window.RM_ENV.url;
   var SUPABASE_KEY = window.RM_ENV.anonKey;
-  var AUTH_KEY = window.RM_ENV.authTokenKey;
+  // admin.html keeps its own sign-in (RM_BUGS_AUTH_KEY) so its reports are credited to the admin.
+  var AUTH_KEY = window.RM_BUGS_AUTH_KEY || window.RM_ENV.authTokenKey;
   var RPC_URL = SUPABASE_URL + '/rest/v1/rpc/report_bugs';
   var PREF_KEY = 'rm_bug_reports';
   var APP_VERSION = '20261014c';
@@ -277,8 +278,13 @@
       var report = function (r) {
         try {
           if (!enabled()) return;
-          var why = (r && typeof r === 'object') ? ((r.name ? r.name + ': ' : '') + (r.message || '')) : String(r);
-          enqueue('console', 'View transition skipped (' + (why || 'no reason') + ')', (r && r.stack) || '');
+          // A genuine error thrown by the page's own update (e.g. a TypeError in
+          // the app shell's tab switch) is a real crash — report it as one, not
+          // under the "skipped" label.
+          var name = r && typeof r === 'object' ? r.name : '';
+          if (name !== 'AbortError' && name !== 'InvalidStateError') { fromError('rejection', r); return; }
+          var why = name + ': ' + (r.message || '');
+          enqueue('console', 'View transition skipped (' + why + ')', r.stack || '');
         } catch (e) {}
       };
       ['ready', 'updateCallbackDone', 'finished'].forEach(function (k) {
