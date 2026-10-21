@@ -27,6 +27,7 @@
  *   capture(errOrMessage, extra?)  — report a handled error explicitly
  *   report(note)                   — user-submitted "Report a problem" (always
  *                                    sent; returns a Promise<boolean>)
+ *   watchTransition(vt)            — report a cancelled view transition
  *   isEnabled() / setEnabled(bool)
  * ==========================================================================*/
 (function (global) {
@@ -260,6 +261,28 @@
     try { fromError('rejection', ev && ev.reason); } catch (e) {}
   });
 
+  // View transitions (safe-area.css @view-transition between pages, and the app
+  // shell's startViewTransition between tabs) are cosmetic: when the browser
+  // cancels one (next page doesn't opt in, tab hidden, viewport resized) the
+  // page still loads, but the transition's `ready` promise rejects with nobody
+  // listening ("AbortError: Transition was skipped"). Handle it here and report
+  // it as a labelled "View transition skipped" entry: still reported, grouped
+  // per page and reason, instead of arriving as an unhandled rejection.
+  function watchTransition(vt) {
+    try {
+      if (!vt || !vt.ready || !vt.ready.catch) return;
+      vt.ready.catch(function (r) {
+        try {
+          if (!enabled()) return;
+          var why = (r && typeof r === 'object') ? ((r.name ? r.name + ': ' : '') + (r.message || '')) : String(r);
+          enqueue('console', 'View transition skipped (' + (why || 'no reason') + ')', (r && r.stack) || '');
+        } catch (e) {}
+      });
+    } catch (e) {}
+  }
+  global.addEventListener('pagereveal', function (ev) { watchTransition(ev && ev.viewTransition); });
+  global.addEventListener('pageswap', function (ev) { watchTransition(ev && ev.viewTransition); });
+
   // console.error → report; console.warn → breadcrumb only.
   try {
     var _cErr = console.error, _cWarn = console.warn;
@@ -343,6 +366,7 @@
       enqueue('manual', 'User report: ' + clip(n.replace(/\s+/g, ' '), 120), '', null, n);
       return flush();
     },
+    watchTransition: watchTransition,
     isEnabled: enabled,
     setEnabled: function (on) {
       try { localStorage.setItem(PREF_KEY, on ? '1' : '0'); } catch (e) {}

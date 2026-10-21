@@ -74,6 +74,10 @@
   // too, and a second label floated over their content just above the nav.
   if (env.name !== 'production' && g.self === g.top) {
     var mark = function () {
+      // iOS WebKit can fire DOMContentLoaded on a page cut short while still
+      // in <head> (index.html's first-launch location.replace to the marketing
+      // page) — there is no body then. Draw on the next page instead.
+      if (!document.body) return;
       var b = document.createElement('div');
       b.textContent = 'REALMATE STAGING';
       b.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 2px);' +
