@@ -738,7 +738,10 @@ html[data-theme="dark"] .profile-more-menu a:hover { background: #334155; }
    (rm-verified.js draws it from profiles.verified_as). Sized to the name so the
    name stays readable; it never shrinks or wraps away from the name. */
 .profile-verified-full { flex: 0 0 auto; align-items: center; }
-.profile-name-line .profile-verified-full .rm-verified-badge { height: 34px !important; width: auto; }
+/* margin-bottom: 0 — the legacy `.profile-card img { margin-bottom: 15px }` (≤1200px,
+   meant for the photo) also hit this image, padding it 15px below so it centred
+   ~7.5px above the name and made the name row 15px taller. */
+.profile-name-line .profile-verified-full .rm-verified-badge { height: 34px !important; width: auto; margin-bottom: 0; }
 @media (max-width: 768px) {
     .profile-name-line .profile-verified-full .rm-verified-badge { height: 28px !important; }
 }
@@ -1593,7 +1596,7 @@ html[data-theme="dark"] .stats-list-avatar { border-color: #334155; }
            adds its own margin-top on top of this. On your own profile
            this row has no visible children, so both margins are invisible
            (there's nothing here to create space around). */
-        width: 100%; margin-top: 16px; margin-bottom: 4px; gap: 8px;
+        width: 100%; margin-top: 12px; margin-bottom: 4px; gap: 8px;
     }
     /* The "···" wrapper is always empty on mobile (its trigger lives in
        the fixed top bar instead — see .mobile-topbar-more) but must stay

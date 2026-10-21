@@ -1219,6 +1219,15 @@ function updateUI() {
         }
     }
     _autoFitMetadataRow();
+    // A row with nothing showing (no company/group pills; no location / years /
+    // languages / relationship) is hidden outright, so its top margin doesn't
+    // leave a gap above the Message buttons.
+    ['.profile-identity-line', '.profile-subline-row'].forEach(sel => {
+        const row = document.querySelector(sel);
+        if (!row) return;
+        const any = Array.from(row.children).some(c => c.style.display !== 'none' && getComputedStyle(c).display !== 'none');
+        row.style.display = any ? '' : 'none';
+    });
 
     _rmRenderBioPreview();
 

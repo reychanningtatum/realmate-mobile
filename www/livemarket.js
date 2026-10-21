@@ -2209,10 +2209,6 @@ function buildListingCard(listing, matchLabel = null, fmvResult = null, matchCou
             ? `onclick="event.stopPropagation();showSelfPopup();return false;" style="cursor:pointer;"`
             : `onclick="event.stopPropagation();showSellerPopup('${listing.user_id}','${(listing.user_name||'').replace(/'/g,"\\'")}','${(listing.user_img||'').replace(/'/g,"\\'")}','${(listing.user_job||'').replace(/'/g,"\\'")}');return false;" style="cursor:pointer;"`;
 
-    // Verified badge only renders if the listing ever carries a verified flag —
-    // pinned to the lower-right of the avatar (Facebook-style verified placement).
-    const verifiedBadge = listing.user_verified
-        ? '<span class="lc-profile-verified"><i class="fas fa-circle-check" title="Verified"></i></span>' : '';
     // opts.hideMenu removes the 3-dot menu entirely (used for the AI Match Engine
     // "Your Listing" card — the menu belongs on the Portal listing, not there).
     const kebabMenu = opts.hideMenu ? '' : buildCardMenu(listing, { isOwner, canDismiss, isPinned });
@@ -2248,7 +2244,8 @@ function buildListingCard(listing, matchLabel = null, fmvResult = null, matchCou
     const isMatch = !!(matchLabel && !isDismissedByMe);
     const actionBar = buildActionBar(listing, isOwner, isMatch);
 
-    // ── Profile header (Feed-style): avatar with lower-right badge, name with the
+    // ── Profile header (Feed-style): avatar, name with the verified seal beside it
+    //    (RMVerified, from profiles.verified_as — the only badge source), the
     //    timestamp directly below, and the three-dot menu. (The Realmates button
     //    was removed from the post to keep the action area clean.) ──
     const profileHeader = `
@@ -2256,7 +2253,6 @@ function buildListingCard(listing, matchLabel = null, fmvResult = null, matchCou
             <div class="lc-profile-av${userClick ? ' lc-profile-av-click' : ''}" ${userClick}>
                 <img loading="lazy" decoding="async" class="lc-profile-avatar" src="${listing.user_img || avatarFallback(listing.user_name)}"
                      onerror="this.src='${avatarFallback(listing.user_name)}'">
-                ${verifiedBadge}
             </div>
             <div class="lc-profile-meta" ${userClick}>
                 <div class="lc-profile-name"><span class="lc-seller-name-text">${listing.user_name || 'Unknown'}</span>${(!listing.is_anonymous && listing.user_verified_as && window.RMVerified) ? RMVerified.seal(listing.user_verified_as, 14) : ''}</div>
