@@ -171,18 +171,23 @@ function goBack() {
     // 'Approved' passes — no row means the account was never approved. A
     // failed lookup (offline) is not treated as a verdict either way.
     try {
-        const { data: review, error: reviewErr } = await _sb
-            .from('registration_reviews')
-            .select('account_status')
-            .eq('id', session.user.id)
-            .maybeSingle();
-        // Sign out ONLY on an explicit non-approved status on the member's own
-        // row (Rejected / Pending Approval). An EMPTY result is not a verdict:
+        const _review = () => _sb.from('registration_reviews')
+            .select('account_status').eq('id', session.user.id).maybeSingle();
+        let { data: review, error: reviewErr } = await _review();
         // registration_reviews is readable only with a valid session, so a lookup
-        // sent while the session is being restored or refreshed returns no row —
-        // that used to log approved members out (seen after AI Match → Back).
-        // Sign-in itself (script.js login) still requires an explicit 'Approved'.
-        if (!reviewErr && review && review.account_status && review.account_status !== 'Approved') {
+        // sent while the session is being restored/refreshed can come back EMPTY
+        // even for an approved member (that logged people out after AI Match →
+        // Back). An empty result is therefore confirmed before it counts: verify
+        // the session with the server, then look again. Fails CLOSED once the
+        // session is confirmed — no approved row → signed out, as before.
+        let verdict = !reviewErr;
+        if (verdict && !review) {
+            let confirmed = false;
+            try { const { data: u, error: uErr } = await _sb.auth.getUser(); confirmed = !uErr && !!(u && u.user && u.user.id === session.user.id); } catch (_) {}
+            if (confirmed) ({ data: review, error: reviewErr } = await _review());
+            verdict = confirmed && !reviewErr;           // session not verifiable right now → no verdict (later checks still run)
+        }
+        if (verdict && (!review || review.account_status !== 'Approved')) {
             await _sb.auth.signOut();
             localStorage.clear();
             location.href = "index.html";
