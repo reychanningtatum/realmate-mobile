@@ -583,16 +583,16 @@ html[data-theme="dark"] .lc-stat-match:hover {border-color: #166534;}
 .lm-post-embed .btn-mate:hover:not(:disabled) {background: var(--primary); color: white; box-shadow: 0 2px 10px rgba(50,205,50,0.25);}
 .lm-post-embed .btn-mate-sm {width: auto; margin-top: 0; margin-left: auto; padding: 5px 11px; font-size: 11px;}
 .lm-post-embed .match-card .btn-mate {width: auto; margin-top: 0; height: 36px; font-size: 12px; border-radius: 10px; padding: 0 16px;}
-.lm-post-embed .mate-status-pending {border-color: #94a3b8; color: #94a3b8; cursor: default; opacity: 0.8;}
-.lm-post-embed .mate-status-received {border-color: #3b82f6; color: #3b82f6;}
-.lm-post-embed .mate-status-received:hover:not(:disabled) {background: #3b82f6; color: white;}
+.lm-post-embed .mate-status-pending {border-color: #86efac; color: #16a34a; background: #f0fdf4; cursor: default; opacity: 0.8;}
+.lm-post-embed .mate-status-received {border-color: #16a34a; color: #15803d;}
+.lm-post-embed .mate-status-received:hover:not(:disabled) {background: #16a34a; color: white;}
 .lm-post-embed .mate-status-mates {border-color: var(--primary); background: var(--primary-soft); color: #16a34a; cursor: pointer;}
-.lm-post-embed .mate-status-mates:hover {background: #fee2e2; border-color: #ef4444; color: #ef4444;}
+.lm-post-embed .mate-status-mates:hover {background: #dcfce7; border-color: #16a34a; color: #166534;}
 html[data-theme="dark"] .lm-post-embed .btn-mate {background: #1e293b; border-color: var(--primary); color: #86efac;}
 html[data-theme="dark"] .lm-post-embed .btn-mate:hover:not(:disabled) {background: var(--primary); color: #fff;}
 html[data-theme="dark"] .lm-post-embed .mate-status-mates {background: rgba(50,205,50,0.12); color: #86efac;}
-html[data-theme="dark"] .lm-post-embed .mate-status-pending {border-color: #475569; color: #475569;}
-html[data-theme="dark"] .lm-post-embed .mate-status-received {border-color: #60a5fa; color: #60a5fa;}
+html[data-theme="dark"] .lm-post-embed .mate-status-pending {border-color: #166534; color: #4ade80; background: rgba(34,197,94,0.08);}
+html[data-theme="dark"] .lm-post-embed .mate-status-received {border-color: #22c55e; color: #86efac;}
 .no-matches {background: white; border-radius: var(--card-curve);
   border: 2px dashed var(--border);
   padding: 60px 30px; text-align: center; color: var(--text-sub);}

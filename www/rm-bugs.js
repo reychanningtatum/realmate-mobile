@@ -259,7 +259,14 @@
   }, true);
 
   global.addEventListener('unhandledrejection', function (ev) {
-    try { fromError('rejection', ev && ev.reason); } catch (e) {}
+    try {
+      // A page-to-page view transition the browser cancels before this page can
+      // see it (the arriving page doesn't opt in, or it isn't visible) rejects
+      // with no pagereveal transition to attach to — so watchTransition never gets
+      // it. Report it the same labelled way as one it does see.
+      if (isSkippedTransition(ev && ev.reason)) { reportSkippedTransition(ev.reason); return; }
+      fromError('rejection', ev && ev.reason);
+    } catch (e) {}
   });
 
   // View transitions (safe-area.css @view-transition between pages, and the app
@@ -272,6 +279,17 @@
   // A cancelled transition can reject up to three promises — ready, and (when its
   // update is aborted, e.g. a cross-page swap) updateCallbackDone and finished.
   // Each is handled the same way; identical reports group into one entry.
+  // The browser's own rejection for a cancelled transition: an AbortError /
+  // InvalidStateError whose message is about the transition. Anything else —
+  // including a real error thrown inside a transition's update — is not this.
+  function isSkippedTransition(r) {
+    var name = r && typeof r === 'object' ? r.name : '';
+    return (name === 'AbortError' || name === 'InvalidStateError') && /\btransition\b/i.test(String(r.message || ''));
+  }
+  function reportSkippedTransition(r) {
+    if (!enabled()) return;
+    enqueue('console', 'View transition skipped (' + r.name + ': ' + (r.message || '') + ')', r.stack || '');
+  }
   function watchTransition(vt) {
     try {
       if (!vt) return;
@@ -283,8 +301,7 @@
           // under the "skipped" label.
           var name = r && typeof r === 'object' ? r.name : '';
           if (name !== 'AbortError' && name !== 'InvalidStateError') { fromError('rejection', r); return; }
-          var why = name + ': ' + (r.message || '');
-          enqueue('console', 'View transition skipped (' + why + ')', r.stack || '');
+          reportSkippedTransition(r);
         } catch (e) {}
       };
       ['ready', 'updateCallbackDone', 'finished'].forEach(function (k) {
@@ -385,6 +402,6 @@
       try { localStorage.setItem(PREF_KEY, on ? '1' : '0'); } catch (e) {}
       if (!on) _queue = _queue.filter(function (q) { return q.kind === 'manual'; });
     },
-    _debug: function () { return { queued: _queue.length, sent: _sent, crumbs: _crumbs.length }; }
+    _debug: function () { return { queued: _queue.length, sent: _sent, crumbs: _crumbs.length, items: _queue.map(function (q) { return q.kind + ' | ' + q.message; }) }; }
   };
 })(window);

@@ -146,7 +146,7 @@ function _localUser() {
         style.textContent = `
             .mate-cancelable { cursor: pointer !important; opacity: 1 !important; }
             .mate-cancelable .mate-cancel-label { display: none; }
-            .mate-cancelable:hover { border-color: #ef4444 !important; color: #ef4444 !important; }
+            .mate-cancelable:hover { border-color: #16a34a !important; color: #166534 !important; }
             .mate-cancelable:hover .mate-pending-label { display: none; }
             .mate-cancelable:hover .mate-cancel-label { display: inline; }
         `;
@@ -496,7 +496,14 @@ async function sendMateRequest(recipientName, recipientImg, recipientIdArg) {
                 const accepted = await acceptMateRequest(recipientName);
                 return accepted.success ? { success: true, accepted: true } : accepted;
             }
-            return { error: 'Request already pending' };
+            // My own request already exists (a second tap — e.g. the profile's top
+            // button and its gate card both send — or a stale button): that IS the
+            // requested state. Same idempotent outcome as the duplicate-insert path
+            // below: pending, no second row, no second notification.
+            _matesCache[recipientName] = 'pending_sent';
+            if (recipientId) _matesCacheById[recipientId] = 'pending_sent';
+            if (typeof _rmBroadcastRel === 'function') _rmBroadcastRel(null, 'mate');
+            return { success: true };
         }
 
         const { error } = await _matesDb.from('mates').insert({
@@ -976,14 +983,14 @@ function mateButtonHtml(userName, btnClass = 'btn-mate', userId) {
     if (status === 'pending_received') {
         const safe = userName.replace(/'/g, "\\'");
         return `<div style="display:flex;flex-direction:column;gap:6px;">
-                    <span style="font-size:12px;font-weight:700;color:#f59e0b;display:flex;align-items:center;gap:5px;">
+                    <span style="font-size:12px;font-weight:700;color:#15803d;display:flex;align-items:center;gap:5px;">
                         <i class="fas fa-user-clock"></i> Sent you a mate request
                     </span>
                     <div style="display:flex;gap:6px;">
                         <button class="${btnClass} mate-status-received" onclick="handleAcceptMate(this,'${safe}')">
                             <i class="fas fa-check"></i> Accept
                         </button>
-                        <button class="${btnClass}" style="background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0;" onclick="handleDeclineMate(this,'${safe}')">
+                        <button class="${btnClass}" style="background:#f0fdf4;color:#166534;border:1px solid #bbf7d0;" onclick="handleDeclineMate(this,'${safe}')">
                             <i class="fas fa-times"></i> Decline
                         </button>
                     </div>
