@@ -88,6 +88,9 @@
     // out). No-op on first reveal (nothing stored) or when it was at the top.
     var f = frames[tab];
     if (f && f.__scrollY > 0) restoreFrameScroll(f, f.__scrollY);
+    // The navbar steps aside only while the tab now on screen shows a full-screen
+    // view of its own (Feed's "New post"), so its state follows the visible page.
+    try { var _fw = f && f.contentWindow; document.body.classList.toggle('rm-fullscreen', !!(_fw && typeof _fw.__rmWantsFullscreen === 'function' && _fw.__rmWantsFullscreen())); } catch (e) {}
     // Revealing the Notifications tab must NOT mark anything read — reads happen
     // only on a direct card tap or "Mark all as read". This just nudges the bell
     // badge to recount the true unread total (rmMarkNotificationsViewed is now a
@@ -287,6 +290,10 @@
       scrollFrameTop(tab); return;
       }
     }
+    // A full-screen view (Feed's "New post") belongs to the tab that opened it —
+    // switching tabs always brings the navbar back.
+    if (current && current !== tab) document.body.classList.remove('rm-fullscreen');
+
     // Remember where we came from so an in-shell "Back" (rmBack) can return
     // there — e.g. Portal → Profile → Back should land on Portal, not the
     // browser history (which can walk back to the marketing page).

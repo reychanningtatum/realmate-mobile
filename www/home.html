@@ -9,7 +9,7 @@
   <title>realmate | Home</title>
   <link rel="stylesheet" href="vendor/fontawesome/css/all.min.css?v=6.5.0">
   <link rel="stylesheet" href="vendor/googlefonts/fonts.css?v=1">
-  <link rel="stylesheet" href="home.css?v=20261021p">
+  <link rel="stylesheet" href="home.css?v=20261022c">
   <link rel="stylesheet" href="customer-service.css?v=3">
   <link rel="stylesheet" href="block-report.css?v=20261001b">
   <script src="theme.js?v=20260812a"></script>
@@ -84,6 +84,15 @@
         </div>
         <!-- Expanded composer -->
         <div class="create-post-expanded" id="createPostExpanded" style="display:none;">
+          <!-- Phones: the composer opens full screen as a "New post" page (home.css). -->
+          <div class="cp-full-head">
+            <button type="button" class="cp-full-close" onclick="collapseCreatePost()" aria-label="Close"><i class="fas fa-xmark"></i></button>
+            <div class="cp-full-title">New post</div>
+          </div>
+          <div class="cp-full-author">
+            <span class="create-post-avatar" id="createPostAuthorAvatar"></span>
+            <span class="cp-full-name" id="createPostAuthorName"></span>
+          </div>
           <div id="postTypeBadge" style="display:none; margin-bottom:8px;"></div>
           <textarea id="homePostText" placeholder="What's on your mind? Type @ to tag someone…" rows="3" oninput="onHomePostInput(this)" onkeydown="onHomePostKeydown(event)"></textarea>
           <!-- Tag-a-Realmate autocomplete -->
@@ -319,7 +328,7 @@
 <script src="privacy.js?v=20261020c"></script>
 <script src="emoji-picker.js?v=20260928d"></script>
 <script src="rm-verified.js?v=20261020h"></script>
-<script src="home.js?v=20261021c"></script>
+<script src="home.js?v=20261022c"></script>
 <script src="feed-video.js?v=20261013a"></script>
 <script src="deactivation.js?v=20261019e"></script>
 <script src="block-report.js?v=20261019e"></script>
