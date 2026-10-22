@@ -1437,6 +1437,8 @@
                 budget: extractBudgetRange(txt, category),
                 // A budget given as an instruction, not an amount ("FMV").
                 budgetNote: (option && option.budget && option.budget.amount == null) ? (option.budget.text || '') : '',
+                // "Open budget" — any amount will do for this buyer.
+                budgetOpen: _isOpenBudget(txt),
                 terms: option ? option.terms.slice() : [],
                 features: extractFeatures(txt),
                 userId: listing.user_id,
@@ -1541,6 +1543,8 @@
     let _fmvResolver = null;
     function setFmvResolver(fn) { _fmvResolver = (typeof fn === 'function') ? fn : null; }
     const _isFmvNote = note => /\b(fmv|fair\s+market(\s+value)?|market\s+(value|price))\b/i.test(String(note || ''));
+    // "Open budget" / "Budget: open" — the buyer will take any amount.
+    function _isOpenBudget(text) { return /\bopen\s+budget\b|\bbudget(?:\s+is)?\s*(?:[:\-–]\s*)?open\b/i.test(String(text || '')); }
 
     function _money(v, perMonth) {
         const n = Number(v);
@@ -1672,6 +1676,11 @@
                 else { add('price', 0, 'conflict'); caps.push(CAP_MAJOR_CONFLICT); }
                 details.price = { match: 'above', seller: sellerPrice, budget: buyerBudget, over: over };
             }
+        } else if (buyerSide.budgetOpen && !buyerBudget) {
+            // "Open budget" — any amount will do for this buyer, so whatever the
+            // seller asks (or doesn't state) fits: price is a full match.
+            add('price', 1, 'match');
+            details.price = { match: 'open', seller: sellerPrice };
         } else if (sellerPrice && note && _isFmvNote(note)) {
             // "Budget: FMV" — the buyer will pay what the property is fairly worth.
             // That is not a cap, not an unlimited budget and not the asking price:
@@ -1799,6 +1808,10 @@
                 (p.ratio <= 1.15 ? unresolved : conflicts).push(`Price: ${money(p.seller)} asking is ${_pct(p.ratio - 1)} above ${basis}`);
                 priceSentence = `the ${who} will pay fair market value, and the ${money(p.seller)} asking price is ${_pct(p.ratio - 1)} above ${basis}.`;
             }
+        } else if (p.match === 'open') {
+            matches.push(p.seller ? `Price: open budget — ${money(p.seller)} asking fits` : 'Price: open budget — any amount fits');
+            priceSentence = `The ${who} has an open budget, so ${p.seller ? `the ${money(p.seller)} asking price` : 'any asking price'} fits.`;
+            priceIsCaveat = false;
         } else if (p.match === 'fmv-unresolved') {
             unresolved.push(`Price: the ${who}'s budget is ${p.note}, not an amount — ${money(p.seller)} asking needs FMV validation`);
             priceSentence = `the ${who} specified ${p.note} rather than a fixed budget, so the ${money(p.seller)} asking price still needs to be validated against fair market value.`;

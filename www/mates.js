@@ -496,7 +496,14 @@ async function sendMateRequest(recipientName, recipientImg, recipientIdArg) {
                 const accepted = await acceptMateRequest(recipientName);
                 return accepted.success ? { success: true, accepted: true } : accepted;
             }
-            return { error: 'Request already pending' };
+            // My own request already exists (a second tap — e.g. the profile's top
+            // button and its gate card both send — or a stale button): that IS the
+            // requested state. Same idempotent outcome as the duplicate-insert path
+            // below: pending, no second row, no second notification.
+            _matesCache[recipientName] = 'pending_sent';
+            if (recipientId) _matesCacheById[recipientId] = 'pending_sent';
+            if (typeof _rmBroadcastRel === 'function') _rmBroadcastRel(null, 'mate');
+            return { success: true };
         }
 
         const { error } = await _matesDb.from('mates').insert({
