@@ -843,10 +843,18 @@ function _homeComposerFit(ta) {
     // (so the toolbar sits right above the keyboard) and the text box simply fills
     // the space between the author row and the toolbar (home.css) — no measuring.
     if (_homeComposerFull() && document.documentElement.classList.contains('rm-composing')) {
+        // Full page height by default (CSS: 100% of the page, so it follows the
+        // page as the shell's navbar steps aside). Only while the on-screen
+        // keyboard shrinks the visible area is it sized to that area instead.
         const fv = window.visualViewport;
         if (card) {
-            card.style.setProperty('--cp-top', (fv ? fv.offsetTop : 0) + 'px');
-            card.style.setProperty('--cp-h', (fv ? fv.height : window.innerHeight) + 'px');
+            if (fv && fv.height < window.innerHeight - 1) {
+                card.style.setProperty('--cp-top', fv.offsetTop + 'px');
+                card.style.setProperty('--cp-h', fv.height + 'px');
+            } else {
+                card.style.removeProperty('--cp-top');
+                card.style.removeProperty('--cp-h');
+            }
         }
         ta.style.height = '';
         ta.style.overflowY = '';
