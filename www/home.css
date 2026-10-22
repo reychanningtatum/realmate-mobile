@@ -367,6 +367,8 @@ html[data-theme="dark"] .hs-recent-del:hover { background: #0f172a; }
 }
 .create-post-input:hover { background: #e4e6ea; }
 .create-post-expanded { margin-top: 4px; }
+/* "New post" header + author row — only on the full-screen phone composer. */
+.cp-full-head, .cp-full-author { display: none; }
 .create-post-expanded textarea {
   width: 100%; border: none; outline: none; resize: none;
   font-family: 'Inter', sans-serif; font-size: 15px; color: var(--text-main);
@@ -1520,6 +1522,47 @@ html[data-theme="dark"] .hf-comment-tool:hover { background: #243044; }
     content: ""; position: fixed; inset: 0; z-index: 48;
     background: rgba(15, 23, 42, 0.45);
   }
+
+  /* Writing a post = a full-screen "New post" page: X + title, who is posting,
+     the text filling the page, and the tools + Public + Post pinned at the bottom.
+     Sized to the visible viewport (--cp-top / --cp-h from _homeComposerFit) so the
+     toolbar sits right above the on-screen keyboard. Above the page's own navbar
+     (1000); the pickers it opens (Celebrate, photo viewer) stay above it. */
+  html.rm-composing .create-post-card {
+    position: fixed; left: 0; right: 0; top: var(--cp-top, 0); height: var(--cp-h, 100%);
+    z-index: 1001; margin: 0; border: 0; border-radius: 0; box-shadow: none;
+    transform: none; opacity: 1; pointer-events: auto;
+    padding: calc(env(safe-area-inset-top) + 4px) 16px calc(env(safe-area-inset-bottom) + 10px);
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  html.rm-composing .create-post-expanded {
+    display: flex !important; flex-direction: column; flex: 1 1 auto; min-height: 0; margin: 0;
+  }
+  html.rm-composing .cp-full-head {
+    display: grid; grid-template-columns: 44px 1fr 44px; align-items: center;
+    min-height: 48px; flex-shrink: 0;
+  }
+  .cp-full-close {
+    width: 40px; height: 40px; border: 0; background: none; padding: 0;
+    color: var(--text-main); font-size: 24px; cursor: pointer;
+    display: flex; align-items: center; justify-content: flex-start;
+  }
+  .cp-full-title { text-align: center; font-size: 17px; font-weight: 800; color: var(--text-main); }
+  html.rm-composing .cp-full-author {
+    display: flex; align-items: center; gap: 12px; margin: 8px 0 4px; flex-shrink: 0;
+  }
+  .cp-full-author .create-post-avatar { width: 48px; height: 48px; }
+  .cp-full-name { font-size: 16px; font-weight: 800; color: var(--text-main); }
+  /* The text fills every pixel between the author row and the toolbar. */
+  html.rm-composing #homePostText {
+    flex: 1 1 auto; min-height: 96px; height: auto; overflow-y: auto; font-size: 17px;
+  }
+  html.rm-composing .create-post-type-row,
+  html.rm-composing .create-post-footer { flex-shrink: 0; }
+  /* The X closes the page, so the separate Cancel is not needed here. */
+  html.rm-composing .create-post-cancel { display: none; }
+  /* Public menu sits at the bottom now — open it upward. */
+  html.rm-composing .privacy-menu { top: auto; bottom: calc(100% + 6px); }
 
   /* Composer type buttons (mobile): they fill the row and wrap to a second
      line on very narrow phones, instead of a row that ran past the card and

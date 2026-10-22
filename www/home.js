@@ -221,7 +221,28 @@ function initCreatePost() {
     // or a fresh ui-avatars.com placeholder) makes this heal immediately.
     el.style.background = `url('${_homeAvatarFor(user.name, user.image)}') center/cover no-repeat`;
     el.innerHTML = '';
+    // The full-screen "New post" page (phones) shows who is posting.
+    const fa = document.getElementById('createPostAuthorAvatar');
+    if (fa) fa.style.background = el.style.background;
+    const fn = document.getElementById('createPostAuthorName');
+    if (fn) fn.textContent = user.name || '';
 }
+
+// Phones: the composer is a full-screen "New post" page. Inside the app shell the
+// bottom navbar belongs to the shell, so ask it to step aside while writing (and
+// come back on close). Same-origin message; the payload is a boolean.
+const _homeComposerFull = () => window.matchMedia('(max-width: 768px)').matches;
+function _homeShellFullscreen(open) {
+    try { if (window.parent && window.parent !== window) window.parent.postMessage({ type: 'rm-fullscreen', open: !!open }, location.origin); } catch (e) {}
+}
+window.addEventListener('pagehide', () => _homeShellFullscreen(false));
+// The shell asks this whenever it shows the Feed tab again (e.g. back from a tab
+// opened by a notification while a post was being written), so the navbar state
+// always follows the page actually on screen.
+window.__rmWantsFullscreen = () => _homeComposerFull() && document.documentElement.classList.contains('rm-composing');
+// The page itself grows when the shell's navbar steps aside — re-size the
+// full-screen composer to it.
+window.addEventListener('resize', () => _homeComposerFit());
 
 // ══════════════════════════════════════════════════
 //  STORIES
@@ -521,8 +542,10 @@ function expandCreatePost(type) {
     document.getElementById('createPostExpanded').style.display = 'block';
     // Writing a post: the page behind holds still (home.css, phones only).
     document.documentElement.classList.add('rm-composing');
+    if (_homeComposerFull()) _homeShellFullscreen(true);
     syncTypeButtons();
     togglePollBuilder();
+    _homeComposerFit(textarea);
     textarea.focus();
 }
 
@@ -575,6 +598,9 @@ function togglePollBuilder() {
 function collapseCreatePost() {
     _homePostType = '';
     document.documentElement.classList.remove('rm-composing');
+    _homeShellFullscreen(false);
+    const _card = document.getElementById('createPostCard');
+    if (_card) { _card.style.removeProperty('--cp-top'); _card.style.removeProperty('--cp-h'); }
     if (window.RMEmojiSheet) RMEmojiSheet.close();   // close the mobile emoji sheet with the composer
     document.getElementById('createPostExpanded').style.display = 'none';
     document.getElementById('postTypeBadge').style.display = 'none';
@@ -813,6 +839,27 @@ function _homeComposerFit(ta) {
     ta = ta || document.getElementById('homePostText');
     if (!ta || !ta.offsetParent) return;                 // composer collapsed / hidden
     const card = document.getElementById('createPostCard');
+    // Full-screen "New post" (phones): the page is sized to the visible viewport
+    // (so the toolbar sits right above the keyboard) and the text box simply fills
+    // the space between the author row and the toolbar (home.css) — no measuring.
+    if (_homeComposerFull() && document.documentElement.classList.contains('rm-composing')) {
+        // Full page height by default (CSS: 100% of the page, so it follows the
+        // page as the shell's navbar steps aside). Only while the on-screen
+        // keyboard shrinks the visible area is it sized to that area instead.
+        const fv = window.visualViewport;
+        if (card) {
+            if (fv && fv.height < window.innerHeight - 1) {
+                card.style.setProperty('--cp-top', fv.offsetTop + 'px');
+                card.style.setProperty('--cp-h', fv.height + 'px');
+            } else {
+                card.style.removeProperty('--cp-top');
+                card.style.removeProperty('--cp-h');
+            }
+        }
+        ta.style.height = '';
+        ta.style.overflowY = '';
+        return;
+    }
     let bottom = window.innerHeight;
     const vv = window.visualViewport;
     if (vv) bottom = Math.min(bottom, vv.offsetTop + vv.height);
