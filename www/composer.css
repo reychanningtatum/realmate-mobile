@@ -24,6 +24,8 @@
 }
 .create-post-input:hover { background: #e4e6ea; }
 .create-post-expanded { margin-top: 4px; }
+/* "New post" header + author row — only on the full-screen phone composer. */
+.cp-full-head, .cp-full-author { display: none; }
 .create-post-expanded textarea {
   width: 100%; border: none; outline: none; resize: none;
   font-family: 'Inter', sans-serif; font-size: 15px; color: var(--text-main);
@@ -629,3 +631,48 @@ html[data-theme="dark"] .hf-comment-tool:hover { background: #243044; }
 }
 .hf-shared-embed .hf-see-more { font-size: 13px; margin: 2px 0 4px; }
 html[data-theme="dark"] .hf-see-more { color: #4ade80; }
+
+/* Writing a post on a phone = a full-screen "New post" page — the SAME page as the
+   Feed's (home.css carries the Feed's copy of these rules): X + title, who is
+   posting, the text filling the page, the tools + Public + Post pinned at the
+   bottom. Full page height; only the on-screen keyboard resizes it (--cp-top /
+   --cp-h from _homeComposerFit in home.js). The page behind holds still. */
+@media (max-width: 768px) {
+  html.rm-composing { overflow: hidden !important; overscroll-behavior: none; }
+  html.rm-composing body { overflow: visible !important; overscroll-behavior: none; }
+  html.rm-composing .create-post-card {
+    position: fixed; left: 0; right: 0; top: var(--cp-top, 0); height: var(--cp-h, 100%);
+    z-index: 1001; margin: 0; border: 0; border-radius: 0; box-shadow: none;
+    transform: none; opacity: 1; pointer-events: auto;
+    padding: calc(env(safe-area-inset-top) + 4px) 16px calc(env(safe-area-inset-bottom) + 10px);
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  html.rm-composing .create-post-expanded {
+    display: flex !important; flex-direction: column; flex: 1 1 auto; min-height: 0; margin: 0;
+  }
+  html.rm-composing .cp-full-head {
+    display: grid; grid-template-columns: 44px 1fr 44px; align-items: center;
+    min-height: 48px; flex-shrink: 0;
+  }
+  .cp-full-close {
+    width: 40px; height: 40px; border: 0; background: none; padding: 0;
+    color: var(--text-main); font-size: 24px; cursor: pointer;
+    display: flex; align-items: center; justify-content: flex-start;
+  }
+  .cp-full-title { text-align: center; font-size: 17px; font-weight: 800; color: var(--text-main); }
+  html.rm-composing .cp-full-author {
+    display: flex; align-items: center; gap: 12px; margin: 8px 0 4px; flex-shrink: 0;
+  }
+  .cp-full-author .create-post-avatar { width: 48px; height: 48px; }
+  .cp-full-name { font-size: 16px; font-weight: 800; color: var(--text-main); }
+  html.rm-composing #homePostText {
+    flex: 1 1 auto; min-height: 96px; height: auto; overflow-y: auto; font-size: 17px;
+  }
+  html.rm-composing .create-post-type-row,
+  html.rm-composing .create-post-footer { flex-shrink: 0; }
+  /* Tool buttons fill the row (wrapping on very narrow phones), as on the Feed. */
+  html.rm-composing .create-post-type-row { flex-wrap: wrap; }
+  html.rm-composing .create-post-type-row .create-post-media-btn { flex: 1 0 auto; justify-content: center; padding: 8px; }
+  html.rm-composing .create-post-cancel { display: none; }
+  html.rm-composing .privacy-menu { top: auto; bottom: calc(100% + 6px); }
+}

@@ -39,7 +39,7 @@
   <link rel="stylesheet" href="dashboard-style.css?v=20261021p">
   <link rel="stylesheet" href="customer-service.css?v=3">
   <link rel="stylesheet" href="mobile-back.css">
-  <link rel="stylesheet" href="composer.css?v=20261021b">
+  <link rel="stylesheet" href="composer.css?v=20261022e">
   <!-- Live Market post styles (scoped under .lm-post-embed) so the profile's
        Listings section renders each post exactly like the Portal. -->
   <link rel="stylesheet" href="listing-card.css?v=20261021p">
@@ -256,6 +256,15 @@
                     </div>
                 </div>
                 <div class="create-post-expanded" id="createPostExpanded" style="display:none;">
+                    <!-- Phones: the composer opens full screen as a "New post" page (composer.css) — same as the Feed. -->
+                    <div class="cp-full-head">
+                        <button type="button" class="cp-full-close" onclick="collapseCreatePost()" aria-label="Close"><i class="fas fa-xmark"></i></button>
+                        <div class="cp-full-title">New post</div>
+                    </div>
+                    <div class="cp-full-author">
+                        <span class="create-post-avatar" id="createPostAuthorAvatar"></span>
+                        <span class="cp-full-name" id="createPostAuthorName"></span>
+                    </div>
                     <div id="postTypeBadge" style="display:none; margin-bottom:8px;"></div>
                     <textarea id="homePostText" placeholder="What's on your mind? Type @ to tag a realmate…" rows="3" oninput="onHomePostInput(this)"></textarea>
                     <div class="hf-mention-box" id="homePostMention" style="display:none;"></div>
