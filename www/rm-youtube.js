@@ -28,5 +28,13 @@
     return id ? 'https://www.youtube-nocookie.com/embed/' + id + '?rel=0&playsinline=1&modestbranding=1' : null;
   }
 
-  g.RMYouTube = { videoId: videoId, embedUrl: embedUrl };
+  // The Home video player page (home-video-player.html) on a real website origin:
+  // autoplay + loop, sound where allowed. origin = "https://staging.realmate.ph" etc.
+  function playerUrl(url, origin) {
+    var id = videoId(url);
+    if (!id || !/^https?:\/\/[^/?#]+$/i.test(String(origin || ''))) return null;
+    return origin + '/home-video-player.html?v=' + id;
+  }
+
+  g.RMYouTube = { videoId: videoId, embedUrl: embedUrl, playerUrl: playerUrl };
 })(typeof window !== 'undefined' ? window : this);

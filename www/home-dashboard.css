@@ -33,6 +33,10 @@ body {
   color: var(--hd-ink);
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
+  /* safe-area.css pads every page down by the status-bar height (a white band).
+     Home's cover photo runs under the status bar instead; .hd-hero keeps its
+     own content clear of it. */
+  padding-top: 0;
 }
 button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
 
@@ -47,7 +51,7 @@ html.rm-embedded .hd { padding-bottom: 24px; }
 .hd-hero {
   position: relative;
   overflow: hidden;
-  padding: calc(env(safe-area-inset-top, 0px) + 14px) 16px 64px;
+  padding: calc(env(safe-area-inset-top, 0px) + 4px) 16px 64px;
   background:
     linear-gradient(180deg, var(--hd-veil-top) 0%, var(--hd-veil-mid) 60%, var(--hd-veil-bot) 100%),
     url("images/home-cover.jpg") center 35% / cover no-repeat,
@@ -61,7 +65,7 @@ html.rm-embedded .hd { padding-bottom: 24px; }
 .hd-date-full { font-size: 12px; color: var(--hd-sub); }
 .hd-greet {
   position: relative; z-index: 1;
-  margin: 22px 0 6px;
+  margin: 18px 0 6px;
   font-size: 26px; line-height: 1.15; font-weight: 800; letter-spacing: -.02em;
   max-width: 70%;
 }

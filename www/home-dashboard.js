@@ -267,10 +267,16 @@
   }
 
   // ── Home video (Admin › Home Video → site_settings 'youtube_url') ──
+  // The player page must load from a real website: in the iOS app this page runs
+  // on the app's internal address (capacitor://), which YouTube won't play from.
+  var WEB_ORIGIN = { staging: 'https://staging.realmate.ph', production: 'https://realmate.ph' };
+  function webOrigin() {
+    return /^https?:$/.test(location.protocol) ? location.origin : WEB_ORIGIN[window.RM_ENV.name];
+  }
   async function video() {
     var r = await sb.from('site_settings').select('value').eq('key', 'youtube_url').maybeSingle();
     if (r.error) throw r.error;
-    var src = window.RMYouTube && RMYouTube.embedUrl(r.data && r.data.value);
+    var src = window.RMYouTube && RMYouTube.playerUrl(r.data && r.data.value, webOrigin());
     if (!src) { $('hdVideoSec').hidden = true; return; }   // none set (or not a YouTube link)
     if ($('hdVideo').getAttribute('src') !== src) $('hdVideo').setAttribute('src', src);
     $('hdVideoSec').hidden = false;

@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<title>realmate video</title>
+<!-- Home video player (DRAFT Home dashboard). Served from the website so YouTube
+     always sees a normal https page — inside the iOS app, Home itself runs on the
+     app's internal address, which YouTube refuses to play from (Error 153).
+     ?v=<11-char YouTube id>. Autoplays with sound where allowed (the app); where a
+     browser blocks sound it plays muted with a "Tap for sound" button. Loops. -->
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+  #p, #p iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+  #sound {
+    position: absolute; right: 10px; bottom: 10px; z-index: 2;
+    display: none; align-items: center; gap: 6px;
+    padding: 8px 12px; border: 0; border-radius: 999px;
+    background: rgba(0,0,0,.72); color: #fff; cursor: pointer;
+    font: 600 13px/1 -apple-system, system-ui, sans-serif;
+  }
+  #sound.show { display: inline-flex; }
+</style>
+</head>
+<body>
+<div id="p"></div>
+<button id="sound" type="button" aria-label="Turn sound on">🔊 Tap for sound</button>
+<script>
+(function () {
+  'use strict';
+  var id = new URLSearchParams(location.search).get('v') || '';
+  if (!/^[A-Za-z0-9_-]{11}$/.test(id)) return;          // YouTube video ids only
+  var btn = document.getElementById('sound'), player = null;
+
+  function unmute() { if (!player) return; player.unMute(); player.setVolume(100); player.playVideo(); btn.classList.remove('show'); }
+  btn.addEventListener('click', unmute);
+
+  // Sound blocked by the browser → play muted and offer sound on tap.
+  function playMuted() { if (!player) return; player.mute(); player.playVideo(); btn.classList.add('show'); }
+  // Check once a second; if it still isn't playing after `tries` checks, fall back to muted.
+  function ensurePlaying(tries) {
+    setTimeout(function () {
+      var s = player.getPlayerState();
+      if (s === YT.PlayerState.PLAYING) { if (player.isMuted()) btn.classList.add('show'); return; }
+      if (tries <= 1) { playMuted(); return; }
+      ensurePlaying(tries - 1);
+    }, 1000);
+  }
+
+  window.onYouTubeIframeAPIReady = function () {
+    player = new YT.Player('p', {
+      videoId: id,
+      host: 'https://www.youtube-nocookie.com',
+      playerVars: { autoplay: 1, mute: 0, loop: 1, playlist: id, playsinline: 1, rel: 0, modestbranding: 1, controls: 1 },
+      events: {
+        onReady: function () {
+          player.unMute(); player.playVideo();
+          ensurePlaying(4);
+        },
+        // YouTube reports a blocked autoplay (with sound) here.
+        onAutoplayBlocked: playMuted,
+        onStateChange: function (e) {
+          if (e.data === YT.PlayerState.ENDED) { player.seekTo(0, true); player.playVideo(); }   // loop
+          if (e.data === YT.PlayerState.PLAYING && !player.isMuted()) btn.classList.remove('show');
+        }
+      }
+    });
+  };
+  var s = document.createElement('script');
+  s.src = 'https://www.youtube.com/iframe_api';
+  document.head.appendChild(s);
+})();
+</script>
+</body>
+</html>
