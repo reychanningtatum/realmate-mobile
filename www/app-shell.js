@@ -17,6 +17,14 @@
     me: 'dashboard.html'
   };
 
+  // DRAFT (staging only): the Home dashboard replaces the Feed tab. Production
+  // is untouched. Remove = revert the commit that added home-dashboard.*.
+  if (window.RM_ENV && window.RM_ENV.name === 'staging') {
+    TABS.home = 'home-dashboard.html';
+    var _homeNav = document.querySelector('.mob-nav-item[data-tab="home"]');
+    if (_homeNav) _homeNav.innerHTML = '<i class="fas fa-house"></i><span>Home</span>';
+  }
+
   var frames = {};      // tab -> iframe (kept alive after first load)
   var suspended = {};   // tab -> { url, scrollY } for a tab whose iframe we freed
   var suspendTimers = {};

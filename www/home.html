@@ -3,6 +3,9 @@
 <head>
   <script src="rm-env.js?v=20261021b"></script>
   <script src="rm-bugs.js?v=20261022b"></script>
+  <!-- DRAFT (staging only): Home dashboard replaces the Feed. Saved Posts
+       (?view=saved) still opens here. Production never redirects. -->
+  <script>if (window.RM_ENV && window.RM_ENV.name === 'staging' && !/[?&]view=/.test(location.search)) location.replace('home-dashboard.html');</script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <style id="rm-flash-guard">html{background-color:#f4f7fa}</style>
