@@ -63,17 +63,9 @@
     var v = m ? parseFloat(m[1].replace(/,/g, '')) : NaN;
     return v > 0 ? v : null;
   }
-  function median(a) {
-    var s = a.slice().sort(function (x, y) { return x - y; }), n = s.length;
-    return n ? (n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2) : null;
-  }
 
   // ── Navigation (inside the app shell → shell tabs; standalone → in place) ──
   function shell() { try { return window.parent !== window && window.parent.rmOpen ? window.parent : null; } catch (e) { return null; } }
-  window.hdOpenTab = function (tab, url) {
-    var p = shell();
-    if (p) p.rmOpen(tab, url); else location.href = url;
-  };
   window.hdOpenPortal = function (seg) {
     try { localStorage.setItem('rm_portal_tab', seg || 'MARKET'); } catch (e) {}
     var p = shell();
@@ -94,11 +86,18 @@
     var h = new Date().getHours();
     var part = h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
     $('hdGreet').textContent = part + (name ? ', ' + name + '.' : '.');
-    var av = cssUrl((me && me.avatar_url) || u.image || '');
-    var el = $('hdAvatar');
-    if (av) { el.textContent = ''; el.style.backgroundImage = 'url("' + av + '")'; }
-    else el.textContent = (name[0] || 'R').toUpperCase();
+    showDate();
   }
+
+  // Today's date, upper right: "Wednesday" over "October 28, 2026".
+  function showDate() {
+    var d = new Date(), el = $('hdDate');
+    el.setAttribute('datetime', d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2));
+    el.innerHTML = '<span class="hd-date-day">' + d.toLocaleDateString('en-US', { weekday: 'long' }) + '</span>' +
+      '<span class="hd-date-full">' + d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) + '</span>';
+  }
+  // The app can stay open past midnight: refresh the date (and greeting) on return.
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) header(null); });
 
   // ── Data ──
   async function waitFor(test, ms) {
@@ -158,7 +157,6 @@
     overview(reqs, lsts, rows, res[1].data || []);
     hotRequirements(reqs);
     aiMatches(res[1].data || [], rows);
-    pulse(rows);
   }
 
   // ── 1. Market overview ──
@@ -257,53 +255,27 @@
     }).join('');
   }
 
-  // ── 4. Market pulse (median asking price per area, FOR SALE posts) ──
-  function spark(points) {
-    if (points.length < 3) return '';
-    var min = Math.min.apply(null, points), max = Math.max.apply(null, points), span = max - min || 1;
-    var d = points.map(function (v, i) {
-      return (i ? 'L' : 'M') + (i * 100 / (points.length - 1)).toFixed(1) + ',' + (26 - (v - min) / span * 22).toFixed(1);
-    }).join(' ');
-    return '<svg class="hd-sparkline" viewBox="0 0 100 30" preserveAspectRatio="none" aria-hidden="true"><path d="' + d + '"/></svg>';
-  }
-  function pulse(all) {
-    var rail = $('hdPulseRail');
-    var groups = {};
-    all.forEach(function (l) {
-      if (cat(l) !== 'FOR SALE' || !l._p) return;
-      var area = l._p.locations && l._p.locations[0], price = l._p.price;
-      if (!area || !(price > 0)) return;
-      var g = groups[area] || (groups[area] = { area: area, prices: [], perSqm: [], series: [] });
-      g.prices.push(price);
-      var a = sqm(l.content);
-      if (a) g.perSqm.push(price / a);
-      g.series.push({ t: new Date(l.created_at).getTime(), v: a ? price / a : price });
-    });
-    var list = Object.keys(groups).map(function (k) { return groups[k]; })
-      .sort(function (a, b) { return b.prices.length - a.prices.length; }).slice(0, 8);
-    if (!list.length) { rail.innerHTML = empty('fa-chart-column', 'Not enough priced FOR SALE posts yet.'); return; }
-    rail.innerHTML = list.map(function (g) {
-      var perSqm = g.perSqm.length >= 1, val = perSqm ? median(g.perSqm) : median(g.prices);
-      var series = g.series.sort(function (a, b) { return a.t - b.t; }).map(function (s) { return s.v; });
-      return '<article class="hd-pulse">' +
-        '<h3>' + esc(g.area) + '</h3>' +
-        '<p class="hd-pulse-val"><b>' + esc(peso(val)) + '</b>' + (perSqm ? ' / sqm' : '') + '</p>' +
-        '<p class="hd-pulse-n">' + g.prices.length + ' listing' + (g.prices.length === 1 ? '' : 's') + '</p>' +
-        spark(series) + '</article>';
-    }).join('');
-  }
-
   function empty(icon, text) {
     return '<div class="hd-empty"><i class="fas ' + icon + '"></i><p>' + esc(text) + '</p></div>';
   }
 
   function fail(e) {
-    ['hdReqRail', 'hdAiRail', 'hdPulseRail'].forEach(function (id) {
+    ['hdReqRail', 'hdAiRail'].forEach(function (id) {
       $(id).innerHTML = empty('fa-circle-exclamation', 'Couldn\'t load right now. Pull down or reopen Home to try again.');
     });
     throw e; // reaches rm-bugs.js → Admin › Bug Reports
   }
 
-  function start() { header(null); load().catch(fail); }
+  // ── Home video (Admin › Home Video → site_settings 'youtube_url') ──
+  async function video() {
+    var r = await sb.from('site_settings').select('value').eq('key', 'youtube_url').maybeSingle();
+    if (r.error) throw r.error;
+    var src = window.RMYouTube && RMYouTube.embedUrl(r.data && r.data.value);
+    if (!src) { $('hdVideoSec').hidden = true; return; }   // none set (or not a YouTube link)
+    if ($('hdVideo').getAttribute('src') !== src) $('hdVideo').setAttribute('src', src);
+    $('hdVideoSec').hidden = false;
+  }
+
+  function start() { header(null); load().catch(fail); video(); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
 })();
