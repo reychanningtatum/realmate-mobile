@@ -989,7 +989,7 @@ function addMsgBubble(container, m) {
         container.insertAdjacentHTML('beforeend', html);
         return;
     } else if (type === 'TEXT') {
-        bubble = `<div class="chat-msg-bubble">${escWithLinks(m.message_text || '')}</div>`;
+        bubble = `<div class="chat-msg-bubble chat-msg-text">${escWithLinks(m.message_text || '')}</div>`;
     } else if (type === 'IMAGE') {
         bubble = `<div class="chat-msg-bubble chat-msg-image-bubble"><img class="chat-msg-image" src="${m.file_url}" alt="Image" onclick="event.stopPropagation();toggleMsgTimestamp(this.closest('.chat-msg-row'));openLightbox('${m.file_url}')" loading="lazy"></div>`;
     } else if (type === 'PDF') {
@@ -1017,6 +1017,13 @@ function fileBubble(m, icon, preview) {
 }
 
 // ===== SEND MESSAGE =====
+// The text to send, laid out exactly as the user typed or pasted it (line
+// breaks, blank lines, indentation, tabs, spaces). Only leading blank lines and
+// trailing whitespace are dropped; whitespace-only input becomes ''.
+function chatSendText(raw) {
+    return String(raw == null ? '' : raw).replace(/^(?:[ \t]*\r?\n)+/, '').trimEnd();
+}
+
 async function sendMessage() {
     if (_supportTicketClosed()) return; // closed support ticket is read-only
     // In-flight guard: every Send path (button onclick, Enter key, suggested
@@ -1027,7 +1034,7 @@ async function sendMessage() {
     // double-tapped. Reset in finally so failures still allow a retry.
     if (_sendInFlight) return;
     const input = document.getElementById('chatComposerInput');
-    const text = input.value.trim();
+    const text = chatSendText(input.value);
     const convId = activeConversationId;
     if (!convId || (!text && !attachedFile)) return;
 

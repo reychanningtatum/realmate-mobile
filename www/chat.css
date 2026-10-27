@@ -558,6 +558,13 @@
   max-width: 100%;
 }
 
+/* Text messages show the sender's layout (line breaks, blank lines, indents,
+   tabs, repeated spaces) instead of collapsing it into one line. Long lines
+   still wrap via the bubble's overflow-wrap rule. */
+.chat-msg-text {
+  white-space: pre-wrap;
+}
+
 /* Auto-linked URLs inside a text bubble. Inherit the bubble's text colour so
    contrast stays correct on both the coloured "own" bubble (white text) and the
    light "other" bubble (dark text), in light and dark mode; underline marks it
