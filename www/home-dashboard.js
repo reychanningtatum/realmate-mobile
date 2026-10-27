@@ -45,6 +45,13 @@
   function parse(l) {
     try { return window.RM_MATCH ? RM_MATCH.parseListing(l) : null; } catch (e) { return null; }
   }
+  // An image URL that is safe inside CSS url("…"): http(s) only, and every
+  // character that could close the string or the url() is percent-encoded.
+  function cssUrl(u) {
+    u = String(u || '').trim();
+    if (!/^https?:\/\//i.test(u)) return '';
+    return u.replace(/["'()\\\s<>]/g, function (c) { return '%' + ('0' + c.charCodeAt(0).toString(16)).slice(-2); });
+  }
   function img(l) {
     var a = l.image_urls;
     if (typeof a === 'string') { try { a = JSON.parse(a); } catch (e) { a = null; } }
@@ -87,9 +94,9 @@
     var h = new Date().getHours();
     var part = h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
     $('hdGreet').textContent = part + (name ? ', ' + name + '.' : '.');
-    var av = (me && me.avatar_url) || u.image || '';
+    var av = cssUrl((me && me.avatar_url) || u.image || '');
     var el = $('hdAvatar');
-    if (av) el.style.backgroundImage = 'url("' + av.replace(/"/g, '%22') + '")';
+    if (av) { el.textContent = ''; el.style.backgroundImage = 'url("' + av + '")'; }
     else el.textContent = (name[0] || 'R').toUpperCase();
   }
 
@@ -231,7 +238,7 @@
       return;
     }
     rail.innerHTML = list.slice(0, 10).map(function (x) {
-      var l = x.l, p = l._p || {}, src = img(l);
+      var l = x.l, p = l._p || {}, src = cssUrl(img(l));
       var lease = LST[cat(l)] === 'lease' || REQ[cat(l)] === 'lease';
       var title = p.project || unitLabel(p) || cat(l);
       var place = (p.locations && p.locations.join(', ')) || '';
