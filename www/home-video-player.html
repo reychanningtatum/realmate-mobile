@@ -12,8 +12,8 @@
      YouTube API policy (Required Minimum Functionality / Developer Policies):
      - the official embedded player only, unmodified, NOTHING drawn over it;
      - automatic playback only while more than half of the player is visible —
-       Home (the parent) watches that and sends {rmVideo:'play'|'pause'}, or 'idle'
-       when Settings › Autoplay is off (on screen, waits for the viewer's tap);
+       Home (the parent) creates this player with ?ap=1 only then, and sends
+       {rmVideo:'pause'|'play'} as it leaves / returns to the screen;
      - no background playback — Home sends 'pause' when it is hidden;
      - sound by default in the app, muted by default on the website (Settings >
        "Auto-mute Home video"); where a browser blocks sound it falls back to muted.
@@ -28,81 +28,55 @@
 <script>
 (function () {
   'use strict';
-  var id = new URLSearchParams(location.search).get('v') || '';
+  var q = new URLSearchParams(location.search);
+  var id = q.get('v') || '';
   if (!/^[A-Za-z0-9_-]{11}$/.test(id)) return;          // YouTube video ids only
-  var player = null, ready = false, want = 'pause';
-  var sound = false;        // Settings > "Auto-mute Home video" off -> start with sound
-  var applied = null;       // what we last set: true = sound on
-  var userSound = null;     // the viewer's own choice (YouTube's speaker button) this visit
-
-  function playMuted() { if (!player) return; player.mute(); applied = false; player.playVideo(); }
-
-  function apply() {
-    if (!ready) return;
-    if (want === 'play') {
-      var on = userSound !== null ? userSound : sound;
-      if (on) { player.unMute(); player.setVolume(100); } else player.mute();
-      applied = on;
-      player.playVideo();
-      watchdog(5, ++wdRun);
-    } else if (want === 'idle') {
-      // Autoplay is off: don't start it — just set the sound for when the viewer taps play.
-      var onIdle = userSound !== null ? userSound : sound;
-      if (onIdle) { player.unMute(); player.setVolume(100); } else player.mute();
-      applied = onIdle;
-    } else {
-      // Remember a sound change the viewer made with YouTube's own control.
-      var nowOn = !player.isMuted();
-      if (applied !== null && nowOn !== applied) userSound = nowOn;
-      player.pauseVideo();
-    }
-  }
-
-  // Until it is really playing, check every 2s (up to `tries` times):
-  //  - a browser that blocked autoplay WITH sound -> play muted instead;
-  //  - iPhones can ignore a play request while the player is still loading -> ask again;
-  //  - still loading (BUFFERING) on a slow connection is not a failure -> wait.
-  var wdRun = 0;            // only the newest check loop runs
-  function watchdog(tries, run) {
-    setTimeout(function () {
-      if (want !== 'play' || run !== wdRun) return;
-      var st = player.getPlayerState();
-      if (st === YT.PlayerState.PLAYING) return;
-      if (st !== YT.PlayerState.BUFFERING) {
-        if (!player.isMuted()) playMuted(); else player.playVideo();
-      }
-      if (tries > 1) watchdog(tries - 1, run);
-    }, 2000);
-  }
+  // Set by Home when it creates this player: ap=1 autoplay now (Home only does that
+  // while the player is on screen), m=1 start muted, t=start second (a resume).
+  // iPhones only autoplay when it is asked for at creation — a later play() from
+  // code is ignored without a tap — so Home recreates the player to resume.
+  var ap = q.get('ap') === '1', mute = q.get('m') !== '0';
+  var start = Math.max(0, parseInt(q.get('t') || '0', 10) || 0);
+  var player = null, want = ap ? 'play' : 'pause';
 
   function tell(msg) { try { window.parent.postMessage(msg, '*'); } catch (e) {} }
+  function now() { try { return Math.floor(player.getCurrentTime() || 0); } catch (e) { return 0; } }
+
+  // A requested play that hasn't started after a while → tell Home (it recreates the
+  // player with autoplay, muted if sound was refused). Loading is not a failure.
+  var wdRun = 0;            // only the newest check runs
+  function watchdog(tries, run) {
+    setTimeout(function () {
+      if (want !== 'play' || run !== wdRun || !player) return;
+      var st = player.getPlayerState();
+      if (st === YT.PlayerState.PLAYING) return;
+      if (st === YT.PlayerState.BUFFERING && tries > 1) return watchdog(tries - 1, run);
+      tell({ rmVideo: 'blocked', muted: player.isMuted(), time: now() });
+    }, 2500);
+  }
 
   // Only the page that embeds this player (Home) may start or pause it.
   window.addEventListener('message', function (e) {
-    if (e.source !== window.parent || !e.data || typeof e.data !== 'object') return;
-    if (e.data.rmVideo !== 'play' && e.data.rmVideo !== 'pause' && e.data.rmVideo !== 'idle') return;
-    var s = !!e.data.sound;
-    if (s !== sound) { sound = s; userSound = null; }   // the setting changed -> it wins again
-    want = e.data.rmVideo;
-    apply();
+    if (e.source !== window.parent || !e.data || typeof e.data !== 'object' || !player || !player.pauseVideo) return;
+    if (e.data.rmVideo === 'pause') { want = 'pause'; player.pauseVideo(); }
+    if (e.data.rmVideo === 'play') { want = 'play'; player.playVideo(); watchdog(3, ++wdRun); }
   });
 
   window.onYouTubeIframeAPIReady = function () {
     player = new YT.Player('p', {
       videoId: id,
       host: 'https://www.youtube-nocookie.com',
-      playerVars: { autoplay: 0, mute: 1, playsinline: 1, rel: 0, controls: 1, loop: 1, playlist: id },
+      playerVars: { autoplay: ap ? 1 : 0, mute: mute ? 1 : 0, start: start, playsinline: 1, rel: 0, controls: 1, loop: 1, playlist: id },
       events: {
         onReady: function () {
-          ready = true;
-          apply();
-          tell({ rmVideo: 'ready', state: player.getPlayerState(), muted: player.isMuted() });
+          tell({ rmVideo: 'ready', state: player.getPlayerState(), muted: player.isMuted(), time: now() });
+          if (want === 'play') { player.playVideo(); watchdog(3, ++wdRun); }
         },
-        // YouTube reports a blocked autoplay (with sound) here.
-        onAutoplayBlocked: function () { if (want === 'play') playMuted(); },
+        // YouTube reports a blocked autoplay here.
+        onAutoplayBlocked: function () { if (want === 'play') tell({ rmVideo: 'blocked', muted: player.isMuted(), time: now() }); },
         onStateChange: function (e) {
           if (e.data === YT.PlayerState.ENDED && want === 'play') { player.seekTo(0, true); player.playVideo(); }  // loop
-          tell({ rmVideo: 'state', state: e.data, muted: player.isMuted() });   // Home reports a failed autoplay
+          tell({ rmVideo: 'state', state: e.data, muted: player.isMuted(), time: now() });
         }
       }
     });

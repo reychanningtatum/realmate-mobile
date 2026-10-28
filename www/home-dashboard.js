@@ -376,28 +376,41 @@
     try { fe = window.frameElement; } catch (e) {}
     return !fe || getComputedStyle(fe).display !== 'none';
   }
+  // The player is CREATED with autoplay (and muting) asked for up front: iPhones
+  // only autoplay when the player starts that way — a later play() from code is
+  // ignored without a tap. So Home builds the player URL itself:
+  //   ap=1 → autoplay now (only while on screen), m=1 → start muted, t → start second.
+  var vidBase = null, vidAuto = false, vidMutedLoad = false, vidTime = 0, vidResume = false;
+  function vidLoad(autoplay, muted, at) {
+    var f = $('hdVideo');
+    vidAuto = autoplay; vidMutedLoad = muted; vidReady = false; vidResume = false;
+    vidSent = autoplay ? 'play' : 'pause';
+    f.setAttribute('src', vidBase + '&ap=' + (autoplay ? 1 : 0) + '&m=' + (muted ? 1 : 0) + (at ? '&t=' + at : ''));
+    if (autoplay) vidExpectPlay();
+  }
   function vidSend(force) {
-    if (!$('hdVideo').getAttribute('src')) return;     // no video on Home → nothing to control
-    // Settings › Home Video (read each time, so a change applies the next time Home shows):
-    // "Autoplay" off → on screen means 'idle' (ready, waits for a tap on YouTube's play);
-    // off screen is always 'pause' (no background playback).
+    if (!vidBase || !vidWatch.seen) return;            // no video, or position not known yet
+    // Settings › Home Video (read each time, so a change applies the next time Home shows).
     var Y = window.RMYouTube;
     var onScreen = vidVisible && frameShown() && !document.hidden && !sheetOpen;
-    var frame = $('hdVideo'), cmd = !onScreen ? 'pause' : (Y && !Y.autoPlay() ? 'idle' : 'play');
-    if (!frame.contentWindow || (!force && cmd === vidSent)) return;
-    vidSent = cmd;
-    if (cmd === 'play') vidExpectPlay();
-    var sound = !!(Y && !Y.autoMute());
-    try { frame.contentWindow.postMessage({ rmVideo: cmd, sound: sound }, '*'); } catch (e) {}
+    var want = onScreen && !(Y && !Y.autoPlay()) ? 'play' : 'pause';
+    var muted = !!(Y && Y.autoMute());
+    var f = $('hdVideo');
+    if (!f.getAttribute('src')) { vidLoad(want === 'play', muted, 0); return; }   // first time
+    if (!force && want === vidSent) return;
+    vidSent = want;
+    if (want === 'play') { vidExpectPlay(); vidResume = true; }   // a play() from code — iPhones may ignore it
+    try { f.contentWindow.postMessage({ rmVideo: want }, '*'); } catch (e) {}
   }
   function vidWatch() {
     if (vidWatch.on) return; vidWatch.on = true;
     if ('IntersectionObserver' in window) {
       new IntersectionObserver(function (es) {
         vidVisible = es[es.length - 1].intersectionRatio > 0.5;
+        vidWatch.seen = true;
         vidSend();
       }, { threshold: [0, 0.5, 0.51, 1] }).observe($('hdVideo'));
-    } else { vidVisible = true; }
+    } else { vidVisible = true; vidWatch.seen = true; vidSend(); }
     document.addEventListener('visibilitychange', function () { vidSend(); });
     try {
       if (window.frameElement && 'MutationObserver' in window)
@@ -405,15 +418,27 @@
           .observe(window.frameElement, { attributes: true, attributeFilter: ['class', 'style', 'hidden'] });
     } catch (e) {}
     window.addEventListener('pagehide', function () { vidVisible = false; vidSend(); });
-    // Messages from the player: 'ready' → tell it the current state; 'state' → track it.
     window.addEventListener('message', function (e) {
       if (e.source !== $('hdVideo').contentWindow || !e.data) return;
-      if (e.data.rmVideo === 'ready') vidReady = true;
-      if (e.data.rmVideo === 'ready' || e.data.rmVideo === 'state') {
-        vidState = e.data.state; vidMuted = !!e.data.muted;
+      var d = e.data;
+      if (typeof d.time === 'number') vidTime = d.time;
+      if (d.rmVideo === 'ready') vidReady = true;
+      if (d.rmVideo === 'ready' || d.rmVideo === 'state') {
+        vidState = d.state; vidMuted = !!d.muted;
         if (vidState === 1) vidPlayed = true;          // 1 = playing
       }
-      if (e.data.rmVideo === 'ready') vidSend(true);
+      if (d.rmVideo === 'ready') vidSend(true);   // re-send what Home wants now (it may have changed while loading)
+      // The player couldn't start:
+      //  - a play() from code was ignored (a resume, or a player made without
+      //    autoplay) → recreate it WITH autoplay, muted or not as Settings say;
+      //  - an autoplay WITH sound was refused → recreate it muted;
+      //  - a muted autoplay was refused too (e.g. Low Power Mode) → leave it for the
+      //    viewer's tap; it is reported.
+      if (d.rmVideo === 'blocked' && vidSent === 'play') {
+        var setMuted = !!(window.RMYouTube && RMYouTube.autoMute());
+        if (vidResume || !vidAuto) vidLoad(true, setMuted, vidTime);
+        else if (!vidMutedLoad) vidLoad(true, true, vidTime);
+      }
     });
   }
 
@@ -428,16 +453,16 @@
       // Not on screen now (page hidden / tab hidden / scrolled away) is not a failure.
       if (document.hidden || !frameShown() || !vidVisible) return;
       vidReported = true;
-      var cap = window.Capacitor;
       var info = {
         playerReady: vidReady, playerState: vidState, muted: vidMuted,
         autoMuteSetting: !!(window.RMYouTube && RMYouTube.autoMute()),
-        app: !!(cap && cap.isNativePlatform && cap.isNativePlatform()),
+        app: !!(window.RMYouTube && RMYouTube.inApp()),
+        createdWithAutoplay: vidAuto, createdMuted: vidMutedLoad,
         pageVisible: !document.hidden, tabShown: frameShown()
       };
       if (window.RMBugs) RMBugs.capture(new Error('Home video did not autoplay (player ' +
         (vidReady ? 'state ' + vidState : 'never became ready') + ')'), info);
-    }, 12000);
+    }, 15000);
   }
   // Credit line under the player: YouTube as the source, the video and its channel.
   function vidCredit(i) {
@@ -468,9 +493,10 @@
     var info = await RMYouTube.info(url);
     if (!info.ok && info.reason !== 'unavailable') { $('hdVideoSec').hidden = true; return; }
     if (info.ok) vidCredit(info); else $('hdVideoCredit').hidden = true;
-    if ($('hdVideo').getAttribute('src') !== src) { vidSent = null; $('hdVideo').setAttribute('src', src); }
+    if (vidBase !== src) { vidBase = src; vidSent = null; $('hdVideo').removeAttribute('src'); }
     $('hdVideoSec').hidden = false;
     vidWatch();
+    vidSend(true);
   }
 
   function start() { header(null); load().catch(fail); video(); }
