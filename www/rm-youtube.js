@@ -36,5 +36,40 @@
     return origin + '/home-video-player.html?v=' + id;
   }
 
-  g.RMYouTube = { videoId: videoId, embedUrl: embedUrl, playerUrl: playerUrl };
+  // Ask YouTube (public oEmbed) whether the video exists and its owner allows
+  // embedding, and who made it — for crediting the creator. Resolves to
+  //   { ok:true, title, channel, channelUrl, watchUrl }
+  //   { ok:false, reason:'invalid'|'not_embeddable'|'not_found'|'unavailable' }
+  function info(url, fetchFn) {
+    var id = videoId(url), f = fetchFn || (typeof fetch === 'function' ? fetch : null);
+    if (!id) return Promise.resolve({ ok: false, reason: 'invalid' });
+    if (!f) return Promise.resolve({ ok: false, reason: 'unavailable' });
+    var watchUrl = 'https://www.youtube.com/watch?v=' + id;
+    return f('https://www.youtube.com/oembed?format=json&url=' + encodeURIComponent(watchUrl)).then(function (r) {
+      if (r.status === 401 || r.status === 403) return { ok: false, reason: 'not_embeddable' };
+      if (r.status === 404 || r.status === 400) return { ok: false, reason: 'not_found' };
+      if (!r.ok) return { ok: false, reason: 'unavailable' };
+      return r.json().then(function (d) {
+        var cu = String((d && d.author_url) || '');
+        return {
+          ok: true, watchUrl: watchUrl,
+          title: String((d && d.title) || ''),
+          channel: String((d && d.author_name) || ''),
+          channelUrl: /^https:\/\/www\.youtube\.com\//.test(cu) ? cu : ''
+        };
+      });
+    }, function () { return { ok: false, reason: 'unavailable' }; });
+  }
+
+  // Settings › Home Video › "Auto-mute Home video" (this device). Default ON.
+  var AUTOMUTE_KEY = 'rm_home_video_automute';
+  function autoMute() {
+    try { return localStorage.getItem(AUTOMUTE_KEY) !== '0'; } catch (e) { return true; }
+  }
+  function setAutoMute(on) {
+    try { localStorage.setItem(AUTOMUTE_KEY, on ? '1' : '0'); } catch (e) {}
+  }
+
+  g.RMYouTube = { videoId: videoId, embedUrl: embedUrl, playerUrl: playerUrl, info: info,
+    autoMute: autoMute, setAutoMute: setAutoMute };
 })(typeof window !== 'undefined' ? window : this);

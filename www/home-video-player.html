@@ -8,61 +8,85 @@
 <!-- Home video player (DRAFT Home dashboard). Served from the website so YouTube
      always sees a normal https page — inside the iOS app, Home itself runs on the
      app's internal address, which YouTube refuses to play from (Error 153).
-     ?v=<11-char YouTube id>. Autoplays with sound where allowed (the app); where a
-     browser blocks sound it plays muted with a "Tap for sound" button. Loops. -->
+
+     YouTube API policy (Required Minimum Functionality / Developer Policies):
+     - the official embedded player only, unmodified, NOTHING drawn over it;
+     - automatic playback only while more than half of the player is visible —
+       Home (the parent) watches that and sends {rmVideo:'play'|'pause'};
+     - no background playback — Home sends 'pause' when it is hidden;
+     - muted autoplay by default; Settings > "Auto-mute Home video" off starts it
+       with sound (falls back to muted where a browser blocks sound).
+     ?v=<11-char YouTube id>. Loops at the end. -->
 <style>
   html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
   #p, #p iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
-  #sound {
-    position: absolute; right: 10px; bottom: 10px; z-index: 2;
-    display: none; align-items: center; gap: 6px;
-    padding: 8px 12px; border: 0; border-radius: 999px;
-    background: rgba(0,0,0,.72); color: #fff; cursor: pointer;
-    font: 600 13px/1 -apple-system, system-ui, sans-serif;
-  }
-  #sound.show { display: inline-flex; }
 </style>
 </head>
 <body>
 <div id="p"></div>
-<button id="sound" type="button" aria-label="Turn sound on">🔊 Tap for sound</button>
 <script>
 (function () {
   'use strict';
   var id = new URLSearchParams(location.search).get('v') || '';
   if (!/^[A-Za-z0-9_-]{11}$/.test(id)) return;          // YouTube video ids only
-  var btn = document.getElementById('sound'), player = null;
+  var player = null, ready = false, want = 'pause';
+  var sound = false;        // Settings > "Auto-mute Home video" off -> start with sound
+  var applied = null;       // what we last set: true = sound on
+  var userSound = null;     // the viewer's own choice (YouTube's speaker button) this visit
 
-  function unmute() { if (!player) return; player.unMute(); player.setVolume(100); player.playVideo(); btn.classList.remove('show'); }
-  btn.addEventListener('click', unmute);
+  function playMuted() { if (!player) return; player.mute(); applied = false; player.playVideo(); }
 
-  // Sound blocked by the browser → play muted and offer sound on tap.
-  function playMuted() { if (!player) return; player.mute(); player.playVideo(); btn.classList.add('show'); }
-  // Check once a second; if it still isn't playing after `tries` checks, fall back to muted.
-  function ensurePlaying(tries) {
-    setTimeout(function () {
-      var s = player.getPlayerState();
-      if (s === YT.PlayerState.PLAYING) { if (player.isMuted()) btn.classList.add('show'); return; }
-      if (tries <= 1) { playMuted(); return; }
-      ensurePlaying(tries - 1);
-    }, 1000);
+  function apply() {
+    if (!ready) return;
+    if (want === 'play') {
+      var on = userSound !== null ? userSound : sound;
+      if (on) { player.unMute(); player.setVolume(100); } else player.mute();
+      applied = on;
+      player.playVideo();
+      // A browser that blocks autoplay WITH sound leaves it unstarted -> play muted.
+      // Still loading (BUFFERING) on a slow connection is not a block: check again.
+      if (on) (function check(tries) {
+        setTimeout(function () {
+          if (want !== 'play') return;
+          var st = player.getPlayerState();
+          if (st === YT.PlayerState.PLAYING) return;
+          if (st === YT.PlayerState.BUFFERING && tries > 1) return check(tries - 1);
+          playMuted();
+        }, 2000);
+      })(4);
+    } else {
+      // Remember a sound change the viewer made with YouTube's own control.
+      var nowOn = !player.isMuted();
+      if (applied !== null && nowOn !== applied) userSound = nowOn;
+      player.pauseVideo();
+    }
   }
+
+  // Only the page that embeds this player (Home) may start or pause it.
+  window.addEventListener('message', function (e) {
+    if (e.source !== window.parent || !e.data || typeof e.data !== 'object') return;
+    if (e.data.rmVideo !== 'play' && e.data.rmVideo !== 'pause') return;
+    var s = !!e.data.sound;
+    if (s !== sound) { sound = s; userSound = null; }   // the setting changed -> it wins again
+    want = e.data.rmVideo;
+    apply();
+  });
 
   window.onYouTubeIframeAPIReady = function () {
     player = new YT.Player('p', {
       videoId: id,
       host: 'https://www.youtube-nocookie.com',
-      playerVars: { autoplay: 1, mute: 0, loop: 1, playlist: id, playsinline: 1, rel: 0, modestbranding: 1, controls: 1 },
+      playerVars: { autoplay: 0, mute: 1, playsinline: 1, rel: 0, controls: 1, loop: 1, playlist: id },
       events: {
         onReady: function () {
-          player.unMute(); player.playVideo();
-          ensurePlaying(4);
+          ready = true;
+          apply();
+          try { window.parent.postMessage({ rmVideo: 'ready' }, '*'); } catch (e) {}
         },
         // YouTube reports a blocked autoplay (with sound) here.
-        onAutoplayBlocked: playMuted,
+        onAutoplayBlocked: function () { if (want === 'play') playMuted(); },
         onStateChange: function (e) {
-          if (e.data === YT.PlayerState.ENDED) { player.seekTo(0, true); player.playVideo(); }   // loop
-          if (e.data === YT.PlayerState.PLAYING && !player.isMuted()) btn.classList.remove('show');
+          if (e.data === YT.PlayerState.ENDED && want === 'play') { player.seekTo(0, true); player.playVideo(); }  // loop
         }
       }
     });

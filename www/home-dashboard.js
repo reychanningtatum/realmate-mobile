@@ -273,13 +273,76 @@
   function webOrigin() {
     return /^https?:$/.test(location.protocol) ? location.origin : WEB_ORIGIN[window.RM_ENV.name];
   }
+  // YouTube policy: play only while MORE THAN HALF of the player is on screen, and
+  // never in the background (another tab, app in background, page hidden).
+  var vidVisible = false, vidSent = null;
+  // In the app shell each tab is an <iframe> the shell hides with display:none;
+  // a hidden frame gets no visibility events, so check (and watch) the frame itself.
+  function frameShown() {
+    var fe = null;
+    try { fe = window.frameElement; } catch (e) {}
+    return !fe || getComputedStyle(fe).display !== 'none';
+  }
+  function vidSend(force) {
+    var frame = $('hdVideo'), cmd = (vidVisible && frameShown() && !document.hidden) ? 'play' : 'pause';
+    if (!frame.contentWindow || (!force && cmd === vidSent)) return;
+    vidSent = cmd;
+    // Settings › "Auto-mute Home video" (read each time, so a change applies on the next play).
+    var sound = !!(window.RMYouTube && !RMYouTube.autoMute());
+    try { frame.contentWindow.postMessage({ rmVideo: cmd, sound: sound }, '*'); } catch (e) {}
+  }
+  function vidWatch() {
+    if (vidWatch.on) return; vidWatch.on = true;
+    if ('IntersectionObserver' in window) {
+      new IntersectionObserver(function (es) {
+        vidVisible = es[es.length - 1].intersectionRatio > 0.5;
+        vidSend();
+      }, { threshold: [0, 0.5, 0.51, 1] }).observe($('hdVideo'));
+    } else { vidVisible = true; }
+    document.addEventListener('visibilitychange', function () { vidSend(); });
+    try {
+      if (window.frameElement && 'MutationObserver' in window)
+        new MutationObserver(function () { vidSend(); })
+          .observe(window.frameElement, { attributes: true, attributeFilter: ['class', 'style', 'hidden'] });
+    } catch (e) {}
+    window.addEventListener('pagehide', function () { vidVisible = false; vidSend(); });
+    // The player says it is ready → tell it the current state.
+    window.addEventListener('message', function (e) {
+      if (e.source === $('hdVideo').contentWindow && e.data && e.data.rmVideo === 'ready') vidSend(true);
+    });
+  }
+  // Credit line under the player: YouTube as the source, the video and its channel.
+  function vidCredit(i) {
+    var el = $('hdVideoCredit');
+    el.textContent = '';
+    var link = function (href, text) {
+      var a = document.createElement('a');
+      a.href = href; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.textContent = text;
+      return a;
+    };
+    var yt = document.createElement('i'); yt.className = 'fab fa-youtube';
+    el.appendChild(yt);
+    el.appendChild(link(i.watchUrl, 'Watch on YouTube'));
+    if (i.title) { el.appendChild(document.createTextNode(' · ' + i.title)); }
+    if (i.channel) {
+      el.appendChild(document.createTextNode(' — '));
+      el.appendChild(i.channelUrl ? link(i.channelUrl, i.channel) : document.createTextNode(i.channel));
+    }
+    el.hidden = false;
+  }
   async function video() {
     var r = await sb.from('site_settings').select('value').eq('key', 'youtube_url').maybeSingle();
     if (r.error) throw r.error;
-    var src = window.RMYouTube && RMYouTube.playerUrl(r.data && r.data.value, webOrigin());
+    var url = r.data && r.data.value;
+    var src = window.RMYouTube && RMYouTube.playerUrl(url, webOrigin());
     if (!src) { $('hdVideoSec').hidden = true; return; }   // none set (or not a YouTube link)
-    if ($('hdVideo').getAttribute('src') !== src) $('hdVideo').setAttribute('src', src);
+    // Only embed what YouTube says exists and its owner allows to be embedded.
+    var info = await RMYouTube.info(url);
+    if (!info.ok && info.reason !== 'unavailable') { $('hdVideoSec').hidden = true; return; }
+    if (info.ok) vidCredit(info); else $('hdVideoCredit').hidden = true;
+    if ($('hdVideo').getAttribute('src') !== src) { vidSent = null; $('hdVideo').setAttribute('src', src); }
     $('hdVideoSec').hidden = false;
+    vidWatch();
   }
 
   function start() { header(null); load().catch(fail); video(); }

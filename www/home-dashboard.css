@@ -171,10 +171,21 @@ html[data-theme="dark"] .hd-tag-lease { background: rgba(37,99,235,.18); color: 
 
 /* Home video (16:9) */
 .hd-video {
-  margin: 0 16px; position: relative; aspect-ratio: 16 / 9;
+  /* YouTube requires a player of at least 200 x 200 px. */
+  /* 16:9 of the column width, never below 200px tall (a min-height with
+     aspect-ratio would widen the box past the margins instead). */
+  margin: 0 16px; position: relative; min-height: 200px;
+  height: max(200px, calc((min(100vw, 720px) - 32px) * 9 / 16));
   border-radius: 16px; overflow: hidden; background: #000;
   box-shadow: 0 6px 24px rgba(15, 23, 42, .10);
 }
+.hd-video-credit {
+  margin: 8px 16px 0; font-size: 12px; line-height: 1.4; color: var(--hd-sub);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.hd-video-credit[hidden] { display: none; }
+.hd-video-credit i { color: #ff0000; margin-right: 6px; }
+.hd-video-credit a { color: var(--hd-ink); font-weight: 600; text-decoration: none; }
 .hd-video iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
 
 /* Empty / loading */
