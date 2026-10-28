@@ -43,17 +43,7 @@
       if (on) { player.unMute(); player.setVolume(100); } else player.mute();
       applied = on;
       player.playVideo();
-      // A browser that blocks autoplay WITH sound leaves it unstarted -> play muted.
-      // Still loading (BUFFERING) on a slow connection is not a block: check again.
-      if (on) (function check(tries) {
-        setTimeout(function () {
-          if (want !== 'play') return;
-          var st = player.getPlayerState();
-          if (st === YT.PlayerState.PLAYING) return;
-          if (st === YT.PlayerState.BUFFERING && tries > 1) return check(tries - 1);
-          playMuted();
-        }, 2000);
-      })(4);
+      watchdog(5, ++wdRun);
     } else {
       // Remember a sound change the viewer made with YouTube's own control.
       var nowOn = !player.isMuted();
@@ -61,6 +51,25 @@
       player.pauseVideo();
     }
   }
+
+  // Until it is really playing, check every 2s (up to `tries` times):
+  //  - a browser that blocked autoplay WITH sound -> play muted instead;
+  //  - iPhones can ignore a play request while the player is still loading -> ask again;
+  //  - still loading (BUFFERING) on a slow connection is not a failure -> wait.
+  var wdRun = 0;            // only the newest check loop runs
+  function watchdog(tries, run) {
+    setTimeout(function () {
+      if (want !== 'play' || run !== wdRun) return;
+      var st = player.getPlayerState();
+      if (st === YT.PlayerState.PLAYING) return;
+      if (st !== YT.PlayerState.BUFFERING) {
+        if (!player.isMuted()) playMuted(); else player.playVideo();
+      }
+      if (tries > 1) watchdog(tries - 1, run);
+    }, 2000);
+  }
+
+  function tell(msg) { try { window.parent.postMessage(msg, '*'); } catch (e) {} }
 
   // Only the page that embeds this player (Home) may start or pause it.
   window.addEventListener('message', function (e) {
@@ -81,12 +90,13 @@
         onReady: function () {
           ready = true;
           apply();
-          try { window.parent.postMessage({ rmVideo: 'ready' }, '*'); } catch (e) {}
+          tell({ rmVideo: 'ready', state: player.getPlayerState(), muted: player.isMuted() });
         },
         // YouTube reports a blocked autoplay (with sound) here.
         onAutoplayBlocked: function () { if (want === 'play') playMuted(); },
         onStateChange: function (e) {
           if (e.data === YT.PlayerState.ENDED && want === 'play') { player.seekTo(0, true); player.playVideo(); }  // loop
+          tell({ rmVideo: 'state', state: e.data, muted: player.isMuted() });   // Home reports a failed autoplay
         }
       }
     });

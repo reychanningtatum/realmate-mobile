@@ -1,3 +1,9 @@
+// The app's first tab after sign-in / reopening. DRAFT (staging only): Home
+// dashboard; production keeps opening on the Portal.
+function _rmStartTab() {
+    return (window.RM_ENV && window.RM_ENV.name === 'staging') ? 'home' : 'portal';
+}
+
 window.supabaseClient = window.supabase.createClient(
     window.RM_ENV.url,
     window.RM_ENV.anonKey
@@ -90,7 +96,7 @@ window.supabaseClient.auth.onAuthStateChange((event) => {
             // Valid session → go STRAIGHT in. Reopening the app must never prompt
             // biometrics or log the user out.
             var dest = (window.Capacitor || window.matchMedia("(max-width: 900px)").matches)
-                ? "app.html?tab=portal" : "livemarket.html";
+                ? "app.html?tab=" + _rmStartTab() : "livemarket.html";
             location.replace(dest);
         } else {
             await revealWithBio(); // no valid session → login form + Face ID option
@@ -1030,7 +1036,7 @@ async function login(opts){
 
     // Mobile / native app lands in the persistent tab shell (app.html); desktop
     // web keeps its sidebar layout. Opens on Portal, matching the old target.
-    var _rmDest = (window.Capacitor || window.matchMedia("(max-width: 900px)").matches) ? "app.html?tab=portal" : "livemarket.html";
+    var _rmDest = (window.Capacitor || window.matchMedia("(max-width: 900px)").matches) ? "app.html?tab=" + _rmStartTab() : "livemarket.html";
     // Drop the dark curtain over the login and navigate — app.html starts under a
     // matching curtain (rm_enter_app) and lifts it once the app is ready, so login
     // -> app is the same smooth fade-through-dark. Falls back to a plain navigation.

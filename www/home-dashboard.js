@@ -89,13 +89,19 @@
     showDate();
   }
 
-  // Today's date, upper right: "Wednesday" over "October 28, 2026".
+  // Today's date and the time, upper right: "Wednesday · 1:41 PM" over "October 28, 2026".
   function showDate() {
     var d = new Date(), el = $('hdDate');
-    el.setAttribute('datetime', d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2));
-    el.innerHTML = '<span class="hd-date-day">' + d.toLocaleDateString('en-US', { weekday: 'long' }) + '</span>' +
+    var p2 = function (n) { return ('0' + n).slice(-2); };
+    el.setAttribute('datetime', d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()) + 'T' + p2(d.getHours()) + ':' + p2(d.getMinutes()));
+    el.innerHTML = '<span class="hd-date-day">' + d.toLocaleDateString('en-US', { weekday: 'long' }) +
+      ' · <span class="hd-date-time">' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) + '</span></span>' +
       '<span class="hd-date-full">' + d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) + '</span>';
   }
+  // Keep the clock current: refresh at the start of each new minute.
+  (function tick() {
+    setTimeout(function () { showDate(); tick(); }, 60000 - (Date.now() % 60000) + 50);
+  })();
   // The app can stay open past midnight: refresh the date (and greeting) on return.
   document.addEventListener('visibilitychange', function () { if (!document.hidden) header(null); });
 
@@ -287,6 +293,7 @@
     var frame = $('hdVideo'), cmd = (vidVisible && frameShown() && !document.hidden) ? 'play' : 'pause';
     if (!frame.contentWindow || (!force && cmd === vidSent)) return;
     vidSent = cmd;
+    if (cmd === 'play') vidExpectPlay();
     // Settings › "Auto-mute Home video" (read each time, so a change applies on the next play).
     var sound = !!(window.RMYouTube && !RMYouTube.autoMute());
     try { frame.contentWindow.postMessage({ rmVideo: cmd, sound: sound }, '*'); } catch (e) {}
@@ -306,10 +313,39 @@
           .observe(window.frameElement, { attributes: true, attributeFilter: ['class', 'style', 'hidden'] });
     } catch (e) {}
     window.addEventListener('pagehide', function () { vidVisible = false; vidSend(); });
-    // The player says it is ready → tell it the current state.
+    // Messages from the player: 'ready' → tell it the current state; 'state' → track it.
     window.addEventListener('message', function (e) {
-      if (e.source === $('hdVideo').contentWindow && e.data && e.data.rmVideo === 'ready') vidSend(true);
+      if (e.source !== $('hdVideo').contentWindow || !e.data) return;
+      if (e.data.rmVideo === 'ready') vidReady = true;
+      if (e.data.rmVideo === 'ready' || e.data.rmVideo === 'state') {
+        vidState = e.data.state; vidMuted = !!e.data.muted;
+        if (vidState === 1) vidPlayed = true;          // 1 = playing
+      }
+      if (e.data.rmVideo === 'ready') vidSend(true);
     });
+  }
+
+  // If a requested autoplay never starts, report it to Admin › Bug Reports (once per
+  // visit) with what we know — so a failure on a phone we can't test is visible.
+  var vidReady = false, vidState = null, vidMuted = null, vidPlayed = false, vidReported = false, vidCheck = null;
+  function vidExpectPlay() {
+    if (vidPlayed || vidReported || vidCheck) return;
+    vidCheck = setTimeout(function () {
+      vidCheck = null;
+      if (vidPlayed || vidReported || vidSent !== 'play') return;
+      // Not on screen now (page hidden / tab hidden / scrolled away) is not a failure.
+      if (document.hidden || !frameShown() || !vidVisible) return;
+      vidReported = true;
+      var cap = window.Capacitor;
+      var info = {
+        playerReady: vidReady, playerState: vidState, muted: vidMuted,
+        autoMuteSetting: !!(window.RMYouTube && RMYouTube.autoMute()),
+        app: !!(cap && cap.isNativePlatform && cap.isNativePlatform()),
+        pageVisible: !document.hidden, tabShown: frameShown()
+      };
+      if (window.RMBugs) RMBugs.capture(new Error('Home video did not autoplay (player ' +
+        (vidReady ? 'state ' + vidState : 'never became ready') + ')'), info);
+    }, 12000);
   }
   // Credit line under the player: YouTube as the source, the video and its channel.
   function vidCredit(i) {
