@@ -12,10 +12,11 @@
      YouTube API policy (Required Minimum Functionality / Developer Policies):
      - the official embedded player only, unmodified, NOTHING drawn over it;
      - automatic playback only while more than half of the player is visible —
-       Home (the parent) watches that and sends {rmVideo:'play'|'pause'};
+       Home (the parent) watches that and sends {rmVideo:'play'|'pause'}, or 'idle'
+       when Settings › Autoplay is off (on screen, waits for the viewer's tap);
      - no background playback — Home sends 'pause' when it is hidden;
-     - muted autoplay by default; Settings > "Auto-mute Home video" off starts it
-       with sound (falls back to muted where a browser blocks sound).
+     - sound by default in the app, muted by default on the website (Settings >
+       "Auto-mute Home video"); where a browser blocks sound it falls back to muted.
      ?v=<11-char YouTube id>. Loops at the end. -->
 <style>
   html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
@@ -44,6 +45,11 @@
       applied = on;
       player.playVideo();
       watchdog(5, ++wdRun);
+    } else if (want === 'idle') {
+      // Autoplay is off: don't start it — just set the sound for when the viewer taps play.
+      var onIdle = userSound !== null ? userSound : sound;
+      if (onIdle) { player.unMute(); player.setVolume(100); } else player.mute();
+      applied = onIdle;
     } else {
       // Remember a sound change the viewer made with YouTube's own control.
       var nowOn = !player.isMuted();
@@ -74,7 +80,7 @@
   // Only the page that embeds this player (Home) may start or pause it.
   window.addEventListener('message', function (e) {
     if (e.source !== window.parent || !e.data || typeof e.data !== 'object') return;
-    if (e.data.rmVideo !== 'play' && e.data.rmVideo !== 'pause') return;
+    if (e.data.rmVideo !== 'play' && e.data.rmVideo !== 'pause' && e.data.rmVideo !== 'idle') return;
     var s = !!e.data.sound;
     if (s !== sound) { sound = s; userSound = null; }   // the setting changed -> it wins again
     want = e.data.rmVideo;

@@ -66,8 +66,11 @@
 
   // ── Navigation (inside the app shell → shell tabs; standalone → in place) ──
   function shell() { try { return window.parent !== window && window.parent.rmOpen ? window.parent : null; } catch (e) { return null; } }
-  window.hdOpenPortal = function (seg) {
+  // seg: the Portal tab to show ('MARKET' / 'AI_ENGINE'). top: start at the top of it
+  // (drop the Portal's remembered scroll position for this visit).
+  window.hdOpenPortal = function (seg, top) {
     try { localStorage.setItem('rm_portal_tab', seg || 'MARKET'); } catch (e) {}
+    if (top) { try { sessionStorage.removeItem('rm_portalScroll'); } catch (e) {} }
     var p = shell();
     // A fresh load so the Portal reads the tab choice (same as a match notification).
     if (p) p.rmOpen('portal', 'livemarket.html?hd=' + Date.now()); else location.href = 'livemarket.html';
@@ -160,6 +163,7 @@
     var reqs = others.filter(function (l) { return REQ[cat(l)]; });
     var lsts = others.filter(function (l) { return LST[cat(l)]; });
 
+    hdData = { reqs: reqs, lsts: lsts };
     overview(reqs, lsts, rows, res[1].data || []);
     hotRequirements(reqs);
     aiMatches(res[1].data || [], rows);
@@ -171,11 +175,16 @@
     var e = $(dId);
     if (d) { e.textContent = '+' + d; e.hidden = false; } else e.hidden = true;
   }
+  // The amount a post adds to "Active Opportunities": a requirement's budget
+  // (its upper end), or a listing's asking price. Lease/rent amounts are monthly.
   function value(l) {
     var p = l._p; if (!p) return 0;
     var v = (p.budget && p.budget.max) || p.price;
     return v > 0 && isFinite(v) ? v : 0;
   }
+  function isLease(l) { return REQ[cat(l)] === 'lease' || LST[cat(l)] === 'lease'; }
+  var hdData = { reqs: [], lsts: [] };
+
   function overview(reqs, lsts, all, matches) {
     var now = Date.now();
     var inWeek = function (l) { return now - new Date(l.created_at).getTime() < WEEK; };
@@ -261,6 +270,84 @@
     }).join('');
   }
 
+  // ── Breakdown sheet (New Requirements / Active Opportunities) ──
+  var sheetOpen = false;
+  function postTitle(l) {
+    var p = l._p || {};
+    var place = (p.locations && p.locations[0]) || p.project || 'Location not stated';
+    var unit = unitLabel(p);
+    return place + (unit ? ' · ' + unit : '');
+  }
+  function row(l, right, rightSub) {
+    var req = !!REQ[cat(l)], lease = isLease(l);
+    var tag = req ? (lease ? 'Looking to lease' : 'Looking to buy') : (lease ? 'For lease' : 'For sale');
+    return '<button class="hd-row" onclick="hdCloseSheet();hdOpenListing(' + JSON.stringify(String(l.id)).replace(/"/g, '&quot;') + ')">' +
+      '<span class="hd-row-main"><span class="hd-tag ' + (req ? (lease ? 'hd-tag-lease' : 'hd-tag-buy') : 'hd-tag-list') + '">' + esc(tag) + '</span>' +
+      '<b>' + esc(postTitle(l)) + '</b>' +
+      '<small>' + esc(l.is_anonymous ? 'Anonymous' : (l.user_name || 'realmate member')) + ' · ' + esc(ago(l.created_at)) + '</small></span>' +
+      '<span class="hd-row-side"><b>' + esc(right) + '</b>' + (rightSub ? '<small>' + esc(rightSub) + '</small>' : '') + '</span>' +
+      '</button>';
+  }
+  function openSheet(title, sumHtml, bodyHtml) {
+    $('hdSheetTitle').textContent = title;
+    $('hdSheetSum').innerHTML = sumHtml;
+    $('hdSheetBody').innerHTML = bodyHtml;
+    $('hdSheet').hidden = false;
+    document.documentElement.classList.add('hd-sheet-on');
+    sheetOpen = true;
+    vidSend();                      // nothing may sit over a playing YouTube player → pause
+    $('hdSheetBody').scrollTop = 0;
+  }
+  window.hdCloseSheet = function () {
+    if (!sheetOpen) return;
+    $('hdSheet').hidden = true;
+    document.documentElement.classList.remove('hd-sheet-on');
+    sheetOpen = false;
+    vidSend();
+  };
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') window.hdCloseSheet(); });
+
+  // 1. New Requirements → every WILLING TO BUY / LEASE post from the last 7 days.
+  window.hdShowRequirements = function () {
+    var now = Date.now();
+    var list = hdData.reqs.filter(function (l) { return now - new Date(l.created_at).getTime() < WEEK; });
+    var today = list.filter(function (l) { return now - new Date(l.created_at).getTime() < DAY; }).length;
+    var buy = list.filter(function (l) { return REQ[cat(l)] === 'buy'; }).length;
+    var sum = '<p><b>' + list.length + '</b> new requirement' + (list.length === 1 ? '' : 's') + ' in the last 7 days' +
+      (today ? ' · <b>' + today + '</b> today' : '') + '</p>' +
+      '<p class="hd-sheet-split">' + buy + ' looking to buy · ' + (list.length - buy) + ' looking to lease</p>';
+    var body = list.length ? list.map(function (l) {
+      var lease = isLease(l), money = budgetLabel(l._p, lease);
+      return row(l, money || 'No budget stated', '');
+    }).join('') : empty('fa-user', 'No new requirements in the last 7 days.');
+    openSheet('New Requirements', sum, body);
+  };
+
+  // 4. Active Opportunities → every open post behind the total, biggest first.
+  window.hdShowOpportunities = function () {
+    var all = hdData.reqs.concat(hdData.lsts);
+    var counted = all.filter(function (l) { return value(l) > 0; })
+      .sort(function (a, b) { return value(b) - value(a); });
+    var uncounted = all.length - counted.length;
+    var tot = function (arr) { return arr.reduce(function (s2, l) { return s2 + value(l); }, 0); };
+    var cReq = counted.filter(function (l) { return REQ[cat(l)]; }), cLst = counted.filter(function (l) { return LST[cat(l)]; });
+    var sale = counted.filter(function (l) { return !isLease(l); }), lease = counted.filter(isLease);
+    var sum =
+      '<p class="hd-sheet-total"><b>' + esc(peso(tot(counted)) || '₱0') + '</b> from ' + counted.length + ' open post' + (counted.length === 1 ? '' : 's') + '</p>' +
+      '<div class="hd-sheet-parts">' +
+        '<span><b>' + esc(peso(tot(cReq)) || '₱0') + '</b> requirements (' + cReq.length + ') — budgets</span>' +
+        '<span><b>' + esc(peso(tot(cLst)) || '₱0') + '</b> listings (' + cLst.length + ') — asking prices</span>' +
+        '<span><b>' + esc(peso(tot(sale)) || '₱0') + '</b> for sale / to buy · <b>' + esc(peso(tot(lease)) || '₱0') + '</b> monthly lease amounts</span>' +
+      '</div>' +
+      '<p class="hd-sheet-note">Each post counts once: a requirement at the top of its budget, a listing at its asking price; ' +
+      'lease posts count one month\'s amount. ' + (uncounted ? uncounted + ' open post' + (uncounted === 1 ? ' has' : 's have') + ' no amount and ' + (uncounted === 1 ? "isn't" : "aren't") + ' counted.' : '') + '</p>';
+    var body = counted.length ? counted.map(function (l) {
+      var req = !!REQ[cat(l)], lease2 = isLease(l);
+      return row(l, peso(value(l)) + (lease2 ? ' / mo' : ''), req ? 'budget (top)' : 'asking price');
+    }).join('') : empty('fa-chart-simple', 'No open posts with an amount yet.');
+    openSheet('Active Opportunities', sum, body);
+  };
+
   function empty(icon, text) {
     return '<div class="hd-empty"><i class="fas ' + icon + '"></i><p>' + esc(text) + '</p></div>';
   }
@@ -290,12 +377,17 @@
     return !fe || getComputedStyle(fe).display !== 'none';
   }
   function vidSend(force) {
-    var frame = $('hdVideo'), cmd = (vidVisible && frameShown() && !document.hidden) ? 'play' : 'pause';
+    if (!$('hdVideo').getAttribute('src')) return;     // no video on Home → nothing to control
+    // Settings › Home Video (read each time, so a change applies the next time Home shows):
+    // "Autoplay" off → on screen means 'idle' (ready, waits for a tap on YouTube's play);
+    // off screen is always 'pause' (no background playback).
+    var Y = window.RMYouTube;
+    var onScreen = vidVisible && frameShown() && !document.hidden && !sheetOpen;
+    var frame = $('hdVideo'), cmd = !onScreen ? 'pause' : (Y && !Y.autoPlay() ? 'idle' : 'play');
     if (!frame.contentWindow || (!force && cmd === vidSent)) return;
     vidSent = cmd;
     if (cmd === 'play') vidExpectPlay();
-    // Settings › "Auto-mute Home video" (read each time, so a change applies on the next play).
-    var sound = !!(window.RMYouTube && !RMYouTube.autoMute());
+    var sound = !!(Y && !Y.autoMute());
     try { frame.contentWindow.postMessage({ rmVideo: cmd, sound: sound }, '*'); } catch (e) {}
   }
   function vidWatch() {

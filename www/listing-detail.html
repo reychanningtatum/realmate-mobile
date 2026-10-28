@@ -401,7 +401,7 @@
 <script src="mates.js?v=20261022b"></script>
 <script src="nav-menu.js?v=20260930a"></script>
 <script src="location-engine.js?v=20260809b"></script>
-<script src="match-engine.js?v=20261022b"></script>
+<script src="match-engine.js?v=20261028a"></script>
 <script src="developers.js?v=36"></script>
 <script src="rm-track.js?v=20261019e"></script>
 <script src="match-alert.js?v=20261021b"></script>
@@ -836,7 +836,12 @@ function _hlUnitType(raw){
   if (_hlSubject(text, /\bstudio\b/))                          return 'Studio';
   const bed = _hlBedCountSubject(text);
   if (bed) return bed === 1 ? '1 Bedroom' : `${bed} Bedrooms`;
-  if (_hlSubject(text, /\boffice\b/))                          return 'Office Space';
+  // Business premises (restaurant, lounge, café, shop…) and "office" as what the
+  // post IS — read by the Match Engine so the label and the matching agree
+  // (an amenity like "✔ Admin / Office Room" is not an Office Space).
+  const M = window.RM_MATCH;
+  if (M && M.businessSpace && M.businessSpace(text))         return 'Commercial Space';
+  if (M && M.officeSubject ? M.officeSubject(text) : _hlSubject(text, /\boffice\b/)) return 'Office Space';
   if (_hlSubject(text, /\bbuilding\b/))                        return 'Building';
   return '';
 }

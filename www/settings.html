@@ -72,11 +72,21 @@
         <!-- ── Home Video (DRAFT, staging only — shown by home-video-settings.js) ── -->
         <div class="settings-card" id="homeVideoCard" style="display:none;">
             <div class="settings-card-title"><i class="fab fa-youtube" style="color: var(--primary);"></i> Home Video</div>
-            <p class="settings-card-sub">The video at the top of Home plays on its own while it's on screen.</p>
+            <p class="settings-card-sub">Choose how the video at the top of Home plays. It always pauses when you leave Home.</p>
             <div class="settings-row">
                 <div>
+                    <div class="settings-row-label">Autoplay Home video</div>
+                    <div class="settings-row-desc">On (default): the video starts on its own while it's on screen. Off: it waits until you tap play.</div>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" id="toggleHomeVideoAutoplay" onchange="saveHomeVideoAutoplayPref(this.checked)">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div class="settings-row" style="margin-top:12px;">
+                <div>
                     <div class="settings-row-label">Auto-mute Home video</div>
-                    <div class="settings-row-desc">On (default): it plays muted — tap YouTube's speaker to listen. Off: it plays with sound (some browsers still start it muted).</div>
+                    <div class="settings-row-desc">Off: it plays with sound. On: it starts muted — tap YouTube's speaker to listen. Off by default in the app; on by default on the website, where browsers only autoplay muted video.</div>
                 </div>
                 <label class="switch">
                     <input type="checkbox" id="toggleHomeVideoMute" onchange="saveHomeVideoMutePref(this.checked)">
@@ -318,10 +328,10 @@
 <script src="auth-guard.js?v=20261021d"></script>
 <script src="profile-live.js?v=20261019e"></script>
 <script src="settings.js?v=20261021a"></script>
-<script src="rm-youtube.js?v=20261028d"></script>
-<script src="home-video-settings.js?v=20261028a"></script>
+<script src="rm-youtube.js?v=20261028f"></script>
+<script src="home-video-settings.js?v=20261028b"></script>
 <script src="location-engine.js?v=20260809b"></script>
-<script src="match-engine.js?v=20261022b"></script>
+<script src="match-engine.js?v=20261028a"></script>
 <script src="visibility.js?v=20261002a"></script>
 <script src="match-alert.js?v=20261021b"></script>
 <script src="notif-badge.js?v=20261019e"></script>

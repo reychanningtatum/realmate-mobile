@@ -61,15 +61,30 @@
     }, function () { return { ok: false, reason: 'unavailable' }; });
   }
 
-  // Settings › Home Video › "Auto-mute Home video" (this device). Default ON.
-  var AUTOMUTE_KEY = 'rm_home_video_automute';
+  // Settings › Home Video (this device):
+  //   "Autoplay Home video" — default ON  (stored '0' = off)
+  //   "Auto-mute Home video" — default OFF in the iPhone app (it may autoplay with
+  //   sound) and ON on the website (browsers only autoplay muted video).
+  //   A choice saved in Settings always wins.
+  var AUTOPLAY_KEY = 'rm_home_video_autoplay', AUTOMUTE_KEY = 'rm_home_video_automute';
+  function read(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+  function write(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+  function autoPlay() { return read(AUTOPLAY_KEY) !== '0'; }
+  function setAutoPlay(on) { write(AUTOPLAY_KEY, on ? '1' : '0'); }
+  // The native app serves its pages from capacitor:// (also inside the tab frames).
+  function inApp() {
+    if (g.location && g.location.protocol === 'capacitor:') return true;
+    try { var C = g.Capacitor || (g.top && g.top.Capacitor); return !!(C && C.isNativePlatform && C.isNativePlatform()); }
+    catch (e) { return false; }
+  }
   function autoMute() {
-    try { return localStorage.getItem(AUTOMUTE_KEY) !== '0'; } catch (e) { return true; }
+    var v = read(AUTOMUTE_KEY);
+    if (v === '1') return true;
+    if (v === '0') return false;
+    return !inApp();
   }
-  function setAutoMute(on) {
-    try { localStorage.setItem(AUTOMUTE_KEY, on ? '1' : '0'); } catch (e) {}
-  }
+  function setAutoMute(on) { write(AUTOMUTE_KEY, on ? '1' : '0'); }
 
   g.RMYouTube = { videoId: videoId, embedUrl: embedUrl, playerUrl: playerUrl, info: info,
-    autoMute: autoMute, setAutoMute: setAutoMute };
+    autoPlay: autoPlay, setAutoPlay: setAutoPlay, autoMute: autoMute, setAutoMute: setAutoMute, inApp: inApp };
 })(typeof window !== 'undefined' ? window : this);

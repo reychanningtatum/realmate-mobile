@@ -1042,10 +1042,72 @@
         if (_hlSubject(text, /\bstudio\b/))                          return ['Studio'];
         const beds = _bedTokensSubject(text);
         if (beds.length) return beds.map(n => n === 1 ? '1 Bedroom' : `${n} Bedrooms`);
-        if (_hlSubject(text, /\boffice\b/))                          return ['Office Space'];
+        if (_businessSpace(text))                                    return ['Commercial Space'];
+        if (_officeSubject(text))                                    return ['Office Space'];
         if (_hlSubject(text, /\bbuilding\b/))                        return ['Building'];
         if (_generalLot(text))                                       return ['Lot'];
+        if (_island(text))                                           return ['Island'];
         return [];
+    }
+
+    // A post about an island ("Private island for sale", "2-hectare island"). Last
+    // resort only — every type above wins, so a post that already has a type keeps
+    // it. "island" right after a place name ("Samal Island", "Mactan Island") is
+    // where the property is, not what it is, so it only counts on its own or after
+    // a plain description / size word. "kitchen island" and use mentions never count.
+    const _ISLAND_PRE_OK = /^(?:a|an|the|this|our|my|private|whole|entire|own|small|big|large|huge|beautiful|pristine|virgin|tropical|beachfront|beach|titled|exclusive|sale|for|lease|rent|selling|\d[\d.,]*(?:-?(?:hectares?|has?|ha|sqm|hectare))?|hectares?|has?|ha|sqm)$/;
+    function _island(text) {
+        const g = /\bislands?\b/gi;
+        let m;
+        while ((m = g.exec(text))) {
+            const s = m.index, e = s + m[0].length;
+            if (_hlUseMention(text, s, e)) continue;
+            const lineStart = text.lastIndexOf('\n', s - 1) + 1;
+            const pre = text.slice(lineStart, s).replace(/[^A-Za-z0-9.,\s-]+/g, ' ').trim().split(/\s+/).pop() || '';
+            if (pre && !_ISLAND_PRE_OK.test(pre.toLowerCase())) continue;   // "Samal Island", "kitchen island"
+            return true;
+        }
+        return false;
+    }
+
+    // A post whose TITLE (its first few lines) is a business premises — a
+    // restaurant, lounge, bar, café, shop, salon, clinic, kiosk… — is offering a
+    // Commercial Space ("BRAND NEW SOCIAL LOUNGE IN ORTIGAS CENTER"). A business
+    // that is only nearby ("near restaurants", "walking distance to cafés") or a
+    // use mention never counts. Checked after every explicit type above.
+    const _BUSINESS = /\b(?:restaurants?|resto(?:[\s-]*bar)?s?|lounges?|bars?|caf[eé]s?|coffee[\s-]*shops?|eatery|bistro|diner|bakery|food[\s-]*(?:business|hub|park|court|stall)|retail[\s-]*(?:space|unit|shop|store)s?|shops?|stores?|boutique|salon|spa|clinic|kiosks?|stalls?|showroom|commercial[\s-]*units?)(?![A-Za-z0-9\u00C0-\u024F])/gi;   // no \b after é
+    const _NEARBY = /\b(?:near(?:by)?|close\s+to|beside|next\s+to|across(?:\s+from)?|walking\s+distance|minutes?\s+(?:to|from|away)|access\s+to|surrounded\s+by|steps\s+(?:to|from|away)|around|nearby)\b/i;
+    function _businessSpace(text) {
+        const head = text.split('\n').map(s => s.trim()).filter(Boolean).slice(0, 3).join('\n');
+        const g = new RegExp(_BUSINESS.source, 'gi');
+        let m;
+        while ((m = g.exec(head))) {
+            const s = m.index, e = s + m[0].length;
+            if (_hlUseMention(head, s, e)) continue;
+            const lineStart = head.lastIndexOf('\n', s - 1) + 1;
+            if (_NEARBY.test(head.slice(lineStart, s))) continue;        // "near restaurants"
+            return true;
+        }
+        return false;
+    }
+
+    // "office" as what the post IS. An amenity bullet ("✔ Admin / Office Room",
+    // "- with office"), an office ROOM / home office / admin office inside another
+    // property, or a use mention never makes it an Office Space.
+    function _officeSubject(text) {
+        const g = /\boffices?\b/gi;
+        let m;
+        while ((m = g.exec(text))) {
+            const s = m.index, e = s + m[0].length;
+            if (_hlUseMention(text, s, e)) continue;
+            const lineStart = text.lastIndexOf('\n', s - 1) + 1;
+            const line = text.slice(lineStart, s);
+            if (/^\s*(?:[✔✓☑✅•▪◦·*\-–—>]|[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}])/u.test(line)) continue;   // amenity bullet
+            if (/\b(?:home|admin|admin\s*\/|manager'?s?|private)\s*$/i.test(line)) continue;
+            if (/^\s*(?:room|desk|nook|area|table|chair)s?\b/i.test(text.slice(e, e + 12))) continue;
+            return true;
+        }
+        return false;
     }
 
     // A post about a lot that doesn't say which kind ("Lot for sale", "Vacant lot").
@@ -1072,11 +1134,15 @@
     // (Residential / Commercial / Industrial Lot) and vice versa; two DIFFERENT
     // specific lots never match. Returns the type to show for the pair (the more
     // specific one), or null when incompatible.
+    // An Island is land: it matches the general "Lot" and every specific lot, both
+    // ways (shown as "Island").
     const _LOT_SUBTYPES = new Set(['Residential Lot', 'Commercial Lot', 'Industrial Lot']);
     function unitTypesCompatible(a, b) {
         if (a === b) return a;
         if (a === 'Lot' && _LOT_SUBTYPES.has(b)) return b;
         if (b === 'Lot' && _LOT_SUBTYPES.has(a)) return a;
+        if (a === 'Island' && (b === 'Lot' || _LOT_SUBTYPES.has(b))) return a;
+        if (b === 'Island' && (a === 'Lot' || _LOT_SUBTYPES.has(a))) return b;
         return null;
     }
 
@@ -1907,6 +1973,9 @@
         _bedTokensSubject,
         unitTypesForMatch,
         unitTypesCompatible,
+        // The same two readings for screens that label a post (Listing Detail).
+        businessSpace: function (text) { return _businessSpace(String(text || '').replace(/\r/g, '')); },
+        officeSubject: function (text) { return _officeSubject(String(text || '').replace(/\r/g, '')); },
         levenshtein,
         normalizeSeparators,
         separatorInsensitivePattern,
