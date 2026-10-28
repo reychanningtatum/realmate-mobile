@@ -798,6 +798,24 @@
         return p;
     }
 
+    // Every place alias the shared location engine knows (RM_LOC.aliasList), in the
+    // same normalized lower-case form fuzzyMatchProject compares. Built once.
+    let _placeNames = null;
+    function _isPlaceName(phrase) {
+        if (!_placeNames) {
+            _placeNames = new Set();
+            try {
+                const loc = global.RM_LOC;
+                (loc && loc.aliasList ? loc.aliasList() : []).forEach(a => {
+                    const k = normalizeSeparators(String(a)).toLowerCase().split(/\s+/)
+                        .map(w => w.replace(/^[^a-z0-9]+|[^a-z0-9]+$/g, '')).filter(Boolean).join(' ');
+                    if (k) _placeNames.add(k);
+                });
+            } catch (e) { /* no location engine → no place guard (as before) */ }
+        }
+        return _placeNames.has(phrase);
+    }
+
     function fuzzyMatchProject(text) {
         const allProjects = [...KNOWN_PROJECTS, ...getLearnedProjects()];
         // Strip edge punctuation from each token ("veranda," → "veranda", "60k."
@@ -878,6 +896,10 @@
                 // (brand) must not become "amara" (project), and "monthly" must not
                 // become "Montala". Only single-token phrases can collide this way.
                 if (npw === 1 && (COMPANY_NAME_SET.has(phrase) || PROJECT_STOP_WORDS.has(phrase))) continue;
+                // A known PLACE name (any alias in the shared location engine) is that
+                // place, never a misspelt project: "Aseana City" / "aseana" (Parañaque
+                // CBD) must not become the "Asyana" project one letter away.
+                if (_isPlaceName(phrase)) continue;
                 // Same rule inside a multi-word phrase: a function word or everyday
                 // word is itself, not a misspelt piece of a project name. Without
                 // this, "in Salcedo" (a place the buyer wants to be IN) was two edits
