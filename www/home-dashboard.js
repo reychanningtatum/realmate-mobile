@@ -100,10 +100,14 @@
     el.innerHTML = '<span class="hd-date-day">' + d.toLocaleDateString('en-US', { weekday: 'long' }) +
       ' · <span class="hd-date-time">' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) + '</span></span>' +
       '<span class="hd-date-full">' + d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) + '</span>';
+    // Night cover photo from 6:00 PM to 5:59 AM (when the greeting says "Good evening").
+    var hero = document.querySelector('.hd-hero');
+    if (hero) hero.classList.toggle('hd-night', isNight(d));
   }
+  function isNight(d) { var h = d.getHours(); return h >= 18 || h < 6; }
   // Keep the clock current: refresh at the start of each new minute.
   (function tick() {
-    setTimeout(function () { showDate(); tick(); }, 60000 - (Date.now() % 60000) + 50);
+    setTimeout(function () { header(null); tick(); }, 60000 - (Date.now() % 60000) + 50);   // greeting, date, time, day/night photo
   })();
   // The app can stay open past midnight: refresh the date (and greeting) on return.
   document.addEventListener('visibilitychange', function () { if (!document.hidden) header(null); });

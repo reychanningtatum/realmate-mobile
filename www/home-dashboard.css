@@ -60,6 +60,20 @@ html.rm-embedded .hd { padding-bottom: 24px; }
 .hd-hero-top { display: flex; align-items: center; justify-content: space-between; position: relative; z-index: 1; }
 .hd-logo { height: 26px; width: auto; }
 .hd-greet, .hd-sub, .hd-date { text-shadow: var(--hd-glow); }
+/* Night (6 PM – 6 AM): the night skyline under a soft dark fade, white text. */
+.hd-hero.hd-night {
+  --hd-ink: #ffffff;
+  --hd-sub: rgba(255, 255, 255, .86);
+  --hd-veil-top: rgba(6, 12, 28, .55);
+  --hd-veil-mid: rgba(6, 12, 28, .32);
+  --hd-veil-bot: rgba(6, 12, 28, .05);
+  --hd-glow: 0 0 10px rgba(0, 0, 0, .55), 0 0 2px rgba(0, 0, 0, .45);
+  color: #ffffff;
+  background:
+    linear-gradient(180deg, var(--hd-veil-top) 0%, var(--hd-veil-mid) 60%, var(--hd-veil-bot) 100%),
+    url("images/home-cover-night.jpg") center 35% / cover no-repeat,
+    #0b1630;
+}
 .hd-date { display: flex; flex-direction: column; align-items: flex-end; text-align: right; line-height: 1.2; }
 .hd-date-day { font-size: 13px; font-weight: 700; color: var(--hd-ink); }
 .hd-date-full { font-size: 12px; color: var(--hd-sub); }
