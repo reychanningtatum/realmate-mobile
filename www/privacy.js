@@ -1,14 +1,14 @@
 /* privacy.js — RMPriv: shared account-privacy + relationship access rules.
  *
- * The whole app decides "can viewer V see owner O's posts / listings / About"
- * through this one module, so the rules can't drift between the Profile, Feed and
+ * The whole app decides "can viewer V see owner O's listings / About"
+ * through this one module, so the rules can't drift between the Profile and
  * Portal. Enforcement is client-side (consistent with the current anon-key
  * architecture — see project_security_remediation); a Public account or a
  * granted relationship opens access, otherwise it's hidden.
  *
  * Access model (for a PRIVATE account; a Public one shows everything):
- *   • Realmate  (mutual, accepted mate) -> listings + posts + About
- *   • Follower  (accepted follow)        -> posts + About   (NOT listings)
+ *   • Realmate  (mutual, accepted mate) -> listings + About
+ *   • Follower  (accepted follow)        -> About   (NOT listings)
  *   • neither                            -> nothing on the profile
  * A listing encountered in the Portal marketplace stays viewable to anyone; this
  * module gates the PROFILE view of a user's content.
@@ -22,11 +22,11 @@
       (window.supabase ? (window.__privClient || (window.__privClient = window.supabase.createClient(SB_URL, SB_KEY))) : null);
   }
 
-  // Access hierarchy (kind: 'posts' | 'listings' | 'about'; f = resolve() flags):
+  // Access hierarchy (kind: 'listings' | 'about'; f = resolve() flags):
   //   Self            -> everything
-  //   Realmate        -> Posts + Listings + About
-  //   Approved Follower-> Posts + About only  (NEVER Listings)
-  //   Public account  -> Posts + About to anyone (Listings still Realmate-only)
+  //   Realmate        -> Listings + About
+  //   Approved Follower-> About only  (NEVER Listings)
+  //   Public account  -> About to anyone (Listings still Realmate-only)
   //   Pending / none  -> nothing on a Private profile
   // Following is a LIMITED social relationship; Listings are the Realmate tier.
   function can(kind, f) {
@@ -36,7 +36,7 @@
     // even on a Public account (only the Portal marketplace shows a listing to
     // anyone; this gates the PROFILE view).
     if (kind === 'listings') return !!f.isMate;
-    // Posts + About: a Public account shows them to anyone; a Private account
+    // About: a Public account shows it to anyone; a Private account
     // only to an APPROVED follower or a Realmate (a pending request grants none).
     if (f.ownerPublic) return true;
     return !!(f.isFollower || f.isMate);
@@ -64,11 +64,10 @@
       if (myId && String(myId) === String(ownerId)) { out.isSelf = true; out.ownerPublic = true; return out; }
       var prof = await c.from('profiles').select('is_public').eq('id', ownerId).maybeSingle();
       // Do NOT treat an account as Public just because the is_public column isn't
-      // deployed yet — that exposed every profile's posts + listings to
+      // deployed yet — that exposed every profile's listings to
       // non-Realmates (the "privacy was lost" bug). Leave ownerPublic FALSE on a
       // missing column / error so we fall through to the RELATIONSHIP gate below
-      // (Realmate → listings+posts+About, Follower → posts+About, neither →
-      // nothing). The FEED stays open separately via postAccessSet(); this
+      // (Realmate → listings+About, Follower → About, neither → nothing). This
       // profile gate is intentionally the private-by-default, safe direction.
       out.ownerPublic = !!(prof.data && prof.data.is_public);
       if (!myId) return out;                                 // logged-out → only public content
@@ -84,34 +83,5 @@
     return out;
   }
 
-  // Batch: given a list of owner ids (e.g. the authors of a feed of posts),
-  // return the set of owners whose POSTS may appear in the viewer's Feed. The
-  // Feed is an OPEN discovery stream, so this returns EVERY requested owner (plus
-  // the viewer). Account privacy is enforced on the PROFILE via resolve(), not
-  // here — tapping a private author from the feed still hits the profile gate.
-  // Kept as a batch hook so a future per-post visibility model (Discoverable /
-  // Followers / Only Me) can filter here without changing callers.
-  //   -> { set: Set<string ownerId>, myId: string|null }
-  async function postAccessSet(ownerIds) {
-    var res = { set: new Set(), myId: null };
-    var ids = []; var seen = {};
-    (ownerIds || []).forEach(function (o) { var s = o && String(o); if (s && !seen[s]) { seen[s] = 1; ids.push(s); } });
-    // The Feed is an OPEN discovery stream (product decision): a post shared to
-    // the feed is visible to everyone here, even from a Private account. Account
-    // privacy gates the PROFILE (see resolve()), not the feed. Per-post
-    // visibility (Discoverable / Followers / Only Me) is a separate, future
-    // concept; when it lands, filter on each post's own visibility here.
-    // Added BEFORE the auth lookup so a failed lookup still fails open (it used
-    // to return an empty set, which emptied the whole Feed).
-    ids.forEach(function (s) { res.set.add(s); });
-    try {
-      var c = sb(); if (!c) return res;
-      var me = (await c.auth.getUser()).data.user;
-      var myId = me && me.id; res.myId = myId || null;
-      if (myId) res.set.add(String(myId));                 // my own posts always
-    } catch (e) { /* fail open: every requested owner is already in the set */ }
-    return res;
-  }
-
-  window.RMPriv = { can: can, resolve: resolve, postAccessSet: postAccessSet };
+  window.RMPriv = { can: can, resolve: resolve };
 })();

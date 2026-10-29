@@ -63,9 +63,10 @@
 
   // Settings › Home Video (this device):
   //   "Autoplay Home video" — default ON  (stored '0' = off)
-  //   "Auto-mute Home video" — default OFF in the iPhone app (it may autoplay with
-  //   sound) and ON on the website (browsers only autoplay muted video).
-  //   A choice saved in Settings always wins.
+  //   "Auto-mute Home video" — default ON everywhere: browsers only autoplay muted
+  //   video, and iPhone Bug Reports showed the app refuses autoplay with sound too
+  //   (YouTube's player runs in a website frame). A choice saved in Settings wins;
+  //   with it off Home tries sound and falls back to muted if refused.
   var AUTOPLAY_KEY = 'rm_home_video_autoplay', AUTOMUTE_KEY = 'rm_home_video_automute';
   function read(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
   function write(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
@@ -77,12 +78,7 @@
     try { var C = g.Capacitor || (g.top && g.top.Capacitor); return !!(C && C.isNativePlatform && C.isNativePlatform()); }
     catch (e) { return false; }
   }
-  function autoMute() {
-    var v = read(AUTOMUTE_KEY);
-    if (v === '1') return true;
-    if (v === '0') return false;
-    return !inApp();
-  }
+  function autoMute() { return read(AUTOMUTE_KEY) !== '0'; }
   function setAutoMute(on) { write(AUTOMUTE_KEY, on ? '1' : '0'); }
 
   g.RMYouTube = { videoId: videoId, embedUrl: embedUrl, playerUrl: playerUrl, info: info,

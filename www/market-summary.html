@@ -9,7 +9,7 @@
   <title>realmate | Market Summary</title>
   <link rel="stylesheet" href="vendor/fontawesome/css/all.min.css?v=6.5.0">
   <link rel="stylesheet" href="vendor/googlefonts/fonts.css?v=1">
-  <link rel="stylesheet" href="forum.css?v=20260716a">
+  <link rel="stylesheet" href="forum.css?v=20261030f">
   <link rel="stylesheet" href="mobile-back.css">
   <script src="theme.js?v=20260812a"></script>
   <script src="toast.js?v=20261001a"></script>
@@ -90,7 +90,7 @@
     html[data-theme="dark"] .ms-activity { background: #1e293b; border-color: #334155; }
     html[data-theme="dark"] .ms-activity-item { border-color: #334155; color: #94a3b8; }
   </style>
-  <script src="featureFlags.js?v=20260925b"></script>
+  <script src="featureFlags.js?v=20261030f"></script>
 <link rel="stylesheet" href="safe-area.css?v=20260915d">
 <script>if(window.self!==window.top)document.documentElement.classList.add("rm-embedded");</script>
   <link rel="stylesheet" href="desktop-nav.css?v=20260928a">
@@ -99,9 +99,8 @@
 
 <div class="sidebar">
   <div class="brand">
-    <img src="images/realmate2.png" onclick="location.href='home.html'">
+    <img src="images/realmate2.png" onclick="location.href='home-dashboard.html'">
   </div>
-  <div class="nav-item" id="rmSideSaved" onclick="location.href='home.html?view=saved'"><i class="fas fa-bookmark"></i> <span>Saved</span></div>
   <div class="nav-item" onclick="location.href='realmates.html'"><i class="fas fa-user-group"></i> <span>My realmates</span></div>
   <div class="nav-item" onclick="openCustomerService()"><i class="fas fa-headset"></i> <span>Customer Service</span></div>
   <div class="nav-item" onclick="openFeedback()"><i class="fas fa-comment-dots"></i> <span>Feedback</span></div>
@@ -123,8 +122,7 @@
 </div>
 
 <nav class="mobile-bottom-nav">
-  <a class="mob-nav-item" href="home.html"><i class="fas fa-border-all"></i><span>Feed</span></a>
-  <a class="mob-nav-item" href="forum.html" style="display:none"><i class="fas fa-bullhorn"></i><span>Forum</span></a>
+  <a class="mob-nav-item" href="home-dashboard.html"><i class="fas fa-house"></i><span>Home</span></a>
   <a class="mob-nav-item" href="realmates.html" style="display:none"><i class="fas fa-user-group"></i><span>realmates</span></a>
   <a class="mob-nav-item" href="chat.html"><i class="fas fa-comment-dots"></i><span>Chat</span></a>
   <a class="mob-nav-item mob-nav-center" href="livemarket.html"><i class="fas fa-globe"></i><span>Portal</span></a>
@@ -148,14 +146,14 @@
 <script src="vendor/supabase-js.min.js?v=2.112.3"></script>
 <script src="visibility.js?v=20260819a"></script>
 <script src="search-sync.js?v=20261019e"></script>
-<script src="profile-live.js?v=20261019e"></script><script src="search-overlay.js?v=20261019e"></script>
+<script src="profile-live.js?v=20261019e"></script><script src="search-overlay.js?v=20261030f"></script>
 <script src="vendor/chartjs/chart.umd.min.js?v=4.4.0"></script>
-<script src="auth-guard.js?v=20261021d"></script>
-<script src="nav-menu.js?v=20260930a"></script>
+<script src="auth-guard.js?v=20261030f"></script>
+<script src="nav-menu.js?v=20261030f"></script>
 <script src="location-engine.js?v=20260809b"></script>
 <script src="match-engine.js?v=20261028b"></script>
 <script src="match-alert.js?v=20261021b"></script>
-<script src="notif-badge.js?v=20261019e"></script>
+<script src="notif-badge.js?v=20261030f"></script>
 <script>
 const _sb = supabase.createClient(window.RM_ENV.url, window.RM_ENV.anonKey);
 

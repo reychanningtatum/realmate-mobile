@@ -193,11 +193,11 @@
 
   async function blockUser(userId, userName) {
     var sb = client(); if (!sb || !myId || !userId || userId === myId) return false;
-    // Confirmation FIRST — at the action layer, so no UI entry point (Feed, Portal,
+    // Confirmation FIRST — at the action layer, so no UI entry point (Portal,
     // Profile, Chat; mobile or desktop) can block a user with a single tap.
     var ok = await rmbrConfirm({
       title: 'Block this user?',
-      body: 'You won’t see ' + (userName ? '“' + userName + '”' : 'this user') + '’s posts, listings or messages, and they won’t see yours. You can undo this in Settings.',
+      body: 'You won’t see ' + (userName ? '“' + userName + '”' : 'this user') + '’s listings or messages, and they won’t see yours. You can undo this in Settings.',
       confirmLabel: 'Block', icon: 'fa-ban', danger: true
     });
     if (!ok) return false;
@@ -236,7 +236,7 @@
   async function blockPost(type, id, label) {
     var sb = client(); if (!sb || !myId || id == null) return false;
     // Confirmation FIRST — at the action layer, covering every block-post entry
-    // point (Feed, Portal; mobile or desktop) so a single tap never hides a post.
+    // point (Portal; mobile or desktop) so a single tap never hides an item.
     var noun = (type === 'listing') ? 'listing' : 'post';
     var ok = await rmbrConfirm({
       title: 'Block this ' + noun + '?',

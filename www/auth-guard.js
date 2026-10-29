@@ -82,7 +82,7 @@ function goBack() {
     if (window.history.length > 1) {
         window.history.back();
     } else {
-        window.location.href = 'home.html';
+        window.location.href = 'home-dashboard.html';
     }
 }
 
@@ -325,7 +325,6 @@ function goBack() {
                 u.image = prof.avatar_url;
                 localStorage.setItem("user", JSON.stringify(u));
                 try { window.loadNavAvatar && window.loadNavAvatar(); } catch (e) {}
-                try { window.initCreatePost && window.initCreatePost(); } catch (e) {}
             }
         }
     } catch (e) {
@@ -346,7 +345,6 @@ function goBack() {
             localStorage.setItem('user', JSON.stringify(u));
         } catch (e) {}
         try { window.loadNavAvatar && window.loadNavAvatar(); } catch (e) {}
-        try { window.initCreatePost && window.initCreatePost(); } catch (e) {}
         try { window.dispatchEvent(new CustomEvent('rm-avatar-changed', { detail: { url: newUrl, original: originalUrl || '' } })); } catch (e) {}
         // Fan out to the OTHER app-shell documents on this device — the persistent
         // mobile shell (app.html, which owns the visible navbar) and the other

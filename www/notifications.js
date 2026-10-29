@@ -67,7 +67,7 @@ async function _resolveLiveSenders(rows) {
         r.sender_user_name = liveName;
         r.sender_profile_picture = _notifAvatarFor(liveName, p.avatar_url);
         // Rows written before notifications-sender-id-migration.sql (or by
-        // dispatchNotificationTrigger in forum-script.js, which never set it)
+        // the retired Forum, which never set it)
         // have no sender_id at all — backfill it from the name-based profile
         // lookup above so every downstream consumer (mate-status checks,
         // click-through routing, the avatar/name links) can resolve by id
@@ -119,6 +119,11 @@ function formatRelativeTime(dateString) {
 /**
  * 🚀 DATABASE FETCH ROUTINE: INTEGRATED MULTI-IDENTITY MATCHING WITH QUOTE SANITIZATION
  */
+// Retired Feed notification types (list owned by notif-badge.js) are never shown.
+function _isRetiredNotif(n) {
+    return !!n && (window.RM_RETIRED_NOTIF_TYPES || []).indexOf(n.type) !== -1;
+}
+
 async function fetchNotificationsList() {
     try {
         const userSettings = JSON.parse(localStorage.getItem("userSettings")) || { useAnon: false, anonName: "" };
@@ -147,7 +152,7 @@ async function fetchNotificationsList() {
 
         if (error) throw error;
 
-        localNotificationsCache = data || [];
+        localNotificationsCache = (data || []).filter(n => !_isRetiredNotif(n));
         await _resolveLiveSenders(localNotificationsCache);
         // Which follow requests are still pending? Used to show Accept/Reject on
         // follow_request cards (vs "handled") — the mates table drives Realmate
@@ -216,24 +221,12 @@ function _buildNotificationCard(notif) {
     } else if (type === 'match') {
         typeIcon = "fa-bolt";
         contextClass = "badge-offer";
-    } else if (type === 'post_share') {
-        typeIcon = "fa-share";
-        contextClass = "badge-reply";
     } else if (type === 'broadcast') {
         typeIcon = "fa-bullhorn";
         contextClass = "badge-reply";
     } else if (type === 'content_removed') {
         typeIcon = "fa-gavel";
         contextClass = "badge-removed";
-    } else if (type.includes("like")) {
-        typeIcon = "fa-heart";
-        contextClass = "badge-like";
-    } else if (type.includes("mention")) {
-        typeIcon = "fa-at";
-        contextClass = "badge-mention";
-    } else if (type.includes("reply") || type.includes("comment")) {
-        typeIcon = "fa-comment-alt";
-        contextClass = "badge-reply";
     }
 
     // The mates table (via getMateStatus) is the actual source of truth for
@@ -273,7 +266,7 @@ function _buildNotificationCard(notif) {
 
     // Follow requests (Private account, approval-required). Show Accept/Reject
     // while the request is still pending (in the pre-fetched set); once handled,
-    // show a confirmation. Accepting lets the follower see my posts + About.
+    // show a confirmation. Accepting lets the follower see my About.
     const _isPendingFollow = type === 'follow_request' && window._pendingFollowerIds
         && notif.sender_id && window._pendingFollowerIds.has(String(notif.sender_id));
     const followActions = _isPendingFollow ? `
@@ -522,27 +515,9 @@ async function handleNotificationRowClick(id) {
         try { await markSingleNotificationAsRead(id); } catch (e) {}
     }
 
-    let anchorFragmentTarget = "";
-    if (notif.target_reply_id) {
-        anchorFragmentTarget = `reply-element-${notif.target_reply_id}`;
-    } else if (notif.target_comment_id) {
-        anchorFragmentTarget = `comment-element-${notif.target_comment_id}`;
-    } else if (notif.target_post_id) {
-        anchorFragmentTarget = `post-${notif.target_post_id}`;
-    }
-
-    // Store both the anchor element ID and the post ID so forum page can open the comment section
-    if (anchorFragmentTarget) {
-        localStorage.setItem("route_target_anchor_id", anchorFragmentTarget);
-    }
-    if (notif.target_post_id) {
-        localStorage.setItem("route_target_post_id", String(notif.target_post_id));
-    }
-
     // Admin content-removal → open the dedicated removal-explanation view.
-    // The post/comment/listing itself is permanently gone, so there is nothing
-    // to route to in the Feed; the details come from the notification's own
-    // snapshot instead.
+    // The removed item itself is permanently gone, so there is nothing to route
+    // to; the details come from the notification's own snapshot instead.
     if (notif.type === 'content_removed') {
         openContentRemovalDetails(notif);
         return;
@@ -556,8 +531,8 @@ async function handleNotificationRowClick(id) {
     }
 
     // Mate/follow notifications → go to sender's profile. follow_request MUST be
-    // here too: without it, tapping a follow-request row fell through to the
-    // post fallback below and opened the (feature-flagged, disabled) Forum.
+    // here too: without it, tapping a follow-request row fell through and
+    // went nowhere.
     if (notif.type === 'mate_request' || notif.type === 'mate_accepted' || notif.type === 'mate_declined' ||
         notif.type === 'follow' || notif.type === 'follow_request' || notif.type === 'follow_accepted') {
         await _notifGoToSenderProfile(notif);
@@ -576,57 +551,16 @@ async function handleNotificationRowClick(id) {
         return;
     }
 
-    // Broadcast = an admin announcement to everyone. Its whole content is the
-    // notification card itself; there is no specific item to open. Stay on the
-    // Notifications page (already marked read) rather than bouncing to the Feed.
-    if (notif.type === 'broadcast') {
-        return;
-    }
-
-    // Post/comment/reply/like/share notifications. If the target post is the
-    // CURRENT USER'S OWN post (e.g. "reacted to your post"), open My Profile →
-    // Posts and land on that exact post at its NATURAL position — never the Feed,
-    // never prepended to the top. Otherwise fall back to the Feed. Decision is
-    // data-driven (resolve the post's actual owner), not a guess from the
-    // notification type.
-    if (notif.target_post_id) {
-        let owner = null, source = null;
-        try {
-            const { data: postRows } = await _supabase
-                .from('forum_posts').select('user_id,user_name,source').eq('id', notif.target_post_id).limit(1);
-            owner = (postRows && postRows[0]) || null;
-            source = owner && owner.source;
-        } catch (e) {}
-        const myId = user.id || user.supabaseId;
-        const isOwnPost = !!owner && (
-            (myId && owner.user_id && String(owner.user_id) === String(myId)) ||
-            (owner.user_name && user.name && owner.user_name === user.name));
-        if (isOwnPost) {
-            // My own post → My Profile → Posts tab, exact post + green highlight.
-            // Clear the Feed deep-link keys so home.js's feed consumer never also
-            // fires (and never prepends the post to the top of the Feed).
-            try { localStorage.removeItem('route_target_post_id'); localStorage.removeItem('route_target_anchor_id'); } catch (e) {}
-            try { localStorage.setItem('route_profile_post_id', String(notif.target_post_id)); } catch (e) {}
-            location.href = 'dashboard.html';
-            return;
-        }
-        // Not my post → Feed (existing behavior). Resolve the home comment anchor
-        // so the Feed scrolls to the exact comment/reply once the thread renders.
-        if (source === 'home' && (notif.target_comment_id || notif.target_reply_id)) {
-            const cId = notif.target_reply_id || notif.target_comment_id;
-            localStorage.setItem('route_target_anchor_id', `hf-comment-${cId}`);
-        }
-        location.href = 'home.html';
-    } else {
-        location.href = 'home.html';
-    }
+    // Broadcast = an admin announcement to everyone, and any other type: the
+    // notification card itself is the whole content, so stay on Notifications
+    // (already marked read).
 }
 
 /**
  * Dedicated removal-explanation view for a `content_removed` notification.
  * Shows the exact explanation the admin selected plus a snapshot that lets the
- * user identify which of their posts/comments/listings was taken down — even
- * though it no longer exists in the Feed. The reporter is never identified here
+ * user identify which of their content was taken down — even though it no
+ * longer exists. The reporter is never identified here
  * (the notification carries nothing about who reported it).
  */
 function openContentRemovalDetails(notif) {
@@ -707,7 +641,7 @@ function setupRealtimeNotificationListener() {
                     : (payload.new.recipient_user_name === user.name ||
                        (userSettings.anonName && payload.new.recipient_user_name === userSettings.anonName));
 
-                if (targetMatch) {
+                if (targetMatch && !_isRetiredNotif(payload.new)) {
                     _resolveLiveSenders([payload.new]).finally(async () => {
                         localNotificationsCache.unshift(payload.new);
                         // A newly-arrived realmate/follow REQUEST changes the
@@ -761,15 +695,15 @@ function setupRealtimeNotificationListener() {
 
 async function handleNotifAcceptFollow(btn, followerId, notifId) {
     // Make the consequence explicit before granting access: accepting lets this
-    // follower see my posts + About.
+    // follower see my About.
     const _box = btn.closest('.hub-message-content-box');
     const _nameEl = _box && _box.querySelector('.hub-sender-name-clickable');
     const _fname = ((_nameEl && _nameEl.textContent) || 'This user').trim();
     const _okFollow = (typeof showConfirmDialog === 'function')
         ? await showConfirmDialog({ title: 'Accept follow request?',
-            message: _fname + ' will be able to see your posts and About once you accept.',
+            message: _fname + ' will be able to see your About once you accept.',
             confirmText: 'Accept', cancelText: 'Cancel' })
-        : confirm(_fname + ' will be able to see your posts and About once you accept. Continue?');
+        : confirm(_fname + ' will be able to see your About once you accept. Continue?');
     if (!_okFollow) return;
     btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
     const result = (typeof acceptFollowRequest === 'function') ? await acceptFollowRequest(followerId) : { error: 'unavailable' };
@@ -780,7 +714,7 @@ async function handleNotifAcceptFollow(btn, followerId, notifId) {
     if (window._pendingFollowerIds) window._pendingFollowerIds.delete(String(followerId));
     try { await markSingleNotificationAsRead(notifId); } catch (e) {}
     renderNotificationsInterface();
-    (window.showToast || function () {})('Follow request accepted. They can now see your posts & About.', 'success');
+    (window.showToast || function () {})('Follow request accepted. They can now see your About.', 'success');
 }
 async function handleNotifRejectFollow(btn, followerId, notifId) {
     btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';

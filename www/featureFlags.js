@@ -34,18 +34,6 @@
       notes: 'Phase 2a. Structured property fields in the Portal post modal (livemarket.html/js). Logic-gated in livemarket.js via isFeatureEnabled("structuredComposer").',
       selectors: ['#lmDetails']
     },
-    forum: {
-      enabled: false,
-      version: 'v2',
-      label: 'Community Forum',
-      notes: 'Forum page + all nav entries. Files: forum.html, forum.css, forum-script.js.',
-      selectors: [
-        '#nav-forum',
-        '.nav-item[onclick*="forum.html"]',
-        '.mob-nav-item[href="forum.html"]',
-        'button[onclick*="forum.html"]'
-      ]
-    },
     analytics: {
       enabled: false,
       version: 'v2',
@@ -69,34 +57,6 @@
       label: 'Market Price Ticker',
       notes: 'Scrolling ticker strip on the Portal page. Also gated in livemarket.js via isFeatureEnabled("marketTicker").',
       selectors: ['#tickerWrap']
-    },
-    questionPostType: {
-      enabled: false,
-      version: 'v2',
-      label: 'Question Post Type',
-      notes: 'Feed composer "Question" button. Handler still present in home.js: setPostType("question").',
-      selectors: ['#typeBtnQuestion']
-    },
-    followTopics: {
-      enabled: false,
-      version: 'v2',
-      label: 'Follow Topics (feed sidebar)',
-      notes: 'Feed right-sidebar "Follow Topics" widget. List populated by home.js (#topicsList).',
-      selectors: ['#topicsWidget']
-    },
-    communities: {
-      enabled: false,
-      version: 'v2',
-      label: 'Communities (feed sidebar)',
-      notes: 'Feed right-sidebar "Communities" widget (coming-soon placeholder).',
-      selectors: ['#communitiesWidget']
-    },
-    monthlyTopProducers: {
-      enabled: false,
-      version: 'v2',
-      label: 'Monthly Top Producers (feed)',
-      notes: 'Feed "Monthly Top Producers" section. Populated by top-producers.js (#tpGrid).',
-      selectors: ['#topProducersSection']
     }
   };
 
@@ -122,17 +82,17 @@
   // Standalone PAGES that belong to a disabled feature. Hiding the nav entries
   // isn't enough — the page is still reachable by a stray JS navigation
   // (e.g. an old notification route), a typed URL, or bfcache. Any page loading
-  // this script is bounced to the Feed while its feature is off, so a
+  // this script is bounced to Home while its feature is off, so a
   // feature-flagged feature is truly inaccessible everywhere. location.replace
   // (not href) keeps the blocked page out of history, so Back doesn't return to
   // it. Runs SYNCHRONOUSLY at load (script is in <head>) so it redirects before
   // the disabled page paints.
-  var PAGE_GUARDS = { 'forum.html': 'forum', 'analytics.html': 'analytics' };
+  var PAGE_GUARDS = { 'analytics.html': 'analytics' };
   function guardPage() {
     try {
       var page = (location.pathname.split('/').pop() || '').toLowerCase();
       var feat = PAGE_GUARDS[page];
-      if (feat && !isEnabled(feat)) { location.replace('home.html'); return true; }
+      if (feat && !isEnabled(feat)) { location.replace('home-dashboard.html'); return true; }
     } catch (e) {}
     return false;
   }

@@ -3087,7 +3087,8 @@ function renderPortalSuggest(q) {
     // of live suggestions. Each is re-runnable, individually removable, and there's
     // a Clear all. Persistent + per-user via RMSearchHistory.
     if (!q) {
-        const hist = (window.RMSearchHistory ? RMSearchHistory.list('recent') : []);
+        // Feed posts are retired: old 'post' entries are no longer shown.
+        const hist = (window.RMSearchHistory ? RMSearchHistory.list('recent') : []).filter(e => e && e.type !== 'post');
         window.__portalRecent = hist;
         if (!hist.length) { box.classList.remove('open'); box.innerHTML = ''; return; }
         let rh = `<div class="ps-section ps-section-recent">Recent searches<button class="ps-clear-all" onclick="event.stopPropagation(); portalClearRecent()">Clear all</button></div>`;
@@ -3229,12 +3230,12 @@ function onPortalSearchBlur() {
 
 // ── Portal recent-searches (persistent, per-user) ──────────────────────────
 // Tapping a recent entry re-opens the actual thing the user clicked before: a
-// person → their profile, a post → its listing detail, a plain query → re-run it.
+// person → their profile, a listing → its detail, a plain query → re-run it.
 function portalRecentClick(idx) {
     const e = (window.__portalRecent || [])[idx];
     if (!e) return;
-    // Unified recent list (shared with Feed): route each entity to itself —
-    // person → profile, listing → its detail, FEED post → the Feed post, query → re-run.
+    // Route each entity to itself — person → profile, listing → its detail,
+    // query → re-run.
     if (e.type === 'person' && e.id) {
         closePortalSuggest();
         const me = JSON.parse(localStorage.getItem('user') || 'null');
@@ -3242,10 +3243,6 @@ function portalRecentClick(idx) {
     } else if (e.type === 'listing' && e.id != null) {
         closePortalSuggest();
         lmOpenListing(e.id);
-    } else if (e.type === 'post' && e.id != null) {
-        closePortalSuggest();
-        try { localStorage.setItem('route_target_post_id', String(e.id)); } catch (_) {}
-        location.href = (e.src === 'forum') ? 'forum.html' : 'home.html';
     } else {
         const inp = document.getElementById('searchInput');
         if (inp) inp.value = e.label || '';
@@ -4658,7 +4655,7 @@ function _rmRecentPortalSave() {
 // so they're unaffected. In the mobile shell the referrer is app.html (not
 // home.html), so this is desktop-only in effect.
 function _cameFromFeed() {
-    try { return (document.referrer || '').indexOf('home.html') !== -1; } catch (e) { return false; }
+    try { return (document.referrer || '').indexOf('home-dashboard.html') !== -1; } catch (e) { return false; }
 }
 
 // Whichever element actually scrolls: .main-content on desktop (it has its own
@@ -5983,8 +5980,15 @@ async function downloadPdf() {
     }
 }
 
-// PDF.js script is loaded before livemarket.js so pdfjsLib is already available
-renderMarketReportPdf();
+// PDF.js script is loaded before livemarket.js so pdfjsLib is already available.
+// The report strip lives in the Portal's FEED tab, which is hidden (feature removed):
+// don't download the (multi-MB) PDF nobody can see — an interrupted download on a
+// phone was logged as "PDF render error: Load failed". Showing the FEED tab again
+// brings the report back.
+(function () {
+    const feedTab = document.querySelector('.seg-tab[data-seg="FEED"]');
+    if (feedTab && getComputedStyle(feedTab).display !== 'none') renderMarketReportPdf();
+})();
 
 // (Market Pulse YouTube embed removed — no third-party content)
 

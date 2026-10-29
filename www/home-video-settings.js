@@ -1,10 +1,10 @@
-/* home-video-settings.js — Settings › Home Video › "Autoplay Home video" + "Auto-mute Home video"
- * (DRAFT Home dashboard, STAGING ONLY). Stored on this device by RMYouTube
+/* home-video-settings.js — Settings › Home Video › "Autoplay Home video" + "Auto-mute Home video".
+ * Stored on this device by RMYouTube
  * (rm-youtube.js); Home reads them each time it shows the video.
  */
 (function () {
   'use strict';
-  if (!window.RM_ENV || window.RM_ENV.name !== 'staging' || !window.RMYouTube) return;
+  if (!window.RMYouTube) return;
   var Y = window.RMYouTube;
 
   function toast(msg, id) {

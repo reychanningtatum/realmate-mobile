@@ -15,23 +15,14 @@
         ? storedUrl
         : `https://ui-avatars.com/api/?name=${encodeURIComponent(name || '?')}&background=0f172a&color=32cd32`;
 
-    // This same search overlay is shared across every page (Feed, Forum,
-    // Portal, etc.) via one file. Forum search has a stricter listing
-    // visibility rule than the rest of the app — a listing should only
-    // surface there if the searcher and the poster are Realmates — so this
-    // is checked at render time rather than splitting the widget in two.
-    const IS_FORUM_PAGE = /forum\.html/i.test(location.pathname);
-    // Feed (home.html) has its own inline search bar that opens this same
-    // shared overlay (see wireUniversalInputs below) rather than the FAB.
-    const IS_FEED_PAGE = location.pathname.endsWith('home.html') || location.pathname === '/';
+    // This same people-search overlay is shared across pages via one file.
     // Notifications Hub's header search button clicks the (hidden) FAB to
-    // open this same overlay too — same interaction pattern as Feed, with
-    // its own separate Recent Searches bucket.
+    // open it, with its own Recent Searches bucket.
     const IS_NOTIF_PAGE = /notifications\.html/i.test(location.pathname);
     // Realmates page: this overlay searches ONLY registered users/profiles —
-    // never listings, forum posts, or any other Portal content. Selecting a
-    // result opens that user's profile. Kept deliberately separate from the
-    // Portal/global search, which spans people + listings + forum.
+    // never listings or any other Portal content. Selecting a result opens
+    // that user's profile. Kept deliberately separate from the Portal search,
+    // which spans people + listings.
     const IS_REALMATES_PAGE = /realmates\.html/i.test(location.pathname);
 
     // Returns the set of account ids the current user is an accepted
@@ -60,20 +51,14 @@
     // _soHistoryContext() returns null there and the feature no-ops.
     const SO_HISTORY_MAX = 10;
     function _soHistoryContext() {
-        if (IS_FORUM_PAGE) return 'forum';
-        if (IS_FEED_PAGE) return 'feed';
         if (IS_NOTIF_PAGE) return 'notifications';
         return null;
     }
-    // SEPARATE stores: Feed search history (scope 'feed') is its OWN list, kept apart
-    // from the Portal (scope 'recent'). Feed must NEVER share or display Portal's recent
-    // searches and vice-versa. RMSearchHistory provides account sync + real-time
-    // (BroadcastChannel/Supabase), so a Feed item added/removed here shows up on Feed's
-    // other devices (Feed Mobile ↔ Feed Desktop) live — and only on Feed.
+    // SEPARATE stores: this overlay's history (scope 'notifications') is its OWN list,
+    // kept apart from the Portal (scope 'recent'). RMSearchHistory provides account
+    // sync + real-time (BroadcastChannel/Supabase).
     function _soScope() {
-        const c = _soHistoryContext();
-        if (c === 'feed') return 'feed';     // Feed-only bucket (NOT shared with Portal)
-        return c;                            // 'forum' | 'notifications' | null
+        return _soHistoryContext();          // 'notifications' | null
     }
     function getSearchHistory() {
         try { return (_soScope() && window.RMSearchHistory) ? RMSearchHistory.list(_soScope()) : []; }
@@ -86,7 +71,7 @@
         if (scope && window.RMSearchHistory && RMSearchHistory.sync) RMSearchHistory.sync(scope, function () { cb(); });
         else cb();
     }
-    // Save the ACTUAL selected entity (account / feed post / listing), not the typed
+    // Save the ACTUAL selected entity (account / listing), not the typed
     // text. Normalizes 'profile' → 'person' for the shared store.
     function addToSearchHistory(item) {
         if (!item || item.id == null || !item.label) return;
@@ -116,7 +101,7 @@
             var layer = realImg ? `<span class="so-hist-av-img" style="background-image:url('${soCssUrl(realImg)}')"></span>` : '';
             return `<span class="so-hist-av"><span class="so-hist-av-ini">${esc(soInitials(item.label))}</span>${layer}</span>`;
         }
-        var icon = item.type === 'listing' ? 'fa-house' : (item.type === 'post' ? 'fa-comment-dots' : 'fa-clock-rotate-left');
+        var icon = item.type === 'listing' ? 'fa-house' : 'fa-clock-rotate-left';
         return `<span class="so-hist-ic"><i class="fas ${icon}"></i></span>`;
     }
     function renderSearchHistoryHtml() {
@@ -139,7 +124,7 @@
         `;
     }
     // What #soResults shows when the input is empty — search history on
-    // pages with a history context (Feed, Forum), the original placeholder
+    // pages with a history context (Notifications), the original placeholder
     // everywhere else.
     function renderEmptyState() {
         return _soHistoryContext() ? renderSearchHistoryHtml() : '<div class="so-empty"><i class="fas fa-magnifying-glass"></i><span>Start typing to search.</span></div>';
@@ -157,7 +142,6 @@
             return;
         }
         closeOverlay();
-        if (item.type === 'post') { _soOpenPost(item.id, item.src); return; }
         location.href = item.type === 'listing'
             ? 'listing-detail.html?id=' + item.id
             : 'dashboard.html?user_id=' + item.id;   // person/profile
@@ -336,7 +320,6 @@
     .so-willing-to-buy   { background:#f0fdf4; color:#166534; }
     .so-willing-to-rent  { background:#eff6ff; color:#1e40af; }
     .so-willing-to-lease { background:#fefce8; color:#854d0e; }
-    .so-forum { background:#ede9fe; color:#6d28d9; }
     .so-enter {
         font-size: 11px;
         font-weight: 700;
@@ -426,30 +409,26 @@
     let _pressInsidePanel = false; // a tap/click is in progress inside the search panel
     function init() {
         if (overlay) return;
-        // skip FAB on home page (has its own search bar)
-        if (!IS_FEED_PAGE) {
-            const fab = document.createElement('button');
-            fab.id = 'searchFab';
-            fab.setAttribute('aria-label', 'Search');
-            fab.innerHTML = '<i class="fas fa-magnifying-glass"></i>';
-            fab.onclick = openOverlay;
-            document.body.appendChild(fab);
-        }
+        const fab = document.createElement('button');
+        fab.id = 'searchFab';
+        fab.setAttribute('aria-label', 'Search');
+        fab.innerHTML = '<i class="fas fa-magnifying-glass"></i>';
+        fab.onclick = openOverlay;
+        document.body.appendChild(fab);
 
         overlay = document.createElement('div');
         overlay.id = 'searchOverlay';
-        // Feed (and Notifications, which follows the same pattern) already
-        // searches live as you type (see onInput's debounce below) and saves
-        // history on result selection, not on Enter — so neither the Enter
-        // nor Escape chip describes a real requirement there and both are
-        // dropped from the UI. Forum (and any other page hosting this
-        // overlay) keeps them unchanged.
-        const _hideChips = IS_FEED_PAGE || IS_NOTIF_PAGE;
+        // Notifications already searches live as you type (see onInput's
+        // debounce below) and saves history on result selection, not on Enter
+        // — so neither the Enter nor Escape chip describes a real requirement
+        // there and both are dropped from the UI. Any other page hosting this
+        // overlay keeps them unchanged.
+        const _hideChips = IS_NOTIF_PAGE;
         overlay.innerHTML = `
             <div class="so-box">
                 <div class="so-input-row">
                     <i class="fas fa-magnifying-glass"></i>
-                    <input id="soInput" type="text" enterkeyhint="search" placeholder="${IS_REALMATES_PAGE ? 'Search realmates…' : 'Search people and posts…'}" autocomplete="off">
+                    <input id="soInput" type="text" enterkeyhint="search" placeholder="${IS_REALMATES_PAGE ? 'Search realmates…' : 'Search people…'}" autocomplete="off">
                     ${_hideChips ? '' : `
                     <span class="so-enter" onclick="window.__searchEnter()">↵ Enter</span>
                     <span class="so-esc" onclick="window.__closeSearchOverlay()">ESC</span>
@@ -594,20 +573,6 @@
         }
     };
 
-    // Clicking a post: save it to history + deep-link to the feed/forum, scrolling
-    // straight to that post (reuses the notifications' route_target_post_id path).
-    window.__soPostClick = function (i) {
-        const p = (window.__soPosts || [])[i];
-        if (!p) return;
-        if (_soHistoryContext()) addToSearchHistory({ type: 'post', id: p.id, label: (p.content || 'Post').slice(0, 60) || 'Post', src: p.source });
-        closeOverlay();
-        _soOpenPost(p.id, p.source);
-    };
-    function _soOpenPost(id, source) {
-        try { localStorage.setItem('route_target_post_id', String(id)); } catch (e) {}
-        window.location.href = (source === 'forum') ? 'forum.html' : 'home.html';
-    }
-
     function openOverlay() {
         clearTimeout(_blurCloseTimer);            // a pending blur-close must not shut a fresh open
         const so = document.getElementById('soInput');
@@ -688,70 +653,36 @@
                 .or(`full_name.ilike.${pat},job_title.ilike.${pat},division.ilike.${pat}`).eq('is_hidden', false).limit(12);
             let _people = pr.data || [];
             if (window.RMDeact) { try { _people = await RMDeact.filterItemsByOwner(_people, 'id'); } catch (e) {} }
-            renderResults(_people, [], q);
+            renderResults(_people, q);
             return;
         }
 
-        // This is the FEED-side search: results are People + POSTS (the page's own
-        // feed/forum posts). Listings are intentionally NOT searched here — they
-        // belong to the Portal's own search. Which posts depends on context: Feed
-        // (home) → home posts, Forum → forum posts.
-        const postSource = _soHistoryContext() === 'forum' ? 'forum' : 'home';
-        const [pr, postRes] = await Promise.all([
-            sb.from('profiles').select('id,full_name,avatar_url,job_title,division')
-              .or(`full_name.ilike.${pat},job_title.ilike.${pat},division.ilike.${pat}`).eq('is_hidden', false).limit(6),
-            sb.from('forum_posts').select('id, content, user_name, user_id, privacy, created_at')
-              .or(`content.ilike.${pat},user_name.ilike.${pat}`)
-              .eq('source', postSource).order('created_at', { ascending: false }).limit(30)
-        ]);
-        let posts = postRes.data || [];
-
-        let me = {};
-        try { me = JSON.parse(localStorage.getItem('user') || '{}') || {}; } catch (e) {}
-        const myId = me.id ? String(me.id) : null;
-
-        // Respect post privacy: public posts, your own, or a Realmate's — so a
-        // realmates-only post never surfaces to someone who isn't connected.
-        const realmateIds = await getMyRealmateIds(sb, myId);
-        posts = posts.filter(p => (!p.privacy || p.privacy === 'public') || String(p.user_id) === myId || (p.user_id && realmateIds.has(String(p.user_id))));
-        // Blocked authors/posts are dropped when rendering (renderResults), so a
-        // block or unblock while the results are open updates them in place.
-
-        // Overlay each post's stored poster name with the LIVE profiles.full_name.
-        const posterIds = [...new Set(posts.filter(x => x.user_id).map(x => x.user_id))];
-        if (posterIds.length) {
-            const { data: posters } = await sb.from('profiles').select('id,full_name').in('id', posterIds);
-            const nameById = {};
-            (posters || []).forEach(p => { nameById[p.id] = p.full_name; });
-            posts.forEach(x => { if (x.user_id && nameById[x.user_id]) x.user_name = nameById[x.user_id]; });
-        }
-        posts.forEach(x => { x._source = postSource; });
-
+        // People search: listings are intentionally NOT searched here — they
+        // belong to the Portal's own search.
+        const pr = await sb.from('profiles').select('id,full_name,avatar_url,job_title,division')
+            .or(`full_name.ilike.${pat},job_title.ilike.${pat},division.ilike.${pat}`).eq('is_hidden', false).limit(6);
         let people = pr.data || [];
         // Drop DEACTIVATED accounts from People results (fail-open).
         if (window.RMDeact) { try { people = await RMDeact.filterItemsByOwner(people, 'id'); } catch (e) {} }
-        renderResults(people, posts, q);
+        renderResults(people, q);
     }
 
     // The results last fetched for a query, before blocks are applied — kept so
     // a block/unblock made anywhere re-renders them without searching again.
     let _soLast = null;
-    function _soVisible(people, posts) {
+    function _soVisible(people) {
         const R = window.RMBR;
-        return {
-            people: R ? people.filter(p => !R.isBlocked(p.id)) : people,
-            posts: (R ? posts.filter(p => !(R.isBlocked(p.user_id) || R.isPostBlocked('post', p.id))) : posts).slice(0, 10)
-        };
+        return R ? people.filter(p => !R.isBlocked(p.id)) : people;
     }
     document.addEventListener('rmbr:changed', function () {
-        try { if (_soLast && _soLast.q === _lastQ && document.getElementById('soResults')) renderResults(_soLast.people, _soLast.posts, _soLast.q); } catch (e) {}
+        try { if (_soLast && _soLast.q === _lastQ && document.getElementById('soResults')) renderResults(_soLast.people, _soLast.q); } catch (e) {}
     });
 
-    function renderResults(allPeople, allPosts, q) {
-        _soLast = { people: allPeople, posts: allPosts, q: q };
-        const { people, posts } = _soVisible(allPeople, allPosts);
+    function renderResults(allPeople, q) {
+        _soLast = { people: allPeople, q: q };
+        const people = _soVisible(allPeople);
         const el = document.getElementById('soResults');
-        if (!people.length && !posts.length) {
+        if (!people.length) {
             el.innerHTML = '<div class="so-empty"><i class="fas fa-circle-xmark"></i><span>No results found.</span></div>';
             return;
         }
@@ -780,24 +711,6 @@
                 html += `<div class="so-person" data-uid="${esc(String(p.id || ''))}" onclick="window.__soPersonClick(${i})">
                     <img src="${p.img}" class="so-avatar" onerror="this.src='https://ui-avatars.com/api/?name=?&background=0f172a&color=32cd32'">
                     <div><div class="so-pname">${name}</div>${job ? `<div class="so-pjob">${job}</div>` : ''}<span class="so-cat so-cat-people">People</span></div>
-                </div>`;
-            });
-        }
-        if (posts.length) {
-            // Cache posts so the click handler can save history + deep-link.
-            window.__soPosts = posts.map(p => ({
-                id: p.id,
-                content: (p.content || '').replace(/\s+/g, ' ').trim(),
-                user_name: p.user_name || '',
-                source: p._source || 'home'
-            }));
-            html += `<div class="so-section" style="margin-top:${people.length ? '8px' : '0'}">Posts</div>`;
-            window.__soPosts.forEach((p, i) => {
-                const snippet = esc(p.content.slice(0, 100));
-                const poster  = esc(p.user_name);
-                html += `<div class="so-listing" onclick="window.__soPostClick(${i})">
-                    <div class="so-lcontent">${snippet}${p.content.length > 100 ? '…' : ''}</div>
-                    ${poster ? `<div class="so-lposter">${poster}</div>` : ''}
                 </div>`;
             });
         }

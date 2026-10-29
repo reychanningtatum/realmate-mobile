@@ -9,13 +9,13 @@
     <title>realmate | Settings</title>
   <link rel="stylesheet" href="vendor/fontawesome/css/all.min.css?v=6.5.0">
     <link rel="stylesheet" href="vendor/googlefonts/fonts.css?v=1">
-    <link rel="stylesheet" href="forum.css?v=20260716a">
+    <link rel="stylesheet" href="forum.css?v=20261030f">
     <link rel="stylesheet" href="settings.css?v=20261002c">
     <link rel="stylesheet" href="block-report.css?v=20261001b">
     <link rel="stylesheet" href="mobile-back.css">
     <script src="theme.js?v=20260812a"></script>
   <script src="toast.js?v=20261001a"></script>
-  <script src="featureFlags.js?v=20260925b"></script>
+  <script src="featureFlags.js?v=20261030f"></script>
 <link rel="stylesheet" href="safe-area.css?v=20260915d">
 <script>if(window.self!==window.top)document.documentElement.classList.add("rm-embedded");</script>
   <link rel="stylesheet" href="desktop-nav.css?v=20260928a">
@@ -26,9 +26,8 @@
 
 <div class="sidebar">
   <div class="brand">
-    <img src="images/realmate2.png" onclick="location.href='home.html'">
+    <img src="images/realmate2.png" onclick="location.href='home-dashboard.html'">
   </div>
-  <div class="nav-item" id="rmSideSaved" onclick="location.href='home.html?view=saved'"><i class="fas fa-bookmark"></i> <span>Saved</span></div>
   <div class="nav-item" onclick="location.href='realmates.html'"><i class="fas fa-user-group"></i> <span>My realmates</span></div>
   <div class="nav-item" onclick="openCustomerService()"><i class="fas fa-headset"></i> <span>Customer Service</span></div>
   <div class="nav-item" onclick="openFeedback()"><i class="fas fa-comment-dots"></i> <span>Feedback</span></div>
@@ -86,7 +85,7 @@
             <div class="settings-row" style="margin-top:12px;">
                 <div>
                     <div class="settings-row-label">Auto-mute Home video</div>
-                    <div class="settings-row-desc">Off: it plays with sound. On: it starts muted — tap YouTube's speaker to listen. Off by default in the app; on by default on the website, where browsers only autoplay muted video.</div>
+                    <div class="settings-row-desc">On (default): it starts muted so it can always play on its own — tap YouTube's speaker to listen. Off: it tries to start with sound; phones and browsers that refuse that start it muted instead.</div>
                 </div>
                 <label class="switch">
                     <input type="checkbox" id="toggleHomeVideoMute" onchange="saveHomeVideoMutePref(this.checked)">
@@ -114,12 +113,12 @@
         <!-- ── Privacy ───────────────────────────────────────────────── -->
         <div class="settings-card">
             <div class="settings-card-title"><i class="fas fa-shield-halved" style="color: var(--primary);"></i> Privacy</div>
-            <p class="settings-card-sub">Control who can see your posts, listings, and About information.</p>
+            <p class="settings-card-sub">Control who can see your listings and About information.</p>
 
             <div class="settings-row">
                 <div>
                     <div class="settings-row-label">Public Account</div>
-                    <div class="settings-row-desc">On: anyone can see your posts, listings &amp; About. Off (default): only realmates see your listings; accepted followers &amp; realmates see your posts &amp; About.</div>
+                    <div class="settings-row-desc">On: anyone can see your About (listings stay realmates-only). Off (default): only realmates see your listings; accepted followers &amp; realmates see your About.</div>
                 </div>
                 <label class="switch">
                     <input type="checkbox" id="togglePublicAccount" onchange="savePublicAccountPref(this.checked)">
@@ -130,7 +129,7 @@
             <div class="settings-row" style="margin-top:12px;">
                 <div>
                     <div class="settings-row-label">Public Following</div>
-                    <div class="settings-row-desc">On: anyone can follow you instantly. Off (default): you approve each follow request before they can see your posts &amp; About.</div>
+                    <div class="settings-row-desc">On: anyone can follow you instantly. Off (default): you approve each follow request before they can see your About.</div>
                 </div>
                 <label class="switch">
                     <input type="checkbox" id="togglePublicFollow" onchange="savePublicFollowPref(this.checked)">
@@ -258,8 +257,8 @@
         </div>
 
         <div class="settings-card">
-            <div class="settings-card-title"><i class="fas fa-eye-slash" style="color: var(--primary);"></i> Blocked Posts</div>
-            <p class="settings-card-sub">Individual posts and listings you've hidden. The author stays visible — unblock here to see the item again.</p>
+            <div class="settings-card-title"><i class="fas fa-eye-slash" style="color: var(--primary);"></i> Hidden Listings</div>
+            <p class="settings-card-sub">Individual listings you've hidden. The owner stays visible — unhide here to see the listing again.</p>
             <div id="blockedPostsList" class="blocked-list"><div class="blocked-empty">Loading…</div></div>
         </div>
 
@@ -324,21 +323,20 @@
 
 <script src="native-auth.js?v=20261019e"></script>
 <script src="vendor/supabase-js.min.js?v=2.112.3"></script>
-<script src="block-report.js?v=20261019e"></script>
-<script src="auth-guard.js?v=20261021d"></script>
+<script src="block-report.js?v=20261030f"></script>
+<script src="auth-guard.js?v=20261030f"></script>
 <script src="profile-live.js?v=20261019e"></script>
-<script src="settings.js?v=20261021a"></script>
-<script src="rm-youtube.js?v=20261028f"></script>
-<script src="home-video-settings.js?v=20261028b"></script>
+<script src="settings.js?v=20261030f"></script>
+<script src="rm-youtube.js?v=20261030a"></script>
+<script src="home-video-settings.js?v=20261030f"></script>
 <script src="location-engine.js?v=20260809b"></script>
 <script src="match-engine.js?v=20261028b"></script>
 <script src="visibility.js?v=20261002a"></script>
 <script src="match-alert.js?v=20261021b"></script>
-<script src="notif-badge.js?v=20261019e"></script>
+<script src="notif-badge.js?v=20261030f"></script>
 <!-- Mobile Bottom Navigation -->
 <nav class="mobile-bottom-nav">
-  <a class="mob-nav-item" href="home.html"><i class="fas fa-border-all"></i><span>Feed</span></a>
-  <a class="mob-nav-item" href="forum.html" style="display:none"><i class="fas fa-bullhorn"></i><span>Forum</span></a>
+  <a class="mob-nav-item" href="home-dashboard.html"><i class="fas fa-house"></i><span>Home</span></a>
   <a class="mob-nav-item" href="realmates.html" style="display:none"><i class="fas fa-user-group"></i><span>realmates</span></a>
   <a class="mob-nav-item" href="chat.html"><i class="fas fa-comment-dots"></i><span>Chat</span></a>
   <a class="mob-nav-item mob-nav-center" href="livemarket.html"><i class="fas fa-globe"></i><span>Portal</span></a>
@@ -357,7 +355,7 @@
     </div>
   </div>
 </nav>
-<script src="nav-menu.js?v=20260930a"></script>
+<script src="nav-menu.js?v=20261030f"></script>
 <link rel="stylesheet" href="customer-service.css?v=3">
 <script src="customer-service.js?v=20261019e"></script><script src="feedback.js?v=20261019e"></script>
 </body>

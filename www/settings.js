@@ -586,22 +586,23 @@ async function unblockBlockedUser(id, name){
   if(ok){ showSettingsNotificationToast('User unblocked.','success'); loadBlockedUsers(); }
   else { showSettingsNotificationToast('Could not unblock. Please try again.','error'); }
 }
-/* ── Blocked posts/listings (individually hidden items — undo lives ONLY here) ── */
+/* ── Hidden listings (individually hidden items — undo lives ONLY here). Rows for
+   posts from the retired Feed are not shown. ── */
 async function loadBlockedPosts(){
   const el=document.getElementById('blockedPostsList'); if(!el||!window.RMBR||!RMBR.listBlockedPosts) return;
-  const list=await RMBR.listBlockedPosts();
-  if(!list.length){ el.innerHTML='<div class="blocked-empty">You haven’t hidden any posts.</div>'; return; }
+  const list=(await RMBR.listBlockedPosts()).filter(function(b){ return b.content_type==='listing'; });
+  if(!list.length){ el.innerHTML='<div class="blocked-empty">You haven’t hidden any listings.</div>'; return; }
   el.innerHTML=list.map(function(b){
-    const kind=b.content_type==='listing'?'Listing':'Post';
+    const kind='Listing';
     const label=b.content_label?_rmbrEsc(b.content_label):(kind+' '+_rmbrEsc(b.content_id));
-    return '<div class="blocked-row"><span class="blocked-name"><strong>'+kind+'</strong> · '+label+'</span><button class="settings-btn blocked-unblock" onclick="unblockBlockedPost(\''+_rmbrEsc(b.content_type)+'\',\''+_rmbrEsc(b.content_id)+'\')">Unblock</button></div>';
+    return '<div class="blocked-row"><span class="blocked-name"><strong>'+kind+'</strong> · '+label+'</span><button class="settings-btn blocked-unblock" onclick="unblockBlockedPost(\''+_rmbrEsc(b.content_type)+'\',\''+_rmbrEsc(b.content_id)+'\')">Unhide</button></div>';
   }).join('');
 }
 async function unblockBlockedPost(type, id){
   if(!window.RMBR||!RMBR.unblockPost) return;
   const ok=await RMBR.unblockPost(type, id);
-  if(ok){ showSettingsNotificationToast((type==='listing'?'Listing':'Post')+' unblocked.','success'); loadBlockedPosts(); }
-  else { showSettingsNotificationToast('Could not unblock. Please try again.','error'); }
+  if(ok){ showSettingsNotificationToast('Listing unhidden.','success'); loadBlockedPosts(); }
+  else { showSettingsNotificationToast('Could not unhide. Please try again.','error'); }
 }
 document.addEventListener('rmbr:ready', loadBlockedUsers);
 document.addEventListener('rmbr:ready', loadBlockedPosts);

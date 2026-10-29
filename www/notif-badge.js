@@ -1,4 +1,7 @@
 // 🔔 GLOBAL NOTIFICATION BADGE — loads on every page
+// Notification types from the retired Feed (2026-10-30). Old rows, and any an
+// older app build still creates, are never listed (notifications.js) or counted.
+window.RM_RETIRED_NOTIF_TYPES = ['post_like', 'post_share', 'comment', 'comment_reply', 'mention'];
 (async function () {
     const SUPABASE_URL = window.RM_ENV.url;
     const SUPABASE_KEY = window.RM_ENV.anonKey;
@@ -26,7 +29,8 @@
         return { idFilter, nameFilter };
     }
 
-    // Unread notifications, EXCLUDING type=mate_request. A still-pending
+    // Unread notifications, EXCLUDING type=mate_request (and the retired Feed
+    // types). A still-pending
     // request is counted once via fetchPendingRequestsCount() below instead
     // — counting it here too would double-count the exact same underlying
     // request the moment its notification is unread. An already-resolved
@@ -39,7 +43,7 @@
             const { idFilter, nameFilter } = _recipientFilters();
 
             const runQuery = (filter) => fetch(
-                `${SUPABASE_URL}/rest/v1/notifications?select=id&is_read=eq.false&type=neq.mate_request&or=(${encodeURIComponent(filter)})`,
+                `${SUPABASE_URL}/rest/v1/notifications?select=id&is_read=eq.false&type=not.in.(mate_request,${window.RM_RETIRED_NOTIF_TYPES.join(',')})&or=(${encodeURIComponent(filter)})`,
                 { headers: _authHeaders() }
             );
 

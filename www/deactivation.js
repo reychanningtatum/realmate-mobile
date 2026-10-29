@@ -1,5 +1,5 @@
 /* deactivation.js — RMDeact
- * Hide DEACTIVATED accounts everywhere (feed, portal, profile, search).
+ * Hide DEACTIVATED accounts everywhere (portal, profile, search).
  * A profile is deactivated (hidden) when profiles.deactivated = true AND its
  * optional auto-reactivation time (reactivate_at) hasn't passed yet. Once
  * reactivate_at passes the account is active again by lazy expiry — even before
@@ -8,7 +8,7 @@
  * Everything here FAILS OPEN: any query error, missing client, or DB without the
  * deactivation columns leaves every account visible, so this can never blank out
  * the app. Deactivation state is queried per-surface for the bounded set of
- * authors/owners on screen (same shape as RMPriv.postAccessSet).
+ * authors/owners on screen.
  */
 (function () {
   'use strict';

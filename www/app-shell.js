@@ -10,20 +10,13 @@
   'use strict';
 
   var TABS = {
-    home: 'home.html',
+    home: 'home-dashboard.html',
     chat: 'chat.html',
     portal: 'livemarket.html',
     notifications: 'notifications.html',
     me: 'dashboard.html'
   };
 
-  // DRAFT (staging only): the Home dashboard replaces the Feed tab. Production
-  // is untouched. Remove = revert the commit that added home-dashboard.*.
-  if (window.RM_ENV && window.RM_ENV.name === 'staging') {
-    TABS.home = 'home-dashboard.html';
-    var _homeNav = document.querySelector('.mob-nav-item[data-tab="home"]');
-    if (_homeNav) _homeNav.innerHTML = '<i class="fas fa-house"></i><span>Home</span>';
-  }
 
   var frames = {};      // tab -> iframe (kept alive after first load)
   var suspended = {};   // tab -> { url, scrollY } for a tab whose iframe we freed
@@ -292,9 +285,6 @@
       // Feed stayed on the profile. replace() touches only this frame and adds no
       // history entry.
       if (curFrame && onSubpage(curFrame)) { try { curFrame.contentWindow.location.replace(TABS[tab]); } catch (e) {} return; }
-      // Feed: re-tapping resets any active filter (Saved/hashtag) to the plain feed
-      // at the top — idempotent, never a reload — so repeated taps can't break it.
-      try { var _fw = curFrame && curFrame.contentWindow; if (_fw && typeof _fw.__feedNavHome === 'function') { _fw.__feedNavHome(); return; } } catch (e) {}
       scrollFrameTop(tab); return;
       }
     }
@@ -316,7 +306,6 @@
       try {
         var _cw = frames[current].contentWindow;
         if (_cw && typeof _cw.__closeSearchOverlay === 'function') _cw.__closeSearchOverlay();
-        if (_cw && typeof _cw.clearHomeSearch === 'function') _cw.clearHomeSearch();
         if (_cw && typeof _cw.closePortalSuggest === 'function') _cw.closePortalSuggest();  // Portal recent/suggestions dropdown
       } catch (e) {}
     }
@@ -458,29 +447,6 @@
     var menu = document.getElementById('navMenu');
     if (menu) menu.classList.remove('open');
     go('me', url || TABS.me);
-  };
-  // "Saved Posts" from the avatar menu. This MUST stay inside the shell: a raw
-  // <a href="home.html#saved"> tap did a TOP-LEVEL navigation that tore down the
-  // whole iframe shell — after which every nav-bar tap fell back to a full page
-  // load (the "navbar blink"). Two clean paths, and crucially NO reload-then-
-  // refilter (the old code loaded the plain all-feed, then a 4s polling loop
-  // flipped it to Saved — a visible double render that made the Feed feel buggy
-  // and the nav flicker):
-  //   • Feed already alive  → flip its filter to Saved IN PLACE, after a pure
-  //     reveal (no reload, so the nav bar and tab state stay stable).
-  //   • Feed not loaded yet → load it straight into the Saved view
-  //     (home.html?view=saved, which home.js consumes on first paint), so it
-  //     renders Saved posts on the FIRST render — never all-feed-then-flip.
-  window.rmSaved = function () {
-    closeNavMenu();
-    var f = frames['home'], w = null;
-    try { w = f && f.contentWindow; } catch (e) {}
-    if (w && typeof w.setFeedFilter === 'function') {
-      if (current !== 'home') go('home');       // reveal the live Feed tab (no reload)
-      try { w.setFeedFilter('saved'); } catch (e) {}
-      return;
-    }
-    go('home', 'home.html?view=saved');          // fresh load → Saved on first paint
   };
 
   document.addEventListener('DOMContentLoaded', function () {

@@ -15,7 +15,6 @@
  *
  * Named sounds:
  *   tap     — subtle blip for the listing completion buttons (Sold/Leased/Rented/Bought)
- *   react   — soft pop when a Feed reaction is successfully registered
  *   confirm — gentle two-note ascending chime when a Realmate/Follow request is accepted
  */
 (function () {
@@ -47,18 +46,6 @@
       g.gain.exponentialRampToValueAtTime(0.0001, t + 0.11);
       o.connect(g); g.connect(c.destination);
       o.start(t); o.stop(t + 0.13);
-    },
-    // Feed reaction: soft quick pop with a small upward lift.
-    react: function (c, t) {
-      var o = c.createOscillator(), g = c.createGain();
-      o.type = 'sine';
-      o.frequency.setValueAtTime(500, t);
-      o.frequency.exponentialRampToValueAtTime(760, t + 0.09);
-      g.gain.setValueAtTime(0.0001, t);
-      g.gain.exponentialRampToValueAtTime(0.06, t + 0.015);
-      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
-      o.connect(g); g.connect(c.destination);
-      o.start(t); o.stop(t + 0.18);
     },
     // Accept confirmation: gentle two-note ascending "success" (D5 -> A5).
     confirm: function (c, t) {

@@ -12,32 +12,6 @@ function toggleNavMenu(e) {
     if (menu) menu.classList.toggle('open');
 }
 
-// Ensure a "Saved Posts" entry exists in the avatar menu on every page
-function ensureSavedNavLink() {
-    document.querySelectorAll('#navMenu').forEach(menu => {
-        // Skip if a Saved entry already exists (e.g. the Feed page wires its own)
-        if (Array.from(menu.querySelectorAll('a')).some(a => /saved/i.test(a.textContent))) return;
-        const link = document.createElement('a');
-        link.href = 'home.html#saved';
-        link.innerHTML = '<i class="fas fa-bookmark"></i> Saved Posts';
-        // Inside the app shell, a raw href navigation would tear down the iframe
-        // shell (top-level page load) and leave every subsequent nav-bar tap doing
-        // a full reload — the "navbar blink" after opening Saved Posts. Route
-        // through the shell's rmSaved() instead, which switches to the Feed tab and
-        // applies its Saved filter in place. Fall back to the href navigation only
-        // on a genuinely standalone page (no shell present).
-        link.addEventListener('click', function (e) {
-            const shell = window.rmSaved ? window
-                : (window.parent && window.parent !== window && window.parent.rmSaved) ? window.parent
-                : null;
-            if (shell) { e.preventDefault(); shell.rmSaved(); }
-        });
-        const profile = menu.querySelector('a'); // first item is Profile
-        if (profile && profile.nextSibling) menu.insertBefore(link, profile.nextSibling);
-        else menu.appendChild(link);
-    });
-}
-
 document.addEventListener('click', () => {
     const menu = document.getElementById('navMenu');
     if (menu) menu.classList.remove('open');
@@ -91,7 +65,6 @@ function loadNavAvatar() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    ensureSavedNavLink();
     if (!loadNavAvatar()) {
         let attempts = 0;
         const retry = setInterval(() => {

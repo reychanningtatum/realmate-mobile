@@ -384,7 +384,7 @@
   // only autoplay when the player starts that way — a later play() from code is
   // ignored without a tap. So Home builds the player URL itself:
   //   ap=1 → autoplay now (only while on screen), m=1 → start muted, t → start second.
-  var vidBase = null, vidAuto = false, vidMutedLoad = false, vidTime = 0, vidResume = false;
+  var vidBase = null, vidAuto = false, vidMutedLoad = false, vidTime = 0, vidResume = false, vidRebuilds = 0;
   function vidLoad(autoplay, muted, at) {
     var f = $('hdVideo');
     vidAuto = autoplay; vidMutedLoad = muted; vidReady = false; vidResume = false;
@@ -392,12 +392,17 @@
     f.setAttribute('src', vidBase + '&ap=' + (autoplay ? 1 : 0) + '&m=' + (muted ? 1 : 0) + (at ? '&t=' + at : ''));
     if (autoplay) vidExpectPlay();
   }
-  function vidSend(force) {
-    if (!vidBase || !vidWatch.seen) return;            // no video, or position not known yet
-    // Settings › Home Video (read each time, so a change applies the next time Home shows).
+  // What Home wants now. Settings › Home Video are read each time, so a change
+  // applies the next time Home shows.
+  function vidWant() {
     var Y = window.RMYouTube;
     var onScreen = vidVisible && frameShown() && !document.hidden && !sheetOpen;
-    var want = onScreen && !(Y && !Y.autoPlay()) ? 'play' : 'pause';
+    return onScreen && !(Y && !Y.autoPlay()) ? 'play' : 'pause';
+  }
+  function vidSend(force) {
+    if (!vidBase || !vidWatch.seen) return;            // no video, or position not known yet
+    var Y = window.RMYouTube;
+    var want = vidWant();
     var muted = !!(Y && Y.autoMute());
     var f = $('hdVideo');
     if (!f.getAttribute('src')) { vidLoad(want === 'play', muted, 0); return; }   // first time
@@ -431,17 +436,22 @@
         vidState = d.state; vidMuted = !!d.muted;
         if (vidState === 1) vidPlayed = true;          // 1 = playing
       }
-      if (d.rmVideo === 'ready') vidSend(true);   // re-send what Home wants now (it may have changed while loading)
+      // Ready: tell the player only what CHANGED while it loaded. A player created
+      // with autoplay is already starting itself; a second play() would count as a
+      // "resume" and, if refused, rebuild the player again and again (blinking).
+      if (d.rmVideo === 'ready' && !(vidAuto && vidSent === 'play' && vidWant() === 'play')) vidSend(true);
+      if (d.rmVideo === 'state' && d.state === 1) vidRebuilds = 0;   // playing → reset the rebuild limit
       // The player couldn't start:
       //  - a play() from code was ignored (a resume, or a player made without
       //    autoplay) → recreate it WITH autoplay, muted or not as Settings say;
       //  - an autoplay WITH sound was refused → recreate it muted;
       //  - a muted autoplay was refused too (e.g. Low Power Mode) → leave it for the
       //    viewer's tap; it is reported.
-      if (d.rmVideo === 'blocked' && vidSent === 'play') {
+      //  At most 2 rebuilds in a row without playing — never a loop.
+      if (d.rmVideo === 'blocked' && vidSent === 'play' && vidRebuilds < 2) {
         var setMuted = !!(window.RMYouTube && RMYouTube.autoMute());
-        if (vidResume || !vidAuto) vidLoad(true, setMuted, vidTime);
-        else if (!vidMutedLoad) vidLoad(true, true, vidTime);
+        if (vidResume || !vidAuto) { vidRebuilds++; vidLoad(true, setMuted, vidTime); }
+        else if (!vidMutedLoad) { vidRebuilds++; vidLoad(true, true, vidTime); }
       }
     });
   }

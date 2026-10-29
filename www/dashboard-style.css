@@ -1150,14 +1150,11 @@ html[data-theme="dark"] .input-field-legacy-hint i { color: #f59e0b; }
     /* Collapse the 3 columns into one properly-ordered stream */
     .profile-left-col, .profile-main-col, .profile-side-col { display: contents; }
     .profile-card              { order: 0; }
-    .create-post-card          { order: 1; }
     .profile-tabs              { order: 2; }
-    .profile-wall-section      { order: 3; }
     .mates-widget              { order: 3; }
     .listings-card             { order: 3; }
     .about-card                { order: 3; }
     .about-card .section-card-title { text-transform: uppercase; }
-    .create-post-card, .profile-wall-section { margin: 0 0 14px; }
     .profile-card { grid-column: span 1; flex-direction: column; text-align: center; }
     .profile-card img { margin-bottom: 15px; }
 
@@ -1350,13 +1347,10 @@ html[data-theme="dark"] .stats-list-avatar { border-color: #334155; }
        Profile Info → About Me → Realmates → Write a Post → Posts → Recent Listings. */
     .profile-left-col, .profile-main-col, .profile-side-col { display: contents; }
     .profile-card              { order: 0; }
-    .create-post-card          { order: 1; }
     .profile-tabs              { order: 2; }
-    .profile-wall-section      { order: 3; }
     .mates-widget              { order: 3; }
     .listings-card             { order: 3; }
     .about-card                { order: 3; }
-    .create-post-card, .profile-wall-section { margin: 0 0 14px; }
 
     .about-card, .listings-card, .mates-widget {
         border-radius: 20px;
@@ -1366,22 +1360,6 @@ html[data-theme="dark"] .stats-list-avatar { border-color: #334155; }
         border: none;
     }
 
-    /* Clean, borderless cards to match the app mockup: the composer, each
-       post card, and the empty state drop their 1px outlines (from the
-       shared composer.css) and rely on a soft shadow + rounded corners
-       only. Scoped to dashboard mobile — the feed page loads composer.css
-       without this stylesheet, so its look is unchanged. */
-    .create-post-card,
-    #profileWall .hf-post-card,
-    #profileWall .hf-empty {
-        border: none !important;
-        box-shadow: var(--card-shadow);
-        border-radius: 20px;
-    }
-    .create-post-card { padding: 16px 18px; }
-    /* No "Posts" heading in the mockup — posts flow straight under the composer. */
-    .profile-wall-title { display: none !important; }
-    .profile-wall-section { margin-top: 0 !important; }
 
     .section-card-title { font-size: 14px; }
     .about-bio-text { -webkit-line-clamp: 3; font-size: 14px; }

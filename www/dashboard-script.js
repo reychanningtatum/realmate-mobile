@@ -87,7 +87,7 @@ async function rmbrBlockProfile() {
     const nm = (typeof user !== 'undefined' && user && user.name) || null;
     const ok = await RMBR.blockUser(_viewUserId, nm);
     // On success their content must disappear — leave the now-hidden profile.
-    if (ok) location.href = 'home.html';
+    if (ok) location.href = 'home-dashboard.html';
 }
 
 // Shown in place of Posts/Listings on a non-Realmate's profile, and (via
@@ -120,7 +120,7 @@ function _realmateGateHtml(userName, kind) {
         <div class="profile-gate-card" data-gate-kind="${kind}">
             <div class="profile-gate-icon"><i class="fas fa-user-clock"></i></div>
             <div class="profile-gate-title">${safeName} wants to be your realmate</div>
-            <div class="profile-gate-sub">Accept their request to connect and unlock their posts and listings.</div>
+            <div class="profile-gate-sub">Accept their request to connect and unlock their listings.</div>
             <button class="btn-mate-profile mate-status-received" onclick="handleGateAcceptMate(this, '${safeName}')">
                 <i class="fas fa-check"></i> Accept Request
             </button>
@@ -131,7 +131,7 @@ function _realmateGateHtml(userName, kind) {
     // successful send flips every gate on the page into the pending state.
     const copy = kind === 'listing'
         ? { title: 'Become realmates to view this listing.', sub: 'Add this user as a realmate to access their property listings.' }
-        : { title: 'Become realmates to view post, listings and about.', sub: 'Add this user as a realmate to access their posts, listings and about.' };
+        : { title: 'Become realmates to view listings and about.', sub: 'Add this user as a realmate to access their listings and about.' };
     return `
         <div class="profile-gate-card" data-gate-kind="${kind}">
             <div class="profile-gate-icon"><i class="fas fa-lock"></i></div>
@@ -683,32 +683,6 @@ function switchProfileTab(tab) {
     // The About panel's read-more button is measured via scrollHeight, which is
     // always 0 while the panel is display:none — re-measure now that it's visible.
     if (tab === 'about') updateBioReadMoreVisibility();
-}
-
-// Notification deep-link: a reaction/like/comment/reply on MY OWN post opens My
-// Profile → Posts and lands on that EXACT post at its natural position (never the
-// Feed, never the top). notifications.js sets route_profile_post_id then routes
-// here. Data-ready (no timing hack): activate the Posts tab, then poll for the
-// exact post card to render in the wall, scroll to its real position, and apply
-// the same green highlight used on the Feed. Cleared once consumed so a later
-// re-render doesn't re-trigger it.
-async function _consumeProfilePostDeepLink() {
-    let pid = null;
-    try { pid = localStorage.getItem('route_profile_post_id'); } catch (e) {}
-    if (!pid) return;
-    try { switchProfileTab('posts'); } catch (e) {}   // land on Posts (mobile; desktop shows all)
-    const deadline = Date.now() + 8000;
-    let el = document.getElementById('hfpost-' + pid);
-    while (!el && Date.now() < deadline) {
-        await new Promise(function (r) { setTimeout(r, 120); });
-        el = document.getElementById('hfpost-' + pid);
-    }
-    if (!el) return;   // post not in this wall (deleted / not accessible)
-    try { localStorage.removeItem('route_profile_post_id'); } catch (e) {}
-    await new Promise(function (r) { requestAnimationFrame(function () { requestAnimationFrame(r); }); });
-    try { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {}
-    el.classList.add('hf-notif-highlight');
-    setTimeout(function () { el.classList.remove('hf-notif-highlight'); }, 3000);
 }
 
 // Portal's "View Listings" opens this dashboard with ?view=listings. The visitor
@@ -1267,7 +1241,7 @@ const _aboutCardTemplate = (function () {
 let _viewMateState = null;
 
 // #5: when a Realmate is removed (here or in another shell tab), if we're viewing
-// THAT ex-Realmate's profile, re-run loadProfile so posts/listings/About re-gate
+// THAT ex-Realmate's profile, re-run loadProfile so listings/About re-gate
 // to the new non-Realmate access — no manual refresh.
 function _onMateRemovedRegate(name) {
     try {
@@ -1297,27 +1271,9 @@ function _rmSyncOwnAvatarFromCache() {
             if (cached.imageOriginal) user.imageOriginal = cached.imageOriginal;
             if (typeof updateUI === 'function') updateUI();
         }
-        _rmRepaintOwnProfileAvatars(cached.image);
     } catch (_) {}
 }
 
-// Repaint the two profile-page avatars that updateUI/nav don't cover: the
-// "Write a post" composer avatar and the Posts-tab post-card avatars. On the OWN
-// profile every wall post is this user's, so all outer .hf-post-avatar are theirs
-// (the embedded shared-original avatar, .hf-shared-head img, belongs to another
-// user and is intentionally left alone).
-function _rmRepaintOwnProfileAvatars(url) {
-    if (!url || _viewUserId) return;
-    try {
-        document.querySelectorAll('#createPostAvatar').forEach(el => {
-            el.style.background = `url('${url}') center/cover no-repeat`;
-            el.innerHTML = '';
-        });
-    } catch (_) {}
-    try {
-        document.querySelectorAll('.hf-post-avatar').forEach(img => { img.src = url; });
-    } catch (_) {}
-}
 window.addEventListener('rm-avatar-changed', _rmSyncOwnAvatarFromCache);
 window.addEventListener('storage', function (e) { if (e.key === 'rm_avatar_changed') _rmSyncOwnAvatarFromCache(); });
 
@@ -1424,8 +1380,8 @@ function _renderBlockedProfileState() {
         '<div style="max-width:360px; width:100%; text-align:center;">' +
         '<div style="width:88px; height:88px; border-radius:50%; background:#fef2f2; display:flex; align-items:center; justify-content:center; margin:0 auto 22px;"><i class="fas fa-user-slash" style="font-size:38px; color:#ef4444;"></i></div>' +
         '<h2 style="font-size:22px; font-weight:800; color:#0f172a; margin:0 0 12px;">You blocked this user</h2>' +
-        '<p style="color:#475569; font-size:15px; line-height:1.55; margin:0 0 28px;">You can no longer see their posts, listings, or profile. Unblock them in Settings to view again.</p>' +
-        '<button id="rmBlockedBackBtn" style="width:100%; padding:15px; border-radius:12px; border:none; background:#32cd32; color:#fff; font-size:16px; font-weight:700; cursor:pointer; font-family:inherit;">' + (origin === 'portal' ? 'Back to Portal' : 'Back to Feed') + '</button>' +
+        '<p style="color:#475569; font-size:15px; line-height:1.55; margin:0 0 28px;">You can no longer see their listings or profile. Unblock them in Settings to view again.</p>' +
+        '<button id="rmBlockedBackBtn" style="width:100%; padding:15px; border-radius:12px; border:none; background:#32cd32; color:#fff; font-size:16px; font-weight:700; cursor:pointer; font-family:inherit;">' + (origin === 'portal' ? 'Back to Portal' : 'Back to Home') + '</button>' +
         '</div>';
     document.body.appendChild(el);
     var btn = document.getElementById('rmBlockedBackBtn');
@@ -1435,7 +1391,7 @@ function _renderBlockedProfileState() {
         // Portal opened it in the Me tab (keeping that page's scroll). Otherwise
         // load the originating section.
         try { if (window.parent && window.parent !== window && window.parent.rmBack) { window.parent.rmBack(); return; } } catch (e) {}
-        location.replace(origin === 'portal' ? 'livemarket.html' : 'home.html');
+        location.replace(origin === 'portal' ? 'livemarket.html' : 'home-dashboard.html');
     });
 }
 
@@ -1464,14 +1420,14 @@ function _renderDeactivatedProfileState() {
         '<div style="max-width:360px; width:100%; text-align:center;">' +
         '<div style="width:88px; height:88px; border-radius:50%; background:#eef2f7; display:flex; align-items:center; justify-content:center; margin:0 auto 22px;"><i class="fas fa-user-clock" style="font-size:36px; color:#64748b;"></i></div>' +
         '<h2 style="font-size:22px; font-weight:800; color:#0f172a; margin:0 0 12px;">Account unavailable</h2>' +
-        '<p style="color:#475569; font-size:15px; line-height:1.55; margin:0 0 28px;">This account is currently deactivated, so its profile, posts, and listings aren\'t available right now.</p>' +
-        '<button id="rmDeactBackBtn" style="width:100%; padding:15px; border-radius:12px; border:none; background:#32cd32; color:#fff; font-size:16px; font-weight:700; cursor:pointer; font-family:inherit;">Back to Feed</button>' +
+        '<p style="color:#475569; font-size:15px; line-height:1.55; margin:0 0 28px;">This account is currently deactivated, so its profile and listings aren\'t available right now.</p>' +
+        '<button id="rmDeactBackBtn" style="width:100%; padding:15px; border-radius:12px; border:none; background:#32cd32; color:#fff; font-size:16px; font-weight:700; cursor:pointer; font-family:inherit;">Back to Home</button>' +
         '</div>';
     document.body.appendChild(el);
     var btn = document.getElementById('rmDeactBackBtn');
     if (btn) btn.addEventListener('click', function () {
         try { if (window.parent && window.parent !== window && window.parent.rmBack) { window.parent.rmBack(); return; } } catch (e) {}
-        location.replace('home.html');
+        location.replace('home-dashboard.html');
     });
 }
 
@@ -1720,39 +1676,23 @@ async function _loadProfileRun() {
 
     await renderRealMatesCard();
     // Account-privacy + relationship access. A Public account shows everything;
-    // otherwise listings need a Realmate and posts/About need a Follower OR
-    // Realmate. Resolved once and reused for listings + posts + About below.
+    // otherwise listings need a Realmate and About needs a Follower OR
+    // Realmate. Resolved once and reused for listings + About below.
     // (Falls back to the old Realmate-only rule if privacy.js isn't present.)
     const _acc = (effectivelyViewingOther && window.RMPriv)
         ? await RMPriv.resolve(targetId)
         : { isSelf: true, ownerPublic: true, isFollower: true, isMate: true };
     const _canListings = window.RMPriv ? RMPriv.can('listings', _acc) : viewerIsRealmate;
-    const _canPosts    = window.RMPriv ? RMPriv.can('posts', _acc)    : viewerIsRealmate;
+    const _canAbout    = window.RMPriv ? RMPriv.can('about', _acc)    : viewerIsRealmate;
     await renderRecentListings(targetId, _canListings);
 
     // Portal "View Listings" deep-link: land directly on the Listings section
     // (activate its tab on mobile, then scroll it to the top of the viewport).
     _deepLinkToListings();
 
-    // Profile wall — this user's feed posts (rendered via the shared feed card from home.js).
-    // Filter by user_id so it works regardless of display-name differences.
-    // Realmates-only when viewing someone else's profile — same rule as Listings.
-    const wallEl = document.getElementById('profileWall');
-    if (wallEl && targetId) {
-        if (effectivelyViewingOther && !_canPosts) {
-            wallEl.innerHTML = _realmateGateHtml(user.name, 'posts-listings');
-        } else if (typeof loadHomeFeed === 'function') {
-            loadHomeFeed(wallEl, { type: 'userId', value: targetId });
-        }
-        // A notification about MY OWN post lands here — scroll to + highlight that
-        // exact post at its natural position in the Posts wall (polls for it to
-        // render; no fixed delay). No-op when there's no pending deep-link.
-        _consumeProfilePostDeepLink();
-    }
-
-    // About: show the SAME locked-state gate as Posts/Listings (not just a hidden
-    // card) so a non-realmate consistently sees "Become realmates to view post,
-    // listings and about" across all three sections (#12).
+    // About: show the SAME locked-state gate as Listings (not just a hidden
+    // card) so a non-realmate consistently sees "Become realmates to view
+    // listings and about" across both sections (#12).
     // The header detail line (location / years / languages / relationship) is
     // part of the profile header, like the name and counts — it is rendered once
     // by updateUI() from the viewed user's own profile row and is NOT touched
@@ -1761,10 +1701,10 @@ async function _loadProfileRun() {
     // About under the name: shown only to the owner and to people allowed in
     // (follower / realmate per RMPriv). Everyone else simply doesn't see it — no
     // gate message.
-    window._rmAboutAllowed = !(effectivelyViewingOther && !_canPosts);
+    window._rmAboutAllowed = !(effectivelyViewingOther && !_canAbout);
     _rmRenderBioPreview();
     const _aboutCard = document.querySelector('.about-card');
-    if (effectivelyViewingOther && !_canPosts) {
+    if (effectivelyViewingOther && !_canAbout) {
         if (_aboutCard) _aboutCard.innerHTML = _realmateGateHtml(user.name, 'about');
     } else if (_aboutCard && _aboutCard.querySelector('[data-gate-kind]') && _aboutCardTemplate) {
         // Access is now granted (e.g. you just became realmates) but the card is
@@ -2735,8 +2675,6 @@ async function applyCrop() {
                 }
             }
             updateUI();
-            // Also repaint THIS page's composer + Posts-tab post-card avatars.
-            try { _rmRepaintOwnProfileAvatars(publicUrl); } catch (e) {}
             // Propagate the new avatar to every OTHER cached app-shell iframe
             // (feed composer, navbars, etc.) without a reload. localStorage is
             // shared same-origin; writing this key fires a `storage` event in the

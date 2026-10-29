@@ -36,10 +36,9 @@
   <link rel="stylesheet" href="vendor/fontawesome/css/all.min.css?v=6.5.0">
   <link rel="stylesheet" href="vendor/cropperjs/cropper.min.css?v=1.6.1">
   <link rel="stylesheet" href="vendor/googlefonts/fonts.css?v=1">
-  <link rel="stylesheet" href="dashboard-style.css?v=20261021p">
+  <link rel="stylesheet" href="dashboard-style.css?v=20261030f">
   <link rel="stylesheet" href="customer-service.css?v=3">
   <link rel="stylesheet" href="mobile-back.css">
-  <link rel="stylesheet" href="composer.css?v=20261022e">
   <!-- Live Market post styles (scoped under .lm-post-embed) so the profile's
        Listings section renders each post exactly like the Portal. -->
   <link rel="stylesheet" href="listing-card.css?v=20261021p">
@@ -47,22 +46,9 @@
   <link rel="stylesheet" href="block-report.css?v=20261001b">
   <script src="theme.js?v=20260812a"></script>
   <script src="toast.js?v=20261001a"></script>
-  <script src="featureFlags.js?v=20260925b"></script>
+  <script src="featureFlags.js?v=20261030f"></script>
 <link rel="stylesheet" href="safe-area.css?v=20260915d">
 <script>if(window.self!==window.top)document.documentElement.classList.add("rm-embedded");</script>
-<script>
-  // A profile tab tapped before dashboard-script.js has loaded (slow phones) used to
-  // throw "switchProfileTab is not defined" and do nothing. Until the real function
-  // replaces this one, show the tapped tab right away and remember it;
-  // dashboard-script.js then applies it as the visitor's own pick.
-  window.switchProfileTab = function (t) {
-    window.__rmEarlyProfileTab = t;
-    try {
-      document.querySelectorAll('.profile-tab').forEach(function (b) { b.classList.toggle('active', b.dataset.tab === t); });
-      document.querySelectorAll('.profile-tab-panel').forEach(function (p) { p.classList.toggle('tab-active', p.dataset.tabPanel === t); });
-    } catch (e) {}
-  };
-</script>
   <link rel="stylesheet" href="desktop-nav.css?v=20260928a">
 </head>
 
@@ -71,9 +57,8 @@
     
     <div class="sidebar">
   <div class="brand">
-    <img src="images/realmate2.png" onclick="location.href='home.html'">
+    <img src="images/realmate2.png" onclick="location.href='home-dashboard.html'">
   </div>
-  <div class="nav-item" id="rmSideSaved" onclick="location.href='home.html?view=saved'"><i class="fas fa-bookmark"></i> <span>Saved</span></div>
   <div class="nav-item" onclick="location.href='realmates.html'"><i class="fas fa-user-group"></i> <span>My realmates</span></div>
   <div class="nav-item" onclick="openCustomerService()"><i class="fas fa-headset"></i> <span>Customer Service</span></div>
   <div class="nav-item" onclick="openFeedback()"><i class="fas fa-comment-dots"></i> <span>Feedback</span></div>
@@ -228,8 +213,7 @@
 
         </div>
 
-        <!-- Left column: About Me (permanent card; Listings now lives in the
-             main column as a Posts / Listings tab — see .profile-main-col) -->
+        <!-- Left column: About Me (permanent card; Listings lives in the main column) -->
         <div class="profile-left-col">
             <div class="bento-card about-card profile-tab-panel" data-tab-panel="about">
                 <div class="section-card-header">
@@ -243,103 +227,10 @@
             </div>
         </div>
 
-        <!-- Middle column (largest): Write a Post + Posts -->
+        <!-- Middle column (largest): Listings -->
         <div class="profile-main-col">
-            <!-- Write a post (shares to the feed) — own profile only -->
-            <div class="create-post-card" id="createPostCard">
-                <div class="create-post-top">
-                    <div class="create-post-avatar" id="createPostAvatar">
-                        <i class="fas fa-user-tie" style="font-size:16px;"></i>
-                    </div>
-                    <div class="create-post-input" onclick="expandCreatePost()">
-                        <span id="createPostPlaceholder">What's on your mind?</span>
-                    </div>
-                </div>
-                <div class="create-post-expanded" id="createPostExpanded" style="display:none;">
-                    <!-- Phones: the composer opens full screen as a "New post" page (composer.css) — same as the Feed. -->
-                    <div class="cp-full-head">
-                        <button type="button" class="cp-full-close" onclick="collapseCreatePost()" aria-label="Close"><i class="fas fa-xmark"></i></button>
-                        <div class="cp-full-title">New post</div>
-                    </div>
-                    <div class="cp-full-author">
-                        <span class="create-post-avatar" id="createPostAuthorAvatar"></span>
-                        <span class="cp-full-name" id="createPostAuthorName"></span>
-                    </div>
-                    <div id="postTypeBadge" style="display:none; margin-bottom:8px;"></div>
-                    <textarea id="homePostText" placeholder="What's on your mind? Type @ to tag a realmate…" rows="3" oninput="onHomePostInput(this)"></textarea>
-                    <div class="hf-mention-box" id="homePostMention" style="display:none;"></div>
-                    <input type="text" id="homeAlbumTitle" class="home-album-title" placeholder="Album title — e.g. Site Visit, Turnover, Open House…" style="display:none;" maxlength="80">
-                    <div id="homePollBuilder" class="home-poll-builder" style="display:none;">
-                        <div class="hpb-options" id="hpbOptions"></div>
-                        <button type="button" class="hpb-add" onclick="addPollOption()"><i class="fas fa-plus"></i> Add option</button>
-                    </div>
-                    <div id="homePostMediaPreview" class="home-post-media-preview"></div>
-                    <div class="create-post-type-row">
-                        <label class="create-post-media-btn" for="homePostMedia">
-                            <i class="fas fa-image" style="color:#45b649;"></i> Photo
-                        </label>
-                        <input type="file" id="homePostMedia" hidden accept="image/*" multiple onchange="previewHomeMedia(this)">
-                        <button type="button" class="create-post-media-btn" id="typeBtnAlbum" onclick="setPostType('album')">
-                            <i class="fas fa-images" style="color:#0ea5e9;"></i> Album
-                        </button>
-                        <button type="button" class="create-post-media-btn" id="typeBtnPoll" onclick="setPostType('poll')">
-                            <i class="fas fa-square-poll-vertical" style="color:#8b5cf6;"></i> Poll
-                        </button>
-                        <button type="button" class="create-post-media-btn" id="typeBtnCelebrate" onclick="openCongratsBuilder()">
-                            <i class="fas fa-champagne-glasses" style="color:#16a34a;"></i> Celebrate
-                        </button>
-                    </div>
-                    <div class="create-post-footer">
-                        <div class="privacy-dropdown" id="privacyDropdown">
-                            <button type="button" class="privacy-trigger" onclick="togglePrivacyMenu(event)">
-                                <i class="fas fa-globe" id="privacyIcon"></i>
-                                <span id="privacyLabel">Public</span>
-                                <i class="fas fa-chevron-down privacy-caret"></i>
-                            </button>
-                            <input type="hidden" id="homePostPrivacy" value="public">
-                            <div class="privacy-menu" id="privacyMenu">
-                                <div class="privacy-option" onclick="selectPrivacy('public')">
-                                    <i class="fas fa-globe"></i><div><div class="po-title">Public</div><div class="po-sub">Anyone on realmate</div></div>
-                                </div>
-                                <div class="privacy-option" onclick="selectPrivacy('realmates')">
-                                    <i class="fas fa-user-group"></i><div><div class="po-title">realmates Only</div><div class="po-sub">People you're connected with</div></div>
-                                </div>
-                                <div class="privacy-option" onclick="selectPrivacy('private')">
-                                    <i class="fas fa-lock"></i><div><div class="po-title">Private</div><div class="po-sub">Only you</div></div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="create-post-actions">
-                            <button class="create-post-cancel" onclick="collapseCreatePost()">Cancel</button>
-                            <button class="create-post-submit" onclick="submitHomePost()">
-                                <i class="fas fa-paper-plane"></i> Post
-                            </button>
-                        </div>
-                    </div>
-                </div>
-                <div class="create-post-shortcuts">
-                    <button onclick="expandCreatePost('photo')"><i class="fas fa-image" style="color:#22c55e;"></i> Photo</button>
-                    <button onclick="openCongratsBuilder()"><i class="fas fa-hands-clapping" style="color:#22c55e;"></i> Congratulate</button>
-                </div>
-            </div>
-
-            <!-- Mobile tab bar (below the composer): switches the panels below it
-                 between Posts / Recent Listings / realmates. Hidden on desktop, which
-                 keeps the 3-column layout. -->
-            <div class="profile-tabs" id="profileTabs">
-                <button class="profile-tab active" data-tab="posts" onclick="switchProfileTab('posts')">Posts</button>
-                <button class="profile-tab" data-tab="listings" onclick="switchProfileTab('listings')">Listings</button>
-            </div>
-
-            <!-- Profile wall: this user's feed posts (no heading — posts flow straight
-                 under the composer, matching the mockup) -->
-            <div class="profile-wall-section profile-tab-panel tab-active" data-tab-panel="posts">
-                <div id="profileWall"></div>
-            </div>
-
-            <!-- Recent Listings — a tab panel in the main column on desktop (Posts /
-                 Listings) and mobile alike. The Listings tab in .profile-tabs toggles it. -->
-            <div class="listings-card profile-tab-panel" data-tab-panel="listings">
+            <!-- Listings — the profile's main panel on desktop and mobile alike. -->
+            <div class="listings-card profile-tab-panel tab-active" data-tab-panel="listings">
                 <div class="profile-listings-body" id="recentListingsBody"></div>
             </div>
         </div>
@@ -609,63 +500,14 @@
 </div>
 
 <input type="file" id="fileInput" style="display:none">
-<!-- Congratulate builder modal -->
-<div id="congratsModal">
-  <div class="cg-box">
-    <div class="cg-head">
-      <span><i class="fas fa-champagne-glasses" style="color:#16a34a;margin-right:6px;"></i> Congratulate a colleague</span>
-      <button class="cg-close" onclick="closeCongratsBuilder()"><i class="fas fa-times"></i></button>
-    </div>
-    <div class="cg-body">
-      <div id="cgError" class="cg-error" style="display:none;"></div>
-      <label class="cg-label">Who are you congratulating?</label>
-      <div id="cgSelected" class="cg-selected"></div>
-      <div id="cgSearchWrap">
-        <input id="cgUserSearch" class="cg-input" placeholder="Search a name…" autocomplete="off" oninput="cgSearchUsers(this.value)">
-        <div id="cgUserResults" class="cg-results"></div>
-      </div>
-      <label class="cg-label">What was sold?</label>
-      <div id="cgProjects"><!-- project cards rendered by congrats.js --></div>
-      <button type="button" class="cg-addproj" onclick="cgAddProject()"><i class="fas fa-plus"></i> Add another project</button>
-      <div id="cgPreviewWrap" style="display:none;">
-        <label class="cg-label">Preview</label>
-        <canvas id="cgCanvas" class="cg-canvas" width="1080" height="1080"></canvas>
-        <label class="cg-label" style="margin-top:12px;">Caption</label>
-        <textarea id="cgCaption" class="cg-input cg-caption" rows="3" placeholder="Write a caption, or auto-generate one…"></textarea>
-        <div class="cg-caption-actions">
-          <button class="cg-chip" onclick="cgAutoCaption()"><i class="fas fa-wand-magic-sparkles"></i> Auto-generate caption</button>
-          <button class="cg-chip cg-chip-ghost" onclick="cgAutoCaption()"><i class="fas fa-rotate"></i> Try another</button>
-        </div>
-      </div>
-    </div>
-    <div class="cg-foot">
-      <button class="cg-btn-ghost" onclick="closeCongratsBuilder()">Cancel</button>
-      <button id="cgGenerateBtn" class="cg-btn-primary" onclick="cgGenerate()"><i class="fas fa-wand-magic-sparkles"></i> Generate preview</button>
-      <button id="cgPostBtn" class="cg-btn-primary" style="display:none;" onclick="cgSubmit()"><i class="fas fa-paper-plane"></i> Post to feed</button>
-    </div>
-  </div>
-</div>
-
-<!-- People list modal (reactions / shares) -->
-<div id="feedPeopleModal" class="fp-modal" style="display:none;" onclick="if(event.target===this) closeFeedPeople()">
-  <div class="fp-box">
-    <div class="fp-head">
-      <span id="fpTitle">Reactions</span>
-      <button class="fp-close" onclick="closeFeedPeople()"><i class="fas fa-times"></i></button>
-    </div>
-    <div class="fp-tabs" id="fpTabs"></div>
-    <div class="fp-list" id="fpList"></div>
-  </div>
-</div>
-
 <script src="vendor/cropperjs/cropper.min.js?v=1.6.1"></script>
 <script src="native-auth.js?v=20261019e"></script>
 <script src="vendor/supabase-js.min.js?v=2.112.3"></script>
 <script src="compress.js?v=20261013a"></script>
-<script src="rm-sound.js?v=20260831a"></script>
+<script src="rm-sound.js?v=20261030f"></script>
 <script src="mates.js?v=20261022b"></script>
 <script src="follows.js?v=20261019e"></script>
-<script src="auth-guard.js?v=20261021d"></script>
+<script src="auth-guard.js?v=20261030f"></script>
 <!-- Shared account-menu modal (My Account/My Profile/My Listings) — same
      component Portal's livemarket.js uses for showSelfPopup()/showSellerPopup(). -->
 <link rel="stylesheet" href="account-menu.css?v=20260810a">
@@ -680,23 +522,18 @@
 <script src="match-engine.js?v=20261028b"></script>
 <script src="developers.js?v=36"></script>
 <script src="rm-verified.js?v=20261020h"></script>
-<script src="livemarket.js?v=20261021f"></script>
-<script src="privacy.js?v=20261020c"></script>
-<script src="deactivation.js?v=20261019e"></script>
-<script src="dashboard-script.js?v=20261021j"></script>
-<script src="emoji-picker.js?v=20260928d"></script>
-<script src="home.js?v=20261022d"></script>
-<script src="feed-video.js?v=20261013a"></script>
-<script src="block-report.js?v=20261019e"></script>
-<script src="congrats.js?v=20261017a"></script>
+<script src="livemarket.js?v=20261030f"></script>
+<script src="privacy.js?v=20261030f"></script>
+<script src="deactivation.js?v=20261030f"></script>
+<script src="dashboard-script.js?v=20261030f"></script>
+<script src="block-report.js?v=20261030f"></script>
 <script src="visibility.js?v=20261002a"></script>
 <script src="match-alert.js?v=20261021b"></script>
-<script src="notif-badge.js?v=20261019e"></script>
+<script src="notif-badge.js?v=20261030f"></script>
 
 <!-- Mobile Bottom Navigation -->
 <nav class="mobile-bottom-nav">
-  <a class="mob-nav-item" href="home.html"><i class="fas fa-border-all"></i><span>Feed</span></a>
-  <a class="mob-nav-item" href="forum.html" style="display:none"><i class="fas fa-bullhorn"></i><span>Forum</span></a>
+  <a class="mob-nav-item" href="home-dashboard.html"><i class="fas fa-house"></i><span>Home</span></a>
   <a class="mob-nav-item" href="realmates.html" style="display:none"><i class="fas fa-user-group"></i><span>realmates</span></a>
   <a class="mob-nav-item" href="chat.html"><i class="fas fa-comment-dots"></i><span>Chat</span></a>
   <a class="mob-nav-item mob-nav-center" href="livemarket.html"><i class="fas fa-globe"></i><span>Portal</span></a>
@@ -715,18 +552,8 @@
     </div>
   </div>
 </nav>
-<script src="nav-menu.js?v=20260930a"></script>
+<script src="nav-menu.js?v=20261030f"></script>
 <script src="customer-service.js?v=20261019e"></script><script src="feedback.js?v=20261019e"></script>
-<script>
-  // Post composer: only show on your OWN profile (hide when viewing another user via ?user_id=)
-  (function () {
-    if (new URLSearchParams(location.search).get('user_id')) {
-      var _cpc = document.getElementById('createPostCard');
-      if (_cpc) _cpc.remove();
-    }
-  })();
-</script>
-
 <!-- Listing Editor modal (Edit Listing in-place on the Dashboard). SAME editor
      as the Portal (livemarket.js handles it); markup mirrors livemarket.html and
      is styled by listing-editor.css. Keep in sync with livemarket.html. -->

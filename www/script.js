@@ -1,7 +1,6 @@
-// The app's first tab after sign-in / reopening. DRAFT (staging only): Home
-// dashboard; production keeps opening on the Portal.
+// The app's first tab after sign-in / reopening: the Home dashboard.
 function _rmStartTab() {
-    return (window.RM_ENV && window.RM_ENV.name === 'staging') ? 'home' : 'portal';
+    return 'home';
 }
 
 window.supabaseClient = window.supabase.createClient(

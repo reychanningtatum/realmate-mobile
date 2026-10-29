@@ -23,7 +23,7 @@
   <link rel="stylesheet" href="vendor/googlefonts/fonts.css?v=1">
   <!-- home.css carries the .mobile-bottom-nav styling; the shell layout below
        overrides html/body so the feed layout rules stay inert. -->
-  <link rel="stylesheet" href="home.css?v=20261022c">
+  <link rel="stylesheet" href="home.css?v=20261030f">
   <link rel="stylesheet" href="customer-service.css?v=3">
   <style>
     html, body { margin: 0; height: 100%; overflow: hidden; background: #f4f7fa;
@@ -100,7 +100,7 @@
   <!-- One nav bar for the whole app — rendered once, never reloaded. Same
        icons as the per-page bar so notif-badge.js still attaches. -->
   <nav class="mobile-bottom-nav">
-    <a class="mob-nav-item active" data-tab="home" onclick="rmTab('home')"><i class="fas fa-border-all"></i><span>Feed</span></a>
+    <a class="mob-nav-item active" data-tab="home" onclick="rmTab('home')"><i class="fas fa-house"></i><span>Home</span></a>
     <a class="mob-nav-item" data-tab="chat" onclick="rmTab('chat')"><i class="fas fa-comment-dots"></i><span>Chat</span></a>
     <a class="mob-nav-item mob-nav-center" data-tab="portal" onclick="rmTab('portal')"><i class="fas fa-globe"></i><span>Portal</span></a>
     <a class="mob-nav-item" data-tab="notifications" onclick="rmTab('notifications')"><i class="fas fa-bell"></i><span>Notifications</span></a>
@@ -122,11 +122,11 @@
   <script src="native-deeplink.js?v=20261019e"></script>
   <script src="vendor/supabase-js.min.js?v=2.112.3"></script>
   <!-- Shared block state: the shell window listens for "block list changed" pings for the whole app (its tab frames get the result). -->
-  <script src="block-report.js?v=20261019e"></script>
+  <script src="block-report.js?v=20261030f"></script>
   <script src="theme.js?v=20260812a"></script>
   <script src="toast.js?v=20261001a"></script>
-  <script src="auth-guard.js?v=20261021d"></script>
-  <script src="notif-badge.js?v=20261019e"></script>
+  <script src="auth-guard.js?v=20261030f"></script>
+  <script src="notif-badge.js?v=20261030f"></script>
   <!-- The shell runs its OWN AI-match detection so the banner + Portal/AI-Matches
        red badge appear reliably on mobile, independent of any iframe→shell relay
        (localStorage storage events are unreliable iframe→parent in iOS WKWebView).
@@ -136,8 +136,8 @@
   <script src="match-engine.js?v=20261028b"></script>
   <script src="visibility.js?v=20261002a"></script>
   <script src="match-alert.js?v=20261021b"></script>
-  <script src="app-shell.js?v=20261028a"></script>
-  <script src="nav-menu.js?v=20260930a"></script>
+  <script src="app-shell.js?v=20261030f"></script>
+  <script src="nav-menu.js?v=20261030f"></script>
   <script src="customer-service.js?v=20261019e"></script><script src="feedback.js?v=20261019e"></script>
   <script>
     // Child frames (Chat) post {type:'rm-keyboard', open} when the on-screen

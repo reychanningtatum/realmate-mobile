@@ -3,10 +3,6 @@
 <head>
   <script src="rm-env.js?v=20261021b"></script>
   <script src="rm-bugs.js?v=20261022b"></script>
-  <!-- DRAFT (staging only): the Home dashboard that replaces the Feed on staging.
-       Production never opens this page — app-shell.js and home.html only switch
-       to it when RM_ENV.name === 'staging'. Remove = revert its commit. -->
-  <script>if (!window.RM_ENV || window.RM_ENV.name !== 'staging') location.replace('home.html');</script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>realmate | Home</title>
@@ -91,16 +87,16 @@
 </nav>
 
 <script src="vendor/supabase-js.min.js?v=2.112.3"></script>
-<script src="auth-guard.js?v=20261021d"></script>
+<script src="auth-guard.js?v=20261030f"></script>
 <script src="visibility.js?v=20261002a"></script>
-<script src="deactivation.js?v=20261019e"></script>
-<script src="block-report.js?v=20261019e"></script>
+<script src="deactivation.js?v=20261030f"></script>
+<script src="block-report.js?v=20261030f"></script>
 <script src="location-engine.js?v=20260809b"></script>
 <script src="developers.js?v=36"></script>
 <script src="match-engine.js?v=20261028b"></script>
-<script src="notif-badge.js?v=20261019e"></script>
-<script src="nav-menu.js?v=20260930a"></script>
-<script src="rm-youtube.js?v=20261028f"></script>
-<script src="home-dashboard.js?v=20261029a"></script>
+<script src="notif-badge.js?v=20261030f"></script>
+<script src="nav-menu.js?v=20261030f"></script>
+<script src="rm-youtube.js?v=20261030a"></script>
+<script src="home-dashboard.js?v=20261029b"></script>
 </body>
 </html>
