@@ -1193,7 +1193,37 @@ function downloadFile(url, name) {
 // ===== COMPOSER =====
 // Return/Enter only adds a new line (the textarea's own behaviour). The ONLY way
 // to send is the green Send button (and suggested replies), never the keyboard.
-function autoResizeComposer(el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 120) + 'px'; updateSendButton(); }
+// Grow the composer with its text up to its CSS max-height (6 lines); past that
+// it scrolls inside natively, following the caret. The text is measured in a hidden copy so the box being typed
+// in is never collapsed: the old 'height = auto' step shrank it to one line on
+// every keystroke, which on iPhone lost the caret after Return and the scroll
+// position past the limit.
+let _composerMeasure = null;
+function _composerNeededHeight(el) {
+    if (!_composerMeasure) {
+        const m = el.cloneNode(false);
+        ['id', 'oninput', 'placeholder', 'name'].forEach(a => m.removeAttribute(a));
+        m.setAttribute('aria-hidden', 'true');
+        m.tabIndex = -1;
+        Object.assign(m.style, { position: 'absolute', visibility: 'hidden', pointerEvents: 'none',
+            left: '-9999px', top: '0', height: '0', minHeight: '0', maxHeight: 'none', overflow: 'hidden' });
+        el.parentNode.appendChild(m);
+        _composerMeasure = m;
+    }
+    _composerMeasure.style.width = el.offsetWidth + 'px';
+    _composerMeasure.value = el.value;
+    const cs = getComputedStyle(el);
+    return _composerMeasure.scrollHeight + (parseFloat(cs.borderTopWidth) || 0) + (parseFloat(cs.borderBottomWidth) || 0);
+}
+function autoResizeComposer(el) {
+    if (el.offsetWidth > 0) {
+        const need = _composerNeededHeight(el);
+        const max = parseFloat(getComputedStyle(el).maxHeight) || Infinity;
+        const h = Math.ceil(Math.min(need, max)) + 'px';
+        if (el.style.height !== h) el.style.height = h;
+    }
+    updateSendButton();
+}
 function updateSendButton() {
     const inp = document.getElementById('chatComposerInput');
     document.getElementById('chatSendBtn').disabled = !inp.value.trim() && !attachedFile;
