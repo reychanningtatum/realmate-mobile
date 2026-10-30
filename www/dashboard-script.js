@@ -985,10 +985,10 @@ function _autoFitHeaderText() {
     _autoFitMetadataRow();
 }
 
-// Mobile: Edit Profile is only reachable from the "···" menu — the
-// standalone header button is removed from the DOM entirely (not just
-// CSS-hidden), per explicit design request. Desktop keeps it as the
-// original inline-flex pill button in .profile-action-col.
+// Edit Profile button on your own profile. Until the 2026-10-31 redesign it was
+// removed from the DOM on phones (reachable only from the "···" menu); it now
+// shows on every width, beside Share Profile. A button detached by an older
+// session state is re-inserted here.
 //
 // This used to run once, inline, inside loadProfile() — decided at
 // initial page load and never revisited. Since removing (rather than
@@ -1011,12 +1011,9 @@ function _applyEditProfileButtonVisibility() {
     if (!col) return;
     let editBtn = document.getElementById('editProfileActionBtn');
 
-    if (_isMobileViewport()) {
-        if (editBtn) {
-            _detachedEditProfileBtn = editBtn;
-            editBtn.remove();
-        }
-    } else {
+    // Edit Profile shows on phones too (Profile redesign, 2026-10-31): it sits in
+    // the action row beside Share Profile.
+    {
         if (!editBtn && _detachedEditProfileBtn) {
             col.prepend(_detachedEditProfileBtn);
             _detachedEditProfileBtn = null;
@@ -1049,6 +1046,46 @@ if (document.fonts && document.fonts.ready) {
 }
 
 // UI ENGINE
+// Professional statistics row: Experience + the verified designation (Active
+// Listings is filled by _refreshActiveListingsCount). The verified column shows
+// only for an admin-verified member — unverified members get two columns, never
+// a "not verified" label.
+function _renderProStats(verifiedAs) {
+    const yrs = Number(user.yearsExperience) || 0;
+    const yEl = document.getElementById('yearsStatNum');
+    if (yEl) yEl.textContent = yrs > 0 ? yrs + (yrs === 1 ? ' yr' : ' yrs') : '–';
+    const stat = document.getElementById('verifiedStat');
+    const row = document.getElementById('profileProStats');
+    const label = (verifiedAs && window.RMVerified) ? RMVerified.label(verifiedAs) : '';
+    if (stat) {
+        stat.hidden = !label;
+        const sealEl = document.getElementById('verifiedStatSeal');
+        if (sealEl) sealEl.innerHTML = label ? RMVerified.seal(verifiedAs, 30) : '';
+        const lblEl = document.getElementById('verifiedStatLabel');
+        if (lblEl) lblEl.textContent = label.replace(/^Verified /, '');
+    }
+    if (row) row.classList.toggle('pro-stats-2', !label);
+}
+
+// Active Listings: the member's listings that are still open (not archived,
+// not sold) — the same rule as the Portal and Home.
+let _activeCountSeq = 0;
+async function _refreshActiveListingsCount(targetId) {
+    const el = document.getElementById('activeListingsCount');
+    if (!el || !_supabase || !targetId) return;
+    const seq = ++_activeCountSeq;
+    try {
+        const { count, error } = await _supabase.from('listings')
+            .select('id', { count: 'exact', head: true })
+            .eq('user_id', targetId).eq('archived', false)
+            .or('status.is.null,status.neq.sold');
+        if (error) throw error;
+        if (seq === _activeCountSeq) el.textContent = String(count || 0);
+    } catch (e) {
+        console.warn('[activeListings]', e && e.message);
+    }
+}
+
 function updateUI() {
     // Guard Clause: Stops the script if on a page without nameDisplay (like forum.html)
     if(!document.getElementById("nameDisplay")) return;
@@ -1136,18 +1173,20 @@ function updateUI() {
     const _aboutEmpty = document.getElementById('aboutEmptyState');
     if (_aboutEmpty) _aboutEmpty.style.display = _hasBio ? 'none' : 'block';
 
-    // Verified badge
-    // Full Verified Salesperson / Broker badge under the name (admin-granted,
-    // profiles.verified_as); the small legacy check only when verified without a type.
+    // Verified badge — the Salesperson / Broker seal right beside the name, and
+    // its exact designation in the statistics row below. Both come only from
+    // profiles.verified_as (admin-granted; the profile guard pins it for every
+    // client). The small legacy check only when verified without a type.
     const verifiedBadge = document.getElementById('verifiedBadge');
     const _verAs = user.verifiedAs || null;
     if (verifiedBadge) verifiedBadge.style.display = (user.isVerified && !_verAs) ? 'inline-block' : 'none';
     const _verFull = document.getElementById('verifiedBadgeFull');
     if (_verFull) {
-        const html = (_verAs && window.RMVerified) ? RMVerified.badge(_verAs, 40) : '';
+        const html = (_verAs && window.RMVerified) ? RMVerified.seal(_verAs, 24) : '';
         _verFull.innerHTML = html;
         _verFull.style.display = html ? 'inline-flex' : 'none';
     }
+    _renderProStats(_verAs);
 
     // Location line
     const locationLine = document.getElementById('locationLine');
@@ -1158,18 +1197,6 @@ function updateUI() {
             locationLine.style.display = 'inline-flex';
         } else {
             locationLine.style.display = 'none';
-        }
-    }
-
-    // Years of experience line
-    const yearsLine = document.getElementById('yearsLine');
-    const yearsDisplay = document.getElementById('yearsDisplay');
-    if (yearsLine && yearsDisplay) {
-        if (user.yearsExperience) {
-            yearsDisplay.innerText = `${user.yearsExperience} Years in Real Estate`;
-            yearsLine.style.display = 'inline-flex';
-        } else {
-            yearsLine.style.display = 'none';
         }
     }
 
@@ -1641,10 +1668,6 @@ async function _loadProfileRun() {
                 console.warn('[mateBtn]', e.message);
             }
         }
-        // Follow button
-        if (typeof renderFollowButton === 'function') {
-            await renderFollowButton('profileFollowBtn', _viewUserId, user.name);
-        }
         const msgBtn = document.getElementById('profileMessageBtn');
         if (msgBtn) msgBtn.style.display = 'inline-flex';
         // Report / Block this user (App Store Guideline 1.2) — only on another
@@ -1659,19 +1682,18 @@ async function _loadProfileRun() {
         if (settingsLink) settingsLink.style.display = 'flex';
     }
 
-    // Follower / following counts for the profile being viewed
+    // Action row: own profile = Edit Profile + Share; another member's =
+    // Message + realmate + Share (Follow was removed).
+    const _actCol = document.querySelector('.profile-action-col');
+    if (_actCol) _actCol.classList.toggle('profile-actions-own', !effectivelyViewingOther);
     const targetId = effectivelyViewingOther ? _viewUserId : (await _supabase.auth.getUser()).data?.user?.id;
-    if (targetId && typeof getFollowCounts === 'function') {
-        const { followers, following } = await getFollowCounts(targetId);
-        const fc = document.getElementById('followersCount');
-        const fg = document.getElementById('followingCount');
-        if (fc) fc.innerText = followers;
-        if (fg) fg.innerText = following;
-    }
+    _refreshActiveListingsCount(targetId);
     if (targetId && typeof getMatesCount === 'function') {
         const count = await getMatesCount(targetId);
         const el = document.getElementById('matesCountProfile');
         if (el) el.innerText = count;
+        const lbl = document.getElementById('matesCountProfileLabel');
+        if (lbl) lbl.textContent = Number(count) === 1 ? 'realmate' : 'realmates';
     }
 
     await renderRealMatesCard();
@@ -1744,7 +1766,6 @@ let _statsListData = [];
 
 function _statsListRowHtml(u) {
     const divGroup = [u.division, u.group].filter(Boolean).join(' · ');
-    const btnId = `statsFollowBtn_${u.id}`;
     const searchBlob = `${u.name} ${u.job} ${u.division} ${u.group}`.toLowerCase().replace(/"/g, '');
     return `
     <div class="stats-list-row" data-search="${searchBlob}" onclick="_statsRowNavigate(event,'${u.id}')">
@@ -1754,12 +1775,10 @@ function _statsListRowHtml(u) {
             ${u.job ? `<div class="stats-list-job">${u.job}</div>` : ''}
             ${divGroup ? `<div class="stats-list-divgroup">${divGroup}</div>` : ''}
         </div>
-        <div class="stats-list-follow-wrap" id="${btnId}" onclick="event.stopPropagation()"></div>
     </div>`;
 }
 
 function _statsRowNavigate(e, id) {
-    if (e && e.target.closest('.stats-list-follow-wrap')) return;
     location.href = 'dashboard.html?user_id=' + id;
 }
 
@@ -1799,11 +1818,6 @@ async function openStatsListModal(type) {
     }
 
     body.innerHTML = list.map(_statsListRowHtml).join('');
-    list.forEach(u => {
-        if (typeof renderFollowButton === 'function') {
-            renderFollowButton(`statsFollowBtn_${u.id}`, u.id, u.name);
-        }
-    });
 }
 
 function closeStatsListModal() {
@@ -1927,7 +1941,10 @@ function _initListingHoverExpand(card) {
 // when a sold listing ticks past its 24h window and is swept away.
 let _dashListingsCtx = null;
 function reloadDashboardListings() {
-    if (_dashListingsCtx) renderRecentListings(_dashListingsCtx.targetId, _dashListingsCtx.canView, true);
+    if (_dashListingsCtx) {
+        renderRecentListings(_dashListingsCtx.targetId, _dashListingsCtx.canView, true);
+        _refreshActiveListingsCount(_dashListingsCtx.targetId);   // listing added / sold / removed
+    }
 }
 
 // Listings render is single-flight per destination (owner id + access). A second

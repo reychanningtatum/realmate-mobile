@@ -36,7 +36,7 @@
   <link rel="stylesheet" href="vendor/fontawesome/css/all.min.css?v=6.5.0">
   <link rel="stylesheet" href="vendor/cropperjs/cropper.min.css?v=1.6.1">
   <link rel="stylesheet" href="vendor/googlefonts/fonts.css?v=1">
-  <link rel="stylesheet" href="dashboard-style.css?v=20261030f">
+  <link rel="stylesheet" href="dashboard-style.css?v=20261031a">
   <link rel="stylesheet" href="customer-service.css?v=3">
   <link rel="stylesheet" href="mobile-back.css">
   <!-- Live Market post styles (scoped under .lm-post-embed) so the profile's
@@ -137,6 +137,12 @@
                             <span id="handleDisplay"></span>
                         </div>
 
+                        <!-- realmates — the profile's only relationship count (Followers /
+                             Following were removed). Opens the realmates list. -->
+                        <button type="button" class="profile-realmates-line" id="realmatesLine" onclick="openStatsListModal('realmates')">
+                            <i class="fas fa-user-group"></i> <b id="matesCountProfile">0</b> <span id="matesCountProfileLabel">realmates</span>
+                        </button>
+
                         <!-- Mobile-only standalone nickname line (desktop keeps the inline
                              "(Nickname)" next to the name inside #nameDisplay, untouched —
                              see updateUI() in dashboard-script.js). -->
@@ -154,9 +160,6 @@
                         <div class="profile-subline-row">
                             <span class="profile-subline-item" id="locationLine" style="display:none;">
                                 <i class="fas fa-map-marker-alt"></i> <span id="locationDisplay"></span>
-                            </span>
-                            <span class="profile-subline-item" id="yearsLine" style="display:none;">
-                                <i class="fas fa-briefcase"></i> <span id="yearsDisplay"></span>
                             </span>
                             <span class="profile-subline-item" id="languagesLine" style="display:none;">
                                 <i class="fas fa-globe"></i> <span id="languagesDisplay"></span>
@@ -177,7 +180,9 @@
                             <i class="fas fa-comment-dots"></i> Message
                         </button>
                         <div id="profileMateBtn"></div>
-                        <div id="profileFollowBtn"></div>
+                        <button type="button" class="btn-share-profile" id="profileShareBtn" onclick="shareProfileLink(event)">
+                            <i class="fas fa-arrow-up-from-bracket"></i><span>Share Profile</span>
+                        </button>
                         <div class="profile-more-menu-wrap">
                             <button class="btn-more-options" onclick="toggleProfileMoreMenu(event)" aria-label="More options">
                                 <i class="fas fa-ellipsis"></i>
@@ -192,23 +197,26 @@
                         </div>
                     </div>
 
+                    <!-- Professional statistics: Active Listings | Experience | verified type.
+                         The verified column only shows for an admin-verified member
+                         (profiles.verified_as); unverified members get two columns. -->
+                    <div class="profile-stats-row profile-pro-stats" id="profileProStats">
+                        <div class="profile-stat pro-stat">
+                            <span class="pro-stat-ico"><i class="fas fa-building"></i></span>
+                            <div class="pro-stat-text"><div class="profile-stat-num" id="activeListingsCount">–</div><div class="profile-stat-label">Active Listings</div></div>
+                        </div>
+                        <div class="profile-stat pro-stat">
+                            <span class="pro-stat-ico"><i class="fas fa-award"></i></span>
+                            <div class="pro-stat-text"><div class="profile-stat-num" id="yearsStatNum">–</div><div class="profile-stat-label">Experience</div></div>
+                        </div>
+                        <div class="profile-stat pro-stat" id="verifiedStat" hidden>
+                            <span class="pro-stat-ico pro-stat-seal" id="verifiedStatSeal"></span>
+                            <div class="pro-stat-text"><div class="profile-stat-num">Verified</div><div class="profile-stat-label" id="verifiedStatLabel"></div></div>
+                        </div>
+                    </div>
+
                 </div>
 
-                <!-- Stats row -->
-                <div class="profile-stats-row">
-                    <div class="profile-stat" onclick="openStatsListModal('followers')">
-                        <div class="profile-stat-num" id="followersCount">0</div>
-                        <div class="profile-stat-label">Followers</div>
-                    </div>
-                    <div class="profile-stat" onclick="openStatsListModal('following')">
-                        <div class="profile-stat-num" id="followingCount">0</div>
-                        <div class="profile-stat-label">Following</div>
-                    </div>
-                    <div class="profile-stat" onclick="openStatsListModal('realmates')">
-                        <div class="profile-stat-num profile-stat-accent" id="matesCountProfile">0</div>
-                        <div class="profile-stat-label">realmates</div>
-                    </div>
-                </div>
             </div>
 
         </div>
@@ -525,7 +533,7 @@
 <script src="livemarket.js?v=20261030f"></script>
 <script src="privacy.js?v=20261030f"></script>
 <script src="deactivation.js?v=20261030f"></script>
-<script src="dashboard-script.js?v=20261030f"></script>
+<script src="dashboard-script.js?v=20261031a"></script>
 <script src="block-report.js?v=20261030f"></script>
 <script src="visibility.js?v=20261002a"></script>
 <script src="match-alert.js?v=20261021b"></script>

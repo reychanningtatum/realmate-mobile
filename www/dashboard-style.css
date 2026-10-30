@@ -1990,3 +1990,80 @@ html[data-theme="dark"] .gv-box .gv-status-ok, html[data-theme="dark"] .gv-msg-o
 html[data-theme="dark"] .gv-box .gv-status-pending { color: #fbbf24; }
 html[data-theme="dark"] .gv-box .gv-status-rejected, html[data-theme="dark"] .gv-msg-error { color: #f87171; }
 html[data-theme="dark"] .gv-submit { background: #2563eb; }
+
+/* ═══ Profile redesign (2026-10-31) ═══════════════════════════════════════
+   Seal beside the name, realmates line, professional statistics card
+   (Active Listings | Experience | verified designation), Share Profile. */
+.profile-name-line .profile-verified-full { display: inline-flex; }
+.profile-name-line .profile-verified-full .rm-verified-seal svg { width: 24px; height: 24px; }
+
+.profile-realmates-line {
+    display: inline-flex; align-items: center; gap: 6px; margin-top: 6px;
+    padding: 0; border: 0; background: none; cursor: pointer; font-family: inherit;
+    font-size: 13px; font-weight: 600; color: var(--text-sub);
+}
+.profile-realmates-line i { color: var(--primary); font-size: 12px; }
+.profile-realmates-line b { color: var(--text-main); font-weight: 700; }
+.profile-realmates-line:hover span { text-decoration: underline; }
+
+/* Desktop: the header row wraps so the stats card takes its own full-width
+   line under the name/actions. Phones place it with grid rows (below). */
+.profile-header-row { flex-wrap: wrap; }
+.profile-pro-stats {
+    background: #f0fdf4; border: 1px solid #dcfce7; box-shadow: none;
+    padding: 16px 8px; margin-top: 18px; flex: 1 0 100%;
+}
+.profile-pro-stats .pro-stat {
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    text-align: left; cursor: default; min-width: 0;
+}
+.profile-pro-stats .pro-stat[hidden] { display: none; }
+.profile-pro-stats .pro-stat + .pro-stat::before { background: #cfe9d6; height: 40px; }
+.pro-stat-ico { flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; color: var(--primary); font-size: 24px; }
+.pro-stat-seal .rm-verified-seal svg { width: 30px; height: 30px; }
+.pro-stat-text { min-width: 0; }
+.profile-pro-stats .profile-stat-num { font-size: 19px; font-weight: 800; }
+.profile-pro-stats .profile-stat-label { font-size: 12px; line-height: 1.25; }
+#verifiedStat .profile-stat-num { font-size: 16px; }
+
+.btn-share-profile {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 10px 18px; border-radius: 50px;
+    border: 1.5px solid var(--border); background: var(--white); color: var(--text-main);
+    font-size: 12.5px; font-weight: 700; cursor: pointer; font-family: inherit;
+    transition: background 0.15s;
+}
+.btn-share-profile:hover { background: #f8fafc; }
+.btn-share-profile i { color: var(--text-sub); }
+
+html[data-theme="dark"] .profile-pro-stats { background: #0f2a1a; border-color: #14532d; }
+html[data-theme="dark"] .profile-pro-stats .pro-stat + .pro-stat::before { background: #14532d; }
+html[data-theme="dark"] .btn-share-profile { background: #1e293b; border-color: #334155; color: #f1f5f9; }
+html[data-theme="dark"] .profile-realmates-line b { color: #f1f5f9; }
+
+@media (max-width: 768px) {
+    .profile-realmates-line { grid-column: 1 / -1; grid-row: 3; justify-self: start; margin-top: 8px; }
+    /* Phone order (matches the design): details → bio → stats → action buttons. */
+    .profile-pro-stats { grid-column: 1 / -1; grid-row: 8; padding: 12px 4px; margin-top: 14px; }
+    .profile-action-col { grid-row: 9; margin-top: 14px; }
+    .profile-pro-stats .pro-stat { gap: 7px; padding: 0 6px; }
+    .pro-stat-ico { font-size: 20px; }
+    .pro-stat-seal .rm-verified-seal svg { width: 26px; height: 26px; }
+    .profile-pro-stats .profile-stat-num { font-size: 17px; }
+    #verifiedStat .profile-stat-num { font-size: 14px; }
+    .profile-pro-stats .profile-stat-label { font-size: 10.5px; }
+    /* Own profile: Edit Profile | Share Profile; another member's profile keeps
+       the three columns Message | realmate | Share Profile. */
+    .profile-action-col.profile-actions-own { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .profile-actions-own #profileMateBtn { display: none; }   /* empty on your own profile — no grid cell */
+    #profileShareBtn, #editProfileActionBtn { min-width: 0; display: flex; }
+    .profile-action-col .btn-share-profile,
+    .profile-action-col .btn-edit-profile {
+        width: 100%; justify-content: center; align-items: center;
+        font-size: clamp(11px, 3.1vw, 13px); font-weight: 700;
+        padding: 8px clamp(4px, 2vw, 14px); white-space: normal; text-align: center;
+        line-height: 1.25; min-height: 40px; gap: clamp(4px, 1.5vw, 6px);
+    }
+    /* Edit Profile is a visible button again — no duplicate in the ··· menu. */
+    #profileMoreEditLink { display: none !important; }
+}
