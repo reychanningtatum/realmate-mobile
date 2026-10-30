@@ -57,6 +57,13 @@
        moment the keyboard closes. */
     body.rm-keyboard-open .mobile-bottom-nav { display: none !important; }
     body.rm-keyboard-open #rmHost { bottom: 0; }
+    /* In the app, the content host takes the room above the keyboard the moment
+       the keyboard STARTS opening (keyboardWillShow carries its height). The
+       Keyboard plugin itself only resizes the app after the keyboard animation
+       + 0.2s, which left the chat input covered for half a second. A fixed
+       height (not bottom) is already correct when that late resize lands, so
+       nothing moves a second time. */
+    body.rm-keyboard-open.rm-kb-sized #rmHost { bottom: auto; height: var(--rm-kb-room); }
     /* Same while a page shows a full-screen view of its own (Feed's "New post"). */
     body.rm-fullscreen .mobile-bottom-nav { display: none !important; }
     body.rm-fullscreen #rmHost { bottom: 0; }
@@ -151,12 +158,26 @@
       // Feed's full-screen "New post" page: the navbar steps aside while it's open.
       if (d.type === 'rm-fullscreen') document.body.classList.toggle('rm-fullscreen', !!d.open);
     });
-    // In the app, the Capacitor Keyboard plugin (resize: native) shrinks the whole
-    // app above the keyboard and announces it here. Same switch as Chat's bridge
-    // above: the nav steps aside while ANY tab's keyboard is up (before the app
-    // resized, the keyboard simply covered it). These events never fire on the web.
-    window.addEventListener('keyboardWillShow', function () { document.body.classList.add('rm-keyboard-open'); });
-    window.addEventListener('keyboardWillHide', function () { document.body.classList.remove('rm-keyboard-open'); });
+    // In the app, the Capacitor Keyboard plugin announces the keyboard here as it
+    // starts to open, with its height. Same switch as Chat's bridge above: the nav
+    // steps aside while ANY tab's keyboard is up, and the content host is sized to
+    // the room above the keyboard right away (see #rmHost rm-kb-sized). The full
+    // height is remembered only while no keyboard is up. Never fires on the web.
+    var _rmFullH = window.innerHeight;
+    window.addEventListener('resize', function () {
+      if (!document.body.classList.contains('rm-kb-sized')) _rmFullH = window.innerHeight;
+    });
+    window.addEventListener('keyboardWillShow', function (e) {
+      document.body.classList.add('rm-keyboard-open');
+      var kb = e && Number(e.keyboardHeight);
+      if (kb > 0) {
+        document.documentElement.style.setProperty('--rm-kb-room', Math.max(0, _rmFullH - kb) + 'px');
+        document.body.classList.add('rm-kb-sized');
+      }
+    });
+    window.addEventListener('keyboardWillHide', function () {
+      document.body.classList.remove('rm-keyboard-open', 'rm-kb-sized');
+    });
   </script>
 </body>
 </html>
