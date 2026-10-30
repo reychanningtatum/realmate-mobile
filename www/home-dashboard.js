@@ -167,7 +167,7 @@
     var reqs = others.filter(function (l) { return REQ[cat(l)]; });
     var lsts = others.filter(function (l) { return LST[cat(l)]; });
 
-    hdData = { reqs: reqs, lsts: lsts };
+    hdData = { reqs: reqs, lsts: lsts, matches: [] };
     overview(reqs, lsts, rows, res[1].data || []);
     hotRequirements(reqs);
     aiMatches(res[1].data || [], rows);
@@ -187,7 +187,7 @@
     return v > 0 && isFinite(v) ? v : 0;
   }
   function isLease(l) { return REQ[cat(l)] === 'lease' || LST[cat(l)] === 'lease'; }
-  var hdData = { reqs: [], lsts: [] };
+  var hdData = { reqs: [], lsts: [], matches: [] };
 
   function overview(reqs, lsts, all, matches) {
     var now = Date.now();
@@ -197,6 +197,10 @@
     setStat('hdLstN', 'hdLstD', lsts.filter(inWeek).length, lsts.filter(today).length);
     var visible = new Set(all.map(function (l) { return String(l.id); }));
     var live = matches.filter(function (m) { return visible.has(String(m.matched_listing_id)); });
+    // The AI Matches summary lists exactly the matches this number counts.
+    var byId = {};
+    all.forEach(function (l) { byId[String(l.id)] = l; });
+    hdData.matches = live.map(function (m) { return { m: m, l: byId[String(m.matched_listing_id)] }; });
     setStat('hdAiN', 'hdAiD', live.length, live.filter(function (m) { return m.first_shown_at && now - new Date(m.first_shown_at).getTime() < DAY; }).length);
     var open = reqs.concat(lsts);
     var total = open.reduce(function (s, l) { return s + value(l); }, 0);
@@ -274,7 +278,7 @@
     }).join('');
   }
 
-  // ── Breakdown sheet (New Requirements / Active Opportunities) ──
+  // ── Summary sheet: each overview tile opens its breakdown here, on Home ──
   var sheetOpen = false;
   function postTitle(l) {
     var p = l._p || {};
@@ -325,6 +329,35 @@
       return row(l, money || 'No budget stated', '');
     }).join('') : empty('fa-user', 'No new requirements in the last 7 days.');
     openSheet('New Requirements', sum, body);
+  };
+
+  // 2. New Listings → every FOR SALE / RENT / LEASE post from the last 7 days.
+  window.hdShowListings = function () {
+    var now = Date.now();
+    var list = hdData.lsts.filter(function (l) { return now - new Date(l.created_at).getTime() < WEEK; });
+    var today = list.filter(function (l) { return now - new Date(l.created_at).getTime() < DAY; }).length;
+    var lease = list.filter(isLease).length;
+    var sum = '<p><b>' + list.length + '</b> new listing' + (list.length === 1 ? '' : 's') + ' in the last 7 days' +
+      (today ? ' · <b>' + today + '</b> today' : '') + '</p>' +
+      '<p class="hd-sheet-split">' + (list.length - lease) + ' for sale · ' + lease + ' for rent / lease</p>';
+    var body = list.length ? list.map(function (l) {
+      var p = l._p || {}, lz = isLease(l);
+      return row(l, p.price ? peso(p.price) + (lz ? ' / mo' : '') : 'No price stated', p.price ? 'asking price' : '');
+    }).join('') : empty('fa-house', 'No new listings in the last 7 days.');
+    openSheet('New Listings', sum, body);
+  };
+
+  // 3. AI Matches → the matches the tile counts, best match first.
+  window.hdShowMatches = function () {
+    var now = Date.now();
+    var list = hdData.matches.slice().sort(function (a, b) { return (Number(b.m.score) || 0) - (Number(a.m.score) || 0); });
+    var today = list.filter(function (x) { return x.m.first_shown_at && now - new Date(x.m.first_shown_at).getTime() < DAY; }).length;
+    var sum = '<p><b>' + list.length + '</b> AI match' + (list.length === 1 ? '' : 'es') + ' for your posts' +
+      (today ? ' · <b>' + today + '</b> new today' : '') + '</p>';
+    var body = list.length ? list.map(function (x) {
+      return row(x.l, Math.round(Number(x.m.score) || 0) + '% match', '');
+    }).join('') : empty('fa-wand-magic-sparkles', 'No AI matches yet. Post a listing or requirement in the Portal and Nexus will find matches for you.');
+    openSheet('AI Matches', sum, body);
   };
 
   // 4. Active Opportunities → every open post behind the total, biggest first.
