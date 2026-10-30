@@ -36,7 +36,7 @@
   <link rel="stylesheet" href="vendor/fontawesome/css/all.min.css?v=6.5.0">
   <link rel="stylesheet" href="vendor/cropperjs/cropper.min.css?v=1.6.1">
   <link rel="stylesheet" href="vendor/googlefonts/fonts.css?v=1">
-  <link rel="stylesheet" href="dashboard-style.css?v=20261031a">
+  <link rel="stylesheet" href="dashboard-style.css?v=20261031b">
   <link rel="stylesheet" href="customer-service.css?v=3">
   <link rel="stylesheet" href="mobile-back.css">
   <!-- Live Market post styles (scoped under .lm-post-embed) so the profile's
@@ -178,6 +178,9 @@
                         </button>
                         <button class="btn-message" id="profileMessageBtn" onclick="goToChat(_viewUserId, user.name)" style="display:none;">
                             <i class="fas fa-comment-dots"></i> Message
+                        </button>
+                        <button type="button" class="btn-contact-profile" id="profileContactBtn" onclick="openProfileContact()" style="display:none;">
+                            <i class="fas fa-phone"></i><span>Contact</span>
                         </button>
                         <div id="profileMateBtn"></div>
                         <button type="button" class="btn-share-profile" id="profileShareBtn" onclick="shareProfileLink(event)">
@@ -433,6 +436,20 @@
 </div>
 
 <!-- Stats List Modal (Followers / Following / Realmates) -->
+<!-- Contact sheet (another member's profile): Call / WhatsApp / Viber — phone
+     numbers are shared between realmates only. If the viewer's notifications
+     are off, they're told so and must have their own phone number on file. -->
+<div id="contactSheet" class="contact-sheet" hidden onclick="if (event.target === this) closeProfileContact()">
+  <div class="contact-panel" role="dialog" aria-modal="true" aria-labelledby="contactTitle">
+    <div class="contact-head">
+      <h3 id="contactTitle">Contact</h3>
+      <button type="button" class="contact-close" onclick="closeProfileContact()" aria-label="Close"><i class="fas fa-xmark"></i></button>
+    </div>
+    <div id="contactNotice"></div>
+    <div id="contactBody"></div>
+  </div>
+</div>
+
 <div id="statsListModal" onclick="closeStatsListModal()" class="cover-action-overlay" style="display:none;">
     <div onclick="event.stopPropagation()" class="cover-action-sheet stats-list-sheet">
         <div class="cover-action-handle"></div>
@@ -533,7 +550,7 @@
 <script src="livemarket.js?v=20261030f"></script>
 <script src="privacy.js?v=20261030f"></script>
 <script src="deactivation.js?v=20261030f"></script>
-<script src="dashboard-script.js?v=20261031a"></script>
+<script src="dashboard-script.js?v=20261031b"></script>
 <script src="block-report.js?v=20261030f"></script>
 <script src="visibility.js?v=20261002a"></script>
 <script src="match-alert.js?v=20261021b"></script>

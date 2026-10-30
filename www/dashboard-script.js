@@ -270,6 +270,135 @@ function _rmGoChat() {
     location.href = 'chat.html';
 }
 
+// ── Contact (another member's profile) ─────────────────────────────────────
+// Call / WhatsApp / Viber with the member's phone number (profiles.phone_number,
+// the optional number from sign-up). Numbers are shared between realmates only
+// — the same tier as listings. WhatsApp (wa.me) and Viber (viber://chat) open a
+// chat with the number; neither offers a public link that starts a call, so a
+// call is placed from that chat. tel: dials directly.
+// If the VIEWER's push notifications are off (or they're on the website, which
+// has no push), they're told new AI matches won't reach them as a push, and
+// must have their own valid phone number on file before contacting anyone —
+// realmate has no SMS: the number is only for the member they contact.
+function _rmPhoneDigits(v) { return String(v || '').replace(/[\s\-().+]/g, ''); }
+// Same rule as sign-up (script.js validatePhone): 10–13 digits.
+function _rmValidPhone(v) { return /^[0-9]{10,13}$/.test(_rmPhoneDigits(v)); }
+// International form for WhatsApp/Viber: a PH mobile 09XXXXXXXXX → 639XXXXXXXXX.
+function _rmIntlPhone(v) {
+    let d = _rmPhoneDigits(v);
+    if (/^0\d{10}$/.test(d)) d = '63' + d.slice(1);
+    else if (/^9\d{9}$/.test(d)) d = '63' + d;
+    return d;
+}
+function _rmCapacitor() {
+    try { return window.Capacitor || (window.parent && window.parent !== window && window.parent.Capacitor) || null; } catch (e) { return null; }
+}
+async function _rmPushEnabled() {
+    const C = _rmCapacitor();
+    const P = C && C.Plugins && C.Plugins.PushNotifications;
+    if (!P) return false;                       // website: no push notifications
+    try { const p = await P.checkPermissions(); return !!p && p.receive === 'granted'; } catch (e) { return false; }
+}
+function _contactEsc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+
+let _contactSeq = 0;
+async function openProfileContact() {
+    const sheet = document.getElementById('contactSheet');
+    if (!sheet || !_supabase || !_viewUserId) return;
+    const seq = ++_contactSeq;
+    const notice = document.getElementById('contactNotice');
+    const body = document.getElementById('contactBody');
+    notice.innerHTML = '';
+    body.innerHTML = '<div class="listings-loading"><i class="fas fa-spinner fa-spin"></i> Loading…</div>';
+    sheet.hidden = false;
+    const name = (user && user.name) || 'this member';
+    let pushOn = false, myId = null, myPhone = '', theirPhone = '';
+    try {
+        const { data: au } = await _supabase.auth.getUser();
+        myId = au && au.user && au.user.id;
+        const [push, mine, theirs] = await Promise.all([
+            _rmPushEnabled(),
+            myId ? _supabase.from('profiles').select('phone_number').eq('id', myId).maybeSingle() : Promise.resolve({ data: null }),
+            _supabase.from('profiles').select('phone_number').eq('id', _viewUserId).maybeSingle(),
+        ]);
+        pushOn = push;
+        myPhone = (mine && mine.data && mine.data.phone_number) || '';
+        theirPhone = (theirs && theirs.data && theirs.data.phone_number) || '';
+    } catch (e) { console.warn('[contact]', e && e.message); }
+    if (seq !== _contactSeq || sheet.hidden) return;
+
+    if (!pushOn) {
+        const isApp = !!(_rmCapacitor() && _rmCapacitor().Plugins && _rmCapacitor().Plugins.PushNotifications);
+        notice.innerHTML = '<div class="contact-notice"><i class="fas fa-bell-slash"></i><div>' +
+            '<b>Notifications are off</b>' +
+            '<p>realmate can’t send you a push notification when you get a new AI match' + (isApp ? '' : ' — push notifications only work in the realmate app') + '.' +
+            (isApp ? ' Turn them on in your phone’s Settings › realmate › Notifications.' : '') + '</p>' +
+            (_rmValidPhone(myPhone) ? '' : '<p>Until then, add your phone number so the members you contact can reach you back.</p>') +
+            '</div></div>';
+        if (!_rmValidPhone(myPhone)) { _renderContactPhoneForm(myId, seq); return; }
+    }
+    _renderContactOptions(name, theirPhone);
+}
+
+function _renderContactPhoneForm(myId, seq) {
+    const body = document.getElementById('contactBody');
+    body.innerHTML =
+        '<label class="contact-label" for="contactMyPhone">Your phone number</label>' +
+        '<input id="contactMyPhone" class="contact-input" type="tel" inputmode="tel" autocomplete="tel" placeholder="e.g. 09171234567">' +
+        '<p class="contact-error" id="contactPhoneError" hidden>Enter a valid phone number (10–13 digits).</p>' +
+        '<button type="button" class="contact-save" id="contactSaveBtn">Save and continue</button>';
+    const input = document.getElementById('contactMyPhone');
+    const btn = document.getElementById('contactSaveBtn');
+    btn.onclick = async () => {
+        const v = input.value.trim();
+        const err = document.getElementById('contactPhoneError');
+        if (!_rmValidPhone(v)) { err.hidden = false; input.focus(); return; }
+        err.hidden = true;
+        btn.disabled = true; btn.textContent = 'Saving…';
+        try {
+            const { error } = await _supabase.from('profiles').update({ phone_number: _rmPhoneDigits(v) }).eq('id', myId);
+            if (error) throw error;
+        } catch (e) {
+            btn.disabled = false; btn.textContent = 'Save and continue';
+            err.textContent = 'Couldn’t save your number. Please try again.'; err.hidden = false;
+            return;
+        }
+        if (seq === _contactSeq) openProfileContact();
+    };
+}
+
+function _renderContactOptions(name, phone) {
+    const body = document.getElementById('contactBody');
+    const isMate = !!(_viewMateState && _viewMateState.status === 'accepted');
+    const n = _contactEsc(name);
+    if (!isMate) {
+        body.innerHTML = '<p class="contact-text">Phone numbers are shared only between realmates. Add <b>' + n + '</b> as a realmate to contact them, or send a message.</p>' +
+            '<button type="button" class="contact-save" onclick="closeProfileContact(); goToChat(_viewUserId, user.name)"><i class="fas fa-comment-dots"></i> Message</button>';
+        return;
+    }
+    if (!_rmValidPhone(phone)) {
+        body.innerHTML = '<p class="contact-text"><b>' + n + '</b> hasn’t added a phone number yet. Send them a message instead.</p>' +
+            '<button type="button" class="contact-save" onclick="closeProfileContact(); goToChat(_viewUserId, user.name)"><i class="fas fa-comment-dots"></i> Message</button>';
+        return;
+    }
+    const digits = _rmPhoneDigits(phone), intl = _rmIntlPhone(phone);
+    body.innerHTML =
+        '<p class="contact-number"><i class="fas fa-phone"></i> ' + _contactEsc(digits) + '</p>' +
+        '<div class="contact-options">' +
+          '<a class="contact-opt" href="tel:' + _contactEsc(digits) + '" target="_blank" rel="noopener"><i class="fas fa-phone"></i><span>Call</span></a>' +
+          '<a class="contact-opt contact-wa" href="https://wa.me/' + _contactEsc(intl) + '" target="_blank" rel="noopener"><i class="fab fa-whatsapp"></i><span>WhatsApp</span></a>' +
+          '<a class="contact-opt contact-viber" href="viber://chat?number=%2B' + _contactEsc(intl) + '" target="_blank" rel="noopener"><i class="fab fa-viber"></i><span>Viber</span></a>' +
+        '</div>' +
+        '<p class="contact-hint">WhatsApp and Viber open a chat with ' + n + ' — call from there.</p>';
+}
+
+function closeProfileContact() {
+    _contactSeq++;
+    const sheet = document.getElementById('contactSheet');
+    if (sheet) sheet.hidden = true;
+}
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeProfileContact(); });
+
 async function goToChat(targetUserId, targetName) {
     sessionStorage.setItem('openChatWith', JSON.stringify({ userId: targetUserId, name: targetName }));
     _rmGoChat();
@@ -1668,6 +1797,8 @@ async function _loadProfileRun() {
                 console.warn('[mateBtn]', e.message);
             }
         }
+        const contactBtn = document.getElementById('profileContactBtn');
+        if (contactBtn) contactBtn.style.display = 'inline-flex';
         const msgBtn = document.getElementById('profileMessageBtn');
         if (msgBtn) msgBtn.style.display = 'inline-flex';
         // Report / Block this user (App Store Guideline 1.2) — only on another
