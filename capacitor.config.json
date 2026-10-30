@@ -8,5 +8,10 @@
   },
   "android": {
     "backgroundColor": "#080f1a"
+  },
+  "plugins": {
+    "Keyboard": {
+      "resize": "native"
+    }
   }
 }

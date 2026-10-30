@@ -151,6 +151,12 @@
       // Feed's full-screen "New post" page: the navbar steps aside while it's open.
       if (d.type === 'rm-fullscreen') document.body.classList.toggle('rm-fullscreen', !!d.open);
     });
+    // In the app, the Capacitor Keyboard plugin (resize: native) shrinks the whole
+    // app above the keyboard and announces it here. Same switch as Chat's bridge
+    // above: the nav steps aside while ANY tab's keyboard is up (before the app
+    // resized, the keyboard simply covered it). These events never fire on the web.
+    window.addEventListener('keyboardWillShow', function () { document.body.classList.add('rm-keyboard-open'); });
+    window.addEventListener('keyboardWillHide', function () { document.body.classList.remove('rm-keyboard-open'); });
   </script>
 </body>
 </html>

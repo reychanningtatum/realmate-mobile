@@ -161,8 +161,8 @@
                onchange="handleFileAttach(this)">
         <textarea class="chat-composer-input" id="chatComposerInput"
                   placeholder="Type a message…" rows="1"
-                  oninput="autoResizeComposer(this); handleTyping()"
-                  onkeydown="handleComposerKeydown(event)"></textarea>
+                  enterkeyhint="enter"
+                  oninput="autoResizeComposer(this); handleTyping()"></textarea>
         <button class="chat-composer-send" id="chatSendBtn" onmousedown="event.preventDefault()" onclick="sendMessage()" disabled>
           <i class="fas fa-paper-plane"></i>
         </button>
@@ -263,7 +263,7 @@
 <script src="vendor/supabase-js.min.js?v=2.112.3"></script>
 <script src="compress.js?v=20261013a"></script>
 <script src="auth-guard.js?v=20261030f"></script>
-<script src="chat.js?v=20261028a"></script>
+<script src="chat.js?v=20261030g"></script>
 <script src="block-report.js?v=20261030f"></script>
 <script src="location-engine.js?v=20260809b"></script>
 <script src="match-engine.js?v=20261028b"></script>

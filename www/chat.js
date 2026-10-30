@@ -1026,7 +1026,7 @@ function chatSendText(raw) {
 
 async function sendMessage() {
     if (_supportTicketClosed()) return; // closed support ticket is read-only
-    // In-flight guard: every Send path (button onclick, Enter key, suggested
+    // In-flight guard: every Send path (button onclick, suggested
     // reply) funnels through here, and btn.disabled is only a visual cue that a
     // second rapid tap/click can beat. This synchronous flag — set below BEFORE
     // any await — makes a duplicate call return immediately, so a file is
@@ -1191,7 +1191,8 @@ function downloadFile(url, name) {
 }
 
 // ===== COMPOSER =====
-function handleComposerKeydown(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }
+// Return/Enter only adds a new line (the textarea's own behaviour). The ONLY way
+// to send is the green Send button (and suggested replies), never the keyboard.
 function autoResizeComposer(el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 120) + 'px'; updateSendButton(); }
 function updateSendButton() {
     const inp = document.getElementById('chatComposerInput');
