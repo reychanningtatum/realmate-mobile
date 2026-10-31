@@ -62,6 +62,12 @@ function shareProfileLink(e) {
     const link_el = e && e.currentTarget;
     const label = link_el ? link_el.querySelector('span') : null;
     navigator.clipboard.writeText(link).then(() => {
+        // Icon-only Share (circle on another member's profile): the label is
+        // hidden, so confirm with a toast instead.
+        if (label && label.offsetParent === null) {
+            if (typeof window.showToast === 'function') window.showToast('Profile link copied', 'success');
+            return;
+        }
         if (label) {
             const original = label.textContent;
             label.textContent = 'Link copied!';
