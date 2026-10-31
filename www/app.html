@@ -178,6 +178,12 @@
     window.addEventListener('keyboardWillHide', function () {
       document.body.classList.remove('rm-keyboard-open', 'rm-kb-sized');
     });
+    // The Keyboard plugin hides iOS's ^ ˅ Done bar by default (it was there before
+    // the plugin was added). Bring it back so every text field — Edit Profile's
+    // About, Chat — has the native Done key to close the keyboard. One native
+    // setting for the whole app; no-op on the web.
+    var _kbp = window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.Keyboard;
+    if (_kbp && _kbp.setAccessoryBarVisible) _kbp.setAccessoryBarVisible({ isVisible: true });
   </script>
 </body>
 </html>

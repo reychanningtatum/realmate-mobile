@@ -306,6 +306,13 @@
             <label>Brokerage / Company <span class="input-field-optional">(Optional)</span></label>
             <input type="text" id="editBrokerage" maxlength="120" placeholder="Brokerage or company name">
         </div>
+        <!-- Mobile number: profiles.phone_number — shared only with your realmates
+             (Contact). Optional; editable any time after sign-up. -->
+        <div class="input-field">
+            <label for="editPhone">Mobile Number <span class="input-field-optional">(Optional · shown only to your realmates)</span></label>
+            <input type="tel" id="editPhone" inputmode="tel" autocomplete="tel" maxlength="20" placeholder="e.g. 09171234567">
+            <div id="editPhoneError" class="input-field-optional" style="margin-top:4px;color:#dc2626;" hidden>Enter a valid mobile number (10–13 digits).</div>
+        </div>
         <!-- Get verified: the badge is admin-granted only. Changing the Profession
              above changes nothing; this sends the member's ID for an admin review
              (verification_requests; Admin › Verifications). -->
@@ -547,10 +554,10 @@
 <script src="match-engine.js?v=20261028b"></script>
 <script src="developers.js?v=36"></script>
 <script src="rm-verified.js?v=20261020h"></script>
-<script src="livemarket.js?v=20261030f"></script>
+<script src="livemarket.js?v=20261031c"></script>
 <script src="privacy.js?v=20261030f"></script>
 <script src="deactivation.js?v=20261030f"></script>
-<script src="dashboard-script.js?v=20261031b"></script>
+<script src="dashboard-script.js?v=20261031c"></script>
 <script src="block-report.js?v=20261030f"></script>
 <script src="visibility.js?v=20261002a"></script>
 <script src="match-alert.js?v=20261021b"></script>

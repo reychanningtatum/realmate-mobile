@@ -4239,6 +4239,19 @@ function dismissMatch(listingId) {
     if (typeof applyFilters === 'function' && document.getElementById('listingsGrid')) applyFilters();
 }
 
+// Open the Portal tab (in the app shell via rmOpen, which loads it fresh; on the
+// website a plain navigation). Used when the AI Match Engine is opened from a
+// page that isn't the Portal; the Portal restores the match view from rm_matchCtx.
+function _rmOpenPortalForMatch() {
+    try {
+        if (window.parent && window.parent !== window && typeof window.parent.rmOpen === 'function') {
+            window.parent.rmOpen('portal', 'livemarket.html');
+            return;
+        }
+    } catch (e) {}
+    location.href = 'livemarket.html';
+}
+
 function showAllMatches(listingId, scrollToId, noFlash) {
     const myListing = myListings.find(l => String(l.id) === String(listingId));
     // Stale/unresolvable context (listing gone or not one of mine): drop it so it
@@ -4255,6 +4268,10 @@ function showAllMatches(listingId, scrollToId, noFlash) {
     }));
     const partnerCat = PARTNER_MAP[myListing.category];
     if (!partnerCat) { sessionStorage.removeItem('rm_matchCtx'); return; }
+    // Not on the Portal (Profile → Listings loads this same card): this page has
+    // no AI Match Engine view to show. Open the Portal instead — its load reads the
+    // rm_matchCtx saved above and opens THIS listing's engine (same restore as Back).
+    if (!document.getElementById('matchView')) { _rmOpenPortalForMatch(); return; }
     const parsedMine = parseListing(myListing);
     const dismissed = getDismissedMatches();
     const matches = allListings.filter(other => {

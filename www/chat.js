@@ -989,7 +989,14 @@ function addMsgBubble(container, m) {
         container.insertAdjacentHTML('beforeend', html);
         return;
     } else if (type === 'TEXT') {
-        bubble = `<div class="chat-msg-bubble chat-msg-text">${escWithLinks(m.message_text || '')}</div>`;
+        // A shared profile link (Share Profile → pasted here) shows as a compact
+        // profile card for that exact account id; any other text stays a bubble.
+        const pref = _profileRefFromText(m.message_text || '');
+        if (pref) {
+            bubble = (pref.rest ? `<div class="chat-msg-bubble chat-msg-text">${escWithLinks(pref.rest)}</div>` : '') + profileRefCardHtml(pref.id);
+        } else {
+            bubble = `<div class="chat-msg-bubble chat-msg-text">${escWithLinks(m.message_text || '')}</div>`;
+        }
     } else if (type === 'IMAGE') {
         bubble = `<div class="chat-msg-bubble chat-msg-image-bubble"><img class="chat-msg-image" src="${m.file_url}" alt="Image" onclick="event.stopPropagation();toggleMsgTimestamp(this.closest('.chat-msg-row'));openLightbox('${m.file_url}')" loading="lazy"></div>`;
     } else if (type === 'PDF') {
@@ -1006,6 +1013,76 @@ function addMsgBubble(container, m) {
     const html = `<div class="chat-msg-row ${side}" data-msg-id="${m.id}" ${msgMinuteAttr} onclick="toggleMsgTimestamp(this)" ${ctxAttr}><div class="chat-msg-tap-ts">${fullTimestamp}</div><div>${bubble}<div class="chat-msg-meta" style="justify-content:${isOwn ? 'flex-end' : 'flex-start'}">${receipt}</div></div></div>`;
 
     container.insertAdjacentHTML('beforeend', html);
+    if (bubble.indexOf('data-profile-ref') !== -1) _hydrateProfileRefs(container);
+}
+
+// ── Shared profile card ────────────────────────────────────────────────────
+// Share Profile copies a link to dashboard.html?user_id=<id>. When that link is
+// sent in a chat, both people see a compact card for THAT account id (never a
+// name or username lookup). The details are read live from profiles by id, so
+// the card is the same after a refresh and shows the member's current name,
+// photo and admin-granted verification (profiles.verified_as via RMVerified).
+const _PROFILE_LINK_RE = /(?:(?:https?|capacitor):\/\/[^\s<]*?\/)?dashboard\.html\?(?:[^\s<#]*?&)?user_id=([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})[^\s<]*/i;
+function _profileRefFromText(text) {
+    const m = _PROFILE_LINK_RE.exec(String(text || ''));
+    if (!m) return null;
+    const rest = (text.slice(0, m.index) + text.slice(m.index + m[0].length)).trim();
+    return { id: m[1].toLowerCase(), rest };
+}
+function profileRefCardHtml(id) {
+    return `<div class="offer-ref profile-ref" data-profile-ref="${esc(id)}" onclick="event.stopPropagation(); openSharedProfile('${esc(id)}')">
+        <div class="offer-ref-head"><i class="fas fa-user"></i><span>Shared profile</span></div>
+        <div class="offer-ref-body">
+            <div class="profile-ref-avatar"><i class="fas fa-user"></i></div>
+            <div class="offer-ref-info">
+                <div class="offer-ref-title profile-ref-name">Loading…</div>
+                <div class="offer-ref-meta profile-ref-user"></div>
+                <div class="profile-ref-status"></div>
+            </div>
+        </div>
+        <a class="offer-ref-view" href="dashboard.html?user_id=${esc(id)}" onclick="event.preventDefault(); event.stopPropagation(); openSharedProfile('${esc(id)}')">View Profile <i class="fas fa-arrow-right"></i></a>
+    </div>`;
+}
+const _profileRefCache = new Map();   // id → Promise<profile|null>
+function _fetchProfileRef(id) {
+    if (!_profileRefCache.has(id)) {
+        _profileRefCache.set(id, Promise.resolve(_chatSupa.from('profiles')
+            .select('id, full_name, username, avatar_url, verified_as, professional_type')
+            .eq('id', id).maybeSingle())
+            .then(r => (r && r.data) || null)
+            .catch(() => { _profileRefCache.delete(id); return null; }));
+    }
+    return _profileRefCache.get(id);
+}
+function _hydrateProfileRefs(root) {
+    (root || document).querySelectorAll('[data-profile-ref]:not([data-hydrated])').forEach(card => {
+        card.setAttribute('data-hydrated', '1');
+        const id = card.getAttribute('data-profile-ref');
+        _fetchProfileRef(id).then(p => {
+            const nameEl = card.querySelector('.profile-ref-name');
+            if (!p) { if (nameEl) nameEl.textContent = 'realmate member'; return; }
+            const av = card.querySelector('.profile-ref-avatar');
+            if (av && p.avatar_url) {
+                av.innerHTML = `<img src="${esc(p.avatar_url)}" alt="" loading="lazy" onerror="this.remove()"><i class="fas fa-user"></i>`;
+            }
+            if (nameEl) nameEl.textContent = p.full_name || 'realmate member';
+            const u = card.querySelector('.profile-ref-user');
+            if (u) u.textContent = p.username ? '@' + p.username : '';
+            const st = card.querySelector('.profile-ref-status');
+            const vLabel = (p.verified_as && window.RMVerified) ? RMVerified.label(p.verified_as) : '';
+            const pro = p.professional_type === 'broker' ? 'Real Estate Broker'
+                : p.professional_type === 'salesperson' ? 'Real Estate Salesperson' : '';
+            if (st) {
+                if (vLabel) st.innerHTML = `<i class="fas fa-shield-halved"></i><span>${esc(vLabel)}</span>`;
+                else if (pro) st.innerHTML = `<span class="profile-ref-pro">${esc(pro)}</span>`;
+                else st.innerHTML = '';
+            }
+        });
+    });
+}
+function openSharedProfile(id) {
+    if (!id) return;
+    location.href = `dashboard.html?user_id=${encodeURIComponent(id)}`;
 }
 
 function fileBubble(m, icon, preview) {

@@ -299,6 +299,15 @@ async function _rmPushEnabled() {
     if (!P) return false;                       // website: no push notifications
     try { const p = await P.checkPermissions(); return !!p && p.receive === 'granted'; } catch (e) { return false; }
 }
+// The ONE way the app reads a phone number: the get_contact_phone function
+// (contact-phone-rpc-migration.sql) returns it only to the member themself or an
+// accepted realmate — never via a direct profiles.phone_number select.
+async function _rmGetContactPhone(targetId) {
+    if (!_supabase || !targetId) return '';
+    const { data, error } = await _supabase.rpc('get_contact_phone', { target: targetId });
+    if (error) throw error;
+    return typeof data === 'string' ? data : '';
+}
 function _contactEsc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 
 let _contactSeq = 0;
@@ -318,12 +327,12 @@ async function openProfileContact() {
         myId = au && au.user && au.user.id;
         const [push, mine, theirs] = await Promise.all([
             _rmPushEnabled(),
-            myId ? _supabase.from('profiles').select('phone_number').eq('id', myId).maybeSingle() : Promise.resolve({ data: null }),
-            _supabase.from('profiles').select('phone_number').eq('id', _viewUserId).maybeSingle(),
+            myId ? _rmGetContactPhone(myId) : Promise.resolve(''),
+            _rmGetContactPhone(_viewUserId),
         ]);
         pushOn = push;
-        myPhone = (mine && mine.data && mine.data.phone_number) || '';
-        theirPhone = (theirs && theirs.data && theirs.data.phone_number) || '';
+        myPhone = mine;
+        theirPhone = theirs;
     } catch (e) { console.warn('[contact]', e && e.message); }
     if (seq !== _contactSeq || sheet.hidden) return;
 
@@ -1189,7 +1198,9 @@ function _renderProStats(verifiedAs) {
     if (stat) {
         stat.hidden = !label;
         const sealEl = document.getElementById('verifiedStatSeal');
-        if (sealEl) sealEl.innerHTML = label ? RMVerified.seal(verifiedAs, 30) : '';
+        // The seal sits beside the name; this column uses a shield instead so
+        // the badge isn't repeated (label still from profiles.verified_as).
+        if (sealEl) sealEl.innerHTML = label ? '<i class="fas fa-shield-halved" aria-hidden="true"></i>' : '';
         const lblEl = document.getElementById('verifiedStatLabel');
         if (lblEl) lblEl.textContent = label.replace(/^Verified /, '');
     }
@@ -2379,6 +2390,20 @@ async function saveProfile() {
     user.yearsExperience = yearsVal ? parseInt(yearsVal, 10) : '';
     user.languages = _selectedLanguages.join(', ');
 
+    // Mobile number: optional; if given, the sign-up rule (10–13 digits).
+    let _phoneUpdate;   // undefined => leave the column untouched
+    if (_editPhoneLoaded) {
+        const _pv = ((document.getElementById('editPhone') || {}).value || '').trim();
+        if (_pv && !_rmValidPhone(_pv)) {
+            if (btn) { btn.disabled = false; btn.innerHTML = 'Save Changes'; }
+            const _pe = document.getElementById('editPhoneError');
+            if (_pe) _pe.hidden = false;
+            _editAlert('Enter a valid mobile number (10–13 digits), or leave it blank.', 'error');
+            return;
+        }
+        _phoneUpdate = _pv ? _rmPhoneDigits(_pv) : null;
+    }
+
     if (_supabase) {
         try {
             const { data: { user: authUser } } = await _supabase.auth.getUser();
@@ -2427,6 +2452,7 @@ async function saveProfile() {
                     location: user.location || null,
                     years_experience: user.yearsExperience || null,
                     languages: user.languages || null,
+                    ...(_phoneUpdate !== undefined ? { phone_number: _phoneUpdate } : {}),
                     updated_at: new Date()
                 });
                 if (error) throw error;
@@ -2478,6 +2504,32 @@ function openEditModal() {
     document.getElementById("editLanguages").value = "";
     document.getElementById("editModal").style.display = "flex";
     gvRefresh();
+    _loadEditPhone();
+}
+
+// Mobile number (Edit Profile) — profiles.phone_number, the same number Contact
+// uses. Read through get_contact_phone (self is allowed). Saved only once it has
+// loaded, so a failed read can never wipe a stored number. Optional: blank clears it.
+let _editPhoneLoaded = false;
+async function _loadEditPhone() {
+    const el = document.getElementById('editPhone');
+    const err = document.getElementById('editPhoneError');
+    if (!el) return;
+    _editPhoneLoaded = false;
+    el.value = '';
+    el.disabled = true;
+    if (err) err.hidden = true;
+    try {
+        const { data: au } = await _supabase.auth.getUser();
+        const myId = au && au.user && au.user.id;
+        if (!myId) return;
+        el.value = await _rmGetContactPhone(myId);
+        _editPhoneLoaded = true;
+    } catch (e) {
+        console.warn('[editPhone]', e && e.message);
+    } finally {
+        el.disabled = !_editPhoneLoaded;
+    }
 }
 
 // ── Get verified (Edit Profile) ──────────────────────────────────────────────
