@@ -3190,9 +3190,11 @@ function portalSuggestPerson(i) {
     if (window.RMSearchHistory) RMSearchHistory.add('recent', { type: 'person', id: p.id, label: p.name || 'Member', sub: p.job, img: p.img || '' });
     closePortalSuggest();
     const me = JSON.parse(localStorage.getItem('user') || 'null');
-    location.href = (me && String(me.id) === String(p.id))
+    // Through the shared profile opener (the app's Me tab, Portal kept alive) —
+    // a plain location.href replaced the Portal page itself, so Back reloaded it.
+    rmOpenProfileTab((me && String(me.id) === String(p.id))
         ? 'dashboard.html'
-        : 'dashboard.html?user_id=' + encodeURIComponent(p.id);
+        : 'dashboard.html?user_id=' + encodeURIComponent(p.id));
 }
 
 // Clicking a suggested POST routes straight to that specific Listing's detail page
@@ -3239,7 +3241,8 @@ function portalRecentClick(idx) {
     if (e.type === 'person' && e.id) {
         closePortalSuggest();
         const me = JSON.parse(localStorage.getItem('user') || 'null');
-        location.href = (me && String(me.id) === String(e.id)) ? 'dashboard.html' : 'dashboard.html?user_id=' + encodeURIComponent(e.id);
+        // Shared profile opener (see portalSuggestPerson) — never replace the Portal.
+        rmOpenProfileTab((me && String(me.id) === String(e.id)) ? 'dashboard.html' : 'dashboard.html?user_id=' + encodeURIComponent(e.id));
     } else if (e.type === 'listing' && e.id != null) {
         closePortalSuggest();
         lmOpenListing(e.id);
