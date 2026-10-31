@@ -327,6 +327,41 @@ async function _rmGetContactPhone(targetId) {
     if (error) throw error;
     return typeof data === 'string' ? data : '';
 }
+// PRC licence number (profile_licenses; prc-license-migration.sql). Read only
+// through get_prc_license — the owner or an accepted realmate gets it, everyone
+// else NULL. The label follows the profession: REBL No. (broker) / RESL No.
+// (salesperson).
+function _prcLabel(pt) {
+    return pt === 'broker' ? 'PRC REBL No.' : pt === 'salesperson' ? 'PRC RESL No.' : 'PRC License No.';
+}
+function _rmValidPrc(v) { return /^[0-9]{4,10}$/.test(String(v || '').trim()); }
+async function _rmGetPrcLicense(targetId) {
+    if (!_supabase || !targetId) return '';
+    const { data, error } = await _supabase.rpc('get_prc_license', { target: targetId });
+    if (error) throw error;
+    return typeof data === 'string' ? data : '';
+}
+function _syncPrcLabel() {
+    const t = document.getElementById('editPrcLabelText');
+    const pt = (document.getElementById('editProfessionalType') || {}).value || '';
+    if (t) t.textContent = _prcLabel(pt);
+}
+let _prcLineSeq = 0;
+async function _renderPrcLine() {
+    const line = document.getElementById('prcLine');
+    const disp = document.getElementById('prcDisplay');
+    if (!line || !disp || !_supabase) return;
+    const seq = ++_prcLineSeq;
+    let target = effectivelyViewingOtherProfile() ? _viewUserId : null;
+    let num = '';
+    try {
+        if (!target) { const { data: au } = await _supabase.auth.getUser(); target = au && au.user && au.user.id; }
+        num = target ? await _rmGetPrcLicense(target) : '';
+    } catch (e) { console.warn('[prcLine]', e && e.message); }
+    if (seq !== _prcLineSeq) return;
+    if (num) { disp.textContent = _prcLabel(user.professionalType) + ' ' + num; line.style.display = 'inline-flex'; }
+    else { disp.textContent = ''; line.style.display = 'none'; }
+}
 function _contactEsc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 
 let _contactSeq = 0;
@@ -1347,6 +1382,7 @@ function updateUI() {
         _verFull.style.display = html ? 'inline-flex' : 'none';
     }
     _renderProStats(_verAs);
+    _renderPrcLine();
 
     // Location line
     const locationLine = document.getElementById('locationLine');
@@ -2423,6 +2459,19 @@ async function saveProfile() {
         }
         _phoneUpdate = _pv ? _rmPhoneDigits(_pv) : null;
     }
+    // PRC licence number: optional; if given, digits only (4–10).
+    let _prcUpdate;   // undefined => leave untouched; '' => remove
+    if (_editPrcLoaded) {
+        const _rv = ((document.getElementById('editPrc') || {}).value || '').trim();
+        if (_rv && !_rmValidPrc(_rv)) {
+            if (btn) { btn.disabled = false; btn.innerHTML = 'Save Changes'; }
+            const _re = document.getElementById('editPrcError');
+            if (_re) _re.hidden = false;
+            _editAlert('Enter the PRC licence number using digits only (4–10), or leave it blank.', 'error');
+            return;
+        }
+        _prcUpdate = _rv;
+    }
 
     if (_supabase) {
         try {
@@ -2477,6 +2526,14 @@ async function saveProfile() {
                 });
                 if (error) throw error;
 
+                // PRC licence number → the owner-only profile_licenses row.
+                if (_prcUpdate !== undefined) {
+                    const { error: prcErr } = _prcUpdate
+                        ? await _supabase.from('profile_licenses').upsert({ user_id: authUser.id, prc_license_no: _prcUpdate, updated_at: new Date() })
+                        : await _supabase.from('profile_licenses').delete().eq('user_id', authUser.id);
+                    if (prcErr) throw prcErr;
+                }
+
                 // Keep the auth metadata's username in sync (profiles, saved above,
                 // is what sign-in resolves username → email from). Best-effort —
                 // a failure here shouldn't block the profile save that already landed.
@@ -2525,6 +2582,32 @@ function openEditModal() {
     document.getElementById("editModal").style.display = "flex";
     gvRefresh();
     _loadEditPhone();
+    _syncPrcLabel();
+    _loadEditPrc();
+}
+
+// PRC licence number in Edit Profile: saved only once it has loaded (a failed
+// read can never wipe it). Optional; blank removes it.
+let _editPrcLoaded = false;
+async function _loadEditPrc() {
+    const el = document.getElementById('editPrc');
+    const err = document.getElementById('editPrcError');
+    if (!el) return;
+    _editPrcLoaded = false;
+    el.value = '';
+    el.disabled = true;
+    if (err) err.hidden = true;
+    try {
+        const { data: au } = await _supabase.auth.getUser();
+        const myId = au && au.user && au.user.id;
+        if (!myId) return;
+        el.value = await _rmGetPrcLicense(myId);
+        _editPrcLoaded = true;
+    } catch (e) {
+        console.warn('[editPrc]', e && e.message);
+    } finally {
+        el.disabled = !_editPrcLoaded;
+    }
 }
 
 // Mobile number (Edit Profile) — profiles.phone_number, the same number Contact

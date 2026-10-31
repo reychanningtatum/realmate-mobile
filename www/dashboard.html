@@ -167,6 +167,9 @@
                             <span class="profile-subline-item" id="relationshipLine" style="display:none;">
                                 <i class="fas fa-heart"></i> <span id="relationshipDisplay"></span>
                             </span>
+                            <span class="profile-subline-item" id="prcLine" style="display:none;">
+                                <i class="fas fa-id-card"></i> <span id="prcDisplay"></span>
+                            </span>
                         </div>
 
                         <p class="profile-bio-preview" id="bioPreview" style="display:none;"></p>
@@ -296,7 +299,7 @@
         </div>
         <div class="input-field">
             <label>Profession</label>
-            <select id="editProfessionalType">
+            <select id="editProfessionalType" onchange="_syncPrcLabel()">
                 <option value="">-- Select --</option>
                 <option value="salesperson">Real Estate Salesperson</option>
                 <option value="broker">Real Estate Broker</option>
@@ -305,6 +308,14 @@
         <div class="input-field">
             <label>Brokerage / Company <span class="input-field-optional">(Optional)</span></label>
             <input type="text" id="editBrokerage" maxlength="120" placeholder="Brokerage or company name">
+        </div>
+        <!-- PRC licence number: profile_licenses (owner-only table). Shown only to
+             the member and their realmates (get_prc_license). Label follows the
+             Profession: REBL No. (broker) / RESL No. (salesperson). -->
+        <div class="input-field">
+            <label for="editPrc"><span id="editPrcLabelText">PRC License No.</span> <span class="input-field-optional">(Optional · shown only to your realmates)</span></label>
+            <input type="text" id="editPrc" inputmode="numeric" pattern="[0-9]*" maxlength="10" autocomplete="off" placeholder="e.g. 0012345">
+            <div id="editPrcError" class="input-field-optional" style="margin-top:4px;color:#dc2626;" hidden>Enter the licence number using digits only (4–10).</div>
         </div>
         <!-- Mobile number: profiles.phone_number — shared only with your realmates
              (Contact). Optional; editable any time after sign-up. -->
@@ -557,7 +568,7 @@
 <script src="livemarket.js?v=20261031g"></script>
 <script src="privacy.js?v=20261030f"></script>
 <script src="deactivation.js?v=20261030f"></script>
-<script src="dashboard-script.js?v=20261031i"></script>
+<script src="dashboard-script.js?v=20261031j"></script>
 <script src="block-report.js?v=20261030f"></script>
 <script src="visibility.js?v=20261002a"></script>
 <script src="match-alert.js?v=20261021b"></script>
