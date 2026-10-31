@@ -1062,8 +1062,13 @@ function _hydrateProfileRefs(root) {
             const nameEl = card.querySelector('.profile-ref-name');
             if (!p) { if (nameEl) nameEl.textContent = 'realmate member'; return; }
             const av = card.querySelector('.profile-ref-avatar');
-            if (av && p.avatar_url) {
-                av.innerHTML = `<img src="${esc(p.avatar_url)}" alt="" loading="lazy" onerror="this.remove()"><i class="fas fa-user"></i>`;
+            // Built with DOM APIs (never an HTML string): avatar_url is member-set.
+            if (av && p.avatar_url && /^https?:\/\//i.test(p.avatar_url)) {
+                const img = document.createElement('img');
+                img.alt = ''; img.loading = 'lazy';
+                img.onerror = () => img.remove();
+                img.src = p.avatar_url;
+                av.insertBefore(img, av.firstChild);
             }
             if (nameEl) nameEl.textContent = p.full_name || 'realmate member';
             const u = card.querySelector('.profile-ref-user');
