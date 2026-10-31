@@ -1078,7 +1078,8 @@ function _hydrateProfileRefs(root) {
             const pro = p.professional_type === 'broker' ? 'Real Estate Broker'
                 : p.professional_type === 'salesperson' ? 'Real Estate Salesperson' : '';
             if (st) {
-                if (vLabel) st.innerHTML = `<i class="fas fa-shield-halved"></i><span>${esc(vLabel)}</span>`;
+                // Shield + text in the type's colour (green salesperson, blue broker).
+                if (vLabel) { st.style.color = RMVerified.color(p.verified_as); st.innerHTML = `<i class="fas fa-shield-halved"></i><span>${esc(vLabel)}</span>`; }
                 else if (pro) st.innerHTML = `<span class="profile-ref-pro">${esc(pro)}</span>`;
                 else st.innerHTML = '';
             }

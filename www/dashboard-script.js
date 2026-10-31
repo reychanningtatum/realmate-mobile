@@ -1200,7 +1200,9 @@ function _renderProStats(verifiedAs) {
         const sealEl = document.getElementById('verifiedStatSeal');
         // The seal sits beside the name; this column uses a shield instead so
         // the badge isn't repeated (label still from profiles.verified_as).
-        if (sealEl) sealEl.innerHTML = label ? '<i class="fas fa-shield-halved" aria-hidden="true"></i>' : '';
+        // Shield colour = the type's colour (green salesperson, blue broker).
+        if (sealEl) sealEl.innerHTML = label
+            ? '<i class="fas fa-shield-halved" aria-hidden="true" style="color:' + RMVerified.color(verifiedAs) + '"></i>' : '';
         const lblEl = document.getElementById('verifiedStatLabel');
         if (lblEl) lblEl.textContent = label.replace(/^Verified /, '');
     }

@@ -8,6 +8,7 @@
 //   RMVerified.badge(as)  full badge (approved design) — Profile header
 //   RMVerified.seal(as)   compact seal — next to a name (Feed, comments, Portal)
 //   RMVerified.label(as)  "Verified Real Estate Salesperson" / "… Broker"
+//   RMVerified.color(as)  the type's colour: green salesperson, blue broker
 (function () {
   'use strict';
   var KINDS = {
@@ -27,6 +28,7 @@
   })();
 
   function label(as) { var k = kind(as); return k ? k.label : ''; }
+  function color(as) { var k = kind(as); return k ? k.color : ''; }
 
   function seal(as, size) {
     var k = kind(as); if (!k) return '';
@@ -47,5 +49,5 @@
       ' height="' + h + '" style="height:' + h + 'px;width:auto;max-width:100%;display:block;" loading="lazy" decoding="async">';
   }
 
-  window.RMVerified = { seal: seal, badge: badge, label: label };
+  window.RMVerified = { seal: seal, badge: badge, label: label, color: color };
 })();
