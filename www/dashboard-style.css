@@ -2126,13 +2126,13 @@ html[data-theme="dark"] .contact-opt, html[data-theme="dark"] .contact-input { b
     }
 }
 
-/* Another member's profile (2026-10-31): Message | phone | share on one row,
-   the realmate button below. Contact and Share are icon-only circles (their
-   labels stay as aria-labels). Your own profile keeps Edit | Share Profile. */
+/* Another member's profile (2026-10-31): Message | realmate | phone | share
+   on one row. Contact and Share are icon-only circles (their labels stay as
+   aria-labels). Your own profile keeps Edit | Share Profile. */
 .profile-action-col:not(.profile-actions-own) #profileMessageBtn { order: 1; }
-.profile-action-col:not(.profile-actions-own) #profileContactBtn { order: 2; }
-.profile-action-col:not(.profile-actions-own) #profileShareBtn { order: 3; }
-.profile-action-col:not(.profile-actions-own) #profileMateBtn { order: 4; }
+.profile-action-col:not(.profile-actions-own) #profileMateBtn { order: 2; }
+.profile-action-col:not(.profile-actions-own) #profileContactBtn { order: 3; }
+.profile-action-col:not(.profile-actions-own) #profileShareBtn { order: 4; }
 .profile-action-col:not(.profile-actions-own) .profile-more-menu-wrap { order: 5; }
 .profile-action-col:not(.profile-actions-own) #profileContactBtn,
 .profile-action-col:not(.profile-actions-own) #profileShareBtn {
@@ -2144,10 +2144,14 @@ html[data-theme="dark"] .contact-opt, html[data-theme="dark"] .contact-input { b
 .profile-action-col:not(.profile-actions-own) #profileContactBtn span,
 .profile-action-col:not(.profile-actions-own) #profileShareBtn span { display: none; }
 @media (max-width: 768px) {
-    .profile-action-col:not(.profile-actions-own) { grid-template-columns: minmax(0, 1fr) 40px 40px; }
+    .profile-action-col:not(.profile-actions-own) { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 40px 40px; }
     .profile-action-col:not(.profile-actions-own) #profileMessageBtn { grid-column: 1; grid-row: 1; }
-    .profile-action-col:not(.profile-actions-own) #profileContactBtn { grid-column: 2; grid-row: 1; }
-    .profile-action-col:not(.profile-actions-own) #profileShareBtn { grid-column: 3; grid-row: 1; }
-    .profile-action-col:not(.profile-actions-own) #profileMateBtn { grid-column: 1 / -1; grid-row: 2; }
-    .profile-action-col:not(.profile-actions-own) .profile-more-menu-wrap { grid-column: 1 / -1; grid-row: 3; }
+    .profile-action-col:not(.profile-actions-own) #profileMateBtn { grid-column: 2; grid-row: 1; }
+    .profile-action-col:not(.profile-actions-own) #profileContactBtn { grid-column: 3; grid-row: 1; }
+    .profile-action-col:not(.profile-actions-own) #profileShareBtn { grid-column: 4; grid-row: 1; }
+    .profile-action-col:not(.profile-actions-own) .profile-more-menu-wrap { grid-column: 1 / -1; grid-row: 2; }
+    /* Two text buttons share the row with the circles: tighter side padding so
+       "Add as realmate" fits on one line on most phones (still wraps if not). */
+    .profile-action-col:not(.profile-actions-own) .btn-message,
+    .profile-action-col:not(.profile-actions-own) .btn-mate-profile { padding-left: 6px; padding-right: 6px; gap: 4px; }
 }

@@ -133,8 +133,21 @@ function _realmateGateHtml(userName, kind) {
         </div>`;
     }
 
-    // No request yet (or unresolved) → the standard Add action, wired so a
-    // successful send flips every gate on the page into the pending state.
+    // Profile (no request yet): just the message — the realmate button sits in
+    // the action row right above, so no second Add button here. About is no
+    // longer gated with a card: a hidden marker keeps the "restore About once
+    // you become realmates" path working.
+    if (kind === 'about') return `<div class="profile-gate-card" data-gate-kind="about" style="display:none"></div>`;
+    if (kind !== 'listing') {
+        return `
+        <div class="profile-gate-card" data-gate-kind="${kind}">
+            <div class="profile-gate-icon"><i class="fas fa-lock"></i></div>
+            <div class="profile-gate-title">Become realmates to view listings.</div>
+        </div>`;
+    }
+
+    // Listing detail (no realmate button on that page) keeps the Add action,
+    // wired so a successful send flips every gate on the page to pending.
     const copy = kind === 'listing'
         ? { title: 'Become realmates to view this listing.', sub: 'Add this user as a realmate to access their property listings.' }
         : { title: 'Become realmates to view listings and about.', sub: 'Add this user as a realmate to access their listings and about.' };
@@ -1204,11 +1217,10 @@ function _renderProStats(verifiedAs) {
     if (stat) {
         stat.hidden = !label;
         const sealEl = document.getElementById('verifiedStatSeal');
-        // The seal sits beside the name; this column uses a shield instead so
-        // the badge isn't repeated (label still from profiles.verified_as).
-        // Shield colour = the type's colour (green salesperson, blue broker).
+        // Verified check badge in the type's colour (green salesperson, blue
+        // broker); label from profiles.verified_as.
         if (sealEl) sealEl.innerHTML = label
-            ? '<i class="fas fa-shield-halved" aria-hidden="true" style="color:' + RMVerified.color(verifiedAs) + '"></i>' : '';
+            ? '<i class="fas fa-circle-check" aria-hidden="true" style="color:' + RMVerified.color(verifiedAs) + '"></i>' : '';
         const lblEl = document.getElementById('verifiedStatLabel');
         if (lblEl) lblEl.textContent = label.replace(/^Verified /, '');
     }
