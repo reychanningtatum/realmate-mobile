@@ -4077,6 +4077,9 @@ function onMatchTitleClick() {
 window.onMatchTitleClick = onMatchTitleClick;
 
 function exitMatchView() {
+    // Opened from another tab/page (Profile → AI Matches badge)? Back returns there.
+    let _ret = null;
+    try { _ret = JSON.parse(sessionStorage.getItem('rm_matchCtx') || 'null'); } catch (e) {}
     localStorage.removeItem('matchQuery');
     localStorage.removeItem('matchResults');
     sessionStorage.removeItem('rm_matchCtx');
@@ -4109,6 +4112,17 @@ function exitMatchView() {
     if (!_backOK) { try { restorePortalScroll(); } catch (e) {} }
     else { try { sessionStorage.removeItem(RM_SCROLL_KEY); } catch (e) {} }
     window._matchReturnCardId = null;
+    if (_ret && _ret.returnTab) {
+        try {
+            if (window.parent && window.parent !== window && typeof window.parent.rmTab === 'function') {
+                window.parent.rmTab(_ret.returnTab);   // reveals that tab exactly as it was left
+                return;
+            }
+        } catch (e) {}
+    }
+    if (_ret && _ret.returnUrl && /^[a-z0-9_-]+\.html(\?[^#]*)?$/i.test(_ret.returnUrl)) {
+        location.replace(_ret.returnUrl);
+    }
 }
 
 // Subtle "AI Matches activated" chime — a short two-note ascending blip
@@ -4242,13 +4256,24 @@ function dismissMatch(listingId) {
 // Open the Portal tab (in the app shell via rmOpen, which loads it fresh; on the
 // website a plain navigation). Used when the AI Match Engine is opened from a
 // page that isn't the Portal; the Portal restores the match view from rm_matchCtx.
+// The engine's Back button returns to where it was opened from: the saved
+// returnTab (the app shell tab this page lives in, e.g. 'me') or returnUrl (this
+// page, on the website). Stored on rm_matchCtx, which the Portal already keeps.
 function _rmOpenPortalForMatch() {
+    let ctx = {};
+    try { ctx = JSON.parse(sessionStorage.getItem('rm_matchCtx') || '{}') || {}; } catch (e) {}
+    let shell = null, tab = null;
     try {
         if (window.parent && window.parent !== window && typeof window.parent.rmOpen === 'function') {
-            window.parent.rmOpen('portal', 'livemarket.html');
-            return;
+            shell = window.parent;
+            tab = window.frameElement ? window.frameElement.getAttribute('title') : null;
         }
     } catch (e) {}
+    const here = location.pathname.split('/').pop() + location.search;
+    if (shell && tab && tab !== 'portal') ctx.returnTab = tab;
+    else ctx.returnUrl = here;
+    sessionStorage.setItem('rm_matchCtx', JSON.stringify(ctx));
+    if (shell) { shell.rmOpen('portal', 'livemarket.html'); return; }
     location.href = 'livemarket.html';
 }
 
@@ -4262,9 +4287,16 @@ function showAllMatches(listingId, scrollToId, noFlash) {
     playMatchSound();   // AI Matches counter opened on the user's own post
     // Remember the match context so returning to this page (e.g. after opening a
     // listing's detail and pressing Back) restores the match view, not the ledger.
+    // Keep where the engine was opened from (returnTab/returnUrl, set by
+    // _rmOpenPortalForMatch) when re-opening the same listing's engine.
+    let _prevCtx = null;
+    try { _prevCtx = JSON.parse(sessionStorage.getItem('rm_matchCtx') || 'null'); } catch (e) {}
+    const _keep = (_prevCtx && String(_prevCtx.listingId) === String(listingId)) ? _prevCtx : {};
     sessionStorage.setItem('rm_matchCtx', JSON.stringify({
         listingId: String(listingId),
-        scrollToId: scrollToId != null ? String(scrollToId) : null
+        scrollToId: scrollToId != null ? String(scrollToId) : null,
+        ...(_keep.returnTab ? { returnTab: _keep.returnTab } : {}),
+        ...(_keep.returnUrl ? { returnUrl: _keep.returnUrl } : {})
     }));
     const partnerCat = PARTNER_MAP[myListing.category];
     if (!partnerCat) { sessionStorage.removeItem('rm_matchCtx'); return; }

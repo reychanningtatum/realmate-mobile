@@ -1808,6 +1808,11 @@ html[data-theme="dark"] .creator-box textarea::placeholder { color: #475569; }
 html[data-theme="dark"] .creator-box input { background: #0f172a; color: #f1f5f9; border-color: #334155; }
 html[data-theme="dark"] .creator-box input::placeholder { color: #475569; }
 html[data-theme="dark"] .modal-content { background: #1e293b; border-color: #334155; }
+/* Edit Profile: its height follows the screen (max-height: 90vh). The global
+   "* { transition: all }" animated that height every time the keyboard opened
+   or closed (Done on About), redrawing the blurred backdrop each frame — the
+   lag. Size changes apply at once; colour fades are kept. */
+#editModal .modal-content { transition-property: background-color, border-color, color, box-shadow; }
 html[data-theme="dark"] .modal-content h2 { color: #f1f5f9; }
 html[data-theme="dark"] .modal-content p { color: #94a3b8; }
 html[data-theme="dark"] .input-field label { color: #94a3b8; }
