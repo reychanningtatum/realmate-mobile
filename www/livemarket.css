@@ -3491,3 +3491,10 @@ html[data-theme="dark"] .lm-cat-btn.cat-lease.selected,
 html[data-theme="dark"] .lm-cat-btn.cat-wbuy.selected,
 html[data-theme="dark"] .lm-cat-btn.cat-wrent.selected,
 html[data-theme="dark"] .lm-cat-btn.cat-wlease.selected { background: #18a94f; color: #fff; border-color: #12873c; }
+
+/* Long names (2026-11-01): the name and the REB / RES tag flow as one line of
+   text, so the tag sits right after the surname and wraps WITH it (a word
+   joiner U+2060 between them in the markup forbids a break there) instead of
+   staying top-right while the name drops to a second line. */
+.lc-profile-name { display: block; }
+.lc-profile-name .rm-verified-seal { margin-left: 5px; }

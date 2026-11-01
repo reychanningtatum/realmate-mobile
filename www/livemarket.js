@@ -2259,7 +2259,7 @@ function buildListingCard(listing, matchLabel = null, fmvResult = null, matchCou
                      onerror="this.src='${avatarFallback(listing.user_name)}'">
             </div>
             <div class="lc-profile-meta" ${userClick}>
-                <div class="lc-profile-name"><span class="lc-seller-name-text">${listing.user_name || 'Unknown'}</span>${(!listing.is_anonymous && listing.user_verified_as && window.RMVerified) ? RMVerified.seal(listing.user_verified_as, 14) : ''}</div>
+                <div class="lc-profile-name"><span class="lc-seller-name-text">${listing.user_name || 'Unknown'}</span>${(!listing.is_anonymous && listing.user_verified_as && window.RMVerified) ? '&#8288;' + RMVerified.seal(listing.user_verified_as, 14).trimStart() : ''}</div>
                 <div class="lc-profile-time">${timeAgo(listing.created_at)}</div>
             </div>
             <div class="lc-profile-actions">

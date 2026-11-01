@@ -860,3 +860,10 @@ html[data-theme="dark"] .offers-rx-profile:hover {background: #162032;}
 .match-banner .ai-brain-spark.s2, .lc-match-btn .ai-brain-spark.s2, .lc-aim-btn .ai-brain-spark.s2 { background: #fff; box-shadow: 0 0 4px #fff; }
 /* AI Matches tab: the green brain in the tab's 20x16 icon slot. */
 .seg-tab .ai-brain { font-size: 16px; width: 20px; height: 16px; display: inline-flex; align-items: center; justify-content: center; vertical-align: 0; }
+
+/* Long names (2026-11-01): the name and the REB / RES tag flow as one line of
+   text, so the tag sits right after the surname and wraps WITH it (a word
+   joiner U+2060 between them in the markup forbids a break there) instead of
+   staying top-right while the name drops to a second line. */
+.lc-profile-name { display: block; }
+.lc-profile-name .rm-verified-seal { margin-left: 5px; }
