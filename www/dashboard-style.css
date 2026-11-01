@@ -2166,3 +2166,22 @@ html[data-theme="dark"] #saveProfileBtn, html[data-theme="dark"] .gv-submit {
 html[data-theme="dark"] #saveProfileBtn:hover, html[data-theme="dark"] .gv-submit:hover:not(:disabled) {
   background: #15983f; border-color: #0f7a36;
 }
+
+/* Profile stats (2026-11-02): Active Listings | Experience | Verified are each a
+   white floating card (no shared green box or dividers). Unverified members
+   still get two cards (the verified one stays [hidden]). */
+.profile-pro-stats, html[data-theme="dark"] .profile-pro-stats {
+  background: transparent; border: 0; box-shadow: none; overflow: visible;
+  padding: 0; gap: 10px;
+}
+.profile-pro-stats .pro-stat {
+  flex: 1 1 0; background: #fff; border: 1px solid #eef2f6; border-radius: 14px;
+  box-shadow: 0 1px 2px rgba(15,23,42,0.05), 0 8px 18px -8px rgba(15,23,42,0.18);
+  padding: 12px 10px;
+}
+.profile-pro-stats .pro-stat + .pro-stat::before { display: none; }
+html[data-theme="dark"] .profile-pro-stats .pro-stat { background: #1e293b; border-color: #334155; box-shadow: 0 8px 18px -8px rgba(0,0,0,0.6); }
+@media (max-width: 768px) {
+  .profile-pro-stats { padding: 0; gap: 8px; }
+  .profile-pro-stats .pro-stat { padding: 10px 6px; gap: 6px; }
+}
