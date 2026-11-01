@@ -805,16 +805,13 @@ html[data-theme="dark"] .offers-rx-profile:hover {background: #162032;}
 .match-banner-arrow { color: #fff; opacity: .9; font-size: 10px; }
 
 .lc-match-btn, html[data-theme="dark"] .lc-match-btn {
-  background: linear-gradient(90deg, #166534 0%, #16a34a 55%, #32cd32 100%);
-  color: #fff; border: 1.5px solid rgba(255,255,255,0.18);
-  box-shadow: 0 4px 10px -2px rgba(21,128,61,0.4), 0 10px 22px -8px rgba(50,205,50,0.55);
+  background: #18a94f; color: #fff; border: 1.5px solid #12873c;
+  box-shadow: 0 2px 6px rgba(18,135,60,0.28);
   gap: 8px;
 }
-.lc-match-btn:hover, html[data-theme="dark"] .lc-match-btn:hover {
-  background: linear-gradient(90deg, #14532d 0%, #15803d 55%, #22c55e 100%);
-  border-color: rgba(255,255,255,0.28);
-  box-shadow: 0 6px 14px -2px rgba(21,128,61,0.5), 0 14px 28px -8px rgba(50,205,50,0.65);
-}
+.lc-match-btn:hover, html[data-theme="dark"] .lc-match-btn:hover { background: #15983f; border-color: #0f7a36; box-shadow: 0 4px 10px rgba(18,135,60,0.35); }
+/* Flat button: no shimmer sweep. */
+.lc-match-btn::before { display: none; }
 .lc-match-btn .lc-match-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .lc-match-btn i.lc-match-arrow { color: #fff; font-size: 13px; margin-left: 2px; }
 /* Owner's "N AI Matches Found" counter — same gradient + brain; the beat keeps
