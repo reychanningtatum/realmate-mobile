@@ -1866,6 +1866,12 @@ async function _loadProfileRun() {
         }
         const contactBtn = document.getElementById('profileContactBtn');
         if (contactBtn) contactBtn.style.display = 'inline-flex';
+        // Another member's profile: Share is the round button beside Contact (with
+        // the menu's share icon), so the ··· menu doesn't repeat it.
+        const shareMenuLink = document.getElementById('profileMoreShareLink');
+        if (shareMenuLink) shareMenuLink.style.display = 'none';
+        const shareIcon = document.querySelector('#profileShareBtn i');
+        if (shareIcon) shareIcon.className = 'fas fa-share-nodes';
         const msgBtn = document.getElementById('profileMessageBtn');
         if (msgBtn) msgBtn.style.display = 'inline-flex';
         // Report / Block this user (App Store Guideline 1.2) — only on another

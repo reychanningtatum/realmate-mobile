@@ -2165,6 +2165,8 @@ function brainWidget() {
 // every grid re-render (applyFilters rebuilds cards), then cleared after a few
 // seconds by the push consume below. null = nothing to flash.
 var _pushFlashIds = null;
+// listing id → listing, for a card's member tap (openCardSeller reads it).
+const _lcCardListings = new Map();
 
 function buildListingCard(listing, matchLabel = null, fmvResult = null, matchCount = 0, opts = {}) {
     const localUser = JSON.parse(localStorage.getItem('user') || 'null');
@@ -2212,7 +2214,10 @@ function buildListingCard(listing, matchLabel = null, fmvResult = null, matchCou
     const userClick = listing.is_anonymous || !listing.user_id ? '' :
         isSelf
             ? `onclick="event.stopPropagation();openCardSelf();return false;" style="cursor:pointer;"`
-            : `onclick="event.stopPropagation();openCardSeller('${listing.user_id}','${(listing.user_name||'').replace(/'/g,"\\'")}','${(listing.user_img||'').replace(/'/g,"\\'")}','${(listing.user_job||'').replace(/'/g,"\\'")}');return false;" style="cursor:pointer;"`;
+            : `onclick="event.stopPropagation();openCardSeller(this);return false;" data-listing-id="${escapeHtmlSafe(String(listing.id))}" style="cursor:pointer;"`;
+    // The member details for that tap are read from this listing object (never
+    // pasted into the inline handler — a name with a quote could break out of it).
+    _lcCardListings.set(String(listing.id), listing);
 
     // opts.hideMenu removes the 3-dot menu entirely (used for the AI Match Engine
     // "Your Listing" card — the menu belongs on the Portal listing, not there).
@@ -6237,10 +6242,11 @@ function _ensureLockedPopup() {
 // profile through the shared opener (Me tab; Portal stays alive). Anywhere else
 // the card is shown (e.g. a Profile's listings) keeps that page's own menu.
 function _onPortalPage() { return !!document.getElementById('ledgerView'); }
-function openCardSeller(userId, name, img, job) {
-    if (!userId) return;
-    if (_onPortalPage()) { rmOpenProfileTab('dashboard.html?user_id=' + encodeURIComponent(userId)); return; }
-    showSellerPopup(userId, name, img, job);
+function openCardSeller(el) {
+    const l = _lcCardListings.get(String(el && el.getAttribute ? el.getAttribute('data-listing-id') : el));
+    if (!l || !l.user_id) return;
+    if (_onPortalPage()) { rmOpenProfileTab('dashboard.html?user_id=' + encodeURIComponent(l.user_id)); return; }
+    showSellerPopup(l.user_id, l.user_name || '', l.user_img || '', l.user_job || '');
 }
 function openCardSelf() {
     if (_onPortalPage()) { rmOpenProfileTab('dashboard.html'); return; }

@@ -790,11 +790,11 @@ html[data-theme="dark"] .offers-rx-profile:hover {background: #162032;}
    livemarket.css and listing-card.css (the .lc-* / match styles live in both). */
 
 .match-banner, html[data-theme="dark"] .match-banner {
-  background: linear-gradient(90deg, #14532d 0%, #15803d 55%, #22c55e 100%);
+  background: #18a94f;
   color: #fff; padding: 9px 12px; gap: 8px;
 }
 .match-banner::before { background: linear-gradient(90deg, transparent, rgba(255,255,255,0.10), transparent); }
-.match-banner-text { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #bbf7d0; font-weight: 700; }
+.match-banner-text { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #dcfce7; font-weight: 700; }
 .match-banner-cat { color: #fff; font-weight: 800; text-transform: uppercase; letter-spacing: .02em; }
 .match-banner .match-pct-badge {
   display: inline-flex; align-items: center; gap: 5px; color: #fff;
@@ -867,3 +867,6 @@ html[data-theme="dark"] .offers-rx-profile:hover {background: #162032;}
    staying top-right while the name drops to a second line. */
 .lc-profile-name { display: block; }
 .lc-profile-name .rm-verified-seal { margin-left: 5px; }
+/* Plain colour (2026-11-02): the match banner is flat Match Engine green, no
+   shimmer sweep. */
+.match-banner::before { display: none; }
