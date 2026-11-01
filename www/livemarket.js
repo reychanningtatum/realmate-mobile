@@ -2140,6 +2140,18 @@ function buildRawPost(listing) {
 // "matches your listing" banner, the "AI Matches Found" stat, the AI Match
 // Engine button, and the AI Analysis title). Sized purely by CSS (font-size on
 // .ai-robot); its blink / antenna / visor-scan animations live in livemarket.css.
+// The AI match sparkle — one large four-point star with two small ones that
+// twinkle. Used on the "Matches your listing" banner and the AI Match Engine
+// button and the owner's "N AI Matches Found" counter (the robot stays on the
+// AI Matches stat label).
+function sparkleWidget() {
+    return `<span class="ai-sparkle" aria-hidden="true"><svg viewBox="0 0 24 24">`
+        + `<path class="s-main" d="M10 2.5c.6 4.4 2.6 6.4 7 7-4.4.6-6.4 2.6-7 7-.6-4.4-2.6-6.4-7-7 4.4-.6 6.4-2.6 7-7z"/>`
+        + `<path class="s-a" d="M19 2.5c.25 1.7 1 2.45 2.7 2.7-1.7.25-2.45 1-2.7 2.7-.25-1.7-1-2.45-2.7-2.7 1.7-.25 2.45-1 2.7-2.7z"/>`
+        + `<path class="s-b" d="M18.5 15c.22 1.5.9 2.18 2.4 2.4-1.5.22-2.18.9-2.4 2.4-.22-1.5-.9-2.18-2.4-2.4 1.5-.22 2.18-.9 2.4-2.4z"/>`
+        + `</svg></span>`;
+}
+
 function robotWidget() {
     return `<span class="ai-robot" aria-hidden="true"><svg viewBox="12 12 76 76">`
         + `<line class="ant" x1="50" y1="9" x2="50" y2="22"/><circle class="tip" cx="50" cy="8" r="4"/>`
@@ -2183,11 +2195,9 @@ function buildListingCard(listing, matchLabel = null, fmvResult = null, matchCou
     const isDismissedByMe = getDismissedMatches().has(String(listing.id));
     const matchBanner = (matchLabel && !isDismissedByMe) ? `
         <div class="match-banner" onclick="event.stopPropagation(); openMatchForListing('${listing.id}')" style="cursor:pointer;">
-            <div style="display:flex;align-items:center;gap:5px;flex:1;min-width:0;">
-                <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#94a3b8;">Matches your listing · <span style="color:#fff;">${matchLabel.myCategory}</span></span>
-            </div>
-            <span class="match-pct-badge" style="color:#fff;">${matchPct}% ${matchGrade}</span>
-            <i class="fas fa-chevron-right match-banner-arrow" style="color:#475569;"></i>
+            <div class="match-banner-text">Matches your listing · <span class="match-banner-cat">${matchLabel.myCategory}</span></div>
+            <span class="match-pct-badge">${sparkleWidget()}${matchPct}% ${matchGrade}</span>
+            <i class="fas fa-chevron-right match-banner-arrow"></i>
         </div>` : '';
 
     // Diagonal completion sash across the WHOLE card, running corner-to-corner
@@ -2238,7 +2248,7 @@ function buildListingCard(listing, matchLabel = null, fmvResult = null, matchCou
     const headerMatchBtn = (isOwner && matchCount > 0 && !opts.hideMatchBtn)
         ? `<button class="lc-aim-btn" onclick="event.stopPropagation(); showAllMatches('${listing.id}');"
                  aria-label="${matchCount} AI match${matchCount !== 1 ? 'es' : ''} found — open AI Match Engine">
-             ${robotWidget()}
+             ${sparkleWidget()}
              <span class="lc-aim-count">${matchCount}</span>
              <span class="lc-aim-text">AI Match${matchCount !== 1 ? 'es' : ''}<span class="lc-aim-found"> Found</span></span>
            </button>`
@@ -2420,7 +2430,7 @@ function buildActionBar(listing, isOwner, isMatch = false) {
     // the primary button opens the AI Match Engine instead of the Listing Detail.
     const primaryBtn = isMatch
         ? `<button class="lc-view-btn lc-match-btn" onclick="openMatchForListing('${listing.id}')">
-            ${robotWidget()} AI Match Engine
+            ${sparkleWidget()}<span class="lc-match-label">AI Match Engine</span><i class="fas fa-arrow-right lc-match-arrow" aria-hidden="true"></i>
         </button>`
         : viewBtn;
 

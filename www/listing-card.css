@@ -784,3 +784,73 @@ html[data-theme="dark"] .offers-rx-profile:hover {background: #162032;}
 /* Visibility indicator (owner-only eye-slash on a post hidden from >=1 user) */
 .lc-vis-indicator { border:none; background:none; cursor:pointer; color:#94a3b8; width:30px; height:30px; border-radius:8px; font-size:14px; display:flex; align-items:center; justify-content:center; transition:background .15s,color .15s; }
 .lc-vis-indicator:hover { background:#f1f5f9; color:#475569; }
+
+/* ═══ AI match design (2026-11-01): blue → purple gradient + sparkle widget ═══
+   Banner "Matches your listing" and the AI Match Engine button. Same rules in
+   livemarket.css and listing-card.css (the .lc-* / match styles live in both). */
+.ai-sparkle { display: inline-flex; width: 1.35em; height: 1.35em; flex-shrink: 0; }
+.ai-sparkle svg { width: 100%; height: 100%; overflow: visible; }
+.ai-sparkle path { fill: #e0f2fe; filter: drop-shadow(0 0 2px rgba(125,211,252,0.9)); transform-box: fill-box; transform-origin: center; }
+.ai-sparkle .s-main { fill: #ffffff; }
+.ai-sparkle .s-main { animation: aiSparkMain 2.4s ease-in-out infinite; }
+.ai-sparkle .s-a { animation: aiSparkTwinkle 1.8s ease-in-out infinite; }
+.ai-sparkle .s-b { animation: aiSparkTwinkle 1.8s ease-in-out .9s infinite; }
+@keyframes aiSparkMain { 0%,100% { transform: scale(1); } 50% { transform: scale(1.12); } }
+@keyframes aiSparkTwinkle { 0%,100% { opacity: .35; transform: scale(.7); } 50% { opacity: 1; transform: scale(1.1); } }
+@media (prefers-reduced-motion: reduce) { .ai-sparkle path { animation: none !important; } }
+
+.match-banner, html[data-theme="dark"] .match-banner {
+  background: linear-gradient(90deg, #1e40af 0%, #3730a3 55%, #9333ea 100%);
+  color: #fff; padding: 9px 12px; gap: 8px;
+}
+.match-banner::before { background: linear-gradient(90deg, transparent, rgba(255,255,255,0.10), transparent); }
+.match-banner-text { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #a5c8ff; font-weight: 700; }
+.match-banner-cat { color: #fff; font-weight: 800; text-transform: uppercase; letter-spacing: .02em; }
+.match-banner .match-pct-badge {
+  display: inline-flex; align-items: center; gap: 5px; color: #fff;
+  font-size: 10.5px; font-weight: 800; padding: 3px 10px 3px 7px;
+  background: rgba(255,255,255,0.08); border: 1.5px solid rgba(255,255,255,0.32);
+  box-shadow: inset 0 0 10px rgba(147,197,253,0.18);
+}
+.match-banner .match-pct-badge .ai-sparkle { width: 1.3em; height: 1.3em; }
+.match-banner-arrow { color: #fff; opacity: .9; font-size: 10px; }
+
+.lc-match-btn, html[data-theme="dark"] .lc-match-btn {
+  background: linear-gradient(90deg, #1d4ed8 0%, #4338ca 55%, #9333ea 100%);
+  color: #fff; border: 1.5px solid rgba(255,255,255,0.18);
+  box-shadow: 0 4px 10px -2px rgba(67,56,202,0.45), 0 10px 22px -8px rgba(147,51,234,0.55);
+  gap: 8px;
+}
+.lc-match-btn:hover, html[data-theme="dark"] .lc-match-btn:hover {
+  background: linear-gradient(90deg, #1e40af 0%, #3730a3 55%, #7e22ce 100%);
+  border-color: rgba(255,255,255,0.28);
+  box-shadow: 0 6px 14px -2px rgba(67,56,202,0.55), 0 14px 28px -8px rgba(147,51,234,0.65);
+}
+.lc-match-btn .lc-match-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.lc-match-btn i.lc-match-arrow { color: #fff; font-size: 13px; margin-left: 2px; }
+/* Owner's "N AI Matches Found" counter — same gradient + sparkle; the beat keeps
+   pulsing, now with a purple glow. */
+.lc-aim-btn, html[data-theme="dark"] .lc-aim-btn {
+  background: linear-gradient(90deg, #1d4ed8 0%, #4338ca 55%, #9333ea 100%);
+  border: 1px solid rgba(255,255,255,0.28);
+  animation-name: aimBeatAi;
+}
+.lc-aim-btn .ai-sparkle { width: 1.45em; height: 1.45em; }
+.lc-aim-count { color: #fff; }
+.lc-aim-text { color: #dbeafe; }
+@keyframes aimBeatAi {
+  0%   { transform: scale(1);     box-shadow: 0 0 0 0 rgba(147,51,234,0.35); }
+  14%  { transform: scale(1.05);  box-shadow: 0 0 11px 2px rgba(147,51,234,0.28); }
+  28%  { transform: scale(1);     box-shadow: 0 0 0 0 rgba(147,51,234,0.18); }
+  42%  { transform: scale(1.03);  box-shadow: 0 0 7px 1px rgba(147,51,234,0.20); }
+  56%  { transform: scale(1);     box-shadow: 0 0 0 0 rgba(147,51,234,0); }
+  100% { transform: scale(1);     box-shadow: 0 0 0 0 rgba(147,51,234,0); }
+}
+/* Phones: the button is half the footer — tighter spacing so the whole
+   "AI Match Engine" label shows; the arrow steps aside on the narrowest screens. */
+@media (max-width: 480px) {
+  .lc-actionbar .lc-match-btn { padding-left: 10px; padding-right: 10px; gap: 6px; letter-spacing: 0.03em; }
+}
+@media (max-width: 400px) {
+  .lc-match-btn i.lc-match-arrow { display: none; }
+}
