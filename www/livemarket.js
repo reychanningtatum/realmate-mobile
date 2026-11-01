@@ -2237,10 +2237,10 @@ function buildListingCard(listing, matchLabel = null, fmvResult = null, matchCou
     // opens the AI Match Engine for THIS listing. Hidden entirely when count is 0.
     const headerMatchBtn = (isOwner && matchCount > 0 && !opts.hideMatchBtn)
         ? `<button class="lc-aim-btn" onclick="event.stopPropagation(); showAllMatches('${listing.id}');"
-                 aria-label="${matchCount} AI match${matchCount !== 1 ? 'es' : ''} found — open AI Match Engine">
+                 aria-label="${matchCount} match${matchCount !== 1 ? 'es' : ''} — open Match Engine">
              ${brainWidget()}
              <span class="lc-aim-count">${matchCount}</span>
-             <span class="lc-aim-text">AI Match${matchCount !== 1 ? 'es' : ''}<span class="lc-aim-found"> Found</span></span>
+             <span class="lc-aim-text">Match${matchCount !== 1 ? 'es' : ''}</span>
            </button>`
         : '';
     // A genuine AI match for one of the current user's listings (same gate as the
@@ -2420,7 +2420,7 @@ function buildActionBar(listing, isOwner, isMatch = false) {
     // the primary button opens the AI Match Engine instead of the Listing Detail.
     const primaryBtn = isMatch
         ? `<button class="lc-view-btn lc-match-btn" onclick="openMatchForListing('${listing.id}')">
-            ${brainWidget()}<span class="lc-match-label">AI Match Engine</span><i class="fas fa-arrow-right lc-match-arrow" aria-hidden="true"></i>
+            ${brainWidget()}<span class="lc-match-label">Match Engine</span><i class="fas fa-arrow-right lc-match-arrow" aria-hidden="true"></i>
         </button>`
         : viewBtn;
 
