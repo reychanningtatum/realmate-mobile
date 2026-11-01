@@ -283,3 +283,20 @@ html[data-theme="dark"] .lm-vis-chip { background: #0f172a; color: #e2e8f0; }
   box-shadow: 0 2px 6px rgba(18,135,60,0.28);
 }
 .btn-post-listing:hover, html[data-theme="dark"] .btn-post-listing:hover { background: #15983f; border-color: #0f7a36; }
+
+/* Post a Listing — selected category (2026-11-01): the Sold button's flat green
+   (was near-black), in light and dark mode. */
+.lm-cat-btn.selected,
+.lm-cat-btn.cat-sale.selected,
+.lm-cat-btn.cat-rent.selected,
+.lm-cat-btn.cat-lease.selected,
+.lm-cat-btn.cat-wbuy.selected,
+.lm-cat-btn.cat-wrent.selected,
+.lm-cat-btn.cat-wlease.selected,
+html[data-theme="dark"] .lm-cat-btn.selected,
+html[data-theme="dark"] .lm-cat-btn.cat-sale.selected,
+html[data-theme="dark"] .lm-cat-btn.cat-rent.selected,
+html[data-theme="dark"] .lm-cat-btn.cat-lease.selected,
+html[data-theme="dark"] .lm-cat-btn.cat-wbuy.selected,
+html[data-theme="dark"] .lm-cat-btn.cat-wrent.selected,
+html[data-theme="dark"] .lm-cat-btn.cat-wlease.selected { background: #18a94f; color: #fff; border-color: #12873c; }

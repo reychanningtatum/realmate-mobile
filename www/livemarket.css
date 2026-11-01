@@ -3411,11 +3411,11 @@ html[data-theme="dark"] #spLockedMsgBtn:hover { background: #162032; }
 .lc-match-btn::before { display: none; }
 .lc-match-btn .lc-match-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .lc-match-btn i.lc-match-arrow { color: #fff; font-size: 13px; margin-left: 2px; }
-/* Owner's "N AI Matches Found" counter — same gradient + brain; the beat keeps
+/* Owner's "N Matches" counter — the Sold button's flat green; the beat keeps
    pulsing with a green glow. */
 .lc-aim-btn, html[data-theme="dark"] .lc-aim-btn {
-  background: linear-gradient(90deg, #166534 0%, #16a34a 55%, #32cd32 100%);
-  border: 1px solid rgba(255,255,255,0.28);
+  background: #18a94f;
+  border: 1.5px solid #12873c;
   animation-name: aimBeatAi;
 }
 .lc-aim-count { color: #fff; }
@@ -3474,3 +3474,20 @@ html[data-theme="dark"] #spLockedMsgBtn:hover { background: #162032; }
 .match-results-header, html[data-theme="dark"] .match-results-header { background: linear-gradient(90deg, #14532d 0%, #15803d 55%, #22c55e 100%); }
 .match-results-header .section-label, html[data-theme="dark"] .match-results-header .section-label { color: #dcfce7; }
 .match-results-header .match-count-badge { background: rgba(255,255,255,0.14); color: #fff; border-color: rgba(255,255,255,0.35); }
+
+/* Post a Listing — selected category (2026-11-01): the Sold button's flat green
+   (was near-black), in light and dark mode. */
+.lm-cat-btn.selected,
+.lm-cat-btn.cat-sale.selected,
+.lm-cat-btn.cat-rent.selected,
+.lm-cat-btn.cat-lease.selected,
+.lm-cat-btn.cat-wbuy.selected,
+.lm-cat-btn.cat-wrent.selected,
+.lm-cat-btn.cat-wlease.selected,
+html[data-theme="dark"] .lm-cat-btn.selected,
+html[data-theme="dark"] .lm-cat-btn.cat-sale.selected,
+html[data-theme="dark"] .lm-cat-btn.cat-rent.selected,
+html[data-theme="dark"] .lm-cat-btn.cat-lease.selected,
+html[data-theme="dark"] .lm-cat-btn.cat-wbuy.selected,
+html[data-theme="dark"] .lm-cat-btn.cat-wrent.selected,
+html[data-theme="dark"] .lm-cat-btn.cat-wlease.selected { background: #18a94f; color: #fff; border-color: #12873c; }

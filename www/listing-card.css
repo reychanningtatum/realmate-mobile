@@ -814,11 +814,11 @@ html[data-theme="dark"] .offers-rx-profile:hover {background: #162032;}
 .lc-match-btn::before { display: none; }
 .lc-match-btn .lc-match-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .lc-match-btn i.lc-match-arrow { color: #fff; font-size: 13px; margin-left: 2px; }
-/* Owner's "N AI Matches Found" counter — same gradient + brain; the beat keeps
+/* Owner's "N Matches" counter — the Sold button's flat green; the beat keeps
    pulsing with a green glow. */
 .lc-aim-btn, html[data-theme="dark"] .lc-aim-btn {
-  background: linear-gradient(90deg, #166534 0%, #16a34a 55%, #32cd32 100%);
-  border: 1px solid rgba(255,255,255,0.28);
+  background: #18a94f;
+  border: 1.5px solid #12873c;
   animation-name: aimBeatAi;
 }
 .lc-aim-count { color: #fff; }
