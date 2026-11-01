@@ -2390,7 +2390,23 @@ function _editAlert(msg, type = 'success') {
     }
 }
 
+// Save Edit Profile. The edit is applied to the in-memory `user` while saving;
+// if the save does not complete (validation stop or a server error), `user` is
+// put back exactly as it was. Otherwise a retry would treat the new name as the
+// current one and silently skip recording the old name in former_names.
 async function saveProfile() {
+    const _before = JSON.parse(JSON.stringify(user));
+    let ok = false;
+    try { ok = await _saveProfileOnce(); }
+    finally {
+        if (ok !== true) {
+            Object.keys(user).forEach(k => { if (!(k in _before)) delete user[k]; });
+            Object.assign(user, _before);
+        }
+    }
+}
+
+async function _saveProfileOnce() {
     const btn = document.getElementById('saveProfileBtn');
     if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Saving...'; }
 
@@ -2542,6 +2558,8 @@ async function saveProfile() {
                 }
             }
         } catch(e) {
+            // Every failed save reaches Admin › Bug Reports, not just the toast.
+            if (window.RMBugs && RMBugs.capture) RMBugs.capture(e, { where: 'saveProfile' });
             if (btn) { btn.disabled = false; btn.innerHTML = 'Save Changes'; }
             closeEditModal();
             _editAlert('Failed to save: ' + e.message, 'error');
@@ -2554,6 +2572,7 @@ async function saveProfile() {
     if (btn) { btn.disabled = false; btn.innerHTML = 'Save Changes'; }
     closeEditModal();
     showPhotoToast('Profile saved successfully!');
+    return true;
 }
 
 function openEditModal() {

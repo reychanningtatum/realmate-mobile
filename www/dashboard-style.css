@@ -2155,3 +2155,14 @@ html[data-theme="dark"] .contact-opt, html[data-theme="dark"] .contact-input { b
     .profile-action-col:not(.profile-actions-own) .btn-message,
     .profile-action-col:not(.profile-actions-own) .btn-mate-profile { padding-left: 6px; padding-right: 6px; gap: 4px; }
 }
+
+/* Edit Profile — Save Changes + Submit for verification (2026-11-01): the card
+   Sold button's flat green, light and dark. Cancel stays grey. */
+#saveProfileBtn, .gv-submit,
+html[data-theme="dark"] #saveProfileBtn, html[data-theme="dark"] .gv-submit {
+  background: #18a94f; color: #fff; border: 1.5px solid #12873c;
+}
+#saveProfileBtn:hover, .gv-submit:hover:not(:disabled),
+html[data-theme="dark"] #saveProfileBtn:hover, html[data-theme="dark"] .gv-submit:hover:not(:disabled) {
+  background: #15983f; border-color: #0f7a36;
+}
