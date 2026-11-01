@@ -2206,12 +2206,13 @@ function buildListingCard(listing, matchLabel = null, fmvResult = null, matchCou
     // Dismiss = hide any other user's post from my feed (not just matches)
     const canDismiss = localUser && listing.user_name !== localUser.name;
 
-    // Seller identity (preserved onclick behavior: self → showSelfPopup, other → showSellerPopup)
+    // Seller identity: on the Portal a tap opens that member's profile directly
+    // (no menu); other pages keep their own menu — see openCardSeller/openCardSelf.
     const isSelf = localUser && String(listing.user_id) === String(localUser.id);
     const userClick = listing.is_anonymous || !listing.user_id ? '' :
         isSelf
-            ? `onclick="event.stopPropagation();showSelfPopup();return false;" style="cursor:pointer;"`
-            : `onclick="event.stopPropagation();showSellerPopup('${listing.user_id}','${(listing.user_name||'').replace(/'/g,"\\'")}','${(listing.user_img||'').replace(/'/g,"\\'")}','${(listing.user_job||'').replace(/'/g,"\\'")}');return false;" style="cursor:pointer;"`;
+            ? `onclick="event.stopPropagation();openCardSelf();return false;" style="cursor:pointer;"`
+            : `onclick="event.stopPropagation();openCardSeller('${listing.user_id}','${(listing.user_name||'').replace(/'/g,"\\'")}','${(listing.user_img||'').replace(/'/g,"\\'")}','${(listing.user_job||'').replace(/'/g,"\\'")}');return false;" style="cursor:pointer;"`;
 
     // opts.hideMenu removes the 3-dot menu entirely (used for the AI Match Engine
     // "Your Listing" card — the menu belongs on the Portal listing, not there).
@@ -6231,6 +6232,21 @@ function _ensureLockedPopup() {
 // My Account/View Profile/View Listings for THAT member (dashboard.html's
 // own showSellerPopup override keeps its separate, already-shipped Profile
 // wording — see dashboard-script.js).
+// Tapping a member on a Portal card (the Portal page has #ledgerView — Live
+// Market, My Listings, Matches and the Match Engine): go straight to their
+// profile through the shared opener (Me tab; Portal stays alive). Anywhere else
+// the card is shown (e.g. a Profile's listings) keeps that page's own menu.
+function _onPortalPage() { return !!document.getElementById('ledgerView'); }
+function openCardSeller(userId, name, img, job) {
+    if (!userId) return;
+    if (_onPortalPage()) { rmOpenProfileTab('dashboard.html?user_id=' + encodeURIComponent(userId)); return; }
+    showSellerPopup(userId, name, img, job);
+}
+function openCardSelf() {
+    if (_onPortalPage()) { rmOpenProfileTab('dashboard.html'); return; }
+    showSelfPopup();
+}
+
 function showSelfPopup() {
     if (typeof openAccountMenu !== 'function') return;
     openAccountMenu({
