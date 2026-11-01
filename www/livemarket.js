@@ -2140,18 +2140,6 @@ function buildRawPost(listing) {
 // "matches your listing" banner, the "AI Matches Found" stat, the AI Match
 // Engine button, and the AI Analysis title). Sized purely by CSS (font-size on
 // .ai-robot); its blink / antenna / visor-scan animations live in livemarket.css.
-// The AI match sparkle — one large four-point star with two small ones that
-// twinkle. Used on the "Matches your listing" banner and the AI Match Engine
-// button and the owner's "N AI Matches Found" counter (the robot stays on the
-// AI Matches stat label).
-function sparkleWidget() {
-    return `<span class="ai-sparkle" aria-hidden="true"><svg viewBox="0 0 24 24">`
-        + `<path class="s-main" d="M10 2.5c.6 4.4 2.6 6.4 7 7-4.4.6-6.4 2.6-7 7-.6-4.4-2.6-6.4-7-7 4.4-.6 6.4-2.6 7-7z"/>`
-        + `<path class="s-a" d="M19 2.5c.25 1.7 1 2.45 2.7 2.7-1.7.25-2.45 1-2.7 2.7-.25-1.7-1-2.45-2.7-2.7 1.7-.25 2.45-1 2.7-2.7z"/>`
-        + `<path class="s-b" d="M18.5 15c.22 1.5.9 2.18 2.4 2.4-1.5.22-2.18.9-2.4 2.4-.22-1.5-.9-2.18-2.4-2.4 1.5-.22 2.18-.9 2.4-2.4z"/>`
-        + `</svg></span>`;
-}
-
 function robotWidget() {
     return `<span class="ai-robot" aria-hidden="true"><svg viewBox="12 12 76 76">`
         + `<line class="ant" x1="50" y1="9" x2="50" y2="22"/><circle class="tip" cx="50" cy="8" r="4"/>`
@@ -2163,8 +2151,10 @@ function robotWidget() {
         + `<rect class="mouth" x="41" y="65" width="18" height="3" rx="1.5"/></svg></span>`;
 }
 
-// The Engine Analysis brain widget — a pulsing brain with firing synapse sparks.
-// Used for the "Engine Analysis" breakdown inside the AI Match Engine page.
+// The AI brain widget — a pulsing brain with firing synapse sparks. The one AI
+// widget for Engine Analysis, the "Matches your listing" banner pill, the AI
+// Match Engine button, the owner's AI Matches counter and the AI Matches tab
+// (white on the green gradient, green on light backgrounds).
 function brainWidget() {
     return `<span class="ai-brain" aria-hidden="true"><i class="fas fa-brain"></i>`
         + `<span class="ai-brain-spark s1"></span><span class="ai-brain-spark s2"></span></span>`;
@@ -2196,7 +2186,7 @@ function buildListingCard(listing, matchLabel = null, fmvResult = null, matchCou
     const matchBanner = (matchLabel && !isDismissedByMe) ? `
         <div class="match-banner" onclick="event.stopPropagation(); openMatchForListing('${listing.id}')" style="cursor:pointer;">
             <div class="match-banner-text">Matches your listing · <span class="match-banner-cat">${matchLabel.myCategory}</span></div>
-            <span class="match-pct-badge">${sparkleWidget()}${matchPct}% ${matchGrade}</span>
+            <span class="match-pct-badge">${brainWidget()}${matchPct}% ${matchGrade}</span>
             <i class="fas fa-chevron-right match-banner-arrow"></i>
         </div>` : '';
 
@@ -2248,7 +2238,7 @@ function buildListingCard(listing, matchLabel = null, fmvResult = null, matchCou
     const headerMatchBtn = (isOwner && matchCount > 0 && !opts.hideMatchBtn)
         ? `<button class="lc-aim-btn" onclick="event.stopPropagation(); showAllMatches('${listing.id}');"
                  aria-label="${matchCount} AI match${matchCount !== 1 ? 'es' : ''} found — open AI Match Engine">
-             ${sparkleWidget()}
+             ${brainWidget()}
              <span class="lc-aim-count">${matchCount}</span>
              <span class="lc-aim-text">AI Match${matchCount !== 1 ? 'es' : ''}<span class="lc-aim-found"> Found</span></span>
            </button>`
@@ -2430,7 +2420,7 @@ function buildActionBar(listing, isOwner, isMatch = false) {
     // the primary button opens the AI Match Engine instead of the Listing Detail.
     const primaryBtn = isMatch
         ? `<button class="lc-view-btn lc-match-btn" onclick="openMatchForListing('${listing.id}')">
-            ${sparkleWidget()}<span class="lc-match-label">AI Match Engine</span><i class="fas fa-arrow-right lc-match-arrow" aria-hidden="true"></i>
+            ${brainWidget()}<span class="lc-match-label">AI Match Engine</span><i class="fas fa-arrow-right lc-match-arrow" aria-hidden="true"></i>
         </button>`
         : viewBtn;
 
