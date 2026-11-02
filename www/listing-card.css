@@ -870,3 +870,45 @@ html[data-theme="dark"] .offers-rx-profile:hover {background: #162032;}
 /* Plain colour (2026-11-02): the match banner is flat Match Engine green, no
    shimmer sweep. */
 .match-banner::before { display: none; }
+
+/* Brain widget = pink, like a real brain (2026-11-02, user request). ONE look
+   everywhere it appears — Matches tab, match banner, Match Engine button,
+   Matches counter, Engine Analysis, Match Engine page header: a pink gradient
+   brain with a soft pink glow and pink/white sparks. */
+/* On light backgrounds (Matches tab, Engine Analysis): a deeper pink that reads
+   against white; on the green / navy surfaces below: the softer pink. */
+.ai-brain i {
+  background: linear-gradient(160deg, #f9a8c9 0%, #ec4899 50%, #be185d 100%);
+  -webkit-background-clip: text; background-clip: text;
+  color: transparent; -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 1px 0 rgba(131,24,67,0.25));
+  animation-name: aiBrainPulsePinkL;
+}
+@keyframes aiBrainPulsePinkL { 0%,100% { transform: scale(1); opacity: .95; } 50% { transform: scale(1.09); opacity: 1; filter: drop-shadow(0 0 3px rgba(236,72,153,0.6)) drop-shadow(0 1px 0 rgba(131,24,67,0.25)); } }
+.match-banner .ai-brain i, .lc-match-btn .ai-brain i, .lc-aim-btn .ai-brain i,
+.match-header-center .ai-brain i {
+  background: linear-gradient(160deg, #ffe4ef 0%, #f9a8c9 38%, #ec6fa5 72%, #c9417f 100%);
+  -webkit-background-clip: text; background-clip: text;
+  color: transparent; -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 2px rgba(236,72,153,0.55)) drop-shadow(0 1px 0 rgba(131,24,67,0.35));
+  animation-name: aiBrainPulsePink;
+}
+@keyframes aiBrainPulsePink { 0%,100% { transform: scale(1); opacity: .95; } 50% { transform: scale(1.09); opacity: 1; filter: drop-shadow(0 0 6px rgba(244,114,182,0.95)) drop-shadow(0 1px 0 rgba(131,24,67,0.35)); } }
+.ai-brain-spark,
+.match-banner .ai-brain-spark, .lc-match-btn .ai-brain-spark, .lc-aim-btn .ai-brain-spark,
+.match-header-center .ai-brain-spark { background: #f472b6; box-shadow: 0 0 4px #f472b6; }
+.ai-brain-spark.s2,
+.match-banner .ai-brain-spark.s2, .lc-match-btn .ai-brain-spark.s2, .lc-aim-btn .ai-brain-spark.s2,
+.match-header-center .ai-brain-spark.s2 { background: #fff; box-shadow: 0 0 4px #fbcfe8; }
+
+/* Match Engine button floats (2026-11-02, user request): lifted 1px with a deep
+   soft shadow; it rises a little more on hover. Flat Sold green unchanged. */
+.lc-match-btn, html[data-theme="dark"] .lc-match-btn {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px -6px rgba(18,135,60,0.55), 0 2px 5px rgba(15,23,42,0.14);
+}
+.lc-match-btn:hover, html[data-theme="dark"] .lc-match-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px -8px rgba(18,135,60,0.6), 0 3px 7px rgba(15,23,42,0.16);
+}
+.lc-match-btn:active, html[data-theme="dark"] .lc-match-btn:active { transform: translateY(0); box-shadow: 0 3px 8px -2px rgba(18,135,60,0.45); }
