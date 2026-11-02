@@ -207,8 +207,8 @@
 <script src="vendor/supabase-js.min.js?v=2.112.3"></script>
 <script src="deactivation.js?v=20261030f"></script>
 <script src="search-sync.js?v=20261019e"></script>
-<script src="profile-live.js?v=20261019e"></script><script src="search-overlay.js?v=20261030f"></script>
-<script src="auth-guard.js?v=20261102a"></script>
+<script src="profile-live.js?v=20261103a"></script><script src="search-overlay.js?v=20261030f"></script>
+<script src="auth-guard.js?v=20261102b"></script>
 <script src="rm-sound.js?v=20261030f"></script>
 <script src="mates.js?v=20261022b"></script>
 <script src="follows.js?v=20261019e"></script>
@@ -443,6 +443,20 @@ async function cancelSentFromPage(name) {
   window.addEventListener('rm:rel-changed', function () {
     if (_relT) return;
     _relT = setTimeout(function () { _relT = null; loadRealmates(); }, 250);
+  });
+})();
+
+// Real-time profile changes (RMProfileLive, 2026-11-03): someone on these lists
+// renamed / changed their photo → reload the lists (debounced). Only when that
+// person is actually shown here (their card links to their profile id).
+(function () {
+  var _plT = null;
+  window.addEventListener('rm-profile-live', function (e) {
+    var d = e && e.detail; if (!d || !d.id) return;
+    var id = String(d.id).replace(/[^0-9a-f-]/gi, '');
+    if (!id || !document.querySelector('[onclick*="' + id + '"]')) return;
+    clearTimeout(_plT);
+    _plT = setTimeout(loadRealmates, 400);
   });
 })();
 

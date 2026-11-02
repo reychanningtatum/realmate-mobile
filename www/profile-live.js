@@ -27,23 +27,44 @@
       (window.supabase ? (window.__rmPLClient || (window.__rmPLClient = window.supabase.createClient(SB_URL, SB_KEY))) : null);
   }
 
-  var cache = Object.create(null);   // id -> { full_name, avatar_url }
+  var cache = Object.create(null);   // id -> { full_name, avatar_url, sig, profile }
+
+  // Every profile field any screen shows (2026-11-03: "any edit on the profile
+  // appears in real time"). The event carries these (never contact / private
+  // columns), and a change to ANY of them fires — while unrelated writes
+  // (last_seen, show_active_status, push tokens…) never do.
+  var FIELDS = ['full_name', 'nickname', 'username', 'avatar_url', 'cover_url', 'cover_transform',
+    'bio', 'job_title', 'professional_type', 'brokerage', 'verified_as', 'is_verified', 'location',
+    'relationship_status', 'division', 'business_group', 'team_name', 'years_experience', 'languages'];
+  function pick(row) {
+    var o = { id: row.id };
+    FIELDS.forEach(function (f) { if (Object.prototype.hasOwnProperty.call(row, f)) o[f] = row[f]; });
+    return o;
+  }
+  function sigOf(row) {
+    return JSON.stringify(FIELDS.map(function (f) { return row[f] == null ? '' : row[f]; }));
+  }
 
   // Apply an incoming (or primed) value. Fires 'rm-profile-live' only when the
   // name or avatar actually changed vs. what we last knew, so a rerender or a
   // realtime reconnect echo never thrashes the DOM.
-  function _apply(id, full_name, avatar_url, silent) {
+  // `row` (optional) is the full profile from realtime: then ANY shown field
+  // changing fires, and the event's `profile` carries the fresh values.
+  function _apply(id, full_name, avatar_url, silent, row) {
     if (!id) return;
     id = String(id);
     var prev = cache[id] || {};
     var next = {
       full_name:  (full_name  != null ? full_name  : prev.full_name),
-      avatar_url: (avatar_url != null ? avatar_url : prev.avatar_url)
+      avatar_url: (avatar_url != null ? avatar_url : prev.avatar_url),
+      sig: row ? sigOf(row) : prev.sig,
+      profile: row ? pick(row) : prev.profile
     };
-    var changed = (prev.full_name !== next.full_name) || (prev.avatar_url !== next.avatar_url);
+    var changed = (prev.full_name !== next.full_name) || (prev.avatar_url !== next.avatar_url)
+      || (!!row && prev.sig !== next.sig);
     cache[id] = next;
     if (silent || !changed) return;
-    try { window.dispatchEvent(new CustomEvent('rm-profile-live', { detail: { id: id, full_name: next.full_name, avatar_url: next.avatar_url } })); } catch (e) {}
+    try { window.dispatchEvent(new CustomEvent('rm-profile-live', { detail: { id: id, full_name: next.full_name, avatar_url: next.avatar_url, profile: next.profile || null } })); } catch (e) {}
   }
 
   // Seed the cache from already-fetched results (silent — no event). Lets get()
@@ -70,11 +91,13 @@
       sb.channel('profiles-live')
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles' }, function (payload) {
           var n = payload && payload.new; if (!n || n.id == null) return;
-          _apply(n.id, n.full_name, n.avatar_url);
+          var before = cache[String(n.id)] && cache[String(n.id)].sig;
+          _apply(n.id, n.full_name, n.avatar_url, false, n);
+          if (before === sigOf(n)) return;     // nothing shown changed (e.g. last_seen)
           // Fan out to the OTHER same-origin documents on this device (the mobile
-          // app-shell iframes: Feed, Portal…), which may each render Search but
-          // only one of them received the realtime event.
-          try { localStorage.setItem('rm_profile_live', JSON.stringify({ id: String(n.id), full_name: n.full_name, avatar_url: n.avatar_url, t: Date.now() })); } catch (e) {}
+          // app-shell iframes: Home, Portal, Profile…) — only one of them may have
+          // received the realtime event.
+          try { localStorage.setItem('rm_profile_live', JSON.stringify({ id: String(n.id), full_name: n.full_name, avatar_url: n.avatar_url, profile: pick(n), t: Date.now() })); } catch (e) {}
         })
         .subscribe(function (status) {
           if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
@@ -91,7 +114,7 @@
     if (ev.key !== 'rm_profile_live' || !ev.newValue) return;
     var d; try { d = JSON.parse(ev.newValue); } catch (e) { return; }
     if (!d || d.id == null) return;
-    _apply(d.id, d.full_name, d.avatar_url);
+    _apply(d.id, d.full_name, d.avatar_url, false, d.profile || null);
   });
 
   window.RMProfileLive = { prime: prime, get: get, cache: cache };

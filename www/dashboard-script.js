@@ -1566,6 +1566,24 @@ async function _rmSyncOwnProfileLive() {
 window.addEventListener('rm-profile-self-changed', function () { _rmQueueOwnProfileSync(); });
 window.addEventListener('storage', function (e) { if (e.key === 'rm_profile_self_changed') _rmQueueOwnProfileSync(); });
 
+// Real-time (RMProfileLive, 2026-11-03): the profile ON SCREEN changed — someone
+// else's (Profile opened with ?user_id=…) or my own from another device / an
+// admin (badge). Someone else's: re-run the normal loader (loadProfile coalesces
+// repeated calls). Mine: the own-row sync above. Either way the listing cards
+// on this profile show the author's name / photo / job / badge, so refresh them.
+let _rmViewedLiveTimer = null;
+window.addEventListener('rm-profile-live', function (e) {
+    const d = e && e.detail; if (!d || !d.id) return;
+    const shownId = _viewUserId || (typeof user !== 'undefined' && user && user.id);
+    if (!shownId || String(d.id) !== String(shownId)) return;
+    clearTimeout(_rmViewedLiveTimer);
+    _rmViewedLiveTimer = setTimeout(function run() {
+        if (_rmProfileEditorOpen()) { _rmViewedLiveTimer = setTimeout(run, 1500); return; }
+        try { if (_viewUserId) loadProfile(); else _rmQueueOwnProfileSync(); } catch (_) {}
+        try { reloadDashboardListings(); } catch (_) {}
+    }, 300);
+});
+
 // Any follow/Realmate relationship change from OUTSIDE this tab (another tab or a
 // live DB event — e.g. the other party accepting my follow request) → re-run
 // loadProfile while viewing someone else's profile, so the Follow / Accept

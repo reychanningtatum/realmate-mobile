@@ -394,7 +394,8 @@
 
 <script src="native-auth.js?v=20261019e"></script>
 <script src="vendor/supabase-js.min.js?v=2.112.3"></script>
-<script src="auth-guard.js?v=20261102a"></script>
+<script src="profile-live.js?v=20261103a"></script>
+<script src="auth-guard.js?v=20261102b"></script>
 <script src="visibility.js?v=20261002a"></script>
 <script src="rm-sound.js?v=20261030f"></script>
 <script src="mates.js?v=20261022b"></script>
@@ -1232,6 +1233,17 @@ function formatPostDate(d){
   };
 }
 function goToProfile(userId){ if(userId) location.href=`dashboard.html?user_id=${userId}`; }
+
+// Real-time profile changes (RMProfileLive, 2026-11-03): the poster renamed or
+// changed their photo → update the "Posted by" card in place.
+window.addEventListener('rm-profile-live', function (e) {
+  const d = e && e.detail; const l = window._ldListing;
+  if (!d || !d.id || !l || l.is_anonymous || String(d.id) !== String(l.user_id)) return;
+  if (d.full_name) { l.user_name = d.full_name; window._sellerName = d.full_name; }
+  l.user_img = liveAvatarFor(l.user_name, d.avatar_url);
+  const nm = document.querySelector('.ld-poster-card .ld-poster-name'); if (nm) nm.textContent = l.user_name || 'Unknown';
+  const im = document.querySelector('.ld-poster-card .ld-poster-av img'); if (im) im.src = l.user_img || avatarFallback(l.user_name);
+});
 
 async function loadListing(){
   const id = new URLSearchParams(location.search).get('id');

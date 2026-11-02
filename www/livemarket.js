@@ -3052,6 +3052,26 @@ window.addEventListener('rmsh-remote', function (e) {
     }
 });
 
+// Repaint the author block (name, photo, Verified badge) of every visible card
+// for listing `l` in place — no grid rebuild, so scroll / banners / counters stay.
+function _lcRepaintAuthor(l) {
+    if (!l || l.id == null || l.is_anonymous) return;
+    document.querySelectorAll('[id="lc-' + String(l.id).replace(/"/g, '') + '"]').forEach(card => {
+        const nameText = card.querySelector('.lc-profile-name .lc-seller-name-text');
+        if (nameText && l.user_name) nameText.textContent = l.user_name;
+        const av = card.querySelector('.lc-profile-avatar');
+        const src = l.user_img || avatarFallback(l.user_name);
+        if (av && av.getAttribute('src') !== src) av.setAttribute('src', src);
+        const nameBox = card.querySelector('.lc-profile-name');
+        if (nameBox) {
+            nameBox.querySelectorAll('.rm-verified-seal').forEach(x => x.remove());
+            // drop the word-joiner text that sits before a seal
+            Array.from(nameBox.childNodes).forEach(n => { if (n.nodeType === 3 && n.nodeValue === '\u2060') n.remove(); });
+            if (l.user_verified_as && window.RMVerified) nameBox.insertAdjacentHTML('beforeend', '&#8288;' + RMVerified.seal(l.user_verified_as, 14).trimStart());
+        }
+    });
+}
+
 // Real-time: a member changed their name/picture (RMProfileLive). Keep Portal
 // search current without a refetch: update the author snapshot on every listing
 // they own (so future suggestion renders + listing cards stay fresh), then patch
@@ -3060,11 +3080,18 @@ window.addEventListener('rm-profile-live', function (e) {
     const d = e && e.detail; if (!d || !d.id) return;
     const uid = String(d.id);
     try {
+        const prof = d.profile || null;
         if (Array.isArray(allListings)) {
             allListings.forEach(l => {
                 if (l && String(l.user_id) === uid && !l.is_anonymous) {
                     if (d.full_name != null) l.user_name = d.full_name;
                     if (d.avatar_url !== undefined) l.user_img = d.avatar_url || '';
+                    // Job + admin-granted badge too (same rule as _resolveLiveAuthors).
+                    if (prof) {
+                        if ('job_title' in prof) l.user_job = lmValidPosition(prof.job_title);
+                        if ('verified_as' in prof) l.user_verified_as = prof.verified_as || null;
+                    }
+                    _lcRepaintAuthor(l);
                 }
             });
         }

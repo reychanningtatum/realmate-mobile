@@ -379,7 +379,7 @@ function goBack() {
         try { if (session.access_token && _sb.realtime && _sb.realtime.setAuth) _sb.realtime.setAuth(session.access_token); } catch (e) {}
         const _RM_PROFILE_SYNC_COLS = ['full_name', 'username', 'nickname', 'job_title', 'division',
             'business_group', 'team_name', 'bio', 'relationship_status', 'cover_url', 'cover_transform',
-            'location', 'years_experience', 'languages'];
+            'location', 'years_experience', 'languages', 'professional_type', 'brokerage', 'verified_as', 'is_verified'];
         let _rmProfileSelfSig = null;
         _sb.channel('profile-self-' + session.user.id)
             .on('postgres_changes',
@@ -393,6 +393,15 @@ function goBack() {
                         if (u.id && u.id !== session.user.id) return;
                         // already current — skip echo / same-device
                         if (newUrl && u.image !== newUrl) window.rmApplyAvatarUpdate(newUrl, n.avatar_original_url);
+                        // Name / nickname changed (another device or an admin): keep the
+                        // cached identity current so every own-name place (Home greeting,
+                        // the Portal's "my post" check, composer) follows live.
+                        const cur = JSON.parse(localStorage.getItem('user')) || {};
+                        if ((n.full_name && cur.name !== n.full_name) || (n.nickname != null && (cur.nickname || '') !== (n.nickname || ''))) {
+                            if (n.full_name) cur.name = n.full_name;
+                            if (n.nickname != null) cur.nickname = n.nickname || '';
+                            localStorage.setItem('user', JSON.stringify(cur));
+                        }
                     } catch (e) {}
                     // Everything else on the profile (cover photo + framing, Edit
                     // Profile fields): the avatar path above used to be the ONLY

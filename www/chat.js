@@ -345,6 +345,29 @@ async function _customerCloseSupportTicket() {
     if (_activeSupportTicket) { _activeSupportTicket.status = 'resolved'; updateHeaderStatus(); _applySupportComposerLock(); }
 }
 
+// Real-time profile changes (RMProfileLive, 2026-11-03): a person I chat with
+// renamed / changed their photo → update the conversation list and, if their
+// chat is open, its header. Shared-profile cards re-read on next render.
+window.addEventListener('rm-profile-live', function (e) {
+    const d = e && e.detail; if (!d || !d.id) return;
+    const id = String(d.id);
+    try { _profileRefCache.delete(id); } catch (_) {}
+    let hit = false;
+    (conversations || []).forEach(c => {
+        if (!c || !c.otherUser || String(c.otherUser.id) !== id) return;
+        hit = true;
+        if (d.full_name) c.otherUser.name = d.full_name;
+        c.otherUser.image = _chatAvatarFor(d.full_name || c.otherUser.name, d.avatar_url);
+    });
+    if (hit) { try { renderConvList(); } catch (_) {} }
+    if (activeOtherUser && String(activeOtherUser.id) === id) {
+        if (d.full_name) activeOtherUser.name = d.full_name;
+        activeOtherUser.image = _chatAvatarFor(activeOtherUser.name, d.avatar_url);
+        const av = document.getElementById('chatHeaderAvatar'); if (av) av.src = activeOtherUser.image;
+        const nm = document.getElementById('chatHeaderName'); if (nm) nm.textContent = activeOtherUser.name;
+    }
+});
+
 function refreshOnlineUI() {
     renderConvList();
     if (activeOtherUser) updateHeaderStatus();

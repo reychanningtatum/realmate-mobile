@@ -567,6 +567,26 @@
     vidSend(true);
   }
 
+  // Real-time profile changes (RMProfileLive, 2026-11-03).
+  //  • mine (another device / an admin): greeting from the refreshed cache
+  //    (auth-guard updates it) and the Verified-badge card;
+  //  • a member shown on Home: reload the cards so their name is current.
+  var _hdLiveTimer = null;
+  window.addEventListener('rm-profile-live', function (e) {
+    var d = e && e.detail; if (!d || !d.id) return;
+    var me = {}; try { me = JSON.parse(localStorage.getItem('user') || '{}') || {}; } catch (x) {}
+    if (me.id && String(d.id) === String(me.id)) {
+      setTimeout(function () { header(null); }, 300);
+      if (d.profile && 'verified_as' in d.profile) verifyPrompt(me.id, d.profile);
+      return;
+    }
+    var shown = hdData.reqs.concat(hdData.lsts).some(function (l) { return String(l.user_id) === String(d.id); })
+      || hdData.matches.some(function (x) { return x.l && String(x.l.user_id) === String(d.id); });
+    if (!shown) return;
+    clearTimeout(_hdLiveTimer);
+    _hdLiveTimer = setTimeout(function () { load().catch(function () {}); }, 800);
+  });
+
   function start() { header(null); load().catch(fail); video(); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
 })();
