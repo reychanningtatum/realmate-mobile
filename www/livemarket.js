@@ -5852,6 +5852,10 @@ async function submitLMPost() {
         const { error } = await _lmWriteListing('insert', row);
         if (error) throw error;
 
+        // Match pop-up for this new post (match-alert.js), whether or not its
+        // matches were already known — doesn't wait for realtime.
+        try { window.RMMatchAlert?.checkOwnPosts?.(); } catch (e) {}
+
         // Nudge the other view (Profile ↔ Portal iframes) so the new listing appears
         // at the top there too, immediately (realtime also covers cross-device).
         try { localStorage.setItem('rm_listing_changed', JSON.stringify({ t: Date.now() })); } catch (e) {}

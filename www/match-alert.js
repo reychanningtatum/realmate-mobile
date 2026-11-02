@@ -407,6 +407,7 @@
 
     // ── Match state cache (the user's own listings, for realtime scoring) ──
     let _myParsed = [];      // parsed own listings
+    let _myRaw = [];         // my own listing rows (for the own-post pop-up)
     let _myUid = _uid;       // auth user id once resolved
     let _unlockedOwners = (typeof Set !== 'undefined') ? new Set() : null;  // owners who re-unlocked their posts to me
 
@@ -458,6 +459,7 @@
                 { headers: _authHeaders() }
             );
             const mine = await res.json();
+            _myRaw = Array.isArray(mine) ? mine : [];
             // A completed own listing can't produce matches — exclude it so it
             // never surfaces or badges a partner.
             _myParsed = (Array.isArray(mine) ? mine : [])
@@ -485,16 +487,18 @@
     // the user got no banner/badge for matches their own post created. This scans the
     // active market once (after _myParsed is refreshed) and surfaces any genuinely
     // unseen matches exactly like a realtime arrival — banner + badge, on any page.
-    async function _scanMarketForMatches() {
-        if (!_myParsed.length || !_myUid) return;
-        let rows = [];
+    async function _fetchMarket() {
         try {
             const res = await fetch(
                 `${SUPABASE_URL}/rest/v1/listings?select=*&archived=eq.false&order=created_at.desc&limit=500`,
                 { headers: _authHeaders() }
             );
-            rows = await res.json();
-        } catch (e) { return; }
+            const rows = await res.json();
+            return Array.isArray(rows) ? rows : null;
+        } catch (e) { return null; }
+    }
+    async function _scanMarketForMatches(rows) {
+        if (!_myParsed.length || !_myUid) return;
         if (!Array.isArray(rows)) return;
         const s = getState();
         const dismissed = getDismissed();
@@ -524,6 +528,67 @@
                                : `${newly.length} new listings match your listing. Tap to view.`,
             newly[0].id
         );
+    }
+
+    // Pop-up for EVERY new post of mine that has matches (2026-11-02, user
+    // request). The scan above only pops for listings never matched before, so a
+    // new post whose matches were already known (e.g. a re-post) showed the
+    // counter but no pop-up. This pops once per new own post — remembered per
+    // post id on this device — whenever it has at least one match, even if those
+    // listings were matched before. Same filters as the scan (not mine, not
+    // anonymous / archived / completed, not avoided, not hidden from me, not
+    // dismissed) and the same score cut-off.
+    function _ownPostKey() { return 'rm_match_ownpost_v1_' + (_myUid || _uid || 'anon'); }
+    function _ownPostsShown() {
+        try { return new Set(JSON.parse(localStorage.getItem(_ownPostKey()) || '[]').map(String)); }
+        catch (e) { return new Set(); }
+    }
+    function _bannerForOwnPosts(posts, rows) {
+        if (!posts || !posts.length || !Array.isArray(rows) || !_myUid) return;
+        const shown = _ownPostsShown();
+        const dismissed = getDismissed();
+        let total = 0, firstId = null, any = false;
+        posts.forEach(post => {
+            if (!post || post.id == null) return;
+            const pid = String(post.id);
+            if (shown.has(pid) || post.archived || _isCompleted(post)) return;
+            const mine = window.RM_MATCH.parseListing(post);
+            const hits = [];
+            rows.forEach(l => {
+                if (!l || l.id == null) return;
+                if (l.user_id && l.user_id === _myUid) return;
+                if (l.is_anonymous || l.archived || _isCompleted(l)) return;
+                if (_avoidedAuthor(l) || !_visibleToMe(l)) return;
+                if (dismissed.has(String(l.id))) return;
+                try {
+                    const sc = window.RM_MATCH.computeMatchScore(mine, window.RM_MATCH.parseListing(l)).score;
+                    if (sc >= MATCH_THRESHOLD) hits.push({ id: String(l.id), sc });
+                } catch (e) {}
+            });
+            shown.add(pid);                         // checked once per post, matches or not
+            if (!hits.length) return;
+            any = true;
+            total += hits.length;
+            hits.sort((a, b) => b.sc - a.sc);
+            if (firstId == null) firstId = hits[0].id;
+        });
+        try { localStorage.setItem(_ownPostKey(), JSON.stringify([...shown].slice(-500))); } catch (e) {}
+        if (!any) return;
+        showBanner(total === 1 ? 'Your new listing has 1 match. Tap to view.'
+                               : `Your new listing has ${total} matches. Tap to view.`, firstId);
+    }
+
+    // Called by the Portal right after a post saves (submitLMPost), so the
+    // own-post pop-up never depends on realtime reaching this page. Checks my
+    // posts from the last 2 minutes; the per-post memory above keeps it to one
+    // pop-up per post even when realtime delivers the same post too.
+    async function checkOwnPosts() {
+        if (!window.RM_MATCH || !_sb) return;   // engine check first: the app shell has no engine (and no _sb)
+        await loadMine();
+        const now = Date.now();
+        const recent = _myRaw.filter(l => l && l.created_at && (now - Date.parse(l.created_at)) < 120000);
+        if (!recent.length) return;
+        _bannerForOwnPosts(recent, await _fetchMarket());
     }
 
     // ── Analytics: persist AI matches ────────────────────────────────────────
@@ -776,7 +841,7 @@
         } catch (e) {}
     }
 
-    window.RMMatchAlert = { recordMatches, noteIncoming, markSeen, getUnseen, refreshBadges, recordAiMatches, recordDismiss };
+    window.RMMatchAlert = { recordMatches, noteIncoming, markSeen, getUnseen, refreshBadges, recordAiMatches, recordDismiss, checkOwnPosts };
 
     // Cross-document badge sync: match state lives in localStorage, so when it
     // changes in ANOTHER same-origin document (the Portal iframe detecting/clearing
@@ -815,11 +880,19 @@
         // pattern notif-badge.js uses). Debounced own-listing refresh so posting
         // a NEW own listing re-primes _myParsed (new matches can then be found).
         let _mineTimer = null;
+        let _newOwnPosts = [];   // my posts that just arrived (INSERT) — get the own-post pop-up
         // Posting/editing MY OWN listing re-primes _myParsed AND then scans the market
         // for the new matches that own post created (against others' existing listings).
-        const reloadMineDebounced = () => {
+        const reloadMineDebounced = (newOwnPost) => {
+            if (newOwnPost) _newOwnPosts.push(newOwnPost);
             clearTimeout(_mineTimer);
-            _mineTimer = setTimeout(async () => { await loadMine(); await _scanMarketForMatches(); }, 800);
+            _mineTimer = setTimeout(async () => {
+                const posts = _newOwnPosts; _newOwnPosts = [];
+                await loadMine();
+                const rows = await _fetchMarket();
+                await _scanMarketForMatches(rows);
+                _bannerForOwnPosts(posts, rows);
+            }, 800);
         };
         try {
             _sb.channel('match-alert-listings')
@@ -827,7 +900,7 @@
                     (payload) => {
                         const row = payload.new;
                         _setDiag('lastEvt', 'INS#'+(row&&row.id));
-                        if (row.user_id && _myUid && row.user_id === _myUid) { reloadMineDebounced(); return; }
+                        if (row.user_id && _myUid && row.user_id === _myUid) { reloadMineDebounced(row); return; }
                         noteIncoming(row);
                     })
                 .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'listings' },
