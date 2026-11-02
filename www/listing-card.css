@@ -944,3 +944,24 @@ html[data-theme="dark"] .offers-rx-profile:hover {background: #162032;}
 
 /* Matched card: no moving blue/green line along the top (2026-11-02, user request). */
 .listing-card.is-match::after { display: none; }
+
+/* Own listing's "N Matches" counter (2026-11-02, user request): the same blue →
+   purple design and gradient border as the Match Engine button and banner; it
+   keeps its heartbeat, now with a purple glow. */
+.lc-aim-btn, html[data-theme="dark"] .lc-aim-btn {
+  background:
+    linear-gradient(90deg, #0043dc 0%, #0636b8 30%, #2a2fc4 52%, #5a1fd2 74%, #a826fb 100%) padding-box,
+    linear-gradient(90deg, #0683ff 0%, #3241f9 50%, #c42cfc 100%) border-box;
+  border: 1.5px solid transparent;
+  animation-name: aimBeatPurple;
+}
+.lc-aim-count { color: #fff; }
+.lc-aim-text { color: #dbeafe; }
+@keyframes aimBeatPurple {
+  0%   { transform: scale(1);     box-shadow: 0 0 0 0 rgba(168,38,251,0.35); }
+  14%  { transform: scale(1.05);  box-shadow: 0 0 11px 2px rgba(168,38,251,0.30); }
+  28%  { transform: scale(1);     box-shadow: 0 0 0 0 rgba(168,38,251,0.18); }
+  42%  { transform: scale(1.03);  box-shadow: 0 0 7px 1px rgba(168,38,251,0.22); }
+  56%  { transform: scale(1);     box-shadow: 0 0 0 0 rgba(168,38,251,0); }
+  100% { transform: scale(1);     box-shadow: 0 0 0 0 rgba(168,38,251,0); }
+}
