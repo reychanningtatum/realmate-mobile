@@ -1,17 +1,122 @@
-<!doctype html>
-<html lang="en">
+<!DOCTYPE html>
+<html lang="en" style="background:#080f1a">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>realmate — Post a Listing</title>
-<meta name="description" content="Post what your client is looking for. realmate finds the properties that match.">
-<style>html,body{margin:0;background:#080f1a;}</style>
-<!-- The post introduction's own address (2026-11-02): the "Post a Listing" first
-     screen lives on the sign-in page (index.html + onboarding.js), so the posted
-     listing, account creation, legal review and automatic sign-in stay ONE flow.
-     This page simply opens it in post mode — reachable any time (marketing page
-     Get Started, or a link), e.g. after tapping × on the account step. -->
-<script>location.replace('index.html?post=1');</script>
+  <script src="rm-env.js?v=20261021b"></script>
+  <script src="rm-bugs.js?v=20261022b"></script>
+  <style>html,body{background:#080f1a}</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <script src="native-statusbar.js?v=20260828i"></script>
+  <title>realmate — Post a Listing</title>
+  <meta name="description" content="Post what your client is looking for. realmate finds the properties that match.">
+  <link rel="stylesheet" href="vendor/fontawesome/css/all.min.css?v=6.5.0">
+  <link rel="stylesheet" href="vendor/googlefonts/fonts.css?v=1">
+  <!-- ═══ Post a Listing — the post introduction's own page (2026-11-03).
+       First screen for a new visitor (index.html sends a first open here) and
+       reachable any time from the marketing page. Same composer as the Portal's
+       "Post a Listing" (category grid, description, photos, green Post Now) on the
+       sign-in / marketing night scene. After posting, the sign-in page opens
+       "Create an account to see your matches" (onboarding.js). ═══ -->
+  <style>
+  *{box-sizing:border-box;}
+  body{margin:0;min-height:100vh;font-family:'Inter',system-ui,sans-serif;color:#eef2fb;-webkit-font-smoothing:antialiased;
+    background:radial-gradient(ellipse 70% 40% at 50% 20%,rgba(42,47,196,0.20),transparent 70%),
+      linear-gradient(180deg,#080f1a 0%,#080f1a 45%,rgba(8,15,26,0.6) 80%,rgba(8,15,26,0.25) 100%),
+      url('images/marketing-bg.jpg?v=3') center bottom/cover no-repeat fixed,#080f1a;}
+  .ob-page{min-height:100vh;display:flex;justify-content:center;
+    padding:calc(18px + env(safe-area-inset-top)) 16px calc(28px + env(safe-area-inset-bottom));}
+  .ob-wrap{width:100%;max-width:560px;}
+  .ob-nav{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px;}
+  .ob-back{display:inline-flex;align-items:center;gap:8px;height:38px;padding:0 14px 0 12px;border-radius:999px;cursor:pointer;
+    border:1px solid rgba(160,176,214,0.28);background:rgba(13,22,40,0.7);color:#eef2fb;font:600 13.5px/1 inherit;}
+  .ob-back:hover{border-color:rgba(160,176,214,0.5);}
+  .ob-signin{display:inline-flex;align-items:center;gap:8px;height:38px;padding:0 16px;border-radius:999px;cursor:pointer;color:#fff;font:700 13.5px/1 inherit;
+    border:1.5px solid transparent;
+    background:linear-gradient(90deg,#0043dc 0%,#2a2fc4 52%,#a826fb 100%) padding-box,linear-gradient(90deg,#0683ff,#3241f9 50%,#c42cfc) border-box;}
+  .ob-logo{display:block;width:128px;height:auto;margin:6px 0 14px;}
+  .ob-head{margin:0 0 18px;}
+  .ob-head h1{font-size:clamp(24px,5vw,32px);font-weight:800;letter-spacing:-0.03em;line-height:1.1;color:#eef2fb;margin:0;}
+  .ob-head p{font-size:14.5px;color:#a3aec8;margin:8px 0 0;line-height:1.45;}
+  .ob-card{background:#fff;color:#0f172a;border-radius:18px;padding:20px;box-shadow:0 40px 80px -30px rgba(0,0,0,0.85);}
+  .ob-card h2{font-size:17px;font-weight:800;margin:0 0 14px;color:#0f172a;}
+  .ob-label{display:block;font-size:12px;font-weight:600;color:#94a3b8;margin:0 0 8px;}
+  .ob-cats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;}
+  .ob-cat{height:44px;border-radius:10px;border:1.5px solid #cbd5e1;background:#fff;color:#334155;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;transition:background .15s,border-color .15s,color .15s;}
+  .ob-cat:hover{border-color:#94a3b8;}
+  .ob-cat.selected{background:#18a94f;border-color:#18a94f;color:#fff;}
+  .ob-text{width:100%;min-height:120px;resize:vertical;border:1.5px solid #cbd5e1;border-radius:12px;padding:12px 14px;font-size:15px;line-height:1.45;font-family:inherit;color:#0f172a;background:#fff;}
+  .ob-text:focus{outline:none;border-color:#6f8cff;box-shadow:0 0 0 3px rgba(111,140,255,0.18);}
+  .ob-photos-row{display:flex;align-items:center;gap:10px;margin:12px 0 4px;}
+  .ob-add{display:inline-flex;align-items:center;gap:8px;height:38px;padding:0 14px;border-radius:10px;border:1.5px dashed #cbd5e1;background:#fff;color:#334155;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;}
+  .ob-count{font-size:12px;color:#94a3b8;}
+  .ob-photos{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;}
+  .ob-thumb{position:relative;width:64px;height:64px;border-radius:10px;overflow:hidden;background:#f1f5f9;}
+  .ob-thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+  .ob-thumb-x{position:absolute;top:3px;right:3px;width:20px;height:20px;border-radius:50%;border:0;background:rgba(15,23,42,0.75);color:#fff;font-size:14px;line-height:20px;padding:0;cursor:pointer;}
+  .ob-status{min-height:18px;font-size:13px;font-weight:600;color:#64748b;margin:12px 0 0;}
+  .ob-status.error{color:#dc2626;}
+  .ob-foot{display:flex;justify-content:flex-end;margin-top:12px;}
+  .ob-post-btn{display:inline-flex;align-items:center;gap:8px;height:44px;padding:0 22px;border-radius:12px;border:0;background:#18a94f;color:#fff;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;box-shadow:0 8px 18px -8px rgba(24,169,79,0.6);}
+  .ob-post-btn:hover:not(:disabled){background:#15983f;}
+  .ob-post-btn:disabled{opacity:.6;cursor:default;}
+  .ob-note{font-size:12.5px;color:#6f7b98;text-align:center;margin:14px 0 0;line-height:1.5;}
+  .ob-saved{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#eef2ff;border:1px solid #c7d2fe;border-radius:12px;padding:10px 12px;margin:0 0 14px;font-size:13px;font-weight:600;color:#3730a3;line-height:1.4;}
+  .ob-saved[hidden]{display:none;}
+  .ob-saved i{color:#4f46e5;}
+  .ob-saved span{flex:1 1 180px;}
+  .ob-saved button{height:34px;padding:0 14px;border:0;border-radius:10px;cursor:pointer;font:700 13px/1 inherit;color:#fff;
+    background:linear-gradient(90deg,#0043dc 0%,#2a2fc4 52%,#a826fb 100%);}
+  </style>
 </head>
-<body><noscript><a href="index.html?post=1" style="color:#eef2fb;font-family:sans-serif">Post a Listing</a></noscript></body>
+<body>
+<main class="ob-page">
+  <div class="ob-wrap" id="obPost">
+    <nav class="ob-nav" aria-label="Page">
+      <button type="button" class="ob-back" onclick="rmObBack()" aria-label="Back to realmate home"><i class="fas fa-arrow-left"></i> Back</button>
+      <button type="button" class="ob-signin" onclick="rmObSignIn()">Sign in</button>
+    </nav>
+    <img class="ob-logo" src="images/realmate2.png" alt="realmate">
+    <div class="ob-head">
+      <h1>Post what your client is looking for.</h1>
+      <p>realmate finds the properties that match.</p>
+    </div>
+    <div class="ob-card">
+      <div class="ob-saved" id="obSaved" hidden>
+        <i class="fas fa-circle-check"></i>
+        <span>Your listing is saved. Create your account to see your matches.</span>
+        <button type="button" onclick="rmObCreateAccount()">Create account</button>
+      </div>
+      <h2>Post a Listing</h2>
+      <span class="ob-label">Select a category</span>
+      <div class="ob-cats" id="obCats">
+        <button type="button" class="ob-cat" data-cat="FOR SALE">For Sale</button>
+        <button type="button" class="ob-cat" data-cat="FOR RENT">For Rent</button>
+        <button type="button" class="ob-cat" data-cat="FOR LEASE">For Lease</button>
+        <button type="button" class="ob-cat" data-cat="WILLING TO BUY">Willing to Buy</button>
+        <button type="button" class="ob-cat" data-cat="WILLING TO RENT">Willing to Rent</button>
+        <button type="button" class="ob-cat" data-cat="WILLING TO LEASE">Willing to Lease</button>
+      </div>
+      <label class="ob-label" for="obText">Describe your listing</label>
+      <textarea id="obText" class="ob-text" maxlength="5000" placeholder="Project, unit type, price, location…"></textarea>
+      <div class="ob-photos-row">
+        <button type="button" class="ob-add" onclick="document.getElementById('obFile').click()"><i class="fas fa-image"></i> Add Photos (optional)</button>
+        <span class="ob-count" id="obPhotoCount"></span>
+        <input type="file" id="obFile" accept="image/*" multiple hidden>
+      </div>
+      <div class="ob-photos" id="obPhotos"></div>
+      <div class="ob-status" id="obStatus" role="status"></div>
+      <div class="ob-foot">
+        <button type="button" class="ob-post-btn" id="obPostBtn" onclick="rmObSubmitPost()"><i class="fas fa-paper-plane"></i> Post Now</button>
+      </div>
+    </div>
+    <p class="ob-note">Next: create a free account to see your matches. realmate is an exclusive network for real estate salespersons and brokers.</p>
+  </div>
+</main>
+
+<script src="native-auth.js?v=20261019e"></script>
+<script src="vendor/supabase-js.min.js?v=2.112.3"></script>
+<script>window.supabaseClient = window.supabase.createClient(window.RM_ENV.url, window.RM_ENV.anonKey);</script>
+<script src="compress.js?v=20261013a"></script>
+<script src="onboarding.js?v=20261103b"></script>
+</body>
 </html>

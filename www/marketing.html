@@ -329,6 +329,8 @@
   .rm-toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 
   .m-cta{display:none;}
+  /* Post a Listing (2026-11-03): hero button on desktop; on phones the sticky
+     bar's Get Started opens the same post page, so the hero keeps its two buttons. */
 
   /* ─────────────  Tablet  ───────────── */
   @media(max-width:1080px){
@@ -360,6 +362,7 @@
     .hero h1{font-size:clamp(36px,10vw,48px);}
     .hero-cta{flex-wrap:nowrap;}
     .hero-cta .btn,.hero-cta .store-badge{flex:1;min-width:0;justify-content:center;white-space:normal;}
+    .hero-cta .hero-post{display:none;}
     .hero-cta .btn{padding:14px 12px;font-size:14px;line-height:1.2;}
     .match-demo{margin:0 auto;max-width:440px;}
     .hero h1 + .hero-cta{margin-top:32px;}
@@ -596,6 +599,7 @@
         <span class="pill"><span class="dot"></span> AI-Powered Real Estate Matching</span>
         <h1>Post what your client is looking for.<span class="line2">realmate finds the properties that match.</span></h1>
         <div class="hero-cta">
+          <button class="btn btn-primary hero-post" onclick="rmStart()"><i class="fas fa-pen-to-square"></i> Post a Listing</button>
           <a class="store-badge" href="https://apps.apple.com/ph/app/realmate/id6802656686" onclick="rmDownload(event,'ios')" aria-label="Download on the App Store">
             <i class="fab fa-apple"></i>
             <span class="sb-txt"><span class="sb-small">Download on the</span><span class="sb-big">App Store</span></span>
@@ -1058,7 +1062,7 @@
   // register modal via the rm_show_register flag). Sign In → the Login page.
   // Get Started / Join realmate → the post introduction (post-first onboarding):
   // post a listing, then create an account to see its matches.
-  function rmStart(){ try{ sessionStorage.removeItem('rm_show_register'); }catch(e){} rmGoLogin('index.html?post=1'); }
+  function rmStart(){ try{ sessionStorage.removeItem('rm_show_register'); }catch(e){} rmGoLogin('post.html'); }
   function rmSignIn(){ try{ sessionStorage.removeItem('rm_show_register'); }catch(e){} rmGoLogin(); }
 
   // App-store download badges. Fill these in with the real listing URLs once the

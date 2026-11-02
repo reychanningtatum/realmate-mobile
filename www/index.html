@@ -15,29 +15,21 @@
   <script>
     // ── First-launch onboarding gate (post-first, 2026-11-02) ─────────
     // The very first time this device opens the app (or site), the first screen
-    // is "Post a Listing" (onboarding.js) — not a sign-up form. Its × goes to the
-    // marketing page. Afterwards: normal entry. Runs before anything renders so
-    // the login form never flashes first. Skips deep links that carry a token
-    // (password reset / email confirm arrive with a ?query or #hash) and existing
-    // members (stored user).
+    // is the "Post a Listing" page (post.html) — not a sign-up form. Afterwards:
+    // normal entry. Runs before anything renders so the login form never flashes
+    // first. Skips deep links that carry a token (password reset / email confirm
+    // arrive with a ?query or #hash) and existing members (stored user).
     (function(){
       try {
-        // The post introduction's own address (post.html → index.html?post=1):
-        // open "Post a Listing" any time — e.g. after × on the account step.
-        if (/[?&]post=1\b/.test(window.location.search)) {
-          window.__rmForcePost = true;
-          localStorage.setItem('rm_seen_marketing','1');
-          document.documentElement.classList.add('rm-ob-post');
-          return;
-        }
+        // Older link to the post introduction → its own page.
+        if (/[?&]post=1\b/.test(window.location.search)) { window.location.replace('post.html'); return; }
         if (window.location.search || window.location.hash) return;
         if (localStorage.getItem('rm_seen_marketing')) return;
         if (localStorage.getItem('user')) { localStorage.setItem('rm_seen_marketing','1'); return; }
         // Just signed out (some sign-outs clear all local storage): not a first open.
         if (sessionStorage.getItem('rm_session') || sessionStorage.getItem('rm_logged_out')) { localStorage.setItem('rm_seen_marketing','1'); return; }
-        window.__rmFirstOpen = true;
         localStorage.setItem('rm_seen_marketing','1');
-        document.documentElement.classList.add('rm-ob-post');
+        window.location.replace('post.html');
       } catch (e) {}
     })();
   </script>
@@ -267,55 +259,6 @@
   #registerModal .modal-content::-webkit-scrollbar{width:8px;}
   #registerModal .modal-content::-webkit-scrollbar-thumb{background:#2a3550;border-radius:8px;}
 
-  /* ═══ Post a Listing — first screen for a new visitor (2026-11-02). The same
-     composer as the Portal's "Post a Listing" (category grid, description,
-     photos, green Post Now) on the sign-in page's night scene. ═══ */
-  #obPost{position:fixed;inset:0;z-index:900;overflow-y:auto;-webkit-overflow-scrolling:touch;
-    display:flex;align-items:flex-start;justify-content:center;
-    padding:calc(28px + env(safe-area-inset-top)) 16px calc(28px + env(safe-area-inset-bottom));
-    background:radial-gradient(ellipse 70% 40% at 50% 20%,rgba(42,47,196,0.20),transparent 70%),
-      linear-gradient(180deg,#080f1a 0%,#080f1a 45%,rgba(8,15,26,0.6) 80%,rgba(8,15,26,0.25) 100%),
-      url('images/marketing-bg.jpg?v=3') center bottom/cover no-repeat,#080f1a;}
-  #obPost[hidden]{display:none;}
-  html.rm-ob-post body > .app-main{visibility:hidden;}
-  html.rm-ob-post .rm-back-home{display:none;}   /* the sign-in form's Back button — not on the post screen */
-  .ob-wrap{width:100%;max-width:560px;}
-  .ob-top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px;}
-  .ob-top img{width:128px;height:auto;}
-  .ob-signin{font-size:13px;font-weight:600;color:#a3aec8;background:none;border:0;cursor:pointer;font-family:inherit;padding:8px 0;}
-  .ob-signin b{color:#eef2fb;}
-  .ob-head{margin:4px 0 18px;}
-  .ob-head h1{font-size:clamp(24px,5vw,32px);font-weight:800;letter-spacing:-0.03em;line-height:1.1;color:#eef2fb;margin:0;}
-  .ob-head p{font-size:14.5px;color:#a3aec8;margin:8px 0 0;line-height:1.45;}
-  .ob-card{background:#fff;color:#0f172a;border-radius:18px;padding:20px;box-shadow:0 40px 80px -30px rgba(0,0,0,0.85);}
-  .ob-card h2{font-size:17px;font-weight:800;margin:0 0 14px;color:#0f172a;}
-  .ob-label{display:block;font-size:12px;font-weight:600;color:#94a3b8;margin:0 0 8px;}
-  .ob-cats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;}
-  .ob-cat{height:44px;border-radius:10px;border:1.5px solid #cbd5e1;background:#fff;color:#334155;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;transition:background .15s,border-color .15s,color .15s;}
-  .ob-cat:hover{border-color:#94a3b8;}
-  .ob-cat.selected{background:#18a94f;border-color:#18a94f;color:#fff;}
-  .ob-text{width:100%;min-height:120px;resize:vertical;box-sizing:border-box;border:1.5px solid #cbd5e1;border-radius:12px;padding:12px 14px;font-size:15px;line-height:1.45;font-family:inherit;color:#0f172a;background:#fff;}
-  .ob-text:focus{outline:none;border-color:#6f8cff;box-shadow:0 0 0 3px rgba(111,140,255,0.18);}
-  .ob-photos-row{display:flex;align-items:center;gap:10px;margin:12px 0 4px;}
-  .ob-add{display:inline-flex;align-items:center;gap:8px;height:38px;padding:0 14px;border-radius:10px;border:1.5px dashed #cbd5e1;background:#fff;color:#334155;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;}
-  .ob-count{font-size:12px;color:#94a3b8;}
-  .ob-photos{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;}
-  .ob-thumb{position:relative;width:64px;height:64px;border-radius:10px;overflow:hidden;background:#f1f5f9;}
-  .ob-thumb img{width:100%;height:100%;object-fit:cover;display:block;}
-  .ob-thumb-x{position:absolute;top:3px;right:3px;width:20px;height:20px;border-radius:50%;border:0;background:rgba(15,23,42,0.75);color:#fff;font-size:14px;line-height:20px;padding:0;cursor:pointer;}
-  .ob-status{min-height:18px;font-size:13px;font-weight:600;color:#64748b;margin:12px 0 0;}
-  .ob-status.error{color:#dc2626;}
-  .ob-foot{display:flex;justify-content:flex-end;margin-top:12px;}
-  .ob-post-btn{display:inline-flex;align-items:center;gap:8px;height:44px;padding:0 22px;border-radius:12px;border:0;background:#18a94f;color:#fff;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;box-shadow:0 8px 18px -8px rgba(24,169,79,0.6);}
-  .ob-post-btn:hover:not(:disabled){background:#15983f;}
-  .ob-post-btn:disabled{opacity:.6;cursor:default;}
-  .ob-note{font-size:12.5px;color:#6f7b98;text-align:center;margin:14px 0 0;line-height:1.5;}
-  .ob-saved{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#eef2ff;border:1px solid #c7d2fe;border-radius:12px;padding:10px 12px;margin:0 0 14px;font-size:13px;font-weight:600;color:#3730a3;line-height:1.4;}
-  .ob-saved[hidden]{display:none;}
-  .ob-saved i{color:#4f46e5;}
-  .ob-saved span{flex:1 1 180px;}
-  .ob-saved button{height:34px;padding:0 14px;border:0;border-radius:10px;cursor:pointer;font:700 13px/1 inherit;color:#fff;
-    background:linear-gradient(90deg,#0043dc 0%,#2a2fc4 52%,#a826fb 100%);}
   /* Create Account after posting: "your listing is saved" note */
   #regObNote{display:flex;align-items:center;gap:10px;background:rgba(42,47,196,0.14);border:1px solid rgba(111,140,255,0.35);border-radius:12px;padding:10px 12px;font-size:13px;font-weight:600;color:#c7d2fe;margin:-4px 0 14px;line-height:1.4;text-align:left;}
   #regObNote i{color:#9cc0ff;}
@@ -348,50 +291,6 @@
 <!-- Marketing->login curtain: opaque dark, covers the login and lifts (fades out)
      to reveal it when arriving from marketing (html.rm-enter). -->
 <div id="rmEnterCover" aria-hidden="true"></div>
-
-<!-- Post a Listing — the first screen for a new visitor (onboarding.js). -->
-<section id="obPost" hidden aria-label="Post a listing">
-  <div class="ob-wrap">
-    <div class="ob-top">
-      <img src="images/realmate2.png" alt="realmate">
-      <button type="button" class="ob-signin" onclick="rmObSignIn()">Already a member? <b>Sign in</b></button>
-    </div>
-    <div class="ob-head">
-      <h1>Post what your client is looking for.</h1>
-      <p>realmate finds the properties that match.</p>
-    </div>
-    <div class="ob-card">
-      <div class="ob-saved" id="obSaved" hidden>
-        <i class="fas fa-circle-check"></i>
-        <span>Your listing is saved. Create your account to see your matches.</span>
-        <button type="button" onclick="openRegister()">Create account</button>
-      </div>
-      <h2>Post a Listing</h2>
-      <span class="ob-label">Select a category</span>
-      <div class="ob-cats" id="obCats">
-        <button type="button" class="ob-cat" data-cat="FOR SALE">For Sale</button>
-        <button type="button" class="ob-cat" data-cat="FOR RENT">For Rent</button>
-        <button type="button" class="ob-cat" data-cat="FOR LEASE">For Lease</button>
-        <button type="button" class="ob-cat" data-cat="WILLING TO BUY">Willing to Buy</button>
-        <button type="button" class="ob-cat" data-cat="WILLING TO RENT">Willing to Rent</button>
-        <button type="button" class="ob-cat" data-cat="WILLING TO LEASE">Willing to Lease</button>
-      </div>
-      <label class="ob-label" for="obText">Describe your listing</label>
-      <textarea id="obText" class="ob-text" maxlength="5000" placeholder="Project, unit type, price, location…"></textarea>
-      <div class="ob-photos-row">
-        <button type="button" class="ob-add" onclick="document.getElementById('obFile').click()"><i class="fas fa-image"></i> Add Photos (optional)</button>
-        <span class="ob-count" id="obPhotoCount"></span>
-        <input type="file" id="obFile" accept="image/*" multiple hidden>
-      </div>
-      <div class="ob-photos" id="obPhotos"></div>
-      <div class="ob-status" id="obStatus" role="status"></div>
-      <div class="ob-foot">
-        <button type="button" class="ob-post-btn" id="obPostBtn" onclick="rmObSubmitPost()"><i class="fas fa-paper-plane"></i> Post Now</button>
-      </div>
-    </div>
-    <p class="ob-note">Next: create a free account to see your matches. realmate is an exclusive network for real estate salespersons and brokers.</p>
-  </div>
-</section>
 <script>
   // Arrived from marketing under the curtain: after it lifts, reset it to base so a
   // later Back (drop) runs cleanly. Safety timeout force-lifts it so it can never
@@ -664,8 +563,7 @@
 <script src="native-deeplink.js?v=20261019e"></script>
 <script src="vendor/supabase-js.min.js?v=2.112.3"></script>
 <script src="script.js?v=20261102b"></script>
-<script src="compress.js?v=20261013a"></script>
-<script src="onboarding.js?v=20261103a"></script>
+<script src="onboarding.js?v=20261103b"></script>
 <script>
   // Arrived from marketing's "Get Started" / "Join realmate": open the Create Account
   // modal directly. (Sign In leaves this flag unset and simply shows the login form.)

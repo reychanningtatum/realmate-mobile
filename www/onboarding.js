@@ -1,27 +1,28 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// Post-first onboarding (2026-11-02) — sign-in page (index.html) only.
+// Post-first onboarding (2026-11-02; own page 2026-11-03)
 //
-//   first open → Post a Listing → "Create an account to see your matches"
-//   → First / Last name, Email, Password, Salesperson / Broker → legal review
-//   → complete-signup (server) → automatic sign-in (the normal login()) → Portal
+//   post.html (first open / marketing "Get Started" / "Post a Listing")
+//     → Post a Listing → index.html opens "Create an account to see your
+//     matches" → First / Last name, Email, Password, Salesperson / Broker →
+//     legal review → complete-signup (server) → automatic sign-in → Portal
 //
 // The listing is posted as a Supabase ANONYMOUS user. The database keeps it
 // private to that visitor (rm_listings_hide_anonymous) until complete-signup
 // turns the same user into a real account — so the listing keeps its id and
 // simply becomes theirs. The visitor's anonymous session persists on the
-// device, so closing the app, tapping X or coming back later never loses it.
+// device, so closing the app, tapping × or coming back later never loses it.
 //
-// Depends on script.js (window.supabaseClient, openRegister, login, showRegToast)
-// and compress.js (compressImages).
+// Loaded by BOTH pages:
+//   • post.html  (has #obPost) — the post form, Back, Sign in, Create account.
+//   • index.html (no #obPost)  — a visitor with a waiting listing is taken
+//     straight to the account step (script.js: openRegister / registerUser).
+// Needs window.supabaseClient; post.html also loads compress.js.
 // ═══════════════════════════════════════════════════════════════════════════
 (function () {
   'use strict';
   var MAX_PHOTOS = 10;                 // same as the Portal composer (LM_MAX_IMAGES)
   var LISTING_KEY = 'rm_ob_listing';   // { id, at } of the listing posted before sign-up
   var sb = function () { return window.supabaseClient; };
-
-  var obCat = null, obFiles = [], obPosting = false;
-
   function $(id) { return document.getElementById(id); }
   function pendingListing() {
     try { return JSON.parse(localStorage.getItem(LISTING_KEY) || 'null'); } catch (e) { return null; }
@@ -29,18 +30,33 @@
   // Is there a posted-but-not-yet-claimed listing waiting on this device?
   window.rmObHasListing = function () { return !!pendingListing(); };
 
-  // ── Post view ────────────────────────────────────────────────────────────
-  function showPost() {
-    document.documentElement.classList.add('rm-ob-post');
-    var v = $('obPost'); if (v) v.hidden = false;
+  async function currentSession() {
+    var c = sb(); if (!c) return null;
+    try {
+      if (window.rmSessionReady) { try { await window.rmSessionReady; } catch (e) {} }
+      var got = await c.auth.getSession();
+      return (got && got.data && got.data.session) || null;
+    } catch (e) { return null; }
   }
-  function hidePost() {
-    document.documentElement.classList.remove('rm-ob-post');
-    var v = $('obPost'); if (v) v.hidden = true;
-  }
-  window.rmObShowPost = showPost;
-  // "Already a member? Sign in" — the normal sign-in form.
-  window.rmObSignIn = function () { hidePost(); };
+  function mark() { try { localStorage.setItem('rm_seen_marketing', '1'); } catch (e) {} }
+
+  // ── post.html ────────────────────────────────────────────────────────────
+  var obCat = null, obFiles = [], obPosting = false;
+
+  // ← Back: the marketing page.
+  window.rmObBack = function () { mark(); location.href = 'marketing.html'; };
+  // Sign in: the sign-in form (not the account step, not an auto-forward).
+  window.rmObSignIn = function () {
+    mark();
+    try { sessionStorage.setItem('rm_from_marketing', '1'); sessionStorage.removeItem('rm_show_register'); } catch (e) {}
+    location.href = 'index.html';
+  };
+  // "Your listing is saved — Create account": the account step on the sign-in page.
+  window.rmObCreateAccount = function () {
+    mark();
+    try { sessionStorage.setItem('rm_show_register', '1'); } catch (e) {}
+    location.href = 'index.html';
+  };
 
   function setStatus(msg, kind) {
     var s = $('obStatus'); if (!s) return;
@@ -55,14 +71,14 @@
       var d = document.createElement('div'); d.className = 'ob-thumb';
       var img = document.createElement('img'); img.alt = ''; img.src = URL.createObjectURL(f);
       var x = document.createElement('button'); x.type = 'button'; x.className = 'ob-thumb-x';
-      x.setAttribute('aria-label', 'Remove photo'); x.innerHTML = '&times;';
+      x.setAttribute('aria-label', 'Remove photo'); x.textContent = '×';
       x.onclick = function () { obFiles.splice(i, 1); renderPhotos(); };
       d.appendChild(img); d.appendChild(x); wrap.appendChild(d);
     });
     var c = $('obPhotoCount'); if (c) c.textContent = obFiles.length ? (obFiles.length + ' / ' + MAX_PHOTOS) : '';
   }
 
-  function bind() {
+  function bindPostForm() {
     var grid = $('obCats');
     if (grid) grid.addEventListener('click', function (e) {
       var b = e.target.closest('.ob-cat'); if (!b) return;
@@ -80,7 +96,8 @@
     });
   }
 
-  // Post the listing as an anonymous visitor (private until sign-up).
+  // Post the listing as an anonymous visitor (private until sign-up), then go to
+  // the account step on the sign-in page.
   window.rmObSubmitPost = async function () {
     if (obPosting) return;                       // double-tap guard
     var text = (($('obText') || {}).value || '').trim();
@@ -89,11 +106,11 @@
     var btn = $('obPostBtn');
     obPosting = true; if (btn) btn.disabled = true;
     setStatus('Posting…');
+    var done = false;
     try {
       var c = sb();
-      var got = await c.auth.getSession();
-      var session = got && got.data && got.data.session;
-      if (session && !session.user.is_anonymous) { hidePost(); return; }   // already a member
+      var session = await currentSession();
+      if (session && !session.user.is_anonymous) { location.href = 'index.html'; return; }   // a member
       if (!session) {
         var r = await c.auth.signInAnonymously();
         if (r.error || !r.data || !r.data.session) throw new Error('Could not start your session. Please check your connection and try again.');
@@ -129,44 +146,35 @@
           : 'Your listing could not be posted. Please try again.');
       }
       localStorage.setItem(LISTING_KEY, JSON.stringify({ id: ins.data.id, at: Date.now() }));
-      setStatus('');
-      hidePost();
-      if (typeof openRegister === 'function') openRegister();
+      setStatus('Posted! Next: create your account…');
+      done = true;
+      window.rmObCreateAccount();
     } catch (e) {
       setStatus((e && e.message) || 'Something went wrong. Please try again.', 'error');
     } finally {
-      obPosting = false; if (btn) btn.disabled = false;
+      if (!done) { obPosting = false; if (btn) btn.disabled = false; }
     }
   };
 
-  // ── Start-up: first open, or a visitor coming back to finish signing up ──
-  async function boot() {
-    bind();
-    var c = sb(); if (!c) return;
-    var session = null;
-    try {
-      if (window.rmSessionReady) { try { await window.rmSessionReady; } catch (e) {} }
-      var got = await c.auth.getSession();
-      session = got && got.data && got.data.session;
-    } catch (e) {}
+  async function bootPostPage() {
+    mark();
+    bindPostForm();
+    var session = await currentSession();
     var anon = !!(session && session.user && session.user.is_anonymous);
-    // The post introduction's own address (post.html / index.html?post=1): always
-    // show "Post a Listing" to anyone who isn't a member — with a "your listing is
-    // saved" shortcut to the account step if one is already waiting.
-    if (window.__rmForcePost) {
-      if (session && !anon) { hidePost(); return; }             // a member: normal sign-in page
-      showPost();
-      var saved = $('obSaved'); if (saved) saved.hidden = !(anon && pendingListing());
-      return;
-    }
-    if (anon && pendingListing()) {
-      // Posted earlier but didn't finish — straight back to the account step.
-      // (Not when they arrived to sign in / from marketing's Sign In.)
-      if (!window.__rmObSkipResume && typeof openRegister === 'function') openRegister();
-      return;
-    }
-    if (session && !anon) { localStorage.removeItem(LISTING_KEY); return; }   // a member
-    if (window.__rmFirstOpen) showPost();
+    if (session && !anon) { location.replace('index.html'); return; }   // members: the app
+    var saved = $('obSaved'); if (saved) saved.hidden = !(anon && pendingListing());
   }
+
+  // ── index.html: a visitor with a waiting listing → the account step ──────
+  async function bootSignInPage() {
+    var session = await currentSession();
+    var anon = !!(session && session.user && session.user.is_anonymous);
+    if (session && !anon) { localStorage.removeItem(LISTING_KEY); return; }   // a member
+    // Posted earlier but didn't finish signing up — straight back to the account
+    // step. (Not when they came to sign in: Sign In on marketing / post.html.)
+    if (anon && pendingListing() && !window.__rmObSkipResume && typeof openRegister === 'function') openRegister();
+  }
+
+  function boot() { if ($('obPost')) bootPostPage(); else bootSignInPage(); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
 })();
