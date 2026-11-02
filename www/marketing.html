@@ -154,7 +154,7 @@
     animation:mkDraw .55s cubic-bezier(.2,.7,.2,1) both;}
   .band em{position:relative;display:inline-flex;align-items:center;gap:6px;font-style:normal;font-size:12px;font-weight:600;
     color:var(--text);padding:5px 10px 5px 7px;border-radius:999px;white-space:nowrap;
-    background:var(--night) padding-box,var(--match-edge) border-box;border:1px solid transparent;
+    background:linear-gradient(var(--night),var(--night)) padding-box,var(--match-edge) border-box;border:1px solid transparent;
     animation:mkPop .35s cubic-bezier(.2,.9,.3,1.2) both;}
   .band em i{width:16px;height:16px;border-radius:50%;display:grid;place-items:center;font-size:8.5px;color:#fff;background:var(--match);}
   .band > span:nth-child(1)::before{animation-delay:.3s;}  .band > span:nth-child(1) em{animation-delay:.75s;}
@@ -407,6 +407,74 @@
     .post-banner{padding:10px 12px;}
     .post-banner > span{font-size:11.5px;}
     .net{grid-template-columns:1fr;}
+  }
+
+  /* ═══ Upgrade pass (2026-11-02): one richer scene, gradient actions, section rhythm ═══ */
+  /* Hero: the skyline + network wave clearly visible, blue-violet light behind the match. */
+  .hero{padding:96px 0 120px;min-height:min(92vh,980px);display:flex;align-items:center;}
+  .hero > .wrap{width:100%;}
+  .hero::before{opacity:.78;background-position:center 92%;}
+  .hero::after{background:
+    radial-gradient(ellipse 34% 48% at 74% 46%,rgba(42,47,196,0.26),transparent 70%),
+    radial-gradient(ellipse 22% 30% at 80% 62%,rgba(168,38,251,0.16),transparent 70%),
+    linear-gradient(180deg,var(--night) 0%,rgba(8,15,26,0.72) 30%,rgba(8,15,26,0.42) 62%,rgba(8,15,26,0.55) 86%,var(--night) 100%),
+    linear-gradient(90deg,rgba(8,15,26,0.88) 0%,rgba(8,15,26,0.35) 52%,rgba(8,15,26,0) 100%);}
+  .match-demo{filter:drop-shadow(0 40px 60px rgba(0,0,0,0.55));}
+
+  /* Primary actions = the app's match button. */
+  .btn-primary{color:#fff;border:1.5px solid transparent;
+    background:linear-gradient(90deg,#0043dc 0%,#0636b8 30%,#2a2fc4 52%,#5a1fd2 74%,#a826fb 100%) padding-box,
+               linear-gradient(90deg,#0683ff 0%,#3241f9 50%,#c42cfc 100%) border-box;
+    box-shadow:0 6px 14px -4px rgba(0,67,220,0.45),0 12px 26px -10px rgba(168,38,251,0.5);
+    transition:transform .15s,box-shadow .15s;}
+  .btn-primary:hover{transform:translateY(-1px);
+    background:linear-gradient(90deg,#003bc4 0%,#052fa3 30%,#2327ad 52%,#4f18bd 74%,#9618e6 100%) padding-box,
+               linear-gradient(90deg,#2b95ff 0%,#4a57ff 50%,#d24dff 100%) border-box;
+    box-shadow:0 8px 18px -4px rgba(0,67,220,0.55),0 16px 32px -10px rgba(168,38,251,0.6);}
+  .btn-primary:active{transform:none;}
+  .btn-primary:disabled{transform:none;box-shadow:none;}
+
+  /* Section rhythm: alternate sections sit on a softly lit band. */
+  #about,#features,#portal,#why,#team{background:
+    radial-gradient(ellipse 60% 70% at 85% 0%,rgba(42,47,196,0.10),transparent 70%),
+    linear-gradient(180deg,#0a1220,#080f1a);}
+  .stats{background:rgba(13,22,40,0.6);}
+  .stat .big{background:linear-gradient(180deg,#ffffff 30%,#b9c3e0);-webkit-background-clip:text;background-clip:text;color:transparent;}
+
+  /* Steps: the joining rule and the numbers carry the gradient. */
+  .steps::before{background:linear-gradient(90deg,#0683ff,#3241f9 50%,#c42cfc);opacity:.7;height:2px;}
+  .step .no{border:1.5px solid transparent;background:linear-gradient(var(--night),var(--night)) padding-box,linear-gradient(135deg,#0683ff,#3241f9 50%,#c42cfc) border-box;
+    box-shadow:0 0 0 6px var(--night);}
+  @media(max-width:860px){ .steps::before{width:2px;height:auto;background:linear-gradient(180deg,#0683ff,#3241f9 50%,#c42cfc);} }
+
+  /* Icons in gradient-edged tiles. */
+  .feat .fi,.why .ic{border:1px solid transparent;
+    background:linear-gradient(var(--ink),var(--ink)) padding-box,linear-gradient(135deg,rgba(6,131,255,0.7),rgba(196,44,252,0.7)) border-box;color:#c7d2fe;}
+  .why .ic{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;font-size:16px;}
+  .kv .row i{color:#a5b4fc;}
+  .ps.sol{background:linear-gradient(160deg,rgba(42,47,196,0.14),rgba(13,22,40,1) 55%);}
+
+  /* Product mock-ups: gradient frame + glow. */
+  .visual{border:1px solid transparent;
+    background:linear-gradient(180deg,#0f1a30,#0b1426) padding-box,
+               linear-gradient(135deg,rgba(6,131,255,0.55),rgba(160,176,214,0.12) 40%,rgba(196,44,252,0.55)) border-box;
+    box-shadow:0 40px 80px -40px rgba(42,47,196,0.45);}
+  .chip.add{color:#c7d2fe;}
+  .excl .seal,.m-av{border:1.5px solid transparent;background:linear-gradient(var(--ink),var(--ink)) padding-box,linear-gradient(135deg,#0683ff,#3241f9 50%,#c42cfc) border-box;}
+
+  /* Closing call to action: the skyline returns. */
+  .final{padding:160px 0 150px;background:
+    radial-gradient(ellipse 40% 50% at 50% 40%,rgba(42,47,196,0.22),transparent 70%),
+    linear-gradient(180deg,var(--night) 0%,rgba(8,15,26,0.6) 45%,rgba(8,15,26,0.35) 100%),
+    url('images/marketing-bg.jpg?v=3') center 95%/cover no-repeat,var(--night);}
+  .final::before{z-index:1;}
+  .final .wrap{position:relative;z-index:1;}
+  .final h2,.final p{text-shadow:0 2px 18px rgba(8,15,26,0.9);}
+  .final p{color:#c3cbe0;}
+  @media(max-width:860px){
+    .hero{min-height:0;padding:44px 0 72px;}
+    .hero::before{opacity:.7;background-size:auto 58%;background-position:62% bottom;}
+    .final{padding:110px 0 100px;background-size:auto,auto,auto 70%,auto;background-position:center,center,60% bottom,center;}
   }
   @media(prefers-reduced-motion:reduce){
     html{scroll-behavior:auto;}
