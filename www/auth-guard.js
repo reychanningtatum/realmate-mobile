@@ -152,6 +152,14 @@ function goBack() {
 
     if (!session) return; // guest, allow through
 
+    // An anonymous visitor (posted a listing before signing up — onboarding.js on
+    // the sign-in page) is not a member: send them back to finish signing up.
+    // Never sign out or clear storage here — that would lose their listing.
+    if (session.user && session.user.is_anonymous) {
+        try { (window.top || window).location.href = "index.html"; } catch (e) { location.href = "index.html"; }
+        return;
+    }
+
     // Remember Me — if the user chose NOT to stay signed in, drop the session
     // on a FRESH app launch (no per-session marker yet). Existing sessions with
     // no preference recorded default to "remembered", so nobody already signed
@@ -165,11 +173,11 @@ function goBack() {
     }
     try { sessionStorage.setItem('rm_session', '1'); } catch (e) {}
 
-    // Registration approval gate — covers the case where an admin
-    // rejects/un-approves an account that already has a live session
-    // (login() only checks this at sign-in time). Only an explicit
-    // 'Approved' passes — no row means the account was never approved. A
-    // failed lookup (offline) is not treated as a verdict either way.
+    // Account-active gate. Since 2026-11-02 new accounts are active at once (no
+    // admin approval) — 'Approved' = active. Covers a legacy rejected account
+    // that still holds a live session (login() only checks at sign-in). No row
+    // means the account was never set up. A failed lookup (offline) is not
+    // treated as a verdict either way.
     try {
         const _review = () => _sb.from('registration_reviews')
             .select('account_status').eq('id', session.user.id).maybeSingle();

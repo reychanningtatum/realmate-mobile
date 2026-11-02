@@ -13,7 +13,7 @@
   <link rel="stylesheet" href="safe-area.css?v=20260915d">
   <script>if(window.self!==window.top)document.documentElement.classList.add("rm-embedded");</script>
   <link rel="stylesheet" href="desktop-nav.css?v=20260928a">
-  <link rel="stylesheet" href="home-dashboard.css?v=20261102p">
+  <link rel="stylesheet" href="home-dashboard.css?v=20261102q">
 </head>
 <body>
 
@@ -47,6 +47,15 @@
     <div class="hd-stat" role="button" tabindex="0" onclick="hdShowMatches()"><span class="hd-stat-ico hd-ico-ai"><i class="fas fa-wand-magic-sparkles"></i></span><div><div class="hd-stat-num"><b id="hdAiN">–</b><em id="hdAiD" hidden></em></div><div class="hd-stat-lbl">AI Matches</div></div></div>
     <div class="hd-stat" role="button" tabindex="0" onclick="hdShowOpportunities()"><span class="hd-stat-ico"><i class="fas fa-chart-simple"></i></span><div><div class="hd-stat-num"><b id="hdOppN">–</b><em id="hdOppD" hidden></em></div><div class="hd-stat-lbl">Active Opportunities</div></div></div>
     <p class="hd-overview-note">New = posted in the last 7 days · green = added today</p>
+  </section>
+
+  <!-- Account active ≠ verified professional (2026-11-02): members who aren't
+       verified (and have no request waiting) are invited to get the badge —
+       Profile › Edit Profile › Get verified (admin-reviewed). -->
+  <section class="hd-card hd-verify" id="hdVerify" hidden>
+    <span class="hd-verify-ico"><i class="fas fa-shield-halved"></i></span>
+    <div class="hd-verify-txt"><b>Verify your account to get a Verified badge</b><span>Send your PRC ID or company ID for a quick review.</span></div>
+    <button type="button" class="hd-verify-btn" onclick="hdOpenVerify()">Get verified</button>
   </section>
 
   <!-- Home video: the YouTube link an admin saves in Admin › Home Video
@@ -101,7 +110,7 @@
 </nav>
 
 <script src="vendor/supabase-js.min.js?v=2.112.3"></script>
-<script src="auth-guard.js?v=20261030f"></script>
+<script src="auth-guard.js?v=20261102a"></script>
 <script src="visibility.js?v=20261002a"></script>
 <script src="deactivation.js?v=20261030f"></script>
 <script src="block-report.js?v=20261030f"></script>
@@ -111,7 +120,7 @@
 <script src="notif-badge.js?v=20261030f"></script>
 <script src="nav-menu.js?v=20261030f"></script>
 <script src="rm-youtube.js?v=20261030a"></script>
-<script src="home-dashboard.js?v=20261031a"></script>
+<script src="home-dashboard.js?v=20261102a"></script>
 <link rel="stylesheet" href="customer-service.css?v=3">
 <script src="customer-service.js?v=20261019e"></script><script src="feedback.js?v=20261019e"></script>
 </body>

@@ -875,6 +875,18 @@
         await _loadSeen();
         refreshBadges();
 
+        // Just signed up after posting first (onboarding.js → script.js sets the
+        // flag): pop up the matches for the listing they posted before signing up.
+        try {
+            const obAt = parseInt(localStorage.getItem('rm_ob_check_matches') || '0', 10);
+            if (obAt) {
+                localStorage.removeItem('rm_ob_check_matches');
+                if (Date.now() - obAt < 10 * 60 * 1000 && _myRaw.length) {
+                    _bannerForOwnPosts(_myRaw.filter(l => l && !l.archived), await _fetchMarket());
+                }
+            }
+        } catch (e) {}
+
         // Realtime: any new/edited listing anywhere → score against mine. Broad
         // subscribe + client-side filter (RLS is disabled on these tables; same
         // pattern notif-badge.js uses). Debounced own-listing refresh so posting

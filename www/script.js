@@ -91,6 +91,10 @@ window.supabaseClient.auth.onAuthStateChange((event) => {
         // Fallback: a token is in storage but the client cached a null session
         // (construct-time race, or restored after the client initialised) — hydrate it.
         if (!session) { session = await _rmHydrateSession(_RM_TOKEN_KEY); }
+        // An anonymous visitor (posted a listing before signing up — onboarding.js)
+        // is not a member: stay on this page; onboarding.js takes them back to the
+        // account step.
+        if (session && session.user && session.user.is_anonymous) { await revealWithBio(); return; }
         if (session) {
             // Valid session → go STRAIGHT in. Reopening the app must never prompt
             // biometrics or log the user out.
@@ -402,10 +406,27 @@ function togglePassword(id, icon){
 // appears and the button becomes "Create Account".
 let _legalAccepted = false;
 
-function openRegister(){ document.getElementById("registerModal").style.display="flex"; resetLegalFlow(); }
+// Post-first onboarding: after posting a listing the card reads "Create an account
+// to see your matches"; opened from Sign In / marketing it's a plain sign-up.
+function openRegister(){
+    const posted = !!(window.rmObHasListing && window.rmObHasListing());
+    const t = document.getElementById("regTitle");
+    if (t) t.textContent = posted ? "Create an account to see your matches" : "Create your account";
+    const n = document.getElementById("regObNote");
+    if (n) n.style.display = posted ? "" : "none";
+    document.getElementById("registerModal").style.display="flex"; resetLegalFlow();
+}
 // Closing the Create Account modal (× , outside click, or after submit) resets the
-// legal-review flow so the user must review + accept again next time.
-function closeRegister(){ document.getElementById("registerModal").style.display="none"; resetLegalFlow(); }
+// legal-review flow so the user must review + accept again next time. After a
+// post-first listing, × goes to the marketing page (no forced sign-up); the
+// listing stays saved with the visitor's session for when they come back.
+function closeRegister(){
+    document.getElementById("registerModal").style.display="none"; resetLegalFlow();
+    if (window.rmObHasListing && window.rmObHasListing() && !window.__rmObSignedUp) {
+        try { localStorage.setItem('rm_seen_marketing','1'); } catch (e) {}
+        location.href = 'marketing.html';
+    }
+}
 
 // The primary button is dual-purpose. Before acceptance it opens the legal review;
 // after acceptance it submits the registration.
@@ -455,7 +476,6 @@ function dismissTerms(){ document.getElementById("termsModal").style.display = "
 window.addEventListener("message", function(e){
     if (e && e.data === "rm-legal-reviewed") unlockTermsAccept();
 });
-function closeRegistrationPending(){ document.getElementById("registrationPendingModal").style.display="none" }
 function openPurpose() { document.getElementById("purposeModal").style.display = "flex"; }
 function closePurpose() { document.getElementById("purposeModal").style.display = "none"; }
 
@@ -492,8 +512,7 @@ function toggleRegButton() {
     const regBtn = document.getElementById("regBtn");
     if (!regBtn) return;
     if (!_legalAccepted) { regBtn.disabled = false; return; }
-    const usernameOk = _usernameAvailable === true;
-    regBtn.disabled = !(checkbox && checkbox.checked && usernameOk);
+    regBtn.disabled = !(checkbox && checkbox.checked);
 }
 
 // ── Alveo ID upload ──────────────────────────────────────────
@@ -892,12 +911,11 @@ async function login(opts){
 
     const authUser = data.user;
 
-    // Registration approval gate — a row here with a status other than
-    // 'Approved' means either the account is still awaiting admin review
-    // or was rejected; either way, no session may be granted. Only an
-    // explicit 'Approved' lets a user in: an account with no review row has
-    // never been approved (older accounts were backfilled as Approved by
-    // registration-approval-hardening-migration.sql).
+    // Account-active check. Since 2026-11-02 every new account is active the
+    // moment it's created (complete-signup / the registration trigger write
+    // 'Approved' = active) — there is no admin approval step any more. A row
+    // with any other status is a legacy rejected account, and no row means the
+    // account was never set up; neither may sign in.
     const { data: review, error: reviewErr } = await window.supabaseClient
       .from('registration_reviews')
       .select('account_status')
@@ -911,14 +929,7 @@ async function login(opts){
     }
     if (!review || review.account_status !== 'Approved') {
       await window.supabaseClient.auth.signOut({ scope: 'local' });
-      if (review && review.account_status === 'Rejected') {
-        showLoginError(
-          "Your registration was not approved. Please register again and upload a clear photo of your PRC ID, DHSUD license, or company/brokerage ID for verification. Please check your email for more details.",
-          "Registration Not Approved"
-        );
-      } else {
-        showLoginError("Your account is currently under review and has not yet been approved. You will receive an email once your account has been approved.");
-      }
+      showLoginError("This account isn't active. Please contact information.realmate@gmail.com for help.", "Account Not Active");
       return;
     }
 
@@ -992,17 +1003,9 @@ async function login(opts){
     // message on every login after that.
     const successEl = document.getElementById("loginSuccess");
     const successSpan = successEl.querySelector("span");
-    const approvedNoticeKey = `rm_approved_notice_${authUser.id}`;
-    if (review && review.account_status === 'Approved' && !localStorage.getItem(approvedNoticeKey)) {
-      successSpan.textContent = "";
-      const strong = document.createElement("strong");
-      strong.textContent = "Account Approved. ";
-      successSpan.appendChild(strong);
-      successSpan.appendChild(document.createTextNode("Your account has been approved. Please check your email for confirmation. You can now log in to realmate."));
-      localStorage.setItem(approvedNoticeKey, "1");
-    } else {
-      successSpan.textContent = "Login successful. Redirecting you now…";
-    }
+    successSpan.textContent = (opts && opts.fromSignup)
+      ? "Welcome to realmate! Taking you to your listing…"
+      : "Login successful. Redirecting you now…";
     successEl.style.display = "flex";
     // Remember Me — record the choice. Checked (default) keeps the Supabase
     // session persisted (the app stays signed in); unchecked drops it on the
@@ -1035,7 +1038,10 @@ async function login(opts){
 
     // Mobile / native app lands in the persistent tab shell (app.html); desktop
     // web keeps its sidebar layout. Opens on Portal, matching the old target.
-    var _rmDest = (window.Capacitor || window.matchMedia("(max-width: 900px)").matches) ? "app.html?tab=" + _rmStartTab() : "livemarket.html";
+    // A brand-new account from post-first onboarding opens on the Portal, where
+    // the listing they just posted is waiting with its matches.
+    var _rmDest = (window.Capacitor || window.matchMedia("(max-width: 900px)").matches)
+      ? "app.html?tab=" + ((opts && opts.fromSignup) ? "portal" : _rmStartTab()) : "livemarket.html";
     // Drop the dark curtain over the login and navigate — app.html starts under a
     // matching curtain (rm_enter_app) and lifts it once the app is ready, so login
     // -> app is the same smooth fade-through-dark. Falls back to a plain navigation.
@@ -1377,141 +1383,96 @@ function showRegToast(message, type = 'success') {
   }, 4000);
 }
 
+// Create Account — ONE server path (supabase/functions/complete-signup): the
+// account is active at once (no admin approval), the legal acceptance is
+// recorded, and a listing posted before sign-up (onboarding.js, anonymous
+// session) becomes this account's — same listing id. Then the user is signed in
+// automatically through the normal login() (no second sign-in system).
+let _regSubmitting = false;
 async function registerUser(){
-  const regBtn = document.getElementById("regBtn");
-  const btnText = document.getElementById("btnText");
-  let username = document.getElementById("regUsername").value.trim();
-  let firstName = document.getElementById("firstName").value.trim();
-  let lastName = document.getElementById("lastName").value.trim();
-  let email = document.getElementById("regEmail").value.trim();
-  let password = document.getElementById("regPassword").value;
-  let phone = document.getElementById("phone").value.trim();
-  let birthday = document.getElementById("birthday").value;
-  let gender = document.getElementById("gender").value;
-  // Declared professional information. Type is required (Salesperson or Broker);
-  // PRC number and brokerage are optional. Declaring grants nothing — only an
-  // admin can mark a member Verified (profiles.verified_as, server-side).
+  if (_regSubmitting) return;                       // double-tap guard
+  const firstName = document.getElementById("firstName").value.trim();
+  const lastName = document.getElementById("lastName").value.trim();
+  const email = document.getElementById("regEmail").value.trim().toLowerCase();
+  const password = document.getElementById("regPassword").value;
   const professionalType = (document.getElementById("professionalType") || {}).value || "";
-  const prcLicenseNo = ((document.getElementById("prcLicenseNo") || {}).value || "").trim().slice(0, 40);
-  const brokerage = ((document.getElementById("brokerage") || {}).value || "").trim().slice(0, 120);
 
-  if (!username || !firstName || !email || !password) {
-    showRegToast("Please fill in all required fields.", "error");
-    return;
-  }
+  if (firstName.length < 2) { validateName(document.getElementById("firstName")); showRegToast("Please enter your first name.", "error"); return; }
+  if (!lastName) { showError(document.getElementById("lastName"), true); showRegToast("Please enter your last name.", "error"); return; }
+  if (!isValidEmail(email)) { validateEmail(document.getElementById("regEmail")); showRegToast("Please enter a valid email address.", "error"); return; }
+  if (!/^(?=.*[A-Z])(?=.*[0-9]).{8,}$/.test(password)) { validatePassword(document.getElementById("regPassword")); showRegToast("Password must be at least 8 characters with an uppercase letter and a number.", "error"); return; }
   if (professionalType !== "salesperson" && professionalType !== "broker") {
     const pt = document.getElementById("professionalType");
     if (pt) showError(pt, true);
     showRegToast("Please select whether you are a Real Estate Salesperson or Broker.", "error");
     return;
   }
-  // Email format check — any valid email may register (non-Alveo included).
-  // Alveo emails just make admin approval easier; every registration still
-  // uploads an Alveo ID for verification (enforced below and in the DB).
-  if (!isValidEmail(email)) {
-    validateEmail(document.getElementById("regEmail"));
-    showRegToast("Please enter a valid email address.", "error");
-    return;
-  }
-  // Deliverability check — reject fake / undeliverable domains (e.g. tite@puke.com)
-  // whose domain can't receive mail. FAIL-OPEN: only blocks when the server can
-  // POSITIVELY confirm the domain is undeliverable; any network/function error (or
-  // the function not being deployed yet) lets registration proceed as normal.
-  const deliverable = await _isEmailDeliverable(email);
-  if (deliverable === false) {
-    validateEmail(document.getElementById("regEmail"));
-    showRegToast("That email address doesn't appear to be a working, deliverable email. Please use a valid email you can access.", "error");
-    return;
-  }
-  // Alveo ID is OPTIONAL (Guideline 5.1.1) — only validate it if one was attached.
-  if (_selectedAlveoFile) {
-    const fileCheck = _validateAlveoFile(_selectedAlveoFile);
-    if (!fileCheck.ok) {
-      showAlveoFileError(fileCheck.message);
-      return;
-    }
-  }
-
-  // Re-verify the username server-side right before submitting — the
-  // button being enabled only means it was available a moment ago; someone
-  // else could have registered it in the meantime.
-  await checkUsernameAvailability();
-  if (_usernameAvailable === false) {
-    showRegToast("Username already taken — choose another.", "error");
-    return;
-  }
-
+  const regBtn = document.getElementById("regBtn");
+  const btnText = document.getElementById("btnText");
+  _regSubmitting = true;                            // set BEFORE any await: a second tap stops here
   regBtn.disabled = true;
   btnText.innerHTML = '<span class="spinner"></span> Creating account…';
-
   try {
-    // Upload BEFORE creating the auth user, so a failed/invalid upload
-    // never results in an account existing without its required ID on
-    // file. There's no auth user id yet at this point (email confirmation
-    // is required on this project, so signUp() below won't return a
-    // session), so the file is uploaded under a random one-time folder
-    // rather than a user id — ownership for read access is established
-    // afterwards via the profiles.alveo_id_file row, not the storage path
-    // itself (see the storage RLS policy in alveo-id-storage-setup.sql).
-    // Alveo ID is optional — only upload when the applicant attached one.
-    // path stays null otherwise (the alveo_id_file columns are nullable).
-    let path = null;
-    if (_selectedAlveoFile) {
-      const tempFolder = (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}_${Math.random().toString(36).slice(2)}`);
-      path = `${tempFolder}/${Date.now()}_${_selectedAlveoFile.name.replace(/\s/g, '_')}`;
-      const { error: uploadError } = await window.supabaseClient.storage
-        .from('verification-docs')
-        .upload(path, _selectedAlveoFile, { contentType: _selectedAlveoFile.type });
-      if (uploadError) {
-        showAlveoFileError("Couldn't upload your ID. Please try again.");
-        return;
-      }
-    }
-
-    const { data: signUpData, error } = await window.supabaseClient.auth.signUp({
-      email, password,
-      options: { data: { username, first_name: firstName, last_name: lastName, phone_number: phone, birthday, gender, professional_type: professionalType, brokerage } }
-    });
-    if (error) {
-      showRegToast("Registration failed: " + error.message, "error");
-      if (path) await window.supabaseClient.storage.from('verification-docs').remove([path]);
+    // Deliverability check — reject fake / undeliverable domains. FAIL-OPEN: only
+    // blocks when the server positively confirms the domain can't receive mail.
+    const deliverable = await _isEmailDeliverable(email);
+    if (deliverable === false) {
+      validateEmail(document.getElementById("regEmail"));
+      showRegToast("That email address doesn't appear to be a working, deliverable email. Please use a valid email you can access.", "error");
       return;
     }
-
-    const userId = signUpData?.user?.id;
-    if (userId) {
-      // Persist the username on the profile so it's findable at login (case-
-      // insensitively) and by the taken-username check — not just in auth
-      // metadata, which the client can't query.
-      // Also write the email here: username login resolves username → profiles.email,
-      // and this row must carry it even if the DB's new-user trigger didn't create
-      // the profile (it used to fail on a blank birthday, leaving email empty).
-      await window.supabaseClient.from('profiles').upsert({ id: userId, username, email, alveo_id_file: path });
-
-      // Queues the account for admin review — account_status defaults to
-      // 'Pending Approval' at the DB level (registration-approval-migration.sql).
-      // Login stays blocked until an admin approves it (see login()).
-      const { error: reviewError } = await window.supabaseClient.from('registration_reviews').upsert({
-        id: userId,
-        email,
-        phone_number: phone || null,
-        alveo_id_file: path,
-        prc_license_no: prcLicenseNo || null,
-      });
-      if (reviewError) {
-        showRegToast("Account created, but we couldn't queue it for admin review. Please contact support.", "error");
-        return;
+    // The anonymous visitor's session (if they posted first) — the server takes
+    // the account id from this verified token, never from the form.
+    let token = null;
+    try {
+      const { data } = await window.supabaseClient.auth.getSession();
+      const s = data && data.session;
+      if (s && s.user && s.user.is_anonymous) token = s.access_token;
+    } catch (e) {}
+    const posted = !!(window.rmObHasListing && window.rmObHasListing());
+    const res = await fetch(window.RM_ENV.url + "/functions/v1/complete-signup", {
+      method: "POST",
+      headers: Object.assign({ "Content-Type": "application/json", apikey: window.RM_ENV.anonKey },
+                             token ? { Authorization: "Bearer " + token } : {}),
+      body: JSON.stringify({
+        first_name: firstName, last_name: lastName, email, password,
+        professional_type: professionalType, accepted_legal: true,
+        source: posted ? "post-first" : "signup",
+      }),
+    });
+    let out = {};
+    try { out = await res.json(); } catch (e) {}
+    if (!res.ok || !out.ok) {
+      // A retry after the account was already made (lost connection on the first
+      // try): the email now exists — just sign in with what they typed.
+      if (out && out.code === "email_taken" && token) {
+        const tryIn = await window.supabaseClient.auth.signInWithPassword({ email, password });
+        if (!tryIn.error) { await window.supabaseClient.auth.signOut({ scope: "local" }); return _regFinish(email, password); }
       }
+      showRegToast((out && out.error) || "We couldn't create your account. Please try again.", "error");
+      return;
     }
-
-    closeRegister();
-    document.getElementById("registrationPendingModal").style.display = "flex";
-  } catch(err) {
-    showRegToast("Unexpected error: " + err.message, "error");
+    return _regFinish(email, password);
+  } catch (err) {
+    showRegToast("We couldn't reach realmate. Please check your connection and try again.", "error");
   } finally {
+    _regSubmitting = false;
     regBtn.disabled = false;
     btnText.innerHTML = "Create Account";
   }
+}
+
+// Account ready → sign in automatically through the normal login() path.
+function _regFinish(email, password){
+  window.__rmObSignedUp = true;
+  try { localStorage.removeItem("rm_ob_listing"); } catch (e) {}
+  // The Portal shows this new account's match pop-up for the posted listing.
+  try { localStorage.setItem("rm_ob_check_matches", String(Date.now())); } catch (e) {}
+  document.getElementById("registerModal").style.display = "none";
+  const id = document.getElementById("loginIdentifier"), pw = document.getElementById("password");
+  if (id) id.value = email;
+  if (pw) pw.value = password;
+  return login({ fromSignup: true });
 }
 
 function checkPassword(){

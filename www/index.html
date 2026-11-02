@@ -13,18 +13,23 @@
   <script src="native-statusbar.js?v=20260828i"></script>
   <title>realmate</title>
   <script>
-    // ── First-launch onboarding gate ──────────────────────────────────
-    // The very first time this device opens the app, show the marketing
-    // page before the login screen; afterwards go straight to normal entry.
-    // Runs before anything renders to avoid a flash of the login form.
-    // Skips deep links that carry a token (password reset / email confirm
-    // arrive with a ?query or #hash) and existing members (stored session).
+    // ── First-launch onboarding gate (post-first, 2026-11-02) ─────────
+    // The very first time this device opens the app (or site), the first screen
+    // is "Post a Listing" (onboarding.js) — not a sign-up form. Its × goes to the
+    // marketing page. Afterwards: normal entry. Runs before anything renders so
+    // the login form never flashes first. Skips deep links that carry a token
+    // (password reset / email confirm arrive with a ?query or #hash) and existing
+    // members (stored user).
     (function(){
       try {
         if (window.location.search || window.location.hash) return;
         if (localStorage.getItem('rm_seen_marketing')) return;
         if (localStorage.getItem('user')) { localStorage.setItem('rm_seen_marketing','1'); return; }
-        window.location.replace('marketing.html');
+        // Just signed out (some sign-outs clear all local storage): not a first open.
+        if (sessionStorage.getItem('rm_session') || sessionStorage.getItem('rm_logged_out')) { localStorage.setItem('rm_seen_marketing','1'); return; }
+        window.__rmFirstOpen = true;
+        localStorage.setItem('rm_seen_marketing','1');
+        document.documentElement.classList.add('rm-ob-post');
       } catch (e) {}
     })();
   </script>
@@ -48,6 +53,9 @@
         // Arriving under the dark curtain — from the marketing page OR from a logout:
         // lift it to reveal the login form (no auto-login splash). attemptAutoLogin
         // honors these same flags (marketing: no auto-forward; logout: show form).
+        // Tapped Sign In on the marketing page: show the sign-in form — don't reopen an
+        // unfinished post-first sign-up (onboarding.js reads this flag).
+        if (sessionStorage.getItem("rm_from_marketing") && !sessionStorage.getItem("rm_show_register")) window.__rmObSkipResume = true;
         if (sessionStorage.getItem("rm_from_marketing") || sessionStorage.getItem("rm_logged_out")) { document.documentElement.classList.add("rm-enter"); return; }
         if (h.indexOf("type=recovery")>=0 || h.indexOf("error=")>=0 || q.indexOf("token_hash")>=0) return;
         if (localStorage.getItem("rm_remember") === "0") return;
@@ -251,6 +259,53 @@
   #registerModal .modal-content::-webkit-scrollbar{width:8px;}
   #registerModal .modal-content::-webkit-scrollbar-thumb{background:#2a3550;border-radius:8px;}
 
+  /* ═══ Post a Listing — first screen for a new visitor (2026-11-02). The same
+     composer as the Portal's "Post a Listing" (category grid, description,
+     photos, green Post Now) on the sign-in page's night scene. ═══ */
+  #obPost{position:fixed;inset:0;z-index:900;overflow-y:auto;-webkit-overflow-scrolling:touch;
+    display:flex;align-items:flex-start;justify-content:center;
+    padding:calc(28px + env(safe-area-inset-top)) 16px calc(28px + env(safe-area-inset-bottom));
+    background:radial-gradient(ellipse 70% 40% at 50% 20%,rgba(42,47,196,0.20),transparent 70%),
+      linear-gradient(180deg,#080f1a 0%,#080f1a 45%,rgba(8,15,26,0.6) 80%,rgba(8,15,26,0.25) 100%),
+      url('images/marketing-bg.jpg?v=3') center bottom/cover no-repeat,#080f1a;}
+  #obPost[hidden]{display:none;}
+  html.rm-ob-post body > .app-main{visibility:hidden;}
+  html.rm-ob-post .rm-back-home{display:none;}   /* the sign-in form's Back button — not on the post screen */
+  .ob-wrap{width:100%;max-width:560px;}
+  .ob-top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px;}
+  .ob-top img{width:128px;height:auto;}
+  .ob-signin{font-size:13px;font-weight:600;color:#a3aec8;background:none;border:0;cursor:pointer;font-family:inherit;padding:8px 0;}
+  .ob-signin b{color:#eef2fb;}
+  .ob-head{margin:4px 0 18px;}
+  .ob-head h1{font-size:clamp(24px,5vw,32px);font-weight:800;letter-spacing:-0.03em;line-height:1.1;color:#eef2fb;margin:0;}
+  .ob-head p{font-size:14.5px;color:#a3aec8;margin:8px 0 0;line-height:1.45;}
+  .ob-card{background:#fff;color:#0f172a;border-radius:18px;padding:20px;box-shadow:0 40px 80px -30px rgba(0,0,0,0.85);}
+  .ob-card h2{font-size:17px;font-weight:800;margin:0 0 14px;color:#0f172a;}
+  .ob-label{display:block;font-size:12px;font-weight:600;color:#94a3b8;margin:0 0 8px;}
+  .ob-cats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;}
+  .ob-cat{height:44px;border-radius:10px;border:1.5px solid #cbd5e1;background:#fff;color:#334155;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;transition:background .15s,border-color .15s,color .15s;}
+  .ob-cat:hover{border-color:#94a3b8;}
+  .ob-cat.selected{background:#18a94f;border-color:#18a94f;color:#fff;}
+  .ob-text{width:100%;min-height:120px;resize:vertical;box-sizing:border-box;border:1.5px solid #cbd5e1;border-radius:12px;padding:12px 14px;font-size:15px;line-height:1.45;font-family:inherit;color:#0f172a;background:#fff;}
+  .ob-text:focus{outline:none;border-color:#6f8cff;box-shadow:0 0 0 3px rgba(111,140,255,0.18);}
+  .ob-photos-row{display:flex;align-items:center;gap:10px;margin:12px 0 4px;}
+  .ob-add{display:inline-flex;align-items:center;gap:8px;height:38px;padding:0 14px;border-radius:10px;border:1.5px dashed #cbd5e1;background:#fff;color:#334155;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;}
+  .ob-count{font-size:12px;color:#94a3b8;}
+  .ob-photos{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;}
+  .ob-thumb{position:relative;width:64px;height:64px;border-radius:10px;overflow:hidden;background:#f1f5f9;}
+  .ob-thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+  .ob-thumb-x{position:absolute;top:3px;right:3px;width:20px;height:20px;border-radius:50%;border:0;background:rgba(15,23,42,0.75);color:#fff;font-size:14px;line-height:20px;padding:0;cursor:pointer;}
+  .ob-status{min-height:18px;font-size:13px;font-weight:600;color:#64748b;margin:12px 0 0;}
+  .ob-status.error{color:#dc2626;}
+  .ob-foot{display:flex;justify-content:flex-end;margin-top:12px;}
+  .ob-post-btn{display:inline-flex;align-items:center;gap:8px;height:44px;padding:0 22px;border-radius:12px;border:0;background:#18a94f;color:#fff;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;box-shadow:0 8px 18px -8px rgba(24,169,79,0.6);}
+  .ob-post-btn:hover:not(:disabled){background:#15983f;}
+  .ob-post-btn:disabled{opacity:.6;cursor:default;}
+  .ob-note{font-size:12.5px;color:#6f7b98;text-align:center;margin:14px 0 0;line-height:1.5;}
+  /* Create Account after posting: "your listing is saved" note */
+  #regObNote{display:flex;align-items:center;gap:10px;background:rgba(42,47,196,0.14);border:1px solid rgba(111,140,255,0.35);border-radius:12px;padding:10px 12px;font-size:13px;font-weight:600;color:#c7d2fe;margin:-4px 0 14px;line-height:1.4;text-align:left;}
+  #regObNote i{color:#9cc0ff;}
+
   @media(max-width:950px){
     .right-panel{background:transparent;}
     .container{max-width:440px;}
@@ -279,6 +334,45 @@
 <!-- Marketing->login curtain: opaque dark, covers the login and lifts (fades out)
      to reveal it when arriving from marketing (html.rm-enter). -->
 <div id="rmEnterCover" aria-hidden="true"></div>
+
+<!-- Post a Listing — the first screen for a new visitor (onboarding.js). -->
+<section id="obPost" hidden aria-label="Post a listing">
+  <div class="ob-wrap">
+    <div class="ob-top">
+      <img src="images/realmate2.png" alt="realmate">
+      <button type="button" class="ob-signin" onclick="rmObSignIn()">Already a member? <b>Sign in</b></button>
+    </div>
+    <div class="ob-head">
+      <h1>Post what your client is looking for.</h1>
+      <p>realmate finds the properties that match.</p>
+    </div>
+    <div class="ob-card">
+      <h2>Post a Listing</h2>
+      <span class="ob-label">Select a category</span>
+      <div class="ob-cats" id="obCats">
+        <button type="button" class="ob-cat" data-cat="FOR SALE">For Sale</button>
+        <button type="button" class="ob-cat" data-cat="FOR RENT">For Rent</button>
+        <button type="button" class="ob-cat" data-cat="FOR LEASE">For Lease</button>
+        <button type="button" class="ob-cat" data-cat="WILLING TO BUY">Willing to Buy</button>
+        <button type="button" class="ob-cat" data-cat="WILLING TO RENT">Willing to Rent</button>
+        <button type="button" class="ob-cat" data-cat="WILLING TO LEASE">Willing to Lease</button>
+      </div>
+      <label class="ob-label" for="obText">Describe your listing</label>
+      <textarea id="obText" class="ob-text" maxlength="5000" placeholder="Project, unit type, price, location…"></textarea>
+      <div class="ob-photos-row">
+        <button type="button" class="ob-add" onclick="document.getElementById('obFile').click()"><i class="fas fa-image"></i> Add Photos (optional)</button>
+        <span class="ob-count" id="obPhotoCount"></span>
+        <input type="file" id="obFile" accept="image/*" multiple hidden>
+      </div>
+      <div class="ob-photos" id="obPhotos"></div>
+      <div class="ob-status" id="obStatus" role="status"></div>
+      <div class="ob-foot">
+        <button type="button" class="ob-post-btn" id="obPostBtn" onclick="rmObSubmitPost()"><i class="fas fa-paper-plane"></i> Post Now</button>
+      </div>
+    </div>
+    <p class="ob-note">Next: create a free account to see your matches. realmate is an exclusive network for real estate salespersons and brokers.</p>
+  </div>
+</section>
 <script>
   // Arrived from marketing under the curtain: after it lifts, reset it to base so a
   // later Back (drop) runs cleanly. Safety timeout force-lifts it so it can never
@@ -460,58 +554,16 @@
 
 <div class="modal" id="registerModal">
   <div class="modal-content">
-    <span class="close-btn" onclick="closeRegister()">&times;</span>
-    <h3>Create Account</h3>
+    <span class="close-btn" onclick="closeRegister()" aria-label="Close">&times;</span>
+    <h3 id="regTitle">Create your account</h3>
+    <div id="regObNote" style="display:none;"><i class="fas fa-circle-check"></i><span>Your listing is saved. Create your account and it goes live with its matches.</span></div>
       <div style="display:flex;align-items:center;gap:10px;background:#f0fdf4;border:1px solid #bbf7d0;border-left:4px solid #22c55e;border-radius:12px;padding:12px 14px;font-size:13px;font-weight:600;color:#166534;margin-bottom:16px;line-height:1.4;text-align:left;">
         <i class="fas fa-circle-info" style="color:#16a34a;font-size:15px;"></i>
         <span>realmate is an exclusive network for registered real estate salespersons and brokers.</span>
       </div>
-    <div class="input-group"><label class="label">Username</label><input id="regUsername" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="Username" oninput="onUsernameInput()" onblur="checkUsernameAvailability()"><div class="error-text">Required</div><div id="usernameStatus" style="font-size:12px;font-weight:600;margin-top:4px;"></div></div>
     <div class="input-group"><label class="label">First Name</label><input id="firstName" autocomplete="given-name" onblur="validateName(this)" placeholder="First Name"><div class="error-text">Invalid name</div></div>
-    <div class="input-group"><label class="label">Last Name</label><input id="lastName" autocomplete="family-name" onblur="validateName(this)" placeholder="Last Name"><div class="error-text">Invalid name</div></div>
-    <div class="input-group"><label class="label">I am a…</label><select id="professionalType" onchange="showError(this,false)"><option value="" disabled selected>Select your profession</option><option value="salesperson">Real Estate Salesperson</option><option value="broker">Real Estate Broker</option></select><div class="error-text">Please select Salesperson or Broker</div></div>
-    <div class="input-group"><label class="label">PRC License / Registration No. (optional)</label><input id="prcLicenseNo" maxlength="40" autocapitalize="characters" autocorrect="off" spellcheck="false" placeholder="e.g. 0001234"></div>
-    <div class="input-group"><label class="label">Brokerage / Company (optional)</label><input id="brokerage" maxlength="120" autocomplete="organization" placeholder="Brokerage or company name"></div>
-    <div class="input-group"><label class="label">Phone Number (optional)</label><input id="phone" autocomplete="tel" inputmode="tel" onblur="validatePhone(this)" placeholder="Phone Number"><div class="error-text">Invalid phone</div></div>
+    <div class="input-group"><label class="label">Last Name</label><input id="lastName" autocomplete="family-name" placeholder="Last Name"><div class="error-text">Please enter your last name</div></div>
     <div class="input-group"><label class="label">Email Address</label><input id="regEmail" autocomplete="email" inputmode="email" autocapitalize="none" onblur="validateEmail(this)" placeholder="you@example.com"><div class="error-text">Please enter a valid email address</div></div>
-    <div class="input-group">
-      <label class="label">Birthday (optional)</label>
-      <input type="hidden" id="birthday">
-      <div class="rm-datepicker" id="birthdayPicker">
-        <button type="button" class="rm-date-trigger" id="birthdayTrigger" aria-haspopup="dialog" aria-expanded="false" aria-label="Birthday">
-          <span id="birthdayDisplayText" class="rm-date-placeholder">mm/dd/yyyy</span>
-          <i class="fas fa-calendar-days"></i>
-        </button>
-        <div class="rm-date-popup" id="birthdayPopup" role="dialog" aria-modal="true" aria-label="Choose your birthday">
-          <div class="rm-date-popup-header">
-            <button type="button" class="rm-date-nav-btn" id="birthdayPrevMonth" aria-label="Previous month"><i class="fas fa-chevron-left"></i></button>
-            <div class="rm-date-select-wrap rm-date-select-wrap-month">
-              <select class="rm-date-select" id="birthdayMonthSelect" aria-label="Month"></select>
-              <i class="fas fa-chevron-down rm-date-select-arrow"></i>
-            </div>
-            <div class="rm-date-select-wrap rm-date-select-wrap-year">
-              <select class="rm-date-select" id="birthdayYearSelect" aria-label="Year"></select>
-              <i class="fas fa-chevron-down rm-date-select-arrow"></i>
-            </div>
-            <button type="button" class="rm-date-nav-btn" id="birthdayNextMonth" aria-label="Next month"><i class="fas fa-chevron-right"></i></button>
-          </div>
-          <div class="rm-date-weekdays"><span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span></div>
-          <div class="rm-date-grid" id="birthdayGrid"></div>
-        </div>
-      </div>
-      <div class="error-text">Invalid birthday</div>
-    </div>
-    <div class="input-group"><label class="label">Gender (optional)</label><select id="gender"><option value="" disabled selected>Select Gender</option><option>Male</option><option>Female</option><option>Other</option></select></div>
-    <div class="input-group">
-      <label class="label">Upload Professional ID (optional)</label>
-      <div class="alveo-upload-box" id="alveoUploadWrap" onclick="document.getElementById('alveoFile').click()">
-        <i class="fas fa-upload"></i>
-        <span id="alveoFileName" class="alveo-upload-text">Upload Professional ID</span>
-        <input type="file" id="alveoFile" accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf" onchange="handleAlveoFileSelect(this)" hidden>
-      </div>
-      <div class="alveo-upload-helper">Optional, but recommended — a PRC ID, DHSUD license, or company/brokerage ID makes account approval much easier and faster. Upload a clear photo or PDF.</div>
-      <div class="error-text" id="alveoFileError" style="display:none;"></div>
-    </div>
     <div class="input-group">
       <label class="label">Password</label>
       <div style="position:relative;"><input type="password" id="regPassword" autocomplete="new-password" oninput="checkPassword()" onblur="validatePassword(this)" placeholder="Password"><i class="fas fa-eye right" style="top: 13px;" onclick="togglePassword('regPassword', this)"></i></div>
@@ -519,6 +571,7 @@
       <div class="password-rules"><span id="rule1">8+ characters</span><span id="rule2">1 uppercase letter</span><span id="rule3">1 number</span></div>
       <div class="error-text">Weak password</div>
     </div>
+    <div class="input-group"><label class="label">I am a…</label><select id="professionalType" onchange="showError(this,false)"><option value="" disabled selected>Select your profession</option><option value="salesperson">Real Estate Salesperson</option><option value="broker">Real Estate Broker</option></select><div class="error-text">Please select Salesperson or Broker</div></div>
     <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;font-size:12px;color:#475569;line-height:1.5;margin-bottom:14px;text-align:left;">
         <b style="color:#0f172a;">Data Privacy Consent.</b> By creating an account, you consent to realmate collecting and processing your personal information (including profile, verification, listing, and usage data) to operate your account, power AI matching, keep the Platform secure, and connect you with other verified users, as described in the Data Privacy Consent Notice and Privacy Policy. You may withdraw consent as explained there. Tap the “Review Legal Terms” button below to read all of these documents before you can accept.
     </div>
@@ -527,19 +580,6 @@
         <label id="checkboxLabel">I acknowledge and accept the Terms of Use, Privacy Policy, Disclaimer, and Data Privacy Consent Notice.</label>
     </div>
     <button class="btn" id="regBtn" onclick="handleRegPrimary()"><span id="btnText">Review Legal Terms</span></button>
-  </div>
-</div>
-
-<div class="modal" id="registrationPendingModal">
-  <div class="modal-content" style="text-align:center;">
-    <div style="width:64px;height:64px;border-radius:50%;background:#f0fdf4;color:#16a34a;display:flex;align-items:center;justify-content:center;font-size:30px;margin:0 auto 18px;">
-      <i class="fas fa-circle-check"></i>
-    </div>
-    <h3 style="text-align:center;">Registration Submitted</h3>
-    <p style="font-size:13px;color:#64748b;line-height:1.6;font-weight:500;margin-bottom:25px;">
-      Your account has been submitted successfully and is currently under review. Our administrator will review your registration and any ID you uploaded. You will receive an email once your account has been approved. Until then, you will not be able to access the platform.
-    </p>
-    <button class="btn" onclick="closeRegistrationPending()">Back to Login</button>
   </div>
 </div>
 
@@ -604,7 +644,9 @@
 <script src="native-auth.js?v=20261019e"></script>
 <script src="native-deeplink.js?v=20261019e"></script>
 <script src="vendor/supabase-js.min.js?v=2.112.3"></script>
-<script src="script.js?v=20261030f"></script>
+<script src="script.js?v=20261102b"></script>
+<script src="compress.js?v=20261013a"></script>
+<script src="onboarding.js?v=20261102a"></script>
 <script>
   // Arrived from marketing's "Get Started" / "Join realmate": open the Create Account
   // modal directly. (Sign In leaves this flag unset and simply shows the login form.)

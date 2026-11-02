@@ -882,6 +882,18 @@ function switchProfileTab(tab) {
 // active and the listings just below — NOT scrolled down onto a listing. So we
 // only switch to the Listings tab; we do NOT scroll into the listings. Listings
 // render newest-first, so the first one shown below is the latest.
+// Home's "Verify your account to get a Verified badge" opens this page with
+// ?verify=1: open Edit Profile at the Get verified section (own profile only).
+function _deepLinkToVerify() {
+    if (new URLSearchParams(window.location.search).get('verify') !== '1') return;
+    if (_viewUserId) return;
+    try {
+        openEditModal();
+        const box = document.getElementById('getVerifiedBox');
+        if (box) setTimeout(() => box.scrollIntoView({ block: 'center' }), 250);
+    } catch (e) {}
+}
+
 function _deepLinkToListings() {
     const params = new URLSearchParams(window.location.search);
     if (params.get('view') !== 'listings') return;
@@ -1915,6 +1927,7 @@ async function _loadProfileRun() {
     // Portal "View Listings" deep-link: land directly on the Listings section
     // (activate its tab on mobile, then scroll it to the top of the viewport).
     _deepLinkToListings();
+    _deepLinkToVerify();
 
     // About: show the SAME locked-state gate as Listings (not just a hidden
     // card) so a non-realmate consistently sees "Become realmates to view

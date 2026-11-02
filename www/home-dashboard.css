@@ -121,6 +121,19 @@ html[data-theme="dark"] .hd-stat-num em { color: #4ade80; }
 .hd-stat-lbl { font-size: 12px; color: var(--hd-sub); margin-top: 2px; }
 .hd-overview-note { grid-column: 1 / -1; margin: 4px 8px 4px; font-size: 11px; color: var(--hd-sub); text-align: center; }
 
+/* "Verify your account to get a Verified badge" (2026-11-02) */
+.hd-verify { margin: 14px 16px 0; padding: 14px; display: flex; align-items: center; gap: 12px; }
+.hd-verify[hidden] { display: none; }
+.hd-verify-ico { flex: 0 0 auto; width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center;
+  background: var(--hd-green-soft); color: var(--hd-green); font-size: 17px; }
+.hd-verify-txt { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.hd-verify-txt b { font-size: 14px; color: var(--hd-ink); line-height: 1.3; }
+.hd-verify-txt span { font-size: 12.5px; color: var(--hd-sub); line-height: 1.35; }
+.hd-verify-btn { flex: 0 0 auto; height: 36px; padding: 0 14px; border-radius: 10px; border: 0; background: #18a94f; color: #fff;
+  font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit; }
+.hd-verify-btn:hover { background: #15983f; }
+@media (max-width: 380px) { .hd-verify { flex-wrap: wrap; } .hd-verify-btn { width: 100%; } }
+
 /* ── Sections ── */
 .hd-sec { margin-top: 22px; }
 .hd-sec-head { display: flex; align-items: center; justify-content: space-between; padding: 0 16px; margin-bottom: 10px; }

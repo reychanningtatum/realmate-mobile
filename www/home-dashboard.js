@@ -112,6 +112,26 @@
   // The app can stay open past midnight: refresh the date (and greeting) on return.
   document.addEventListener('visibilitychange', function () { if (!document.hidden) header(null); });
 
+  // ── "Verify your account to get a Verified badge" ──
+  // Shown to members who aren't verified (profiles.verified_as is admin-set) and
+  // have no verification request waiting. Never on a failed lookup.
+  async function verifyPrompt(myId, prof) {
+    var box = $('hdVerify'); if (!box) return;
+    if (!prof || prof.verified_as) { box.hidden = true; return; }
+    try {
+      var q = await sb.from('verification_requests').select('status').eq('user_id', myId)
+        .order('created_at', { ascending: false }).limit(1);
+      if (q.error) return;
+      var last = q.data && q.data[0];
+      box.hidden = !!(last && last.status === 'pending');
+    } catch (e) {}
+  }
+  window.hdOpenVerify = function () {
+    var url = 'dashboard.html?verify=1';
+    var p = shell();
+    if (p) p.rmOpen('me', url); else location.href = url;
+  };
+
   // ── Data ──
   async function waitFor(test, ms) {
     var t0 = Date.now();
@@ -127,10 +147,11 @@
       sb.from('listings').select('*').eq('archived', false).order('created_at', { ascending: false }).limit(1000),
       sb.from('ai_matches').select('matched_listing_id,score,first_shown_at,last_shown_at')
         .eq('user_id', me.id).is('dismissed_at', null).order('score', { ascending: false }).limit(50),
-      sb.from('profiles').select('full_name,avatar_url').eq('id', me.id).maybeSingle()
+      sb.from('profiles').select('full_name,avatar_url,verified_as').eq('id', me.id).maybeSingle()
     ]);
     if (res[0].error) throw res[0].error;
     header(res[2].data);
+    verifyPrompt(me.id, res[2].data);
 
     var rows = (res[0].data || []).filter(function (l) { return String(l.status || '').toLowerCase() !== 'sold'; });
 
