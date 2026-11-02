@@ -142,13 +142,15 @@
     // "2 months deposit", "80sqm", "2BR", unit/phone numbers) are skipped and
     // side amounts (dues, deposit, parking, per-sqm) rank below the asking price.
     // The best-scoring candidate wins; ties go to the one written first.
-    const _PRICE_NUM = /(₱|\bphp\.?|\bpesos?|\bp(?=\s?\d))?\s*(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)(?:\s*(million|mil|mn|m|thousand|k)\b)?/gi;
+    const _PRICE_NUM = /(₱|\bphp\.?|\bpesos?|\bp(?=\s?\d))?\s*(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)(?:\s*(billion|bn|b|million|mil|mn|m|thousand|k)\b)?/gi;
     const _PRICE_NOT_MONEY = /^\s*(?:sqm|sq\b|sq\.|square|br\b|bed|bath|t&b|months?\b|mos?\b|yrs?\b|years?\b|days?\b|mins?\b|minutes?\b|km|meters?\b|floors?\b|flr|(?:st|nd|rd|th)\b|%|pax|slots?|cars?\b|parking|units?\b|storey|hectares?|has?\b|x\s*\d|f\b)/;
     const _PRICE_LABEL_BEFORE = /(?:price|asking|selling|tcp|srp|rent|rental|lease|rate|budget|net|gross)\W*(?:is|of|at)?\W*$/;
     const _PRICE_SIDE_BEFORE = /(?:dues?|assoc\w*|hoa|cusa|deposit|advance|reserv\w*|down\s*payment|dp|equity|amort\w*|parking|fees?|penalt\w*|commission|comm|utilit\w*|bills?|discount|less|rebate|cash\s*out|cashout)\W*(?:is|of|at|slot)?\W*$/;
     const _PRICE_ID_BEFORE = /(?:unit|tower|bldg|building|lot|blk|block|phase|floor|room|no\.?|#|\+)\s*$/;
     const _PRICE_PER_MONTH = /^\s*(?:\/|per\b|a\b|an\b|every\b)?\s*(?:month|mo\b|mos\b|mth)/;
     const _PRICE_TERMS_AFTER = /^\s*\(?(?:net|gross|nego|inclusive|incl\b|all[- ]?in|firm|fixed|only|tcp|pesos?\b|php\b)/;
+    // Wording right after a bare "1B" that makes it money ("1B budget", "3.5B (asking)").
+    const _PRICE_B_AFTER = /^\s*\(?\s*(?:budget|asking|price|selling|net|gross|nego\w*|tcp|cash|only|all[- ]?in|php|pesos?)\b/;
     const _PRICE_SIDE_AFTER = /^\s*(?:(?:\/|per\b)\s*(?:sqm|sq\b|sq\.)|w\/o|without|deposit|advance|dues|reserv|dp\b|down\b)/;
 
     // ── What is being transacted ──
@@ -197,7 +199,12 @@
             if (unit) {
                 // "500 m from MRT" is metres, not millions.
                 if (unit === 'm' && !cur && /^\s*(?:from|away|walk|radius)\b/.test(after)) continue;
-                value *= (unit === 'k' || unit === 'thousand') ? 1e3 : 1e6;
+                // "B" / "bn" = billions only when it is clearly money (peso sign,
+                // price/budget wording) — "Unit 12B", "Tower 2B", "3B floor" are names.
+                if ((unit === 'b' || unit === 'bn') && (_PRICE_ID_BEFORE.test(before) ||
+                    !(cur || _PRICE_LABEL_BEFORE.test(before) || _PRICE_B_AFTER.test(after)))) continue;
+                value *= (unit === 'k' || unit === 'thousand') ? 1e3
+                       : (unit === 'b' || unit === 'bn' || unit === 'billion') ? 1e9 : 1e6;
             } else {
                 if (_PRICE_NOT_MONEY.test(after) || /^[\d-]/.test(after)) continue;
                 if (cur ? value < 1000 : value < 10000) continue;
@@ -1161,6 +1168,9 @@
     const _LOT_SUBTYPES = new Set(['Residential Lot', 'Commercial Lot', 'Industrial Lot']);
     function unitTypesCompatible(a, b) {
         if (a === b) return a;
+        // A general "Building" (kind not stated) matches an "Office Building", both ways.
+        if (a === 'Building' && b === 'Office Building') return b;
+        if (b === 'Building' && a === 'Office Building') return a;
         if (a === 'Lot' && _LOT_SUBTYPES.has(b)) return b;
         if (b === 'Lot' && _LOT_SUBTYPES.has(a)) return a;
         if (a === 'Island' && (b === 'Lot' || _LOT_SUBTYPES.has(b))) return a;
@@ -1396,7 +1406,7 @@
         const said = String(line).replace(/^.*?\b(?:budget|price\s*range)\b\s*[:\-–]?\s*/i, '').trim();
         const c = _priceCandidates(line, 'WILLING TO BUY').filter(x => x.role === 'price')[0];
         if (!c) return { amount: null, monthly: false, text: said };              // "FMV", "open", "negotiable" — kept as written
-        const tail = line.slice(c.index).replace(/^[\d,.\s]*(?:k|m|million|mn|mil|thousand)?\b/i, '')
+        const tail = line.slice(c.index).replace(/^[\d,.\s]*(?:k|m|million|mn|mil|thousand|b|bn|billion)?\b/i, '')
             .replace(/^\s*(?:\/|per|a)?\s*(?:month|mo\b|monthly)?\s*/i, '').replace(/^[\s,.;:\-–]+|[\s,.;:]+$/g, '');
         return { amount: c.value, monthly: !!c.monthly, text: said, note: tail };
     }
@@ -1637,7 +1647,8 @@
     function _money(v, perMonth) {
         const n = Number(v);
         let s;
-        if (n >= 1e6) s = '₱' + String(Math.round(n / 1e4) / 100) + 'M';
+        if (n >= 1e9) s = '₱' + String(Math.round(n / 1e7) / 100) + 'B';
+        else if (n >= 1e6) s = '₱' + String(Math.round(n / 1e4) / 100) + 'M';
         else s = '₱' + Math.round(n).toLocaleString('en-US');
         return s + (perMonth ? '/month' : '');
     }
