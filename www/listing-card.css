@@ -901,14 +901,19 @@ html[data-theme="dark"] .offers-rx-profile:hover {background: #162032;}
 .match-banner .ai-brain-spark.s2, .lc-match-btn .ai-brain-spark.s2, .lc-aim-btn .ai-brain-spark.s2,
 .match-header-center .ai-brain-spark.s2 { background: #fff; box-shadow: 0 0 4px #fbcfe8; }
 
-/* Match Engine button floats (2026-11-02, user request): lifted 1px with a deep
-   soft shadow; it rises a little more on hover. Flat Sold green unchanged. */
+/* Match Engine button (2026-11-02, user request): the blue → purple gradient is
+   back (as on 2026-11-01), and it floats — lifted 1px with a deep soft purple
+   shadow; it rises a little more on hover and settles on press. */
 .lc-match-btn, html[data-theme="dark"] .lc-match-btn {
+  background: linear-gradient(90deg, #1d4ed8 0%, #4338ca 55%, #9333ea 100%);
+  color: #fff; border: 1.5px solid rgba(255,255,255,0.18);
   transform: translateY(-1px);
-  box-shadow: 0 8px 18px -6px rgba(18,135,60,0.55), 0 2px 5px rgba(15,23,42,0.14);
+  box-shadow: 0 4px 10px -2px rgba(67,56,202,0.45), 0 10px 22px -8px rgba(147,51,234,0.55);
 }
 .lc-match-btn:hover, html[data-theme="dark"] .lc-match-btn:hover {
+  background: linear-gradient(90deg, #1e40af 0%, #3730a3 55%, #7e22ce 100%);
+  border-color: rgba(255,255,255,0.28);
   transform: translateY(-2px);
-  box-shadow: 0 12px 24px -8px rgba(18,135,60,0.6), 0 3px 7px rgba(15,23,42,0.16);
+  box-shadow: 0 6px 14px -2px rgba(67,56,202,0.55), 0 14px 28px -8px rgba(147,51,234,0.65);
 }
-.lc-match-btn:active, html[data-theme="dark"] .lc-match-btn:active { transform: translateY(0); box-shadow: 0 3px 8px -2px rgba(18,135,60,0.45); }
+.lc-match-btn:active, html[data-theme="dark"] .lc-match-btn:active { transform: translateY(0); box-shadow: 0 3px 8px -2px rgba(67,56,202,0.45); }
