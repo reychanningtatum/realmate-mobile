@@ -1015,9 +1015,9 @@
   // marketing page out to the dark background first, then navigate — the login page
   // slides its content in, so the whole thing is one smooth motion (no white flash,
   // no hard cut). A safety fallback navigates even if the transitionend never fires.
-  function rmGoLogin(){
+  function rmGoLogin(dest){
     rmMarkSeen(); rmFromMarketing();
-    var go = function(){ window.location.href = 'index.html'; };
+    var go = function(){ window.location.href = dest || 'index.html'; };
     try {
       var cover = document.getElementById('rmLeaveCover');
       // If we arrived under the lift animation, clear it so the drop transition runs.
@@ -1056,7 +1056,9 @@
   });
   // Get Started / Join realmate → the Create Account page (login page opens its
   // register modal via the rm_show_register flag). Sign In → the Login page.
-  function rmStart(){ try{ sessionStorage.setItem('rm_show_register','1'); }catch(e){} rmGoLogin(); }
+  // Get Started / Join realmate → the post introduction (post-first onboarding):
+  // post a listing, then create an account to see its matches.
+  function rmStart(){ try{ sessionStorage.removeItem('rm_show_register'); }catch(e){} rmGoLogin('index.html?post=1'); }
   function rmSignIn(){ try{ sessionStorage.removeItem('rm_show_register'); }catch(e){} rmGoLogin(); }
 
   // App-store download badges. Fill these in with the real listing URLs once the

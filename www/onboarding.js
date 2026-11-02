@@ -150,6 +150,15 @@
       session = got && got.data && got.data.session;
     } catch (e) {}
     var anon = !!(session && session.user && session.user.is_anonymous);
+    // The post introduction's own address (post.html / index.html?post=1): always
+    // show "Post a Listing" to anyone who isn't a member — with a "your listing is
+    // saved" shortcut to the account step if one is already waiting.
+    if (window.__rmForcePost) {
+      if (session && !anon) { hidePost(); return; }             // a member: normal sign-in page
+      showPost();
+      var saved = $('obSaved'); if (saved) saved.hidden = !(anon && pendingListing());
+      return;
+    }
     if (anon && pendingListing()) {
       // Posted earlier but didn't finish — straight back to the account step.
       // (Not when they arrived to sign in / from marketing's Sign In.)

@@ -22,6 +22,14 @@
     // members (stored user).
     (function(){
       try {
+        // The post introduction's own address (post.html → index.html?post=1):
+        // open "Post a Listing" any time — e.g. after × on the account step.
+        if (/[?&]post=1\b/.test(window.location.search)) {
+          window.__rmForcePost = true;
+          localStorage.setItem('rm_seen_marketing','1');
+          document.documentElement.classList.add('rm-ob-post');
+          return;
+        }
         if (window.location.search || window.location.hash) return;
         if (localStorage.getItem('rm_seen_marketing')) return;
         if (localStorage.getItem('user')) { localStorage.setItem('rm_seen_marketing','1'); return; }
@@ -302,6 +310,12 @@
   .ob-post-btn:hover:not(:disabled){background:#15983f;}
   .ob-post-btn:disabled{opacity:.6;cursor:default;}
   .ob-note{font-size:12.5px;color:#6f7b98;text-align:center;margin:14px 0 0;line-height:1.5;}
+  .ob-saved{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#eef2ff;border:1px solid #c7d2fe;border-radius:12px;padding:10px 12px;margin:0 0 14px;font-size:13px;font-weight:600;color:#3730a3;line-height:1.4;}
+  .ob-saved[hidden]{display:none;}
+  .ob-saved i{color:#4f46e5;}
+  .ob-saved span{flex:1 1 180px;}
+  .ob-saved button{height:34px;padding:0 14px;border:0;border-radius:10px;cursor:pointer;font:700 13px/1 inherit;color:#fff;
+    background:linear-gradient(90deg,#0043dc 0%,#2a2fc4 52%,#a826fb 100%);}
   /* Create Account after posting: "your listing is saved" note */
   #regObNote{display:flex;align-items:center;gap:10px;background:rgba(42,47,196,0.14);border:1px solid rgba(111,140,255,0.35);border-radius:12px;padding:10px 12px;font-size:13px;font-weight:600;color:#c7d2fe;margin:-4px 0 14px;line-height:1.4;text-align:left;}
   #regObNote i{color:#9cc0ff;}
@@ -347,6 +361,11 @@
       <p>realmate finds the properties that match.</p>
     </div>
     <div class="ob-card">
+      <div class="ob-saved" id="obSaved" hidden>
+        <i class="fas fa-circle-check"></i>
+        <span>Your listing is saved. Create your account to see your matches.</span>
+        <button type="button" onclick="openRegister()">Create account</button>
+      </div>
       <h2>Post a Listing</h2>
       <span class="ob-label">Select a category</span>
       <div class="ob-cats" id="obCats">
@@ -646,7 +665,7 @@
 <script src="vendor/supabase-js.min.js?v=2.112.3"></script>
 <script src="script.js?v=20261102b"></script>
 <script src="compress.js?v=20261013a"></script>
-<script src="onboarding.js?v=20261102a"></script>
+<script src="onboarding.js?v=20261103a"></script>
 <script>
   // Arrived from marketing's "Get Started" / "Join realmate": open the Create Account
   // modal directly. (Sign In leaves this flag unset and simply shows the login form.)
