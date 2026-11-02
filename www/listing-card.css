@@ -941,3 +941,6 @@ html[data-theme="dark"] .offers-rx-profile:hover {background: #162032;}
 
 /* Brain widget: no blinking sparks (2026-11-02, user request) — just the pink brain. */
 .ai-brain .ai-brain-spark { display: none; }
+
+/* Matched card: no moving blue/green line along the top (2026-11-02, user request). */
+.listing-card.is-match::after { display: none; }

@@ -3582,3 +3582,6 @@ html[data-theme="dark"] .lm-cat-btn.cat-wlease.selected { background: #18a94f; c
 
 /* Brain widget: no blinking sparks (2026-11-02, user request) — just the pink brain. */
 .ai-brain .ai-brain-spark { display: none; }
+
+/* Matched card: no moving blue/green line along the top (2026-11-02, user request). */
+.listing-card.is-match::after { display: none; }
