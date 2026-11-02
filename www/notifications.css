@@ -201,6 +201,26 @@
 }
 .hub-admin-name { color: inherit; }
 
+/* Match Engine avatar for match notifications (2026-11-02 theme): pink brain on
+   navy with the blue → purple gradient ring. */
+.hub-match-avatar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 19px;
+    border: 2px solid transparent;
+    background:
+        linear-gradient(135deg, #0b1220, #142038) padding-box,
+        linear-gradient(90deg, #0683ff 0%, #3241f9 50%, #c42cfc 100%) border-box;
+    box-shadow: 0 4px 10px -4px rgba(90, 31, 210, 0.55);
+}
+.hub-match-avatar i {
+    background: linear-gradient(160deg, #ffe4ef 0%, #f9a8c9 38%, #ec6fa5 72%, #c9417f 100%);
+    -webkit-background-clip: text; background-clip: text;
+    color: transparent; -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 0 2px rgba(236, 72, 153, 0.55));
+}
+
 /* Avatar/name open the sender's profile independently of the card's own
    click (which routes to the notification's content) — event.stopPropagation()
    on these keeps the two actions from firing together. */

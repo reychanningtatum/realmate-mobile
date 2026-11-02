@@ -284,10 +284,19 @@ function _buildNotificationCard(notif) {
     // branded realmate admin avatar (never a profile photo / "?" placeholder),
     // a lowercase "realmate admin" name, and no click-to-profile on either.
     const isAdminNotif = type === 'content_removed';
-    const avatarHtml = isAdminNotif
+    // Match entries come from the Match Engine (match-detect), not a member:
+    // pink brain avatar, "Match Engine" name, no profile link.
+    // Only server-written rows (no sender) get it — a member-written row always
+    // carries its sender_id, so it can't pose as the Match Engine.
+    const isMatchNotif = type === 'match' && !notif.sender_id;
+    const avatarHtml = isMatchNotif
+        ? `<div class="hub-avatar-img hub-match-avatar" aria-label="Match Engine"><i class="fas fa-brain"></i></div>`
+        : isAdminNotif
         ? `<div class="hub-avatar-img hub-admin-avatar" aria-label="realmate admin"><i class="fas fa-shield-halved"></i></div>`
         : `<img src="${_nEsc(notif.sender_profile_picture || 'https://ui-avatars.com/api/?name=?&background=0f172a&color=32cd32')}" class="hub-avatar-img hub-avatar-clickable" alt="Sender Avatar" title="View profile" onclick="event.stopPropagation(); _notifGoToSenderProfileById('${_nJsArg(notif.id)}')">`;
-    const senderHtml = isAdminNotif
+    const senderHtml = isMatchNotif
+        ? `<strong class="hub-sender-name hub-admin-name">Match Engine</strong>`
+        : isAdminNotif
         ? `<strong class="hub-sender-name hub-admin-name">realmate admin</strong>`
         : `<strong class="hub-sender-name-clickable" title="View profile" onclick="event.stopPropagation(); _notifGoToSenderProfileById('${_nJsArg(notif.id)}')">${_nEsc(notif.sender_user_name)}</strong>`;
 
