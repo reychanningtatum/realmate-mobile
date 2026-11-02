@@ -3453,12 +3453,12 @@ html[data-theme="dark"] #spLockedMsgBtn:hover { background: #162032; }
   box-shadow: 0 2px 6px rgba(18,135,60,0.28);
 }
 .btn-post-listing:hover, html[data-theme="dark"] .btn-post-listing:hover { background: #15983f; border-color: #0f7a36; }
-/* Match Engine page header (2026-11-01): the green AI gradient, mint underline,
-   white-glass Back + title pill, white brain. */
+/* Match Engine page header: dark navy (restored 2026-11-02 at the user's
+   request) with a thin green underline; white Back + title pill, white brain. */
 .match-page-header, html[data-theme="dark"] .match-page-header {
-  background: #18a94f;
-  border-bottom: 1.5px solid #12873c;
-  box-shadow: 0 6px 20px -10px rgba(20,83,45,0.6);
+  background: linear-gradient(135deg, #0b1220 0%, #142038 55%, #0b1220 100%);
+  border-bottom: 1.5px solid rgba(50, 205, 50, 0.55);
+  box-shadow: 0 6px 20px -10px rgba(0, 0, 0, 0.5);
   color: #fff;
 }
 .match-page-header .btn-back { background: rgba(255,255,255,0.14); border-color: rgba(255,255,255,0.28); color: #fff; }
@@ -3470,8 +3470,8 @@ html[data-theme="dark"] #spLockedMsgBtn:hover { background: #162032; }
 .match-header-center .ai-brain-spark { background: #bbf7d0; box-shadow: 0 0 4px #bbf7d0; }
 .match-header-center .ai-brain-spark.s2 { background: #fff; box-shadow: 0 0 4px #fff; }
 @media (max-width: 768px) { .match-header-center .ai-brain { font-size: 15px !important; } }
-/* "Matches Found" bar on the Match Engine page — same green theme. */
-.match-results-header, html[data-theme="dark"] .match-results-header { background: #18a94f; }
+/* "Matches Found" bar on the Match Engine page — dark navy, like the header. */
+.match-results-header, html[data-theme="dark"] .match-results-header { background: linear-gradient(135deg, #0f172a, #1a1a2e); }
 .match-results-header .section-label, html[data-theme="dark"] .match-results-header .section-label { color: #dcfce7; }
 .match-results-header .match-count-badge { background: rgba(255,255,255,0.14); color: #fff; border-color: rgba(255,255,255,0.35); }
 
