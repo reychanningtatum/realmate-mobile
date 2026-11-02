@@ -110,6 +110,94 @@
     .right-panel::before{ padding-top: calc(28px + env(safe-area-inset-top)); }
     .purpose-footer{ padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
   }
+
+  /* ═══ Sign-in page theme (2026-11-02): matches the marketing page — night ink,
+     Inter, a dark sign-in card with a white primary button, and a compact match
+     on the left. Scoped to this page; style.css is shared with dashboard.html. ═══ */
+  body{background:#080f1a;color:#eef2fb;}
+  .left-panel{flex:1.15;padding:56px 64px;border-right:1px solid rgba(160,176,214,0.14);}
+  .left-panel::before,.left-panel::after{display:none;}
+  .lp-content{max-width:520px;}
+  .lp-headline{margin-bottom:36px;}
+  .lp-headline h1{font-size:clamp(30px,2.9vw,44px);font-weight:800;line-height:1.06;letter-spacing:-0.035em;color:#eef2fb;margin:0;text-wrap:balance;}
+  .lp-headline h1 span{display:block;color:#a3aec8;margin-top:.12em;}
+  .lp-match{max-width:420px;}
+  .lpm-card{background:#0d1628;border:1px solid rgba(160,176,214,0.14);border-radius:16px;overflow:hidden;padding:14px 16px;}
+  .lpm-card.lpm-sell{padding:0;}
+  .lpm-sell .lpm-top,.lpm-sell .lpm-spec{margin-left:16px;margin-right:16px;}
+  .lpm-sell .lpm-top{margin-top:12px;}
+  .lpm-sell .lpm-spec{margin-bottom:14px;}
+  .lpm-top{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+  .lpm-title{font-size:14.5px;font-weight:700;color:#eef2fb;}
+  .lpm-kind{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;color:#a3aec8;padding:4px 9px;border-radius:999px;background:rgba(160,176,214,0.08);order:2;}
+  .lpm-kind i{width:6px;height:6px;border-radius:50%;}
+  .lpm-kind.buy i{background:#f59e0b;} .lpm-kind.sell i{background:#32cd32;}
+  .lpm-spec{display:grid;grid-template-columns:repeat(3,1fr);margin-top:12px;padding-top:10px;border-top:1px solid rgba(160,176,214,0.14);}
+  .lpm-spec > div{text-align:center;border-left:1px solid rgba(160,176,214,0.14);}
+  .lpm-spec > div:first-child{border-left:0;}
+  .lpm-spec small{display:block;font-size:10.5px;color:#6f7b98;}
+  .lpm-spec b{font-size:13.5px;color:#eef2fb;}
+  .lpm-band{display:grid;grid-template-columns:repeat(3,1fr);padding:0 16px;height:54px;}
+  .lpm-band span{position:relative;display:flex;align-items:center;justify-content:center;}
+  .lpm-band span::before{content:"";position:absolute;left:50%;top:0;bottom:0;width:2px;margin-left:-1px;background:linear-gradient(180deg,#0683ff,#3241f9 50%,#c42cfc);}
+  .lpm-band em{position:relative;display:inline-flex;align-items:center;gap:5px;font-style:normal;font-size:11px;font-weight:600;color:#eef2fb;
+    padding:3px 8px 3px 4px;border-radius:999px;background:#080f1a padding-box,linear-gradient(90deg,#0683ff,#3241f9 50%,#c42cfc) border-box;border:1px solid transparent;white-space:nowrap;}
+  .lpm-band em i{width:14px;height:14px;border-radius:50%;display:grid;place-items:center;font-size:7.5px;color:#fff;background:linear-gradient(90deg,#0043dc,#2a2fc4 52%,#a826fb);position:static;}
+  .lpm-banner{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px 8px 16px;
+    background:linear-gradient(90deg,#0043dc 0%,#0636b8 35%,#2a2fc4 55%,#5a1fd2 78%,#a826fb 100%);}
+  .lpm-banner span{font-size:11.5px;font-weight:600;color:#9cc0ff;}
+  .lpm-banner b{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:#fff;padding:3px 9px;border-radius:999px;background:rgba(255,255,255,0.08);border:1.5px solid rgba(145,83,252,0.85);}
+  .lpm-banner b i{background:linear-gradient(160deg,#ffe4ef,#f9a8c9 38%,#ec6fa5 72%,#c9417f);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;}
+  .lp-ticker-strip{display:flex;align-items:center;gap:9px;margin-top:40px;font-size:13px;color:#a3aec8;background:none;border:0;padding:0;}
+  .lp-ticker-strip .lp-lock{color:#6f7b98;font-size:12px;}
+  .lp-ticker-strip span{color:#a3aec8;font-weight:500;}
+
+  .right-panel{background:#080f1a;}
+  .right-panel::before{display:none;}
+  .container{background:#0d1628;border:1px solid rgba(160,176,214,0.14);border-radius:24px;box-shadow:0 40px 80px -40px rgba(0,0,0,0.8);padding:44px 40px 36px;}
+  .container .logo{width:150px;margin-bottom:12px;}
+  .container .subtitle{color:#a3aec8;margin-bottom:30px;}
+  .rm-tagline{display:none;}
+  .container .label{color:#a3aec8;}
+  .container input{background:#080f1a;border-color:rgba(160,176,214,0.22);color:#eef2fb;}
+  .container input::placeholder{color:#6f7b98;}
+  .container input:focus{background:#080f1a;border-color:#6f8cff;box-shadow:0 0 0 3px rgba(111,140,255,0.18);}
+  .container input:-webkit-autofill{-webkit-text-fill-color:#eef2fb;-webkit-box-shadow:0 0 0 40px #080f1a inset;caret-color:#eef2fb;}
+  .container .input-group i.left,.container .input-group i.right{color:#6f7b98;}
+  .container .input-group i.right:hover{color:#eef2fb;}
+  .container .rm-remember{color:#a3aec8;}
+  .container .rm-slider{background:#2a3550;}
+  #loginBtn{background:#fff;color:#0b1220;border-radius:12px;box-shadow:none;}
+  #loginBtn:hover:not(:disabled){background:#e6ebf7;box-shadow:none;transform:none;}
+  #loginBtn:disabled{background:#3a4560 !important;color:#a3aec8;}
+  #bioLoginBtn{background:transparent !important;color:#eef2fb !important;border:1px solid rgba(160,176,214,0.3) !important;border-radius:12px;}
+  .container .link{color:#eef2fb;font-weight:600;}
+  .container .link:hover{color:#fff;}
+  .container span[style*="color: #64748b"]{color:#a3aec8 !important;}
+  #loginError{background:rgba(248,113,113,0.10) !important;border-color:rgba(248,113,113,0.35) !important;color:#fecaca !important;}
+  #loginSuccess{background:rgba(50,205,50,0.10) !important;border-color:rgba(50,205,50,0.35) !important;color:#bbf7d0 !important;}
+  .purpose-footer{background:#080f1a;border-top:1px solid rgba(160,176,214,0.14);}
+  .purpose-link{color:#a3aec8;}
+  .purpose-link:hover{color:#eef2fb;text-shadow:none;}
+  .rm-back-home{background:rgba(13,22,40,0.8);border-color:rgba(160,176,214,0.22);box-shadow:none;}
+  .rm-back-home i{color:#eef2fb;}
+
+  @media(max-width:950px){
+    .right-panel{background:#080f1a;}
+    .container{max-width:440px;}
+    .container .subtitle{display:none;}
+    .rm-tagline{display:block;margin:6px auto 30px;max-width:30ch;font-size:19px;font-weight:700;line-height:1.25;letter-spacing:-0.02em;color:#eef2fb;text-wrap:balance;}
+    .rm-tagline span{color:#a3aec8;}
+  }
+  @media(max-width:600px){
+    body{background:#080f1a;}
+    .right-panel{background:#080f1a;}
+    .right-panel::after{display:none;}
+    .right-panel::before{display:block;content:"";height:calc(56px + env(safe-area-inset-top));max-height:none;background:none;padding-top:0;}
+    .container{background:transparent;border:0;border-radius:0;margin-top:0;padding:8px 24px 40px;box-shadow:none;}
+    .container .logo{width:140px;}
+    .rm-tagline{font-size:21px;margin:10px auto 32px;}
+  }
   </style>
 </head>
 <body>
@@ -174,57 +262,34 @@
 
 <div class="app-main">
     <div class="left-panel">
-      <div class="lp-glow-bottom"></div>
-
       <div class="lp-content">
-      <div class="lp-headline">
-        <h1>AI matches.<br><span>Real opportunities.</span></h1>
-        <p>Buy, sell, rent, or lease with an intelligent engine that connects the right people in real time — so you spend less time searching and more time closing.</p>
-      </div>
-
-      <div class="lp-stats">
-        <div class="lp-stat"><b>99%</b><span>Match accuracy</span></div>
-        <div class="lp-stat"><b>2 sec</b><span>Avg. match time</span></div>
-        <div class="lp-stat"><b>1000s</b><span>Connections / day</span></div>
-      </div>
-
-      <div class="lp-features">
-        <div class="lp-card">
-          <div class="lp-card-icon"><i class="fas fa-robot"></i></div>
-          <h4>AI Match Engine</h4>
-          <p>Percentage-scored buyer–seller matches.</p>
+        <div class="lp-headline">
+          <h1>Post what your client is looking for. <span>realmate finds the properties that match.</span></h1>
         </div>
-        <div class="lp-card">
-          <div class="lp-card-icon"><i class="fas fa-comments"></i></div>
-          <h4>Real-time Chat</h4>
-          <p>Close deals instantly with real people.</p>
+        <!-- Compact version of the marketing page's match: requirement → three checks → property. -->
+        <div class="lp-match" role="img" aria-label="A client's requirement for a 3-bedroom in Makati with a ₱55M budget, matched at 99% to a 3-bedroom in Makati asking ₱52M.">
+          <div class="lpm-card" aria-hidden="true">
+            <div class="lpm-top"><span class="lpm-kind buy"><i></i>Willing to Buy</span><span class="lpm-title">3BR for a client</span></div>
+            <div class="lpm-spec"><div><small>Location</small><b>Makati</b></div><div><small>Unit</small><b>3BR</b></div><div><small>Budget</small><b>₱55M</b></div></div>
+          </div>
+          <div class="lpm-band" aria-hidden="true"><span><em><i class="fas fa-check"></i>Location</em></span><span><em><i class="fas fa-check"></i>Unit type</em></span><span><em><i class="fas fa-check"></i>Budget</em></span></div>
+          <div class="lpm-card lpm-sell" aria-hidden="true">
+            <div class="lpm-banner"><span>Matches your requirement</span><b><i class="fas fa-brain"></i>99% Excellent</b></div>
+            <div class="lpm-top"><span class="lpm-kind sell"><i></i>For Sale</span><span class="lpm-title">3BR in Makati</span></div>
+            <div class="lpm-spec"><div><small>Location</small><b>Makati</b></div><div><small>Unit</small><b>3BR</b></div><div><small>Asking</small><b>₱52M</b></div></div>
+          </div>
         </div>
-        <div class="lp-card">
-          <div class="lp-card-icon"><i class="fas fa-users"></i></div>
-          <h4>realmates Network</h4>
-          <p>Grow your trusted professional circle.</p>
+        <div class="lp-ticker-strip">
+          <i class="fas fa-lock lp-lock"></i>
+          <span>Exclusive to registered real estate salespersons &amp; brokers</span>
         </div>
-        <div class="lp-card">
-          <div class="lp-card-icon"><i class="fas fa-table-columns"></i></div>
-          <h4>Listings Portal</h4>
-          <p>Live Market, My Listings &amp; AI Matches.</p>
-        </div>
-      </div>
-
-      <div class="lp-ticker-strip">
-        <i class="fas fa-lock lp-lock"></i>
-        <span style="color:#cbd5e1;font-weight:600;">Exclusive to registered real estate salespersons &amp; brokers</span>
-      </div>
-      </div><!-- /.lp-content -->
-
-      <div class="lp-logo-stage">
-        <img src="images/main-logo.png?v=2" class="lp-3d" alt="realmate">
       </div>
     </div>
     <div class="right-panel">
       <div class="container">
         <img src="images/realmate2.png" class="logo" alt="realmate">
         <div class="subtitle">Post. Match. Connect.</div>
+        <p class="rm-tagline">Post what your client is looking for. <span>realmate finds the properties that match.</span></p>
         <!-- Real <form> + autocomplete/name so iOS Password AutoFill recognises the
              username + password fields (QuickType key-icon, strong-password reuse).
              onsubmit routes Enter/Go through a single guarded handler. -->
