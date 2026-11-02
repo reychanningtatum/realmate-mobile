@@ -201,6 +201,56 @@
   .rm-back-home{background:rgba(13,22,40,0.8);border-color:rgba(160,176,214,0.22);box-shadow:none;}
   .rm-back-home i{color:#eef2fb;}
 
+  /* Create Account card — the same dark card as sign-in (2026-11-02). */
+  #registerModal .modal-content{background:#0d1628;border:1px solid rgba(160,176,214,0.16);color:#eef2fb;box-shadow:0 40px 80px -30px rgba(0,0,0,0.85);}
+  #registerModal h3{color:#eef2fb;}
+  #registerModal .close-btn{color:#6f7b98;}
+  #registerModal .close-btn:hover{color:#eef2fb;}
+  #registerModal .label{color:#a3aec8;}
+  #registerModal input,#registerModal select,#registerModal .rm-date-trigger,#registerModal .alveo-upload-box{
+    background:#080f1a;border-color:rgba(160,176,214,0.22);color:#eef2fb;}
+  #registerModal input::placeholder{color:#6f7b98;}
+  #registerModal select option{background:#0d1628;color:#eef2fb;}
+  #registerModal input:focus,#registerModal select:focus,#registerModal .rm-date-trigger:focus-visible,#registerModal .rm-datepicker.open .rm-date-trigger{
+    background:#080f1a;border-color:#6f8cff;box-shadow:0 0 0 3px rgba(111,140,255,0.18);}
+  #registerModal input:-webkit-autofill{-webkit-text-fill-color:#eef2fb;-webkit-box-shadow:0 0 0 40px #080f1a inset;caret-color:#eef2fb;}
+  #registerModal input.error,#registerModal .alveo-upload-box.error,#registerModal .rm-datepicker.error .rm-date-trigger{border-color:#f87171;}
+  #registerModal .error-text{color:#fca5a5;}
+  #registerModal .input-group i.right{color:#6f7b98;}
+  #registerModal .rm-date-trigger span{color:#eef2fb;}
+  #registerModal .rm-date-trigger .rm-date-placeholder,#registerModal .rm-date-trigger i{color:#6f7b98;}
+  #registerModal .rm-date-popup{background:#0d1628;border-color:rgba(160,176,214,0.22);box-shadow:0 24px 50px rgba(0,0,0,0.6);}
+  #registerModal .rm-date-nav-btn{background:#121d34;color:#a3aec8;}
+  #registerModal .rm-date-nav-btn:hover{background:#1b2846;color:#eef2fb;}
+  #registerModal .rm-date-select{background:#080f1a;border-color:rgba(160,176,214,0.22);color:#eef2fb;}
+  #registerModal .rm-date-weekdays{color:#6f7b98;}
+  #registerModal .rm-date-cell{color:#eef2fb;}
+  #registerModal .rm-date-cell:hover{background:#121d34;}
+  #registerModal .rm-date-cell.selected{background:linear-gradient(90deg,#0043dc,#2a2fc4 52%,#a826fb);color:#fff;}
+  #registerModal .rm-date-cell.today:not(.selected){box-shadow:inset 0 0 0 1.5px #6f8cff;}
+  #registerModal .alveo-upload-box i{color:#6f7b98;}
+  #registerModal .alveo-upload-text{color:#a3aec8;}
+  #registerModal .alveo-upload-box.has-file .alveo-upload-text{color:#eef2fb;}
+  #registerModal .alveo-upload-box:hover{border-color:rgba(160,176,214,0.45);}
+  #registerModal .alveo-upload-helper{color:#6f7b98;}
+  #registerModal .password-strength{background:#1b2846;}
+  #registerModal .password-rules{color:#a3aec8;}
+  #registerModal .password-rules span::before{color:#3a4560;}
+  #registerModal .valid,#registerModal .valid::before{color:#4ade80 !important;}
+  #registerModal .checkbox-group label{color:#a3aec8;}
+  /* the two inline-styled notes: exclusivity (green) and data-privacy consent (grey) */
+  #registerModal .modal-content > div[style*="#f0fdf4"]{background:rgba(50,205,50,0.08) !important;border-color:rgba(50,205,50,0.28) !important;border-left-color:#22c55e !important;color:#bbf7d0 !important;}
+  #registerModal .modal-content > div[style*="#f8fafc"]{background:#080f1a !important;border-color:rgba(160,176,214,0.16) !important;color:#a3aec8 !important;}
+  #registerModal .modal-content > div[style*="#f8fafc"] b{color:#eef2fb !important;}
+  #registerModal #regBtn{color:#fff;border-radius:12px;border:1.5px solid transparent;
+    background:linear-gradient(90deg,#0043dc 0%,#0636b8 30%,#2a2fc4 52%,#5a1fd2 74%,#a826fb 100%) padding-box,
+               linear-gradient(90deg,#0683ff 0%,#3241f9 50%,#c42cfc 100%) border-box;
+    box-shadow:0 6px 14px -4px rgba(0,67,220,0.45),0 12px 26px -10px rgba(168,38,251,0.55);}
+  #registerModal #regBtn:hover:not(:disabled){transform:translateY(-1px);}
+  #registerModal #regBtn:disabled{background:#2a3550 !important;color:#a3aec8;border-color:transparent;box-shadow:none;}
+  #registerModal .modal-content::-webkit-scrollbar{width:8px;}
+  #registerModal .modal-content::-webkit-scrollbar-thumb{background:#2a3550;border-radius:8px;}
+
   @media(max-width:950px){
     .right-panel{background:transparent;}
     .container{max-width:440px;}
