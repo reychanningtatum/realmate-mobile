@@ -1178,6 +1178,17 @@
         return null;
     }
 
+    // Related property types (2026-11-02, user rule): a building (general or
+    // office) and an office space, commercial lot or industrial lot are not the
+    // same type but are a partial unit match, both ways. Returns `b` (the other
+    // side's type, as shown) or null. Exact types go through unitTypesCompatible.
+    const _BUILDING_TYPES = new Set(['Building', 'Office Building']);
+    const _BUILDING_RELATED = new Set(['Office Space', 'Commercial Lot', 'Industrial Lot']);
+    function unitTypesRelated(a, b) {
+        if ((_BUILDING_TYPES.has(a) && _BUILDING_RELATED.has(b)) || (_BUILDING_RELATED.has(a) && _BUILDING_TYPES.has(b))) return b;
+        return null;
+    }
+
     // Parsing a listing (especially fuzzy project matching over long posts) is
     // expensive, and buildMatchMap re-parses the WHOLE pool on every call — on each
     // search keystroke via applyFilters, on every match refresh, and once per
@@ -1665,6 +1676,11 @@
     const _article = w => (/^[aeiou]/i.test(w) ? 'an ' : 'a ') + w;
     const _title = s => String(s || '').toLowerCase().replace(/\b[a-z]/g, c => c.toUpperCase()).replace(/\bTo\b/g, 'to');
 
+    // A post that states no location and names no project.
+    function _statesNoPlace(x) {
+        return !(x.locations || []).length && !((x.projectNames || []).length || x.project);
+    }
+
     function _scorePair(mine, other) {
         // Category must be complementary (required)
         const partnerCat = PARTNER_MAP[mine.category];
@@ -1709,8 +1725,16 @@
             details.location = { match: 'exact', value: overlap.join(', ') };
         } else if (sharedName && !(mine.locations.length && other.locations.length)) {
             details.location = { match: 'project', value: sharedName };
+        } else if (_statesNoPlace(buyerSide) || (_statesNoPlace(sellerSide) && !projectsOf(buyerSide).length)) {
+            // A post that names no location and no project (2026-11-02, user rule)
+            // fits ANY location: it matches every compatible listing, and the
+            // unknown place costs half the location credit. A buyer who named a
+            // PROJECT asked for that place, so a listing with no recognisable place
+            // still has to be that project (above).
+            details.location = { match: 'any', side: _statesNoPlace(buyerSide) ? 'buyer' : 'listing' };
         } else return { score: 0, reasons: [], details: {} };
-        add('location', 1, 'match');
+        if (details.location.match === 'any') add('location', UNRESOLVED_CREDIT, 'unresolved');
+        else add('location', 1, 'match');
 
         // 2. Project. A criterion only when the BUYER names one — a buyer who asked
         // for an area accepts any project in it. Named and the same → aligned.
@@ -1742,9 +1766,19 @@
             const t = unitTypesCompatible(u, v);
             if (t && !typeOverlap.includes(t)) typeOverlap.push(t);
         }));
+        let typeRelated = false;
+        if (!typeOverlap.length) {
+            // A related property type (a building ↔ office space / commercial lot /
+            // industrial lot) is a partial unit match; the listing's type is shown.
+            (buyerSide.unitTypes || []).forEach(u => (sellerSide.unitTypes || []).forEach(v => {
+                const t = unitTypesRelated(u, v);
+                if (t && !typeOverlap.includes(t)) typeOverlap.push(t);
+            }));
+            typeRelated = typeOverlap.length > 0;
+        }
         if (!typeOverlap.length) return { score: 0, reasons: [], details: {} };
-        add('unit', 1, 'match');
-        details.unit = { match: true, value: typeOverlap.join(' or '), accepted: (buyerSide.unitTypes || []).slice() };
+        add('unit', typeRelated ? 0.5 : 1, typeRelated ? 'partial' : 'match');
+        details.unit = { match: typeRelated ? 'related' : true, value: typeOverlap.join(' or '), accepted: (buyerSide.unitTypes || []).slice() };
 
         // 4. Price — always material, always RELATIONAL: the buyer's position
         // against the seller's asking price. Only these two figures are compared;
@@ -1846,8 +1880,10 @@
         // (a size, a floor, a requested feature) the top of the scale is not reached.
         const corroborated = criteria.some(c => (c.key === 'size' || c.key === 'floor' || c.key === 'features') && c.state === 'match');
         caps.push(corroborated ? 99 : CAP_CORE_ONLY);
-        // Nothing with a real conflict in it is an Excellent match.
+        // Nothing with a real conflict in it is an Excellent match — and neither is
+        // a match whose location is unknown (a post that names no place).
         if (criteria.some(c => c.state === 'conflict')) caps.push(CAP_ANY_CONFLICT);
+        if (details.location.match === 'any') caps.push(CAP_ANY_CONFLICT);
         score = Math.max(1, Math.min(score, Math.min.apply(null, caps)));
 
         // Which requirement of a multi-requirement post produced this match.
@@ -1877,10 +1913,13 @@
         if (d.project && d.project.match === true) matches.push(`Project: ${d.project.value}`);
         else if (d.project && d.project.match === false) conflicts.push(`Project: the ${who} named ${_orList(d.project.wanted)}; this is ${d.project.offered}`);
         else if (d.project) unresolved.push(`Project: the listing does not name its project (${who} wants ${_orList(d.project.wanted)})`);
-        matches.push(d.location.match === 'exact' ? `Location: ${d.location.value}` : `Location: same project (${d.location.value})`);
+        if (d.location.match === 'any') unresolved.push(d.location.side === 'buyer' ? `Location: the ${who} states no location — any location fits`
+                                                                         : 'Location: the listing states no location');
+        else matches.push(d.location.match === 'exact' ? `Location: ${d.location.value}` : `Location: same project (${d.location.value})`);
         const accepted = (buyer.unitTypes || []).map(_unitShort);
         const got = c.typeOverlap.map(_unitShort);
-        matches.push(`Unit type: ${c.typeOverlap.join(' or ')}` + (accepted.length > got.length ? ` (${who} accepts ${_orList(accepted)})` : ''));
+        if (d.unit.match === 'related') unresolved.push(`Unit type: ${c.typeOverlap.join(' or ')} — related to the ${_orList(accepted)} the ${who} asked for`);
+        else matches.push(`Unit type: ${c.typeOverlap.join(' or ')}` + (accepted.length > got.length ? ` (${who} accepts ${_orList(accepted)})` : ''));
         if (c.cashBuyer) matches.push('Cash buyer');
 
         // Price — one line for the list, one sentence for the summary.
@@ -1943,6 +1982,9 @@
         if (projectConflict) head = `Same area and unit type, but not the project the ${who} named.`;
         else if (priceConflict) head = `The property fits the requirement, but the asking price is above ${d.price.match === 'fmv' ? 'fair market value' : `the ${who}'s budget`}.`;
         else if (c.sameProject) head = 'Strong compatibility on the core requirement.';
+        else if (d.location.match === 'any' && d.unit.match === 'related') head = 'A related property type, with no location to compare.';
+        else if (d.location.match === 'any') head = 'Same unit type; no location to compare.';
+        else if (d.unit.match === 'related') head = 'Same area, related property type.';
         else head = 'Compatible on location and unit type.';
         // A place is quoted as the buyer wrote it ("Salcedo Village only"), which can
         // be narrower than the city it resolves to.
@@ -2006,6 +2048,7 @@
         _bedTokensSubject,
         unitTypesForMatch,
         unitTypesCompatible,
+        unitTypesRelated,
         // The same two readings for screens that label a post (Listing Detail).
         businessSpace: function (text) { return _businessSpace(String(text || '').replace(/\r/g, '')); },
         officeSubject: function (text) { return _officeSubject(String(text || '').replace(/\r/g, '')); },
