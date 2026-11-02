@@ -3501,10 +3501,10 @@ html[data-theme="dark"] .lm-cat-btn.cat-wlease.selected { background: #18a94f; c
 /* Plain colour (2026-11-02): the match banner is flat Match Engine green, no
    shimmer sweep. */
 .match-banner::before { display: none; }
-/* Match Engine page: solid white Back button on the green header (2026-11-02). */
-.match-page-header .btn-back, html[data-theme="dark"] .match-page-header .btn-back { background: #fff; border-color: #fff; color: #15803d; }
-.match-page-header .btn-back i { color: #15803d; }
-.match-page-header .btn-back:hover, html[data-theme="dark"] .match-page-header .btn-back:hover { background: #f0fdf4; color: #12873c; }
+/* Match Engine page: glass Back button (white text) like the title pill, on the navy header (2026-11-02). */
+.match-page-header .btn-back, html[data-theme="dark"] .match-page-header .btn-back { background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.3); color: #fff; }
+.match-page-header .btn-back i { color: #fff; }
+.match-page-header .btn-back:hover, html[data-theme="dark"] .match-page-header .btn-back:hover { background: rgba(255,255,255,0.22); color: #fff; }
 /* Phones: the shared mobile Back is a bare arrow (mobile-back.css, realmate
    green, !important) — on the green Match Engine header it is white. */
 @media (max-width: 768px) {

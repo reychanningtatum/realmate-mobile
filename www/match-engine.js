@@ -1237,7 +1237,11 @@
     // plain characters. Extraction reads this folded text; the stored post and what
     // is displayed as the original are never changed.
     function _plainText(text) {
-        const t = String(text == null ? '' : text);
+        let t = String(text == null ? '' : text);
+        // U+2028 / U+2029 (left by iPhone copy-paste) are invisible separators that
+        // regex `.` never matches — read as a space, or as a line break when the
+        // post has no ordinary line breaks at all.
+        if (/[\u2028\u2029]/.test(t)) t = t.replace(/[\u2028\u2029]/g, t.indexOf('\n') === -1 ? '\n' : ' ');
         try { return /[^\u0000-\u024f\u20b1]/.test(t) ? t.normalize('NFKC') : t; } catch (e) { return t; }
     }
 
