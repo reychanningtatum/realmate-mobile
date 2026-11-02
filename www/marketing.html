@@ -497,12 +497,19 @@
     .hero-grid{gap:40px;}
     /* First screen = tagline + buttons, centred over the skyline; the match follows whole. */
     .hero{padding:0 0 56px;}
+    /* The skyline belongs to the first screen: anchored to its bottom edge and
+       faded in right under the buttons, so there is no empty band of sky. */
     .hero-grid > .reveal:first-child{min-height:calc(100svh - 196px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
-      display:flex;flex-direction:column;justify-content:flex-start;padding:36px 0 20px;}
-    .hero::before{opacity:.95;background-size:auto 44%;background-position:58% 41%;}
-    .hero::after{background:
-      radial-gradient(ellipse 80% 30% at 50% 74%,rgba(42,47,196,0.22),transparent 70%),
-      linear-gradient(180deg,var(--night) 0%,var(--night) 22%,rgba(8,15,26,0.35) 34%,rgba(8,15,26,0.4) 48%,rgba(8,15,26,0.95) 60%,var(--night) 66%);}
+      display:flex;flex-direction:column;justify-content:flex-start;margin:0 -22px;padding:36px 22px 20px;
+      background:
+        linear-gradient(180deg,var(--night) 0%,var(--night) 50%,rgba(8,15,26,0) 64%,rgba(8,15,26,0) 92%,var(--night) 100%),
+        radial-gradient(ellipse 70% 30% at 55% 82%,rgba(42,47,196,0.25),transparent 70%),
+        url('images/marketing-bg.jpg?v=3') 58% 100%/auto 66% no-repeat;}
+    .hero::before,.hero::after{display:none;}
+    .hero-cta .btn-ghost{background:rgba(8,15,26,0.92);}
+  }
+  @media(max-width:860px) and (max-height:720px){
+    .hero-grid > .reveal:first-child{background-size:auto,auto,auto 54%;}
 
     .match-demo{max-width:none;}
     .post-in{padding:14px 16px;}
