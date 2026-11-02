@@ -342,3 +342,33 @@ html[data-theme="dark"] .mobile-bottom-nav { background: #0f172a; border-color: 
 .mob-nav-menu a:last-child { color: #ef4444; }
 .mob-nav-menu a i { min-width: 18px; text-align: center; flex-shrink: 0; }
 @media (max-width: 768px) { .mobile-bottom-nav { display: flex; height: 56px; } }
+
+/* Desktop left panel (2026-11-02): the same slim panel as the other pages
+   (styles copied from forum.css .sidebar / .brand / .nav-item, like the bottom
+   nav above). Home's content is centred in the area beside it, matching the
+   floating bottom navbar (desktop-nav.css centres it right of the 240px panel). */
+.sidebar { display: none; }
+@media (min-width: 769px) {
+  .sidebar {
+    display: flex; flex-direction: column;
+    position: fixed; top: 0; bottom: 0; left: 0; width: 240px;
+    padding: 32px 14px 28px; overflow-y: auto;
+    background: #0f172a; z-index: 100;
+  }
+  .sidebar .brand { margin-bottom: 36px; padding-left: 10px; height: 32px; }
+  .sidebar .brand img { height: 32px; width: auto; cursor: pointer; }
+  .sidebar .nav-item {
+    display: flex; align-items: center; gap: 11px; padding: 10px 12px;
+    color: #64748b; font-size: 13.5px; font-weight: 500; border-radius: 10px;
+    margin-bottom: 2px; cursor: pointer; transition: background 0.15s, color 0.15s;
+    border-left: 2px solid transparent;
+  }
+  .sidebar .nav-item i { font-size: 15px; width: 18px; text-align: center; flex-shrink: 0; }
+  .sidebar .nav-item:hover { background: rgba(255,255,255,0.06); color: #cbd5e1; }
+  html[data-theme="light"] .sidebar { background: #ffffff; border-right: 1px solid #e2e8f0; }
+  html[data-theme="light"] .sidebar .nav-item:hover { background: #f1f5f9; color: #0f172a; }
+  body { padding-left: 240px; }
+  /* Home's own nav rules load after desktop-nav.css and reset its position —
+     restore the floating bar's desktop placement (centred right of the panel). */
+  .mobile-bottom-nav { left: 240px; bottom: 22px; height: 68px; }
+}
