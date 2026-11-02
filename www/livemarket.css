@@ -3547,9 +3547,11 @@ html[data-theme="dark"] .lm-cat-btn.cat-wlease.selected { background: #18a94f; c
    highlight along the banner's top and a soft blue→purple glow under the
    button. The button floats (1px lift, more on hover, settles on press). */
 .match-banner, html[data-theme="dark"] .match-banner {
+  /* 2px gradient border (top + sides): cyan → blue → magenta-pink. */
+  border: 2px solid transparent; border-bottom: 0;
   background:
-    linear-gradient(90deg, #0395ff 0%, #3c5bf9 50%, #c431fe 100%) top / 100% 2px no-repeat,
-    linear-gradient(90deg, #0043dc 0%, #0636b8 35%, #2a2fc4 55%, #5a1fd2 78%, #a826fb 100%);
+    linear-gradient(90deg, #0043dc 0%, #0636b8 35%, #2a2fc4 55%, #5a1fd2 78%, #a826fb 100%) padding-box,
+    linear-gradient(90deg, #00a5ff 0%, #405dfc 50%, #e335ff 85%, #f455fc 100%) border-box;
   color: #fff;
 }
 .match-banner-text { color: #9cc0ff; }
@@ -3560,15 +3562,23 @@ html[data-theme="dark"] .lm-cat-btn.cat-wlease.selected { background: #18a94f; c
 }
 .match-banner-arrow { color: #fff; opacity: 1; }
 .lc-match-btn, html[data-theme="dark"] .lc-match-btn {
-  background: linear-gradient(90deg, #0043dc 0%, #0636b8 30%, #2a2fc4 52%, #5a1fd2 74%, #a826fb 100%);
-  color: #fff; border: 1.5px solid #1f6ff7;
+  /* 2px gradient border: bright blue → blue → purple. */
+  background:
+    linear-gradient(90deg, #0043dc 0%, #0636b8 30%, #2a2fc4 52%, #5a1fd2 74%, #a826fb 100%) padding-box,
+    linear-gradient(90deg, #0683ff 0%, #3241f9 50%, #c42cfc 100%) border-box;
+  color: #fff; border: 2px solid transparent;
   transform: translateY(-1px);
   box-shadow: 0 6px 14px -4px rgba(0,67,220,0.45), 0 12px 26px -8px rgba(168,38,251,0.55);
 }
 .lc-match-btn:hover, html[data-theme="dark"] .lc-match-btn:hover {
-  background: linear-gradient(90deg, #003bc4 0%, #052fa3 30%, #2327ad 52%, #4f18bd 74%, #9618e6 100%);
-  border-color: #3b82f6;
+  background:
+    linear-gradient(90deg, #003bc4 0%, #052fa3 30%, #2327ad 52%, #4f18bd 74%, #9618e6 100%) padding-box,
+    linear-gradient(90deg, #2b95ff 0%, #4a57ff 50%, #d24dff 100%) border-box;
+  border-color: transparent;
   transform: translateY(-2px);
   box-shadow: 0 8px 18px -4px rgba(0,67,220,0.55), 0 16px 32px -8px rgba(168,38,251,0.65);
 }
 .lc-match-btn:active, html[data-theme="dark"] .lc-match-btn:active { transform: translateY(0); box-shadow: 0 3px 8px -2px rgba(42,47,196,0.5); }
+
+/* Brain widget: no blinking sparks (2026-11-02, user request) — just the pink brain. */
+.ai-brain .ai-brain-spark { display: none; }
