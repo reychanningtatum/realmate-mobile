@@ -179,22 +179,33 @@
                 .seg-tab-match-badge{position:absolute;top:2px;right:6px;background:#ef4444;color:#fff;font-size:9px;font-weight:800;min-width:15px;height:15px;border-radius:8px;display:flex;align-items:center;justify-content:center;padding:0 3px;line-height:1;box-shadow:0 2px 6px rgba(239,68,68,0.45);pointer-events:none;z-index:5;}
                 #rmMatchBanner{position:fixed;top:calc(14px + var(--rm-safe-top, env(safe-area-inset-top)));left:50%;transform:translateX(-50%) translateY(-160%);width:calc(100% - 24px);max-width:520px;z-index:100000;
                     display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:14px;
-                    background:linear-gradient(135deg,#0f172a,#1e3a5f);border:1px solid #32cd32;
-                    box-shadow:0 12px 34px -8px rgba(0,0,0,0.55),0 0 0 1px rgba(50,205,50,0.15);
+                    /* Theme 2026-11-02: navy surface + blue → purple gradient border. */
+                    background:linear-gradient(135deg,#0b1220,#142038) padding-box,linear-gradient(90deg,#0683ff 0%,#3241f9 50%,#c42cfc 100%) border-box;border:1.5px solid transparent;
+                    box-shadow:0 12px 34px -8px rgba(0,0,0,0.55),0 6px 18px -6px rgba(0,67,220,0.45),0 12px 28px -10px rgba(168,38,251,0.55);
                     color:#fff;font-family:inherit;opacity:0;transition:transform .38s cubic-bezier(.2,.8,.2,1),opacity .38s;cursor:pointer;}
                 #rmMatchBanner.show{transform:translateX(-50%) translateY(0);opacity:1;}
                 /* Desktop: center over the content area (shift right by half the 240px
                    left sidebar) so it sits top-MIDDLE of the body, not left-of-centre.
                    Mobile (<769px, incl. the app shell) is unchanged. */
                 @media (min-width:769px){#rmMatchBanner{left:calc(50% + 120px);}}
-                #rmMatchBanner .rmb-icon{flex:0 0 auto;width:38px;height:38px;border-radius:50%;background:rgba(50,205,50,0.15);border:1px solid rgba(50,205,50,0.5);display:flex;align-items:center;justify-content:center;color:#32cd32;font-size:16px;}
+                #rmMatchBanner .rmb-icon{flex:0 0 auto;width:38px;height:38px;border-radius:50%;background:rgba(236,72,153,0.12);border:1px solid rgba(244,114,182,0.5);display:flex;align-items:center;justify-content:center;font-size:18px;}
                 #rmMatchBanner .rmb-body{flex:1 1 auto;min-width:0;}
                 #rmMatchBanner .rmb-title{font-size:13.5px;font-weight:800;letter-spacing:.2px;line-height:1.2;}
                 #rmMatchBanner .rmb-sub{font-size:12px;color:#cbd5e1;margin-top:2px;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-                #rmMatchBanner .rmb-view{flex:0 0 auto;background:linear-gradient(135deg,#16a34a,#32cd32);color:#04220a;border:none;border-radius:10px;padding:8px 12px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;}
+                #rmMatchBanner .rmb-view{flex:0 0 auto;color:#fff;border:1.5px solid transparent;border-radius:10px;padding:8px 12px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;
+                    background:linear-gradient(90deg,#0043dc 0%,#0636b8 30%,#2a2fc4 52%,#5a1fd2 74%,#a826fb 100%) padding-box,linear-gradient(90deg,#0683ff 0%,#3241f9 50%,#c42cfc 100%) border-box;
+                    transform:translateY(-1px);box-shadow:0 4px 10px -3px rgba(0,67,220,0.45),0 8px 18px -6px rgba(168,38,251,0.55);transition:transform .15s,box-shadow .15s;}
+                #rmMatchBanner .rmb-view:hover{transform:translateY(-2px);box-shadow:0 6px 14px -3px rgba(0,67,220,0.55),0 12px 24px -6px rgba(168,38,251,0.65);}
+                #rmMatchBanner .rmb-view:active{transform:translateY(0);}
                 #rmMatchBanner .rmb-x{flex:0 0 auto;background:transparent;border:none;color:#94a3b8;font-size:16px;cursor:pointer;padding:4px;line-height:1;}
                 #rmMatchBanner .rmb-x:hover{color:#fff;}
-                #rmMatchBanner .rmb-icon .ai-robot{font-size:26px;}
+                /* Pink brain (same look as the Portal's brain widget; styled here
+                   because most pages don't load livemarket.css). */
+                #rmMatchBanner .rmb-brain{display:inline-block;line-height:1;}
+                #rmMatchBanner .rmb-brain i{display:block;background:linear-gradient(160deg,#ffe4ef 0%,#f9a8c9 38%,#ec6fa5 72%,#c9417f 100%);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;
+                    filter:drop-shadow(0 0 2px rgba(236,72,153,0.55)) drop-shadow(0 1px 0 rgba(131,24,67,0.35));animation:rmbBrainPulse 2.2s ease-in-out infinite;}
+                @keyframes rmbBrainPulse{0%,100%{transform:scale(1);opacity:.95}50%{transform:scale(1.09);opacity:1;filter:drop-shadow(0 0 6px rgba(244,114,182,0.95)) drop-shadow(0 1px 0 rgba(131,24,67,0.35))}}
+                @media (prefers-reduced-motion:reduce){#rmMatchBanner .rmb-brain i{animation:none !important}}
                 .ai-robot{position:relative;display:inline-block;width:1em;height:1em;flex-shrink:0;vertical-align:-0.16em;}
                 .ai-robot svg{width:100%;height:100%;display:block;overflow:visible;}
                 .ai-robot .head{fill:#0b1a12;stroke:rgba(50,205,50,0.85);stroke-width:2.6;}
@@ -270,9 +281,9 @@
         _banner.id = 'rmMatchBanner';
         _banner.setAttribute('role', 'alert');
         _banner.innerHTML = `
-            <div class="rmb-icon"><span class="ai-robot" aria-hidden="true"><svg viewBox="12 12 76 76"><line class="ant" x1="50" y1="9" x2="50" y2="22"/><circle class="tip" cx="50" cy="8" r="4"/><line class="ear" x1="22" y1="46" x2="15" y2="46"/><line class="ear" x1="78" y1="46" x2="85" y2="46"/><rect class="head" x="22" y="24" width="56" height="52" rx="13"/><rect class="visor" x="30" y="40" width="40" height="17" rx="6"/><rect class="scan" x="31" y="41" width="4" height="15" rx="2"/><circle class="eye" cx="42" cy="48.5" r="4.4"/><circle class="eye" cx="58" cy="48.5" r="4.4"/><rect class="mouth" x="41" y="65" width="18" height="3" rx="1.5"/></svg></span></div>
+            <div class="rmb-icon"><span class="rmb-brain" aria-hidden="true"><i class="fas fa-brain"></i></span></div>
             <div class="rmb-body">
-                <div class="rmb-title">New AI Match Found</div>
+                <div class="rmb-title">New Match Found</div>
                 <div class="rmb-sub" id="rmbSub">A new listing matches yours.</div>
             </div>
             <button class="rmb-view" id="rmbView">View</button>
