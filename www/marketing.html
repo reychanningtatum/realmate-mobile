@@ -121,6 +121,13 @@
 
   /* The one bold element: a match, drawn once. */
   .hero h1 + .hero-cta{margin-top:40px;}
+  /* Desktop hero buttons (2026-11-03): Post a Listing on top, as wide as the
+     App Store + See How It Works pair below; the pair share one height. */
+  @media(min-width:861px){
+    .hero h1 + .hero-cta{display:inline-grid;grid-template-columns:auto auto;gap:12px;}
+    .hero h1 + .hero-cta .hero-post{grid-column:1 / -1;height:54px;}
+    .hero h1 + .hero-cta .store-badge,.hero h1 + .hero-cta .btn-ghost{height:54px;box-sizing:border-box;justify-content:center;}
+  }
   /* The hero's one bold element: the client's requirement and a property, with the
      three things the engine compares lined up column by column and checked. */
   .match-demo{position:relative;max-width:480px;margin-left:auto;width:100%;}
@@ -437,6 +444,11 @@
     box-shadow:0 8px 18px -4px rgba(0,67,220,0.55),0 16px 32px -10px rgba(168,38,251,0.6);}
   .btn-primary:active{transform:none;}
   .btn-primary:disabled{transform:none;box-shadow:none;}
+  /* Post a Listing (hero): realmate green, like the app's Post Now button. */
+  .hero-cta .btn-primary.hero-post{color:#fff;border:1.5px solid #18a94f;background:#18a94f;
+    box-shadow:0 8px 18px -8px rgba(24,169,79,0.6);}
+  .hero-cta .btn-primary.hero-post:hover{background:#15983f;border-color:#15983f;
+    box-shadow:0 10px 22px -8px rgba(24,169,79,0.7);}
 
   /* Section rhythm: alternate sections sit on a softly lit band. */
   #about,#features,#portal,#why,#team{background:
