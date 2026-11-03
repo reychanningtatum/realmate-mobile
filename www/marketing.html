@@ -604,7 +604,7 @@
         <span class="pill"><span class="dot"></span> AI-Powered Real Estate Matching</span>
         <h1>Post what your client is looking for.<span class="line2">realmate finds the properties that match.</span></h1>
         <div class="hero-cta">
-          <button class="btn btn-primary hero-post" onclick="rmStart()"><i class="fas fa-pen-to-square"></i> Post a Listing</button>
+          <button class="btn btn-primary hero-post" onclick="rmPost()"><i class="fas fa-pen-to-square"></i> Post a Listing</button>
           <a class="store-badge" href="https://apps.apple.com/ph/app/realmate/id6802656686" onclick="rmDownload(event,'ios')" aria-label="Download on the App Store">
             <i class="fab fa-apple"></i>
             <span class="sb-txt"><span class="sb-small">Download on the</span><span class="sb-big">App Store</span></span>
@@ -1065,9 +1065,10 @@
   });
   // Get Started / Join realmate → the Create Account page (login page opens its
   // register modal via the rm_show_register flag). Sign In → the Login page.
-  // Get Started / Join realmate → the post introduction (post-first onboarding):
-  // post a listing, then create an account to see its matches.
-  function rmStart(){ try{ sessionStorage.removeItem('rm_show_register'); }catch(e){} rmGoLogin('post.html'); }
+  // Get Started / Join realmate → straight to account creation (the Create Account
+  // card on the sign-in page). Post a Listing → the post introduction (post.html).
+  function rmStart(){ try{ sessionStorage.setItem('rm_show_register','1'); }catch(e){} rmGoLogin(); }
+  function rmPost(){ try{ sessionStorage.removeItem('rm_show_register'); }catch(e){} rmGoLogin('post.html'); }
   function rmSignIn(){ try{ sessionStorage.removeItem('rm_show_register'); }catch(e){} rmGoLogin(); }
 
   // App-store download badges. Fill these in with the real listing URLs once the
