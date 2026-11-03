@@ -329,8 +329,8 @@
   .rm-toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 
   .m-cta{display:none;}
-  /* Post a Listing (2026-11-03): hero button on desktop; on phones the sticky
-     bar's Get Started opens the same post page, so the hero keeps its two buttons. */
+  /* Post a Listing (2026-11-03): hero button everywhere — on phones a full-width
+     row above the App Store / How It Works pair. */
 
   /* ─────────────  Tablet  ───────────── */
   @media(max-width:1080px){
@@ -360,9 +360,10 @@
     .hero::before{background-position:center 85%;opacity:.35;}
     .hero-grid{grid-template-columns:1fr;gap:52px;}
     .hero h1{font-size:clamp(36px,10vw,48px);}
-    .hero-cta{flex-wrap:nowrap;}
+    .hero-cta{flex-wrap:wrap;}
     .hero-cta .btn,.hero-cta .store-badge{flex:1;min-width:0;justify-content:center;white-space:normal;}
-    .hero-cta .hero-post{display:none;}
+    /* Post a Listing: its own full-width row above App Store + How It Works. */
+    .hero-cta .hero-post{flex:1 1 100%;}
     .hero-cta .btn{padding:14px 12px;font-size:14px;line-height:1.2;}
     .match-demo{margin:0 auto;max-width:440px;}
     .hero h1 + .hero-cta{margin-top:32px;}
@@ -483,7 +484,7 @@
      slimmer bar, equal buttons, and a compact match on the first screen over
      the skyline. ═══ */
   @media(max-width:860px){
-    .announce{display:block;text-align:left;padding:8px 22px;padding-top:calc(8px + env(safe-area-inset-top));
+    .announce{display:block;text-align:center;padding:8px 22px;padding-top:calc(8px + env(safe-area-inset-top));
       font-size:11.5px;line-height:1.45;color:var(--sub);}
     .announce i{margin-right:6px;font-size:10px;}
     .announce .ann-i{display:none;}
@@ -536,6 +537,10 @@
     .hero h1{font-size:26px;margin-top:0;}
     .hero h1 + .hero-cta{margin-top:18px;}
     .hero-cta .store-badge,.hero-cta .btn{height:46px;}
+    /* Short phones: Post a Listing + App Store share one row so the match still
+       fits; See How It Works is just below (How it works section). */
+    .hero h1 + .hero-cta .hero-post{flex:1 1 0;}
+    .hero h1 + .hero-cta .btn-ghost{display:none;}
     .band{height:30px;}
     .spec{margin-top:6px;padding-top:6px;}
     .post-in{padding:8px 12px 8px;}
