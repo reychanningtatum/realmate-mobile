@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en" style="background:#060c16">
+<html lang="en" style="background:#ffffff">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#060c16">
+<meta name="theme-color" content="#ffffff">
 <script src="rm-env.js?v=20261021b"></script>
 <script>
   // Arrived here from the login page's Back button: start under the dark curtain
@@ -566,6 +566,80 @@
     html{scroll-behavior:auto;}
     .band > span::before,.band em,.post-banner{animation:none;}
   }
+
+  /* ═══ White theme (2026-11-16, user request) ═══
+     The whole page on white: dark text, light grey panels, hairline borders.
+     Kept: the app's blue → purple match design, the green Post a Listing button,
+     and the dark curtain into the (dark) sign-in page. Solid colours inside
+     gradient-border backgrounds are written as one-colour gradients (a plain
+     colour may only be the LAST background layer). */
+  :root{
+    --night:#ffffff; --ink:#f6f8fc; --ink-2:#eef2f8;
+    --line:rgba(15,23,42,0.08); --line-2:rgba(15,23,42,0.14);
+    --text:#0f172a; --sub:#475569; --dim:#64748b;
+    --green:#18a94f; --primary:#18a94f; --muted:#475569; --muted-2:#64748b;
+  }
+  body{background:#ffffff;color:var(--text);}
+  nav{background:rgba(255,255,255,0.88);}
+  .btn-ghost{background:#ffffff;}
+  .btn-ghost:hover{border-color:rgba(15,23,42,0.3);}
+  .store-badge{border-color:#000;}
+
+  /* Hero: white with a soft blue-violet light behind the match (no night photo). */
+  .hero::before{display:none;}
+  .hero::after{background:
+    radial-gradient(ellipse 36% 50% at 74% 46%,rgba(42,47,196,0.10),transparent 70%),
+    radial-gradient(ellipse 24% 32% at 82% 62%,rgba(168,38,251,0.08),transparent 70%),
+    linear-gradient(180deg,#ffffff 0%,#f7f9fd 100%);}
+  .match-demo{filter:drop-shadow(0 30px 50px rgba(15,23,42,0.14));}
+  .post{background:#ffffff;box-shadow:0 24px 48px -30px rgba(15,23,42,0.25);}
+  .post .kind{background:rgba(15,23,42,0.05);}
+
+  /* Stats + section bands */
+  .stats{background:var(--ink);}
+  .stat .big{background:linear-gradient(180deg,#0f172a 30%,#334155);-webkit-background-clip:text;background-clip:text;color:transparent;}
+  #about,#features,#portal,#why,#team{background:
+    radial-gradient(ellipse 60% 70% at 85% 0%,rgba(42,47,196,0.06),transparent 70%),
+    linear-gradient(180deg,#f7f9fd,#ffffff);}
+
+  /* Icons, problem / solution, mock-ups */
+  .feat .fi,.why .ic{color:#4338ca;}
+  .kv .row i{color:#4338ca;}
+  .chip.add{color:#4338ca;}
+  .ps.sol{background:linear-gradient(160deg,rgba(42,47,196,0.07),#f6f8fc 55%);}
+  .visual{background:linear-gradient(180deg,#ffffff,#f8fafd) padding-box,
+               linear-gradient(135deg,rgba(6,131,255,0.45),rgba(15,23,42,0.08) 40%,rgba(196,44,252,0.45)) border-box;
+    box-shadow:0 30px 60px -36px rgba(42,47,196,0.30);}
+  .chip{background:#ffffff;}
+  .ptabs{background:var(--ink);}
+  .ptabs .on{background:#ffffff;box-shadow:0 1px 3px rgba(15,23,42,0.08);}
+
+  /* Closing call to action: light, with the soft match light. */
+  .final{background:
+    radial-gradient(ellipse 40% 50% at 50% 40%,rgba(42,47,196,0.08),transparent 70%),
+    linear-gradient(180deg,#ffffff 0%,#f7f9fd 100%);}
+  .final h2,.final p{text-shadow:none;}
+  .final p{color:var(--sub);}
+
+  /* Feedback messages, modal, toast */
+  .fbk-input{background:#ffffff;}
+  .fbk-msg.ok{background:rgba(24,169,79,0.10);color:#166534;}
+  .fbk-msg.err{background:rgba(220,38,38,0.08);color:#b91c1c;}
+  .modal-ov{background:rgba(15,23,42,0.45);}
+  .modal-box{background:#ffffff;box-shadow:0 30px 60px -20px rgba(15,23,42,0.35);}
+  .rm-toast{background:#0f172a;color:#ffffff;border-color:#0f172a;}
+
+  @media(max-width:860px){
+    .mtopbar,nav{background:#ffffff;}
+    .hero-cta .btn-ghost{background:#ffffff;}
+    .hero-grid{background:
+      radial-gradient(ellipse 80% 34% at 55% 80%,rgba(42,47,196,0.10),transparent 70%),
+      linear-gradient(180deg,#ffffff 0%,#f7f9fd 100%);}
+    .m-cta{background:rgba(255,255,255,0.94);}
+    .final{background:
+      radial-gradient(ellipse 60% 40% at 50% 40%,rgba(42,47,196,0.08),transparent 70%),
+      linear-gradient(180deg,#ffffff 0%,#f7f9fd 100%);}
+  }
 </style>
 </head>
 <body>
@@ -605,7 +679,7 @@
       <div class="m-seal"><i class="fas fa-user-shield"></i></div>
       <h3 id="exclTitle">Who can join</h3>
       <p>realmate is a private platform built for real estate sales professionals. Access is <b>exclusive to real estate salespersons and brokers in the Philippines</b>, with an initial focus on high-end resale in BGC and Makati. Applicants may be required to provide information or documentation for verification.</p>
-      <p class="m-disc">realmate is an independent platform and is not affiliated with, owned by, operated by, sponsored by, or endorsed by any real estate developer, brokerage, company, organization, or other third party. Listing or discussing any developer, project, brokerage, or company on realmate does not make realmate an official system or channel of that party. All company and development names are referenced for professional context only. <a href="disclaimer.html" style="color:#eef2fb;font-weight:600;text-decoration:underline;text-underline-offset:3px;">Read the full Disclaimer</a>.</p>
+      <p class="m-disc">realmate is an independent platform and is not affiliated with, owned by, operated by, sponsored by, or endorsed by any real estate developer, brokerage, company, organization, or other third party. Listing or discussing any developer, project, brokerage, or company on realmate does not make realmate an official system or channel of that party. All company and development names are referenced for professional context only. <a href="disclaimer.html" style="color:var(--text);font-weight:600;text-decoration:underline;text-underline-offset:3px;">Read the full Disclaimer</a>.</p>
     </div>
   </div>
 
