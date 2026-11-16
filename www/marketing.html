@@ -40,6 +40,7 @@
   #rmLeaveCover{ position:fixed; inset:0; z-index:99999; background:#080f1a;
     pointer-events:none; opacity:0; visibility:hidden; transition:opacity .24s ease; }
   body.rm-leaving #rmLeaveCover{ visibility:visible; opacity:1; }
+  #rmLeaveCover.rm-light{ background:#ffffff; }   /* to the white Post a Listing page */
   html.rm-arriving #rmLeaveCover{ visibility:visible; animation: rmLift .5s ease forwards; }
   @keyframes rmLift{ from{ opacity:1; } to{ opacity:0; } }
   @media (prefers-reduced-motion: reduce){ #rmLeaveCover{ transition:none; } html.rm-arriving #rmLeaveCover{ animation-duration:.01ms; } }
@@ -1312,6 +1313,9 @@
       // If we arrived under the lift animation, clear it so the drop transition runs.
       document.documentElement.classList.remove('rm-arriving');
       if (cover){ cover.style.animation='none'; cover.style.opacity=''; cover.style.visibility=''; void cover.offsetWidth; }
+      // The sign-in page is dark → dark curtain. Post a Listing (post.html) is white
+      // like this page → a white curtain, so the hand-off never flashes dark.
+      if (cover) cover.classList.toggle('rm-light', /(^|\/)post\.html/.test(dest || ''));
       document.body.classList.add('rm-leaving'); // fades the dark curtain in
       var done = false, nav = function(){ if (done) return; done = true; go(); };
       if (cover) cover.addEventListener('transitionend', nav, { once:true });
