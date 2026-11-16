@@ -641,48 +641,6 @@
       linear-gradient(180deg,#ffffff 0%,#f7f9fd 100%);}
   }
 
-  /* ═══ The drawn city (2026-11-16): realmate's world is Metro Manila property,
-     so the white page gets the city itself — a fine-line skyline in the match
-     gradient (images/skyline-line.svg) on a faint drafting grid, like an
-     architect's elevation. Hero + closing call to action only; everything in
-     between stays quiet. ═══ */
-  .hero::before{display:block;content:"";position:absolute;inset:0;z-index:0;opacity:1;
-    background:
-      linear-gradient(rgba(24,169,79,0.08) 1px,transparent 1px) 0 0/32px 32px,
-      linear-gradient(90deg,rgba(24,169,79,0.08) 1px,transparent 1px) 0 0/32px 32px;
-    -webkit-mask-image:radial-gradient(ellipse 62% 58% at 74% 44%,#000 0%,rgba(0,0,0,0.35) 55%,transparent 80%);
-            mask-image:radial-gradient(ellipse 62% 58% at 74% 44%,#000 0%,rgba(0,0,0,0.35) 55%,transparent 80%);}
-  .hero::after{background:
-    url('images/skyline-line.svg?v=2') center bottom/auto 230px repeat-x,
-    radial-gradient(ellipse 34% 46% at 74% 44%,rgba(42,47,196,0.09),transparent 70%),
-    radial-gradient(ellipse 22% 30% at 84% 60%,rgba(168,38,251,0.07),transparent 70%);}
-  /* the city rises on the match side and fades out under the headline */
-  .hero::after{-webkit-mask-image:linear-gradient(90deg,transparent 0%,transparent 28%,#000 62%);
-                      mask-image:linear-gradient(90deg,transparent 0%,transparent 28%,#000 62%);}
-  .hero{background:linear-gradient(180deg,#ffffff 0%,#ffffff 55%,#f5f7fd 100%);}
-  .final{background:
-    radial-gradient(ellipse 40% 50% at 50% 38%,rgba(42,47,196,0.08),transparent 70%),
-    linear-gradient(180deg,#ffffff 0%,#f5f7fd 100%);}
-  .final{padding-bottom:250px;}   /* room so the city sits below the App Store badge */
-  /* closing: the same city across the bottom, softening at both edges */
-  .final::after{content:"";position:absolute;left:0;right:0;bottom:0;height:200px;z-index:0;pointer-events:none;
-    background:url('images/skyline-line.svg?v=2') center bottom/auto 200px repeat-x;
-    -webkit-mask-image:linear-gradient(90deg,transparent 0%,#000 22%,#000 78%,transparent 100%);
-            mask-image:linear-gradient(90deg,transparent 0%,#000 22%,#000 78%,transparent 100%);}
-  @media(max-width:860px){
-    /* phone first screen: city along the bottom, drafting grid behind the match
-       (a white wash keeps the headline area clean) */
-    .hero-grid{background:
-      url('images/skyline-line.svg?v=2') 30% 100%/auto 150px repeat-x,
-      linear-gradient(180deg,#ffffff 0%,#ffffff 34%,rgba(255,255,255,0) 52%),
-      linear-gradient(rgba(24,169,79,0.08) 1px,transparent 1px) 0 0/28px 28px,
-      linear-gradient(90deg,rgba(24,169,79,0.08) 1px,transparent 1px) 0 0/28px 28px,
-      radial-gradient(ellipse 80% 34% at 55% 78%,rgba(42,47,196,0.09),transparent 70%),
-      linear-gradient(180deg,#ffffff 0%,#f5f7fd 100%);}
-    .final::after{height:130px;background-size:auto 130px;background-position:30% 100%;}
-    .final{padding-bottom:170px;}
-  }
-
   /* Buttons = realmate green (2026-11-16, user rule): the blue → purple gradient
      is ONLY for matching (match card, banner, score). Same green as Post Now. */
   .btn-primary,.btn-primary:hover,.btn-primary:active{color:#fff;border:1.5px solid #18a94f;background:#18a94f;
@@ -695,10 +653,6 @@
   /* Green decorations (2026-11-16, user rule): blue → purple is ONLY for matching
      (match card connectors, banner, score, match % badges). Everything else —
      the drawn city, drafting grid, light, steps, icon tiles, frames — is realmate green. */
-  .hero::after{background:
-    url('images/skyline-line.svg?v=2') center bottom/auto 230px repeat-x,
-    radial-gradient(ellipse 34% 46% at 74% 44%,rgba(24,169,79,0.08),transparent 70%),
-    radial-gradient(ellipse 22% 30% at 84% 60%,rgba(34,197,94,0.06),transparent 70%);}
   .final{background:
     radial-gradient(ellipse 40% 50% at 50% 38%,rgba(24,169,79,0.07),transparent 70%),
     linear-gradient(180deg,#ffffff 0%,#f5faf7 100%);}
@@ -717,14 +671,51 @@
   .excl .seal,.m-av{background:linear-gradient(var(--ink),var(--ink)) padding-box,linear-gradient(135deg,#0f9d4f,#22c55e) border-box;}
   @media(max-width:860px){
     .steps::before{background:linear-gradient(180deg,#0f9d4f,#22c55e);}
-    .hero-grid{background:
-      url('images/skyline-line.svg?v=2') 30% 100%/auto 150px repeat-x,
-      linear-gradient(180deg,#ffffff 0%,#ffffff 34%,rgba(255,255,255,0) 52%),
-      linear-gradient(rgba(24,169,79,0.08) 1px,transparent 1px) 0 0/28px 28px,
-      linear-gradient(90deg,rgba(24,169,79,0.08) 1px,transparent 1px) 0 0/28px 28px,
-      radial-gradient(ellipse 80% 34% at 55% 78%,rgba(24,169,79,0.08),transparent 70%),
-      linear-gradient(180deg,#ffffff 0%,#f5faf7 100%);}
   }
+
+  /* ═══ The live market (2026-11-16): behind the match, a soft wall of member
+     posts — buyer requirements (amber) and properties (green) across Metro
+     Manila — slowly drifting, the network at work. The one match sits sharp in
+     front. Fades out under the headline; still for reduced motion. ═══ */
+  .hero::before{display:none;}
+  .hero::after{background:radial-gradient(ellipse 38% 50% at 74% 46%,rgba(24,169,79,0.07),transparent 70%);}
+  .hero{background:linear-gradient(180deg,#ffffff 0%,#f6f9f7 100%);}
+  .mk-wall{position:absolute;z-index:0;top:-120px;bottom:-120px;right:-60px;width:min(860px,56vw);
+    display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;align-items:start;
+    transform:rotate(-7deg);pointer-events:none;user-select:none;opacity:.5;
+    -webkit-mask-image:linear-gradient(90deg,transparent 0%,transparent 8%,#000 44%),linear-gradient(180deg,transparent 0%,#000 14%,#000 86%,transparent 100%);
+    -webkit-mask-composite:source-in;
+            mask-image:linear-gradient(90deg,transparent 0%,transparent 8%,#000 44%),linear-gradient(180deg,transparent 0%,#000 14%,#000 86%,transparent 100%);
+            mask-composite:intersect;}
+  .mk-col{display:flex;flex-direction:column;gap:16px;animation:mkDriftUp 70s linear infinite alternate;}
+  .mk-col:nth-child(even){margin-top:-150px;animation-name:mkDriftDown;}
+  @keyframes mkDriftUp{from{transform:translateY(0);}to{transform:translateY(-220px);}}
+  @keyframes mkDriftDown{from{transform:translateY(-220px);}to{transform:translateY(0);}}
+  .mk-c{background:#fff;border:1px solid rgba(15,23,42,0.07);border-radius:14px;padding:12px 14px;
+    box-shadow:0 10px 24px -18px rgba(15,23,42,0.35);}
+  .mk-h{display:flex;align-items:center;gap:8px;}
+  .mk-av{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;flex-shrink:0;
+    background:var(--ink-2);font-size:10px;font-weight:700;color:var(--sub);}
+  .mk-n{font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .mk-k{margin-left:auto;display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:600;color:var(--sub);
+    padding:3px 8px;border-radius:999px;background:rgba(15,23,42,0.05);white-space:nowrap;}
+  .mk-k i{width:6px;height:6px;border-radius:50%;background:#18a94f;}
+  .mk-c.req .mk-k i{background:#f59e0b;}
+  .mk-t{margin:9px 0 8px;font-size:13px;font-weight:700;letter-spacing:-0.01em;color:var(--text);line-height:1.3;}
+  .mk-s{display:flex;gap:12px;padding-top:8px;border-top:1px solid var(--line);font-size:11.5px;color:var(--dim);}
+  .mk-s b{color:var(--text);font-weight:600;}
+  @media(max-width:1080px){ .mk-wall{grid-template-columns:repeat(3,minmax(0,1fr));} .mk-col:nth-child(4){display:none;} }
+  @media(max-width:860px){
+    /* phone: the wall fills the first screen behind the match, fading out under the headline */
+    .hero-grid{background:transparent;position:relative;z-index:1;}
+    .mk-wall{top:430px;bottom:-60px;left:-30px;right:-50px;width:auto;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;opacity:.4;
+      transform:rotate(-7deg) scale(.82);transform-origin:top center;
+      -webkit-mask-image:linear-gradient(180deg,transparent 0%,#000 22%,#000 88%,transparent 100%);
+              mask-image:linear-gradient(180deg,transparent 0%,#000 22%,#000 88%,transparent 100%);}
+    .mk-col:nth-child(n+3){display:none;}
+    .mk-col{gap:12px;}
+  }
+  @media(prefers-reduced-motion:reduce){ .mk-col{animation:none;} }
 </style>
 </head>
 <body>
@@ -770,6 +761,41 @@
 
   <!-- Hero -->
   <header class="hero">
+    <!-- The live market (decorative): member posts behind the match. -->
+    <div class="mk-wall" aria-hidden="true">
+      <div class="mk-col">
+        <div class="mk-c req"><div class="mk-h"><span class="mk-av">AR</span><span class="mk-n">Ana R.</span><span class="mk-k"><i></i>Willing to Buy</span></div><div class="mk-t">2BR in Rockwell for a client</div><div class="mk-s"><span><b>Makati</b></span><span>2BR</span><span><b>₱25M</b></span></div></div>
+        <div class="mk-c"><div class="mk-h"><span class="mk-av">RM</span><span class="mk-n">Rico M.</span><span class="mk-k"><i></i>For Sale</span></div><div class="mk-t">3BR corner unit, Verve Residences</div><div class="mk-s"><span><b>BGC</b></span><span>3BR</span><span><b>₱32M</b></span></div></div>
+        <div class="mk-c req"><div class="mk-h"><span class="mk-av">JA</span><span class="mk-n">Jun A.</span><span class="mk-k"><i></i>Willing to Buy</span></div><div class="mk-t">Townhouse near good schools</div><div class="mk-s"><span><b>Quezon City</b></span><span>3BR</span><span><b>₱18M</b></span></div></div>
+        <div class="mk-c req"><div class="mk-h"><span class="mk-av">DS</span><span class="mk-n">Dana S.</span><span class="mk-k"><i></i>Willing to Buy</span></div><div class="mk-t">Pre-selling 2BR, any BGC tower</div><div class="mk-s"><span><b>BGC</b></span><span>2BR</span><span><b>₱22M</b></span></div></div>
+        <div class="mk-c req"><div class="mk-h"><span class="mk-av">HV</span><span class="mk-n">Hana V.</span><span class="mk-k"><i></i>Willing to Buy</span></div><div class="mk-t">Office floor for a BPO</div><div class="mk-s"><span><b>Ortigas</b></span><span>Office</span><span><b>₱150M</b></span></div></div>
+        <div class="mk-c req"><div class="mk-h"><span class="mk-av">RC</span><span class="mk-n">Rose C.</span><span class="mk-k"><i></i>Willing to Buy</span></div><div class="mk-t">Lot for a warehouse, 2,000 sqm</div><div class="mk-s"><span><b>Cavite</b></span><span>Lot</span><span><b>₱45M</b></span></div></div>
+      </div>
+      <div class="mk-col">
+        <div class="mk-c"><div class="mk-h"><span class="mk-av">PD</span><span class="mk-n">Paolo D.</span><span class="mk-k"><i></i>For Sale</span></div><div class="mk-t">1BR with parking, Uptown Parksuites</div><div class="mk-s"><span><b>BGC</b></span><span>1BR</span><span><b>₱14.5M</b></span></div></div>
+        <div class="mk-c req"><div class="mk-h"><span class="mk-av">BL</span><span class="mk-n">Bea L.</span><span class="mk-k"><i></i>Willing to Buy</span></div><div class="mk-t">House and lot for a family of five</div><div class="mk-s"><span><b>Alabang</b></span><span>4BR</span><span><b>₱38M</b></span></div></div>
+        <div class="mk-c"><div class="mk-h"><span class="mk-av">LC</span><span class="mk-n">Liza C.</span><span class="mk-k"><i></i>For Sale</span></div><div class="mk-t">1BR investment unit, Shaw</div><div class="mk-s"><span><b>Mandaluyong</b></span><span>1BR</span><span><b>₱7.8M</b></span></div></div>
+        <div class="mk-c"><div class="mk-h"><span class="mk-av">GF</span><span class="mk-n">Gab F.</span><span class="mk-k"><i></i>For Lease</span></div><div class="mk-t">Ground-floor retail, 120 sqm</div><div class="mk-s"><span><b>Makati</b></span><span>Retail</span><span><b>₱250K/mo</b></span></div></div>
+        <div class="mk-c"><div class="mk-h"><span class="mk-av">IM</span><span class="mk-n">Ivan M.</span><span class="mk-k"><i></i>For Sale</span></div><div class="mk-t">2BR near MRT, ready for turnover</div><div class="mk-s"><span><b>Mandaluyong</b></span><span>2BR</span><span><b>₱11M</b></span></div></div>
+        <div class="mk-c"><div class="mk-h"><span class="mk-av">AB</span><span class="mk-n">Ali B.</span><span class="mk-k"><i></i>For Sale</span></div><div class="mk-t">3BR, One Shangri-La Place</div><div class="mk-s"><span><b>Ortigas</b></span><span>3BR</span><span><b>₱36M</b></span></div></div>
+      </div>
+      <div class="mk-col">
+        <div class="mk-c"><div class="mk-h"><span class="mk-av">KS</span><span class="mk-n">Kim S.</span><span class="mk-k"><i></i>For Rent</span></div><div class="mk-t">Office space 200 sqm, ready to occupy</div><div class="mk-s"><span><b>Ortigas</b></span><span>Office</span><span><b>₱180K/mo</b></span></div></div>
+        <div class="mk-c"><div class="mk-h"><span class="mk-av">CV</span><span class="mk-n">Carlo V.</span><span class="mk-k"><i></i>For Sale</span></div><div class="mk-t">Commercial lot, 500 sqm</div><div class="mk-s"><span><b>Pasig</b></span><span>Lot</span><span><b>₱60M</b></span></div></div>
+        <div class="mk-c req"><div class="mk-h"><span class="mk-av">NB</span><span class="mk-n">Nico B.</span><span class="mk-k"><i></i>Willing to Lease</span></div><div class="mk-t">Warehouse, 1,000 sqm</div><div class="mk-s"><span><b>Parañaque</b></span><span>Warehouse</span><span><b>₱350K/mo</b></span></div></div>
+        <div class="mk-c req"><div class="mk-h"><span class="mk-av">EP</span><span class="mk-n">Ella P.</span><span class="mk-k"><i></i>Willing to Rent</span></div><div class="mk-t">1BR for an expat, furnished</div><div class="mk-s"><span><b>BGC</b></span><span>1BR</span><span><b>₱70K/mo</b></span></div></div>
+        <div class="mk-c req"><div class="mk-h"><span class="mk-av">SL</span><span class="mk-n">Sam L.</span><span class="mk-k"><i></i>Willing to Rent</span></div><div class="mk-t">3BR house with garden</div><div class="mk-s"><span><b>Alabang</b></span><span>3BR</span><span><b>₱120K/mo</b></span></div></div>
+        <div class="mk-c"><div class="mk-h"><span class="mk-av">PN</span><span class="mk-n">Pia N.</span><span class="mk-k"><i></i>For Rent</span></div><div class="mk-t">1BR facing the bay</div><div class="mk-s"><span><b>Pasay</b></span><span>1BR</span><span><b>₱55K/mo</b></span></div></div>
+      </div>
+      <div class="mk-col">
+        <div class="mk-c req"><div class="mk-h"><span class="mk-av">JT</span><span class="mk-n">Joy T.</span><span class="mk-k"><i></i>Willing to Rent</span></div><div class="mk-t">Studio near Ayala Triangle</div><div class="mk-s"><span><b>Makati</b></span><span>Studio</span><span><b>₱35K/mo</b></span></div></div>
+        <div class="mk-c"><div class="mk-h"><span class="mk-av">MG</span><span class="mk-n">Mika G.</span><span class="mk-k"><i></i>For Rent</span></div><div class="mk-t">2BR furnished, walk to Greenbelt</div><div class="mk-s"><span><b>Makati</b></span><span>2BR</span><span><b>₱90K/mo</b></span></div></div>
+        <div class="mk-c"><div class="mk-h"><span class="mk-av">TY</span><span class="mk-n">Trish Y.</span><span class="mk-k"><i></i>For Sale</span></div><div class="mk-t">Loft unit, Eastwood City</div><div class="mk-s"><span><b>Quezon City</b></span><span>Loft</span><span><b>₱12M</b></span></div></div>
+        <div class="mk-c"><div class="mk-h"><span class="mk-av">OR</span><span class="mk-n">Omar R.</span><span class="mk-k"><i></i>For Sale</span></div><div class="mk-t">Penthouse with roof deck</div><div class="mk-s"><span><b>Makati</b></span><span>4BR</span><span><b>₱95M</b></span></div></div>
+        <div class="mk-c"><div class="mk-h"><span class="mk-av">VT</span><span class="mk-n">Vince T.</span><span class="mk-k"><i></i>For Rent</span></div><div class="mk-t">Studio, fully furnished</div><div class="mk-s"><span><b>Pasay</b></span><span>Studio</span><span><b>₱28K/mo</b></span></div></div>
+        <div class="mk-c req"><div class="mk-h"><span class="mk-av">TC</span><span class="mk-n">Toni C.</span><span class="mk-k"><i></i>Willing to Buy</span></div><div class="mk-t">Condo near UP Diliman</div><div class="mk-s"><span><b>Quezon City</b></span><span>Studio</span><span><b>₱5M</b></span></div></div>
+      </div>
+    </div>
     <div class="wrap hero-grid">
       <div class="reveal in">
         <span class="pill"><span class="dot"></span> AI-Powered Real Estate Matching</span>
