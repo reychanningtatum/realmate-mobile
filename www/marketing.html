@@ -775,6 +775,13 @@
     .mk-plane{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;transform:rotateX(22deg) rotateZ(-8deg) scale(.8);transform-origin:50% 0;}
     .mk-col:nth-child(n+3){display:none;}
   }
+
+  /* Match banner = green gradient (2026-11-16, user request): "Matches your
+     requirement" is realmate green again; its score pill sits on the green
+     with a white edge. The pink brain stays. */
+  .post-banner{background:linear-gradient(90deg,#0f7a3a 0%,#129247 40%,#18a94f 72%,#22c55e 100%);border-bottom-color:rgba(255,255,255,0.12);}
+  .post-banner > span{color:#dcfce7;}
+  .score{background:rgba(255,255,255,0.14);border:1.5px solid rgba(255,255,255,0.55);}
 </style>
 </head>
 <body>
