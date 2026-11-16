@@ -782,6 +782,20 @@
   .post-banner{background:linear-gradient(90deg,#0f7a3a 0%,#129247 40%,#18a94f 72%,#22c55e 100%);border-bottom-color:rgba(255,255,255,0.12);}
   .post-banner > span{color:#dcfce7;}
   .score{background:rgba(255,255,255,0.14);border:1.5px solid rgba(255,255,255,0.55);}
+
+  /* All match visuals green (2026-11-16, user request): connectors, check pills,
+     wall match chips and the Portal preview's match badges follow the green
+     match banner. */
+  :root{
+    --match:linear-gradient(90deg,#0f7a3a 0%,#18a94f 60%,#22c55e 100%);
+    --match-edge:linear-gradient(90deg,#0f9d4f 0%,#18a94f 50%,#4ade80 100%);
+  }
+  .band > span::before{background:linear-gradient(180deg,#0f9d4f,#18a94f 50%,#22c55e);}
+  .band em{background:linear-gradient(var(--night),var(--night)) padding-box,var(--match-edge) border-box;}
+  .band em i{background:var(--match);}
+  .mk-s > .mk-m{background:linear-gradient(90deg,#0f7a3a,#18a94f 60%,#22c55e);}
+  .mk-s > .mk-m i{color:#f9a8c9;}
+  .mrow .badge{background:var(--match) padding-box,var(--match-edge) border-box;}
 </style>
 </head>
 <body>
