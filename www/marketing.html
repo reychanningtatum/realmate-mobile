@@ -640,6 +640,57 @@
       radial-gradient(ellipse 60% 40% at 50% 40%,rgba(42,47,196,0.08),transparent 70%),
       linear-gradient(180deg,#ffffff 0%,#f7f9fd 100%);}
   }
+
+  /* ═══ The drawn city (2026-11-16): realmate's world is Metro Manila property,
+     so the white page gets the city itself — a fine-line skyline in the match
+     gradient (images/skyline-line.svg) on a faint drafting grid, like an
+     architect's elevation. Hero + closing call to action only; everything in
+     between stays quiet. ═══ */
+  .hero::before{display:block;content:"";position:absolute;inset:0;z-index:0;opacity:1;
+    background:
+      linear-gradient(rgba(50,65,249,0.07) 1px,transparent 1px) 0 0/32px 32px,
+      linear-gradient(90deg,rgba(50,65,249,0.07) 1px,transparent 1px) 0 0/32px 32px;
+    -webkit-mask-image:radial-gradient(ellipse 62% 58% at 74% 44%,#000 0%,rgba(0,0,0,0.35) 55%,transparent 80%);
+            mask-image:radial-gradient(ellipse 62% 58% at 74% 44%,#000 0%,rgba(0,0,0,0.35) 55%,transparent 80%);}
+  .hero::after{background:
+    url('images/skyline-line.svg?v=1') center bottom/auto 230px repeat-x,
+    radial-gradient(ellipse 34% 46% at 74% 44%,rgba(42,47,196,0.09),transparent 70%),
+    radial-gradient(ellipse 22% 30% at 84% 60%,rgba(168,38,251,0.07),transparent 70%);}
+  /* the city rises on the match side and fades out under the headline */
+  .hero::after{-webkit-mask-image:linear-gradient(90deg,transparent 0%,transparent 28%,#000 62%);
+                      mask-image:linear-gradient(90deg,transparent 0%,transparent 28%,#000 62%);}
+  .hero{background:linear-gradient(180deg,#ffffff 0%,#ffffff 55%,#f5f7fd 100%);}
+  .final{background:
+    radial-gradient(ellipse 40% 50% at 50% 38%,rgba(42,47,196,0.08),transparent 70%),
+    linear-gradient(180deg,#ffffff 0%,#f5f7fd 100%);}
+  .final{padding-bottom:250px;}   /* room so the city sits below the App Store badge */
+  /* closing: the same city across the bottom, softening at both edges */
+  .final::after{content:"";position:absolute;left:0;right:0;bottom:0;height:200px;z-index:0;pointer-events:none;
+    background:url('images/skyline-line.svg?v=1') center bottom/auto 200px repeat-x;
+    -webkit-mask-image:linear-gradient(90deg,transparent 0%,#000 22%,#000 78%,transparent 100%);
+            mask-image:linear-gradient(90deg,transparent 0%,#000 22%,#000 78%,transparent 100%);}
+  @media(max-width:860px){
+    /* phone first screen: city along the bottom, drafting grid behind the match
+       (a white wash keeps the headline area clean) */
+    .hero-grid{background:
+      url('images/skyline-line.svg?v=1') 30% 100%/auto 150px repeat-x,
+      linear-gradient(180deg,#ffffff 0%,#ffffff 34%,rgba(255,255,255,0) 52%),
+      linear-gradient(rgba(50,65,249,0.07) 1px,transparent 1px) 0 0/28px 28px,
+      linear-gradient(90deg,rgba(50,65,249,0.07) 1px,transparent 1px) 0 0/28px 28px,
+      radial-gradient(ellipse 80% 34% at 55% 78%,rgba(42,47,196,0.09),transparent 70%),
+      linear-gradient(180deg,#ffffff 0%,#f5f7fd 100%);}
+    .final::after{height:130px;background-size:auto 130px;background-position:30% 100%;}
+    .final{padding-bottom:170px;}
+  }
+
+  /* Buttons = realmate green (2026-11-16, user rule): the blue → purple gradient
+     is ONLY for matching (match card, banner, score). Same green as Post Now. */
+  .btn-primary,.btn-primary:hover,.btn-primary:active{color:#fff;border:1.5px solid #18a94f;background:#18a94f;
+    box-shadow:0 8px 18px -8px rgba(24,169,79,0.55);}
+  .btn-primary:hover{background:#15983f;border-color:#15983f;transform:translateY(-1px);
+    box-shadow:0 10px 22px -8px rgba(24,169,79,0.65);}
+  .btn-primary:active{transform:none;}
+  .btn-primary:disabled{background:#18a94f;transform:none;box-shadow:none;}
 </style>
 </head>
 <body>
