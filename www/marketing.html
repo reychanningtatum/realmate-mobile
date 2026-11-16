@@ -735,6 +735,46 @@
       -webkit-mask-image:linear-gradient(180deg,transparent 0%,#000 30%,#000 90%,transparent 100%);
               mask-image:linear-gradient(180deg,transparent 0%,#000 30%,#000 90%,transparent 100%);}
   }
+
+  /* ═══ Live market, v2 (2026-11-16): posts that read like real realmate Portal
+     cards (tinted avatar, REB/RES tag, time, tinted category, the price large,
+     location + unit chips) — a few carry a match chip, so the wall shows the
+     product working. Laid on a tilted, receding board for depth. ═══ */
+  .mk-wall{display:block;transform:none;width:min(980px,62vw);right:-40px;perspective:1400px;opacity:.46;}
+  .mk-plane{filter:blur(0.7px);}   /* depth of field: the market sits behind the sharp match */
+  .mk-plane{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px;align-items:start;
+    transform:rotateX(26deg) rotateZ(-9deg) translateY(-40px);transform-origin:50% 40%;}
+  .mk-col{gap:18px;}
+  .mk-col:nth-child(even){margin-top:-110px;}
+  .mk-c{border-radius:16px;padding:13px 14px 12px;border:1px solid rgba(15,23,42,0.06);
+    box-shadow:0 1px 0 rgba(15,23,42,0.03),0 18px 34px -22px rgba(15,23,42,0.30);}
+  .mk-av{width:28px;height:28px;font-size:10.5px;color:#334155;}
+  .mk-av.t1{background:#e7f6ec;color:#15803d;} .mk-av.t2{background:#fef3c7;color:#92400e;}
+  .mk-av.t3{background:#e0ecff;color:#1d4ed8;} .mk-av.t4{background:#f3e8ff;color:#6d28d9;} .mk-av.t5{background:#ffe4e6;color:#be123c;}
+  .mk-who{display:flex;flex-direction:column;min-width:0;line-height:1.2;}
+  .mk-n{display:flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;}
+  .mk-tag{font-size:8.5px;font-weight:800;letter-spacing:.04em;color:#fff;padding:2px 4px;border-radius:4px;}
+  .mk-tag.res{background:#0f9d4f;} .mk-tag.reb{background:#1a6fe8;}
+  .mk-time{font-size:10.5px;color:var(--dim);}
+  .mk-k{font-size:10px;font-weight:700;padding:4px 8px;border-radius:999px;}
+  .mk-c.lst .mk-k{background:#e7f6ec;color:#15803d;}
+  .mk-c.req .mk-k{background:#fef3c7;color:#92400e;}
+  .mk-k i{display:none;}
+  .mk-t{margin:10px 0 2px;font-size:13px;font-weight:600;color:#1e293b;}
+  .mk-p{font-size:18px;font-weight:800;letter-spacing:-0.02em;color:var(--text);margin-bottom:9px;}
+  .mk-s{gap:6px;flex-wrap:wrap;border-top:0;padding-top:0;}
+  .mk-s > span{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:600;color:#475569;
+    background:#f1f5f9;padding:3px 7px;border-radius:6px;}
+  .mk-s i{font-size:9px;color:#94a3b8;}
+  /* matching = the app's blue → purple (the only place it appears on the wall) */
+  .mk-s > .mk-m{color:#fff;background:linear-gradient(90deg,#0043dc,#2a2fc4 52%,#a826fb);}
+  .mk-s > .mk-m i{color:#f9a8c9;}
+  @media(max-width:1080px){ .mk-plane{grid-template-columns:repeat(3,minmax(0,1fr));} .mk-col:nth-child(4){display:none;} }
+  @media(max-width:860px){
+    .mk-wall{width:auto;opacity:.3;}
+    .mk-plane{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;transform:rotateX(22deg) rotateZ(-8deg) scale(.8);transform-origin:50% 0;}
+    .mk-col:nth-child(n+3){display:none;}
+  }
 </style>
 </head>
 <body>
@@ -745,37 +785,39 @@
 
 <!-- The live market (decorative): member posts pinned behind the whole page; the content scrolls over it. -->
     <div class="mk-wall" aria-hidden="true">
-      <div class="mk-col">
-        <div class="mk-c req"><div class="mk-h"><span class="mk-av">AR</span><span class="mk-n">Ana R.</span><span class="mk-k"><i></i>Willing to Buy</span></div><div class="mk-t">2BR in Rockwell for a client</div><div class="mk-s"><span><b>Makati</b></span><span>2BR</span><span><b>₱25M</b></span></div></div>
-        <div class="mk-c"><div class="mk-h"><span class="mk-av">RM</span><span class="mk-n">Rico M.</span><span class="mk-k"><i></i>For Sale</span></div><div class="mk-t">3BR corner unit, Verve Residences</div><div class="mk-s"><span><b>BGC</b></span><span>3BR</span><span><b>₱32M</b></span></div></div>
-        <div class="mk-c req"><div class="mk-h"><span class="mk-av">JA</span><span class="mk-n">Jun A.</span><span class="mk-k"><i></i>Willing to Buy</span></div><div class="mk-t">Townhouse near good schools</div><div class="mk-s"><span><b>Quezon City</b></span><span>3BR</span><span><b>₱18M</b></span></div></div>
-        <div class="mk-c req"><div class="mk-h"><span class="mk-av">DS</span><span class="mk-n">Dana S.</span><span class="mk-k"><i></i>Willing to Buy</span></div><div class="mk-t">Pre-selling 2BR, any BGC tower</div><div class="mk-s"><span><b>BGC</b></span><span>2BR</span><span><b>₱22M</b></span></div></div>
-        <div class="mk-c req"><div class="mk-h"><span class="mk-av">HV</span><span class="mk-n">Hana V.</span><span class="mk-k"><i></i>Willing to Buy</span></div><div class="mk-t">Office floor for a BPO</div><div class="mk-s"><span><b>Ortigas</b></span><span>Office</span><span><b>₱150M</b></span></div></div>
-        <div class="mk-c req"><div class="mk-h"><span class="mk-av">RC</span><span class="mk-n">Rose C.</span><span class="mk-k"><i></i>Willing to Buy</span></div><div class="mk-t">Lot for a warehouse, 2,000 sqm</div><div class="mk-s"><span><b>Cavite</b></span><span>Lot</span><span><b>₱45M</b></span></div></div>
-      </div>
-      <div class="mk-col">
-        <div class="mk-c"><div class="mk-h"><span class="mk-av">PD</span><span class="mk-n">Paolo D.</span><span class="mk-k"><i></i>For Sale</span></div><div class="mk-t">1BR with parking, Uptown Parksuites</div><div class="mk-s"><span><b>BGC</b></span><span>1BR</span><span><b>₱14.5M</b></span></div></div>
-        <div class="mk-c req"><div class="mk-h"><span class="mk-av">BL</span><span class="mk-n">Bea L.</span><span class="mk-k"><i></i>Willing to Buy</span></div><div class="mk-t">House and lot for a family of five</div><div class="mk-s"><span><b>Alabang</b></span><span>4BR</span><span><b>₱38M</b></span></div></div>
-        <div class="mk-c"><div class="mk-h"><span class="mk-av">LC</span><span class="mk-n">Liza C.</span><span class="mk-k"><i></i>For Sale</span></div><div class="mk-t">1BR investment unit, Shaw</div><div class="mk-s"><span><b>Mandaluyong</b></span><span>1BR</span><span><b>₱7.8M</b></span></div></div>
-        <div class="mk-c"><div class="mk-h"><span class="mk-av">GF</span><span class="mk-n">Gab F.</span><span class="mk-k"><i></i>For Lease</span></div><div class="mk-t">Ground-floor retail, 120 sqm</div><div class="mk-s"><span><b>Makati</b></span><span>Retail</span><span><b>₱250K/mo</b></span></div></div>
-        <div class="mk-c"><div class="mk-h"><span class="mk-av">IM</span><span class="mk-n">Ivan M.</span><span class="mk-k"><i></i>For Sale</span></div><div class="mk-t">2BR near MRT, ready for turnover</div><div class="mk-s"><span><b>Mandaluyong</b></span><span>2BR</span><span><b>₱11M</b></span></div></div>
-        <div class="mk-c"><div class="mk-h"><span class="mk-av">AB</span><span class="mk-n">Ali B.</span><span class="mk-k"><i></i>For Sale</span></div><div class="mk-t">3BR, One Shangri-La Place</div><div class="mk-s"><span><b>Ortigas</b></span><span>3BR</span><span><b>₱36M</b></span></div></div>
-      </div>
-      <div class="mk-col">
-        <div class="mk-c"><div class="mk-h"><span class="mk-av">KS</span><span class="mk-n">Kim S.</span><span class="mk-k"><i></i>For Rent</span></div><div class="mk-t">Office space 200 sqm, ready to occupy</div><div class="mk-s"><span><b>Ortigas</b></span><span>Office</span><span><b>₱180K/mo</b></span></div></div>
-        <div class="mk-c"><div class="mk-h"><span class="mk-av">CV</span><span class="mk-n">Carlo V.</span><span class="mk-k"><i></i>For Sale</span></div><div class="mk-t">Commercial lot, 500 sqm</div><div class="mk-s"><span><b>Pasig</b></span><span>Lot</span><span><b>₱60M</b></span></div></div>
-        <div class="mk-c req"><div class="mk-h"><span class="mk-av">NB</span><span class="mk-n">Nico B.</span><span class="mk-k"><i></i>Willing to Lease</span></div><div class="mk-t">Warehouse, 1,000 sqm</div><div class="mk-s"><span><b>Parañaque</b></span><span>Warehouse</span><span><b>₱350K/mo</b></span></div></div>
-        <div class="mk-c req"><div class="mk-h"><span class="mk-av">EP</span><span class="mk-n">Ella P.</span><span class="mk-k"><i></i>Willing to Rent</span></div><div class="mk-t">1BR for an expat, furnished</div><div class="mk-s"><span><b>BGC</b></span><span>1BR</span><span><b>₱70K/mo</b></span></div></div>
-        <div class="mk-c req"><div class="mk-h"><span class="mk-av">SL</span><span class="mk-n">Sam L.</span><span class="mk-k"><i></i>Willing to Rent</span></div><div class="mk-t">3BR house with garden</div><div class="mk-s"><span><b>Alabang</b></span><span>3BR</span><span><b>₱120K/mo</b></span></div></div>
-        <div class="mk-c"><div class="mk-h"><span class="mk-av">PN</span><span class="mk-n">Pia N.</span><span class="mk-k"><i></i>For Rent</span></div><div class="mk-t">1BR facing the bay</div><div class="mk-s"><span><b>Pasay</b></span><span>1BR</span><span><b>₱55K/mo</b></span></div></div>
-      </div>
-      <div class="mk-col">
-        <div class="mk-c req"><div class="mk-h"><span class="mk-av">JT</span><span class="mk-n">Joy T.</span><span class="mk-k"><i></i>Willing to Rent</span></div><div class="mk-t">Studio near Ayala Triangle</div><div class="mk-s"><span><b>Makati</b></span><span>Studio</span><span><b>₱35K/mo</b></span></div></div>
-        <div class="mk-c"><div class="mk-h"><span class="mk-av">MG</span><span class="mk-n">Mika G.</span><span class="mk-k"><i></i>For Rent</span></div><div class="mk-t">2BR furnished, walk to Greenbelt</div><div class="mk-s"><span><b>Makati</b></span><span>2BR</span><span><b>₱90K/mo</b></span></div></div>
-        <div class="mk-c"><div class="mk-h"><span class="mk-av">TY</span><span class="mk-n">Trish Y.</span><span class="mk-k"><i></i>For Sale</span></div><div class="mk-t">Loft unit, Eastwood City</div><div class="mk-s"><span><b>Quezon City</b></span><span>Loft</span><span><b>₱12M</b></span></div></div>
-        <div class="mk-c"><div class="mk-h"><span class="mk-av">OR</span><span class="mk-n">Omar R.</span><span class="mk-k"><i></i>For Sale</span></div><div class="mk-t">Penthouse with roof deck</div><div class="mk-s"><span><b>Makati</b></span><span>4BR</span><span><b>₱95M</b></span></div></div>
-        <div class="mk-c"><div class="mk-h"><span class="mk-av">VT</span><span class="mk-n">Vince T.</span><span class="mk-k"><i></i>For Rent</span></div><div class="mk-t">Studio, fully furnished</div><div class="mk-s"><span><b>Pasay</b></span><span>Studio</span><span><b>₱28K/mo</b></span></div></div>
-        <div class="mk-c req"><div class="mk-h"><span class="mk-av">TC</span><span class="mk-n">Toni C.</span><span class="mk-k"><i></i>Willing to Buy</span></div><div class="mk-t">Condo near UP Diliman</div><div class="mk-s"><span><b>Quezon City</b></span><span>Studio</span><span><b>₱5M</b></span></div></div>
+      <div class="mk-plane">
+        <div class="mk-col">
+          <div class="mk-c req"><div class="mk-h"><span class="mk-av t1">AR</span><span class="mk-who"><span class="mk-n">Ana R.<span class="mk-tag res">RES</span></span><span class="mk-time">2h</span></span><span class="mk-k">Willing to Buy</span></div><div class="mk-t">2BR in Rockwell for a client</div><div class="mk-p">₱25M</div><div class="mk-s"><span><i class="fas fa-location-dot"></i>Makati</span><span><i class="fas fa-bed"></i>2BR</span></div></div>
+          <div class="mk-c lst"><div class="mk-h"><span class="mk-av t5">RM</span><span class="mk-who"><span class="mk-n">Rico M.<span class="mk-tag reb">REB</span></span><span class="mk-time">6h</span></span><span class="mk-k">For Sale</span></div><div class="mk-t">3BR corner unit, Verve Residences</div><div class="mk-p">₱32M</div><div class="mk-s"><span><i class="fas fa-location-dot"></i>BGC</span><span><i class="fas fa-bed"></i>3BR</span><span class="mk-m"><i class="fas fa-brain"></i>88% match</span></div></div>
+          <div class="mk-c req"><div class="mk-h"><span class="mk-av t4">JA</span><span class="mk-who"><span class="mk-n">Jun A.<span class="mk-tag reb">REB</span></span><span class="mk-time">8h</span></span><span class="mk-k">Willing to Buy</span></div><div class="mk-t">Townhouse near good schools</div><div class="mk-p">₱18M</div><div class="mk-s"><span><i class="fas fa-location-dot"></i>Quezon City</span><span><i class="fas fa-bed"></i>3BR</span></div></div>
+          <div class="mk-c req"><div class="mk-h"><span class="mk-av t3">DS</span><span class="mk-who"><span class="mk-n">Dana S.<span class="mk-tag res">RES</span></span><span class="mk-time">30m</span></span><span class="mk-k">Willing to Buy</span></div><div class="mk-t">Pre-selling 2BR, any BGC tower</div><div class="mk-p">₱22M</div><div class="mk-s"><span><i class="fas fa-location-dot"></i>BGC</span><span><i class="fas fa-bed"></i>2BR</span></div></div>
+          <div class="mk-c req"><div class="mk-h"><span class="mk-av t2">HV</span><span class="mk-who"><span class="mk-n">Hana V.<span class="mk-tag reb">REB</span></span><span class="mk-time">9h</span></span><span class="mk-k">Willing to Buy</span></div><div class="mk-t">Office floor for a BPO</div><div class="mk-p">₱150M</div><div class="mk-s"><span><i class="fas fa-location-dot"></i>Ortigas</span><span><i class="fas fa-building"></i>Office</span></div></div>
+          <div class="mk-c req"><div class="mk-h"><span class="mk-av t1">RC</span><span class="mk-who"><span class="mk-n">Rose C.</span><span class="mk-time">1d</span></span><span class="mk-k">Willing to Buy</span></div><div class="mk-t">Lot for a warehouse, 2,000 sqm</div><div class="mk-p">₱45M</div><div class="mk-s"><span><i class="fas fa-location-dot"></i>Cavite</span><span><i class="fas fa-building"></i>Lot</span></div></div>
+        </div>
+        <div class="mk-col">
+          <div class="mk-c lst"><div class="mk-h"><span class="mk-av t2">PD</span><span class="mk-who"><span class="mk-n">Paolo D.<span class="mk-tag reb">REB</span></span><span class="mk-time">3h</span></span><span class="mk-k">For Sale</span></div><div class="mk-t">1BR with parking, Uptown Parksuites</div><div class="mk-p">₱14.5M</div><div class="mk-s"><span><i class="fas fa-location-dot"></i>BGC</span><span><i class="fas fa-bed"></i>1BR</span><span class="mk-m"><i class="fas fa-brain"></i>94% match</span></div></div>
+          <div class="mk-c req"><div class="mk-h"><span class="mk-av t1">BL</span><span class="mk-who"><span class="mk-n">Bea L.<span class="mk-tag res">RES</span></span><span class="mk-time">4h</span></span><span class="mk-k">Willing to Buy</span></div><div class="mk-t">House and lot for a family of five</div><div class="mk-p">₱38M</div><div class="mk-s"><span><i class="fas fa-location-dot"></i>Alabang</span><span><i class="fas fa-bed"></i>4BR</span></div></div>
+          <div class="mk-c lst"><div class="mk-h"><span class="mk-av t5">LC</span><span class="mk-who"><span class="mk-n">Liza C.<span class="mk-tag res">RES</span></span><span class="mk-time">3h</span></span><span class="mk-k">For Sale</span></div><div class="mk-t">1BR investment unit, Shaw</div><div class="mk-p">₱7.8M</div><div class="mk-s"><span><i class="fas fa-location-dot"></i>Mandaluyong</span><span><i class="fas fa-bed"></i>1BR</span></div></div>
+          <div class="mk-c lst"><div class="mk-h"><span class="mk-av t4">GF</span><span class="mk-who"><span class="mk-n">Gab F.</span><span class="mk-time">7h</span></span><span class="mk-k">For Lease</span></div><div class="mk-t">Ground-floor retail, 120 sqm</div><div class="mk-p">₱250K/mo</div><div class="mk-s"><span><i class="fas fa-location-dot"></i>Makati</span><span><i class="fas fa-building"></i>Retail</span></div></div>
+          <div class="mk-c lst"><div class="mk-h"><span class="mk-av t3">IM</span><span class="mk-who"><span class="mk-n">Ivan M.</span><span class="mk-time">4h</span></span><span class="mk-k">For Sale</span></div><div class="mk-t">2BR near MRT, ready for turnover</div><div class="mk-p">₱11M</div><div class="mk-s"><span><i class="fas fa-location-dot"></i>Mandaluyong</span><span><i class="fas fa-bed"></i>2BR</span></div></div>
+          <div class="mk-c lst"><div class="mk-h"><span class="mk-av t2">AB</span><span class="mk-who"><span class="mk-n">Ali B.<span class="mk-tag res">RES</span></span><span class="mk-time">3h</span></span><span class="mk-k">For Sale</span></div><div class="mk-t">3BR, One Shangri-La Place</div><div class="mk-p">₱36M</div><div class="mk-s"><span><i class="fas fa-location-dot"></i>Ortigas</span><span><i class="fas fa-bed"></i>3BR</span></div></div>
+        </div>
+        <div class="mk-col">
+          <div class="mk-c lst"><div class="mk-h"><span class="mk-av t3">KS</span><span class="mk-who"><span class="mk-n">Kim S.<span class="mk-tag res">RES</span></span><span class="mk-time">5h</span></span><span class="mk-k">For Rent</span></div><div class="mk-t">Office space 200 sqm, ready to occupy</div><div class="mk-p">₱180K/mo</div><div class="mk-s"><span><i class="fas fa-location-dot"></i>Ortigas</span><span><i class="fas fa-building"></i>Office</span></div></div>
+          <div class="mk-c lst"><div class="mk-h"><span class="mk-av t2">CV</span><span class="mk-who"><span class="mk-n">Carlo V.</span><span class="mk-time">1d</span></span><span class="mk-k">For Sale</span></div><div class="mk-t">Commercial lot, 500 sqm</div><div class="mk-p">₱60M</div><div class="mk-s"><span><i class="fas fa-location-dot"></i>Pasig</span><span><i class="fas fa-building"></i>Lot</span></div></div>
+          <div class="mk-c req"><div class="mk-h"><span class="mk-av t1">NB</span><span class="mk-who"><span class="mk-n">Nico B.</span><span class="mk-time">1d</span></span><span class="mk-k">Willing to Lease</span></div><div class="mk-t">Warehouse, 1,000 sqm</div><div class="mk-p">₱350K/mo</div><div class="mk-s"><span><i class="fas fa-location-dot"></i>Parañaque</span><span><i class="fas fa-building"></i>Warehouse</span><span class="mk-m"><i class="fas fa-brain"></i>91% match</span></div></div>
+          <div class="mk-c req"><div class="mk-h"><span class="mk-av t5">EP</span><span class="mk-who"><span class="mk-n">Ella P.<span class="mk-tag reb">REB</span></span><span class="mk-time">45m</span></span><span class="mk-k">Willing to Rent</span></div><div class="mk-t">1BR for an expat, furnished</div><div class="mk-p">₱70K/mo</div><div class="mk-s"><span><i class="fas fa-location-dot"></i>BGC</span><span><i class="fas fa-bed"></i>1BR</span><span class="mk-m"><i class="fas fa-brain"></i>95% match</span></div></div>
+          <div class="mk-c req"><div class="mk-h"><span class="mk-av t4">SL</span><span class="mk-who"><span class="mk-n">Sam L.<span class="mk-tag res">RES</span></span><span class="mk-time">6h</span></span><span class="mk-k">Willing to Rent</span></div><div class="mk-t">3BR house with garden</div><div class="mk-p">₱120K/mo</div><div class="mk-s"><span><i class="fas fa-location-dot"></i>Alabang</span><span><i class="fas fa-bed"></i>3BR</span><span class="mk-m"><i class="fas fa-brain"></i>89% match</span></div></div>
+          <div class="mk-c lst"><div class="mk-h"><span class="mk-av t3">PN</span><span class="mk-who"><span class="mk-n">Pia N.<span class="mk-tag reb">REB</span></span><span class="mk-time">2h</span></span><span class="mk-k">For Rent</span></div><div class="mk-t">1BR facing the bay</div><div class="mk-p">₱55K/mo</div><div class="mk-s"><span><i class="fas fa-location-dot"></i>Pasay</span><span><i class="fas fa-bed"></i>1BR</span><span class="mk-m"><i class="fas fa-brain"></i>93% match</span></div></div>
+        </div>
+        <div class="mk-col">
+          <div class="mk-c req"><div class="mk-h"><span class="mk-av t4">JT</span><span class="mk-who"><span class="mk-n">Joy T.</span><span class="mk-time">1h</span></span><span class="mk-k">Willing to Rent</span></div><div class="mk-t">Studio near Ayala Triangle</div><div class="mk-p">₱35K/mo</div><div class="mk-s"><span><i class="fas fa-location-dot"></i>Makati</span><span><i class="fas fa-bed"></i>Studio</span></div></div>
+          <div class="mk-c lst"><div class="mk-h"><span class="mk-av t3">MG</span><span class="mk-who"><span class="mk-n">Mika G.<span class="mk-tag res">RES</span></span><span class="mk-time">2h</span></span><span class="mk-k">For Rent</span></div><div class="mk-t">2BR furnished, walk to Greenbelt</div><div class="mk-p">₱90K/mo</div><div class="mk-s"><span><i class="fas fa-location-dot"></i>Makati</span><span><i class="fas fa-bed"></i>2BR</span><span class="mk-m"><i class="fas fa-brain"></i>97% match</span></div></div>
+          <div class="mk-c lst"><div class="mk-h"><span class="mk-av t2">TY</span><span class="mk-who"><span class="mk-n">Trish Y.<span class="mk-tag reb">REB</span></span><span class="mk-time">5h</span></span><span class="mk-k">For Sale</span></div><div class="mk-t">Loft unit, Eastwood City</div><div class="mk-p">₱12M</div><div class="mk-s"><span><i class="fas fa-location-dot"></i>Quezon City</span><span><i class="fas fa-bed"></i>Loft</span></div></div>
+          <div class="mk-c lst"><div class="mk-h"><span class="mk-av t1">OR</span><span class="mk-who"><span class="mk-n">Omar R.<span class="mk-tag res">RES</span></span><span class="mk-time">2d</span></span><span class="mk-k">For Sale</span></div><div class="mk-t">Penthouse with roof deck</div><div class="mk-p">₱95M</div><div class="mk-s"><span><i class="fas fa-location-dot"></i>Makati</span><span><i class="fas fa-bed"></i>4BR</span></div></div>
+          <div class="mk-c lst"><div class="mk-h"><span class="mk-av t5">VT</span><span class="mk-who"><span class="mk-n">Vince T.<span class="mk-tag reb">REB</span></span><span class="mk-time">1h</span></span><span class="mk-k">For Rent</span></div><div class="mk-t">Studio, fully furnished</div><div class="mk-p">₱28K/mo</div><div class="mk-s"><span><i class="fas fa-location-dot"></i>Pasay</span><span><i class="fas fa-bed"></i>Studio</span></div></div>
+          <div class="mk-c req"><div class="mk-h"><span class="mk-av t4">TC</span><span class="mk-who"><span class="mk-n">Toni C.<span class="mk-tag res">RES</span></span><span class="mk-time">5h</span></span><span class="mk-k">Willing to Buy</span></div><div class="mk-t">Condo near UP Diliman</div><div class="mk-p">₱5M</div><div class="mk-s"><span><i class="fas fa-location-dot"></i>Quezon City</span><span><i class="fas fa-bed"></i>Studio</span></div></div>
+        </div>
       </div>
     </div>
 
