@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en" style="background:#080f1a">
+<html lang="en" style="background:#ffffff">
 <head>
   <script src="rm-env.js?v=20261021b"></script>
   <script src="rm-bugs.js?v=20261022b"></script>
-  <style>html,body{background:#080f1a}</style>
+  <style>html,body{background:#ffffff}</style>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <script src="native-statusbar.js?v=20260828i"></script>
@@ -15,14 +15,11 @@
        First screen for a new visitor (index.html sends a first open here) and
        reachable any time from the marketing page. Same composer as the Portal's
        "Post a Listing" (category grid, description, photos, green Post Now) on the
-       sign-in / marketing night scene. After posting, the sign-in page opens
+       marketing page's white + live-market look. After posting, the sign-in page opens
        "Create an account to see your matches" (onboarding.js). ═══ -->
   <style>
   *{box-sizing:border-box;}
-  body{margin:0;min-height:100vh;font-family:'Inter',system-ui,sans-serif;color:#eef2fb;-webkit-font-smoothing:antialiased;
-    background:radial-gradient(ellipse 70% 40% at 50% 20%,rgba(42,47,196,0.20),transparent 70%),
-      linear-gradient(180deg,#080f1a 0%,#080f1a 45%,rgba(8,15,26,0.6) 80%,rgba(8,15,26,0.25) 100%),
-      url('images/marketing-bg.jpg?v=3') center bottom/cover no-repeat fixed,#080f1a;}
+  body{margin:0;min-height:100vh;font-family:'Inter',system-ui,sans-serif;-webkit-font-smoothing:antialiased;}
   .ob-page{min-height:100vh;display:flex;justify-content:center;
     padding:calc(18px + env(safe-area-inset-top)) 16px calc(28px + env(safe-area-inset-bottom));}
   .ob-wrap{width:100%;max-width:560px;}
@@ -66,9 +63,103 @@
   .ob-saved span{flex:1 1 180px;}
   .ob-saved button{height:34px;padding:0 14px;border:0;border-radius:10px;cursor:pointer;font:700 13px/1 inherit;color:#fff;
     background:linear-gradient(90deg,#0043dc 0%,#2a2fc4 52%,#a826fb 100%);}
+
+  /* ═══ White + live market (2026-11-16): same look as the marketing page —
+     white, realmate green for actions, and the pinned market of member posts
+     (wall markup copied from marketing.html; a test keeps them identical),
+     framing the form on both sides and fading out behind it. ═══ */
+  body{color:#0f172a;background:linear-gradient(180deg,#ffffff 0%,#f6f9f7 100%) fixed;}
+  .ob-page{position:relative;z-index:1;}
+  .ob-back{border:1px solid rgba(15,23,42,0.14);background:#ffffff;color:#0f172a;}
+  .ob-back:hover{border-color:rgba(15,23,42,0.3);}
+  .ob-signin{border:1.5px solid rgba(15,23,42,0.14);background:#ffffff;color:#0f172a;}
+  .ob-signin:hover{border-color:#18a94f;color:#15803d;}
+  .ob-head h1{color:#0f172a;}
+  .ob-head p{color:#475569;}
+  .ob-card{box-shadow:0 30px 60px -30px rgba(15,23,42,0.28),0 1px 0 rgba(15,23,42,0.04);border:1px solid rgba(15,23,42,0.06);}
+  .ob-text:focus{border-color:#18a94f;box-shadow:0 0 0 3px rgba(24,169,79,0.16);}
+  .ob-note{color:#64748b;}
+  .ob-saved{background:#ecf8f0;border-color:#bfe6cc;color:#166534;}
+  .ob-saved i{color:#18a94f;}
+  .ob-saved button{background:#18a94f;}
+  .ob-saved button:hover{background:#15983f;}
+
+  /* the market (same cards as the marketing page) */
+  .mk-wall{position:fixed;z-index:0;inset:-80px -60px;pointer-events:none;user-select:none;opacity:.4;perspective:1400px;
+    -webkit-mask-image:radial-gradient(ellipse 44% 90% at 50% 42%,transparent 0%,transparent 62%,#000 100%);
+            mask-image:radial-gradient(ellipse 44% 90% at 50% 42%,transparent 0%,transparent 62%,#000 100%);}
+  .mk-plane{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px;align-items:start;filter:blur(0.7px);
+    transform:rotateX(26deg) rotateZ(-9deg) translateY(-40px) scale(.86);transform-origin:50% 40%;}
+  .mk-col{display:flex;flex-direction:column;gap:18px;}
+  .mk-col:nth-child(even){margin-top:-110px;}
+  .mk-c{background:#fff;border-radius:16px;padding:13px 14px 12px;border:1px solid rgba(15,23,42,0.06);
+    box-shadow:0 1px 0 rgba(15,23,42,0.03),0 18px 34px -22px rgba(15,23,42,0.30);}
+  .mk-h{display:flex;align-items:center;gap:8px;}
+  .mk-av{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;flex-shrink:0;font-size:10.5px;font-weight:700;}
+  .mk-av.t1{background:#e7f6ec;color:#15803d;} .mk-av.t2{background:#fef3c7;color:#92400e;}
+  .mk-av.t3{background:#e0ecff;color:#1d4ed8;} .mk-av.t4{background:#f3e8ff;color:#6d28d9;} .mk-av.t5{background:#ffe4e6;color:#be123c;}
+  .mk-who{display:flex;flex-direction:column;min-width:0;line-height:1.2;}
+  .mk-n{display:flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:#0f172a;white-space:nowrap;}
+  .mk-tag{font-size:8.5px;font-weight:800;letter-spacing:.04em;color:#fff;padding:2px 4px;border-radius:4px;}
+  .mk-tag.res{background:#0f9d4f;} .mk-tag.reb{background:#1a6fe8;}
+  .mk-time{font-size:10.5px;color:#64748b;}
+  .mk-k{margin-left:auto;font-size:10px;font-weight:700;padding:4px 8px;border-radius:999px;white-space:nowrap;}
+  .mk-c.lst .mk-k{background:#e7f6ec;color:#15803d;}
+  .mk-c.req .mk-k{background:#fef3c7;color:#92400e;}
+  .mk-t{margin:10px 0 2px;font-size:13px;font-weight:600;color:#1e293b;line-height:1.3;}
+  .mk-p{font-size:18px;font-weight:800;letter-spacing:-0.02em;color:#0f172a;margin-bottom:9px;}
+  .mk-s{display:flex;gap:6px;flex-wrap:wrap;}
+  .mk-s > span{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:600;color:#475569;background:#f1f5f9;padding:3px 7px;border-radius:6px;}
+  .mk-s i{font-size:9px;color:#94a3b8;}
+  .mk-s > .mk-m{color:#fff;background:linear-gradient(90deg,#0f7a3a,#18a94f 60%,#22c55e);}
+  .mk-s > .mk-m i{color:#f9a8c9;}
+  @media(max-width:860px){
+    .mk-wall{inset:120px -50px -40px -30px;opacity:.3;
+      -webkit-mask-image:linear-gradient(180deg,transparent 0%,#000 30%,#000 90%,transparent 100%);
+              mask-image:linear-gradient(180deg,transparent 0%,#000 30%,#000 90%,transparent 100%);}
+    .mk-plane{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;transform:rotateX(22deg) rotateZ(-8deg) scale(.8);transform-origin:50% 0;}
+    .mk-col:nth-child(n+3){display:none;}
+  }
   </style>
 </head>
 <body>
+<!-- The live market (decorative): member posts pinned behind the whole page; the content scrolls over it. -->
+    <div class="mk-wall" aria-hidden="true">
+      <div class="mk-plane">
+        <div class="mk-col">
+          <div class="mk-c req"><div class="mk-h"><span class="mk-av t1">AR</span><span class="mk-who"><span class="mk-n">Ana R.<span class="mk-tag res">RES</span></span><span class="mk-time">2h</span></span><span class="mk-k">Willing to Buy</span></div><div class="mk-t">2BR in Rockwell for a client</div><div class="mk-p">₱25M</div><div class="mk-s"><span><i class="fas fa-location-dot"></i>Makati</span><span><i class="fas fa-bed"></i>2BR</span></div></div>
+          <div class="mk-c lst"><div class="mk-h"><span class="mk-av t5">RM</span><span class="mk-who"><span class="mk-n">Rico M.<span class="mk-tag reb">REB</span></span><span class="mk-time">6h</span></span><span class="mk-k">For Sale</span></div><div class="mk-t">3BR corner unit, Verve Residences</div><div class="mk-p">₱32M</div><div class="mk-s"><span><i class="fas fa-location-dot"></i>BGC</span><span><i class="fas fa-bed"></i>3BR</span><span class="mk-m"><i class="fas fa-brain"></i>88% match</span></div></div>
+          <div class="mk-c req"><div class="mk-h"><span class="mk-av t4">JA</span><span class="mk-who"><span class="mk-n">Jun A.<span class="mk-tag reb">REB</span></span><span class="mk-time">8h</span></span><span class="mk-k">Willing to Buy</span></div><div class="mk-t">Townhouse near good schools</div><div class="mk-p">₱18M</div><div class="mk-s"><span><i class="fas fa-location-dot"></i>Quezon City</span><span><i class="fas fa-bed"></i>3BR</span></div></div>
+          <div class="mk-c req"><div class="mk-h"><span class="mk-av t3">DS</span><span class="mk-who"><span class="mk-n">Dana S.<span class="mk-tag res">RES</span></span><span class="mk-time">30m</span></span><span class="mk-k">Willing to Buy</span></div><div class="mk-t">Pre-selling 2BR, any BGC tower</div><div class="mk-p">₱22M</div><div class="mk-s"><span><i class="fas fa-location-dot"></i>BGC</span><span><i class="fas fa-bed"></i>2BR</span></div></div>
+          <div class="mk-c req"><div class="mk-h"><span class="mk-av t2">HV</span><span class="mk-who"><span class="mk-n">Hana V.<span class="mk-tag reb">REB</span></span><span class="mk-time">9h</span></span><span class="mk-k">Willing to Buy</span></div><div class="mk-t">Office floor for a BPO</div><div class="mk-p">₱150M</div><div class="mk-s"><span><i class="fas fa-location-dot"></i>Ortigas</span><span><i class="fas fa-building"></i>Office</span></div></div>
+          <div class="mk-c req"><div class="mk-h"><span class="mk-av t1">RC</span><span class="mk-who"><span class="mk-n">Rose C.</span><span class="mk-time">1d</span></span><span class="mk-k">Willing to Buy</span></div><div class="mk-t">Lot for a warehouse, 2,000 sqm</div><div class="mk-p">₱45M</div><div class="mk-s"><span><i class="fas fa-location-dot"></i>Cavite</span><span><i class="fas fa-building"></i>Lot</span></div></div>
+        </div>
+        <div class="mk-col">
+          <div class="mk-c lst"><div class="mk-h"><span class="mk-av t2">PD</span><span class="mk-who"><span class="mk-n">Paolo D.<span class="mk-tag reb">REB</span></span><span class="mk-time">3h</span></span><span class="mk-k">For Sale</span></div><div class="mk-t">1BR with parking, Uptown Parksuites</div><div class="mk-p">₱14.5M</div><div class="mk-s"><span><i class="fas fa-location-dot"></i>BGC</span><span><i class="fas fa-bed"></i>1BR</span><span class="mk-m"><i class="fas fa-brain"></i>94% match</span></div></div>
+          <div class="mk-c req"><div class="mk-h"><span class="mk-av t1">BL</span><span class="mk-who"><span class="mk-n">Bea L.<span class="mk-tag res">RES</span></span><span class="mk-time">4h</span></span><span class="mk-k">Willing to Buy</span></div><div class="mk-t">House and lot for a family of five</div><div class="mk-p">₱38M</div><div class="mk-s"><span><i class="fas fa-location-dot"></i>Alabang</span><span><i class="fas fa-bed"></i>4BR</span></div></div>
+          <div class="mk-c lst"><div class="mk-h"><span class="mk-av t5">LC</span><span class="mk-who"><span class="mk-n">Liza C.<span class="mk-tag res">RES</span></span><span class="mk-time">3h</span></span><span class="mk-k">For Sale</span></div><div class="mk-t">1BR investment unit, Shaw</div><div class="mk-p">₱7.8M</div><div class="mk-s"><span><i class="fas fa-location-dot"></i>Mandaluyong</span><span><i class="fas fa-bed"></i>1BR</span></div></div>
+          <div class="mk-c lst"><div class="mk-h"><span class="mk-av t4">GF</span><span class="mk-who"><span class="mk-n">Gab F.</span><span class="mk-time">7h</span></span><span class="mk-k">For Lease</span></div><div class="mk-t">Ground-floor retail, 120 sqm</div><div class="mk-p">₱250K/mo</div><div class="mk-s"><span><i class="fas fa-location-dot"></i>Makati</span><span><i class="fas fa-building"></i>Retail</span></div></div>
+          <div class="mk-c lst"><div class="mk-h"><span class="mk-av t3">IM</span><span class="mk-who"><span class="mk-n">Ivan M.</span><span class="mk-time">4h</span></span><span class="mk-k">For Sale</span></div><div class="mk-t">2BR near MRT, ready for turnover</div><div class="mk-p">₱11M</div><div class="mk-s"><span><i class="fas fa-location-dot"></i>Mandaluyong</span><span><i class="fas fa-bed"></i>2BR</span></div></div>
+          <div class="mk-c lst"><div class="mk-h"><span class="mk-av t2">AB</span><span class="mk-who"><span class="mk-n">Ali B.<span class="mk-tag res">RES</span></span><span class="mk-time">3h</span></span><span class="mk-k">For Sale</span></div><div class="mk-t">3BR, One Shangri-La Place</div><div class="mk-p">₱36M</div><div class="mk-s"><span><i class="fas fa-location-dot"></i>Ortigas</span><span><i class="fas fa-bed"></i>3BR</span></div></div>
+        </div>
+        <div class="mk-col">
+          <div class="mk-c lst"><div class="mk-h"><span class="mk-av t3">KS</span><span class="mk-who"><span class="mk-n">Kim S.<span class="mk-tag res">RES</span></span><span class="mk-time">5h</span></span><span class="mk-k">For Rent</span></div><div class="mk-t">Office space 200 sqm, ready to occupy</div><div class="mk-p">₱180K/mo</div><div class="mk-s"><span><i class="fas fa-location-dot"></i>Ortigas</span><span><i class="fas fa-building"></i>Office</span></div></div>
+          <div class="mk-c lst"><div class="mk-h"><span class="mk-av t2">CV</span><span class="mk-who"><span class="mk-n">Carlo V.</span><span class="mk-time">1d</span></span><span class="mk-k">For Sale</span></div><div class="mk-t">Commercial lot, 500 sqm</div><div class="mk-p">₱60M</div><div class="mk-s"><span><i class="fas fa-location-dot"></i>Pasig</span><span><i class="fas fa-building"></i>Lot</span></div></div>
+          <div class="mk-c req"><div class="mk-h"><span class="mk-av t1">NB</span><span class="mk-who"><span class="mk-n">Nico B.</span><span class="mk-time">1d</span></span><span class="mk-k">Willing to Lease</span></div><div class="mk-t">Warehouse, 1,000 sqm</div><div class="mk-p">₱350K/mo</div><div class="mk-s"><span><i class="fas fa-location-dot"></i>Parañaque</span><span><i class="fas fa-building"></i>Warehouse</span><span class="mk-m"><i class="fas fa-brain"></i>91% match</span></div></div>
+          <div class="mk-c req"><div class="mk-h"><span class="mk-av t5">EP</span><span class="mk-who"><span class="mk-n">Ella P.<span class="mk-tag reb">REB</span></span><span class="mk-time">45m</span></span><span class="mk-k">Willing to Rent</span></div><div class="mk-t">1BR for an expat, furnished</div><div class="mk-p">₱70K/mo</div><div class="mk-s"><span><i class="fas fa-location-dot"></i>BGC</span><span><i class="fas fa-bed"></i>1BR</span><span class="mk-m"><i class="fas fa-brain"></i>95% match</span></div></div>
+          <div class="mk-c req"><div class="mk-h"><span class="mk-av t4">SL</span><span class="mk-who"><span class="mk-n">Sam L.<span class="mk-tag res">RES</span></span><span class="mk-time">6h</span></span><span class="mk-k">Willing to Rent</span></div><div class="mk-t">3BR house with garden</div><div class="mk-p">₱120K/mo</div><div class="mk-s"><span><i class="fas fa-location-dot"></i>Alabang</span><span><i class="fas fa-bed"></i>3BR</span><span class="mk-m"><i class="fas fa-brain"></i>89% match</span></div></div>
+          <div class="mk-c lst"><div class="mk-h"><span class="mk-av t3">PN</span><span class="mk-who"><span class="mk-n">Pia N.<span class="mk-tag reb">REB</span></span><span class="mk-time">2h</span></span><span class="mk-k">For Rent</span></div><div class="mk-t">1BR facing the bay</div><div class="mk-p">₱55K/mo</div><div class="mk-s"><span><i class="fas fa-location-dot"></i>Pasay</span><span><i class="fas fa-bed"></i>1BR</span><span class="mk-m"><i class="fas fa-brain"></i>93% match</span></div></div>
+        </div>
+        <div class="mk-col">
+          <div class="mk-c req"><div class="mk-h"><span class="mk-av t4">JT</span><span class="mk-who"><span class="mk-n">Joy T.</span><span class="mk-time">1h</span></span><span class="mk-k">Willing to Rent</span></div><div class="mk-t">Studio near Ayala Triangle</div><div class="mk-p">₱35K/mo</div><div class="mk-s"><span><i class="fas fa-location-dot"></i>Makati</span><span><i class="fas fa-bed"></i>Studio</span></div></div>
+          <div class="mk-c lst"><div class="mk-h"><span class="mk-av t3">MG</span><span class="mk-who"><span class="mk-n">Mika G.<span class="mk-tag res">RES</span></span><span class="mk-time">2h</span></span><span class="mk-k">For Rent</span></div><div class="mk-t">2BR furnished, walk to Greenbelt</div><div class="mk-p">₱90K/mo</div><div class="mk-s"><span><i class="fas fa-location-dot"></i>Makati</span><span><i class="fas fa-bed"></i>2BR</span><span class="mk-m"><i class="fas fa-brain"></i>97% match</span></div></div>
+          <div class="mk-c lst"><div class="mk-h"><span class="mk-av t2">TY</span><span class="mk-who"><span class="mk-n">Trish Y.<span class="mk-tag reb">REB</span></span><span class="mk-time">5h</span></span><span class="mk-k">For Sale</span></div><div class="mk-t">Loft unit, Eastwood City</div><div class="mk-p">₱12M</div><div class="mk-s"><span><i class="fas fa-location-dot"></i>Quezon City</span><span><i class="fas fa-bed"></i>Loft</span></div></div>
+          <div class="mk-c lst"><div class="mk-h"><span class="mk-av t1">OR</span><span class="mk-who"><span class="mk-n">Omar R.<span class="mk-tag res">RES</span></span><span class="mk-time">2d</span></span><span class="mk-k">For Sale</span></div><div class="mk-t">Penthouse with roof deck</div><div class="mk-p">₱95M</div><div class="mk-s"><span><i class="fas fa-location-dot"></i>Makati</span><span><i class="fas fa-bed"></i>4BR</span></div></div>
+          <div class="mk-c lst"><div class="mk-h"><span class="mk-av t5">VT</span><span class="mk-who"><span class="mk-n">Vince T.<span class="mk-tag reb">REB</span></span><span class="mk-time">1h</span></span><span class="mk-k">For Rent</span></div><div class="mk-t">Studio, fully furnished</div><div class="mk-p">₱28K/mo</div><div class="mk-s"><span><i class="fas fa-location-dot"></i>Pasay</span><span><i class="fas fa-bed"></i>Studio</span></div></div>
+          <div class="mk-c req"><div class="mk-h"><span class="mk-av t4">TC</span><span class="mk-who"><span class="mk-n">Toni C.<span class="mk-tag res">RES</span></span><span class="mk-time">5h</span></span><span class="mk-k">Willing to Buy</span></div><div class="mk-t">Condo near UP Diliman</div><div class="mk-p">₱5M</div><div class="mk-s"><span><i class="fas fa-location-dot"></i>Quezon City</span><span><i class="fas fa-bed"></i>Studio</span></div></div>
+        </div>
+      </div>
+    </div>
 <main class="ob-page">
   <div class="ob-wrap" id="obPost">
     <nav class="ob-nav" aria-label="Page">
