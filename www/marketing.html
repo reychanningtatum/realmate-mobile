@@ -797,6 +797,75 @@
   .mk-s > .mk-m{background:linear-gradient(90deg,#0f7a3a,#18a94f 60%,#22c55e);}
   .mk-s > .mk-m i{color:#f9a8c9;}
   .mrow .badge{background:var(--match) padding-box,var(--match-edge) border-box;}
+
+  /* Real Portal cards in the hero (2026-11-18, user request: "what the real
+     posting and matching looks like"). Values copied from the Portal's
+     livemarket.css (.listing-card / .lc-profile / .lc-cat-pill / .lc-raw-post /
+     .lc-actionbar / .match-banner / .lc-aim-btn). Match visuals stay realmate
+     green on this page (2026-11-16 rule). */
+  .match-demo{display:flex;flex-direction:column;gap:18px;}
+  .rc{position:relative;background:#fff;border:1px solid #c8d3de;border-radius:16px;overflow:hidden;color:#0f172a;
+    box-shadow:0 1px 3px rgba(0,0,0,0.04),0 4px 12px rgba(0,0,0,0.02),0 24px 48px -30px rgba(15,23,42,0.25);text-align:left;}
+  .rc-match{border-color:#1e3a5f;box-shadow:0 0 0 1px rgba(96,165,250,0.1),0 4px 20px rgba(15,23,42,0.08),0 24px 48px -30px rgba(15,23,42,0.3);}
+  .rc-head{display:flex;align-items:center;gap:11px;padding:14px 16px 4px;}
+  .rc-av{width:46px;height:46px;flex-shrink:0;border-radius:50%;display:grid;place-items:center;box-sizing:border-box;
+    background:#32cd32;color:#fff;font-size:16px;font-weight:600;border:2px solid #fff;box-shadow:0 2px 8px rgba(15,23,42,0.18);}
+  .rc-meta{display:flex;flex-direction:column;gap:1px;flex:1;min-width:0;}
+  .rc-name{display:flex;align-items:center;font-size:15px;font-weight:800;letter-spacing:-0.01em;line-height:1.15;}
+  .rc-meta small{font-size:11.5px;font-weight:500;color:#64748b;letter-spacing:.01em;}
+  .rc-seal{display:inline-flex;align-items:center;gap:2px;height:15px;box-sizing:border-box;margin-left:5px;padding:0 5px 0 3px;border-radius:4px;
+    color:#fff;font-size:9px;font-weight:700;line-height:1;letter-spacing:.05em;white-space:nowrap;}
+  .rc-seal svg{width:11px;height:11px;fill:none;stroke:#fff;stroke-width:3.4;stroke-linecap:round;stroke-linejoin:round;}
+  .rc-seal.res{background:#0f9d4f;} .rc-seal.reb{background:#1a6fe8;}
+  .rc-brain{background:linear-gradient(160deg,#ffe4ef,#f9a8c9 38%,#ec6fa5 72%,#c9417f);
+    -webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;}
+  .rc-aim{display:inline-flex;align-items:center;gap:7px;flex-shrink:0;padding:5px 11px 5px 8px;border-radius:999px;
+    font-size:11px;font-weight:700;letter-spacing:.02em;color:#dcfce7;white-space:nowrap;
+    background:linear-gradient(90deg,#0f7a3a 0%,#18a94f 60%,#22c55e 100%);}
+  .rc-aim .rc-brain{font-size:14px;} .rc-aim b{font-weight:800;color:#fff;margin-right:-3px;}
+  .rc-top{display:flex;padding:10px 16px 14px;}
+  .rc-pill{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:999px;
+    background:rgba(15,23,42,0.48);border:1px solid rgba(255,255,255,0.24);
+    box-shadow:0 4px 14px rgba(15,23,42,0.14),inset 0 1px 0 rgba(255,255,255,0.2);
+    color:#fff;font-size:11.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;line-height:1.2;}
+  .rc-pill i{width:6px;height:6px;border-radius:50%;box-shadow:0 0 0 2px rgba(255,255,255,0.25);}
+  .rc-pill i.wbuy{background:#d97706;} .rc-pill i.sale{background:#16a34a;}
+  .rc-text{margin:0;padding:4px 16px 12px;font-size:14px;line-height:1.5;white-space:pre-wrap;color:#0f172a;}
+  .rc-bar{display:flex;gap:10px;margin-top:2px;padding:14px 16px 16px;border-top:1px solid #e5eaf0;}
+  .rc-btn{flex:1 1 50%;display:flex;align-items:center;justify-content:center;gap:7px;padding:11px 14px;border-radius:12px;
+    border:1px solid #e5eaf0;background:linear-gradient(#fff,#f7f9fc);color:#334155;
+    font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;white-space:nowrap;
+    box-shadow:0 2px 5px rgba(15,23,42,0.08),0 8px 18px -8px rgba(15,23,42,0.28);}
+  .rc-btn.rc-done{color:#fff;border-color:#12873c;background:linear-gradient(#18a94f,#12873c);}
+  .rc-btn.rc-engine{flex-basis:100%;color:#fff;border:0;background:linear-gradient(90deg,#0f7a3a 0%,#129247 40%,#18a94f 72%,#22c55e 100%);
+    box-shadow:0 6px 14px -4px rgba(15,122,58,0.45),0 12px 26px -8px rgba(34,197,94,0.5);}
+  .rc-btn.rc-engine .rc-brain{font-size:14px;}
+  .rc-banner{display:flex;align-items:center;gap:8px;padding:9px 12px;color:#fff;
+    background:linear-gradient(90deg,#0f7a3a 0%,#129247 40%,#18a94f 72%,#22c55e 100%);}
+  .rc-banner-t{flex:1;min-width:0;font-size:11px;font-weight:700;color:#dcfce7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .rc-banner-t b{font-weight:800;color:#fff;text-transform:uppercase;letter-spacing:.02em;}
+  .rc-score{display:inline-flex;align-items:center;gap:5px;flex-shrink:0;padding:3px 10px 3px 7px;border-radius:20px;
+    font-size:10.5px;font-weight:800;white-space:nowrap;background:rgba(255,255,255,0.14);border:1px solid rgba(255,255,255,0.55);
+    box-shadow:inset 0 0 10px rgba(187,247,208,0.2);}
+  .rc-score .rc-brain{font-size:13px;}
+  .rc-arrow{font-size:10px;flex-shrink:0;}
+  /* Phones: the first screen keeps tagline + buttons + the match, so the cards
+     are compact there — no action buttons, smaller header. */
+  @media(max-width:860px){
+    .match-demo{gap:10px;}
+    .rc-head{padding:9px 12px 0;gap:9px;}
+    .rc-av{width:34px;height:34px;font-size:12.5px;}
+    .rc-name{font-size:13.5px;}
+    .rc-meta small{font-size:10.5px;}
+    .rc-aim{padding:4px 9px 4px 7px;font-size:10px;gap:5px;}
+    .rc-top{padding:5px 12px 5px;}
+    .rc-pill{padding:4px 10px;font-size:9.5px;}
+    .rc-text{padding:0 12px 9px;font-size:12.5px;line-height:1.4;}
+    .rc-bar{display:none;}
+    .rc-banner{padding:7px 10px;}
+    .rc-banner-t{font-size:10.5px;}
+    .rc-score{font-size:10px;}
+  }
 </style>
 </head>
 <body>
@@ -894,27 +963,27 @@
         </div>
       </div>
 
-      <!-- The hero's one bold element: a buyer's requirement and a listing, matched. -->
-      <div class="match-demo reveal in" role="img" aria-label="A client's requirement for a 3-bedroom in Makati with a ₱55M budget, matched at 99% to a 3-bedroom in Makati asking ₱52M: location, unit type and price all match.">
-        <article class="post post-buy" aria-hidden="true">
-          <div class="post-in">
-            <div class="post-head"><span class="av">J</span><div class="who"><b>Jaztin P. <span class="vtag res"><i class="fas fa-check"></i>RES</span></b><small>Sales Manager</small></div><span class="kind"><i></i>Willing to Buy</span></div>
-            <h5>3-bedroom condo for a client</h5>
-            <div class="spec"><div><small>Location</small><b>Makati</b></div><div><small>Unit</small><b>3BR</b></div><div><small>Budget</small><b>₱55M</b></div></div>
-          </div>
+      <!-- The hero's one bold element: what posting and matching really look like
+           in the app — the member's own requirement post on the Portal (with its
+           Matches counter), and the matched listing exactly as the Portal shows it
+           (green "Matches your listing" banner, score, Match Engine button).
+           Mirrors buildListingCard() in livemarket.js; styles copied from the
+           Portal's .lc-* / .match-banner values (2026-11-18). -->
+      <div class="match-demo reveal in" role="img" aria-label="On realmate, Jaztin posts what a client is looking for: a 3-bedroom condo in Makati, budget up to ₱55M. realmate finds Mark's listing, a 3-bedroom condo in Makati asking ₱52M, and shows it as a 99% Excellent match.">
+        <article class="rc rc-own" aria-hidden="true">
+          <div class="rc-head"><span class="rc-av">JP</span><div class="rc-meta"><b class="rc-name">Jaztin P.<span class="rc-seal res"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5.5 12.5l4.2 4.2 8.8-9.4"/></svg>RES</span></b><small>2m ago</small></div><span class="rc-aim"><i class="fas fa-brain rc-brain"></i><b>1</b>Match</span></div>
+          <div class="rc-top"><span class="rc-pill"><i class="wbuy"></i>Willing to Buy</span></div>
+          <p class="rc-text">Looking for a 3BR condo in Makati for my client.
+Budget up to ₱55M.</p>
+          <div class="rc-bar"><span class="rc-btn rc-done"><i class="fas fa-check-circle"></i>Bought</span><span class="rc-btn"><i class="fas fa-arrow-up-right-from-square"></i>View Listing</span></div>
         </article>
-        <div class="band" aria-hidden="true">
-          <span><em><i class="fas fa-check"></i>Location</em></span>
-          <span><em><i class="fas fa-check"></i>Unit type</em></span>
-          <span><em><i class="fas fa-check"></i>Budget</em></span>
-        </div>
-        <article class="post post-sell" aria-hidden="true">
-          <div class="post-banner"><span>Matches your requirement</span><span class="score"><i class="fas fa-brain brain"></i>99% Excellent</span></div>
-          <div class="post-in">
-            <div class="post-head"><span class="av">M</span><div class="who"><b>Mark H. <span class="vtag reb"><i class="fas fa-check"></i>REB</span></b><small>Sales Associate</small></div><span class="kind"><i></i>For Sale</span></div>
-            <h5>3-bedroom condo in Makati</h5>
-            <div class="spec"><div><small>Location</small><b>Makati</b></div><div><small>Unit</small><b>3BR</b></div><div><small>Asking</small><b>₱52M</b></div></div>
-          </div>
+        <article class="rc rc-match" aria-hidden="true">
+          <div class="rc-banner"><span class="rc-banner-t">Matches your listing · <b>Willing to Buy</b></span><span class="rc-score"><i class="fas fa-brain rc-brain"></i>99% Excellent</span><i class="fas fa-chevron-right rc-arrow"></i></div>
+          <div class="rc-head"><span class="rc-av">MH</span><div class="rc-meta"><b class="rc-name">Mark H.<span class="rc-seal reb"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5.5 12.5l4.2 4.2 8.8-9.4"/></svg>REB</span></b><small>1h ago</small></div></div>
+          <div class="rc-top"><span class="rc-pill"><i class="sale"></i>For Sale</span></div>
+          <p class="rc-text">FOR SALE: 3BR condo in Makati
+Asking ₱52M, ready for turnover.</p>
+          <div class="rc-bar"><span class="rc-btn rc-engine"><i class="fas fa-brain rc-brain"></i>Match Engine<i class="fas fa-arrow-right"></i></span></div>
         </article>
       </div>
     </div>
